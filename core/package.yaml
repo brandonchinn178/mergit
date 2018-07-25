@@ -1,2 +1,9 @@
 name: merge-bot-core
 version: 0.1.0
+
+dependencies:
+  - base
+  - containers
+
+library:
+  source-dirs: src
