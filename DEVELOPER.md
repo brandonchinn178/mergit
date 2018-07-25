@@ -1,0 +1,5 @@
+# Developer notes
+
+## Setup
+
+TODO
