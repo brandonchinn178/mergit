@@ -12,12 +12,27 @@ TODO
     * Batch all PRs in the queue into a single job and bisect if job fails
     * Automatically merges PR when CI passes
         * Can customize merging algorithm (merge or squash/rebase)
-* Add/remove from try jobs
+* Cancel merge job
+* Create/cancel try jobs
     * Runs CI as if PR is in merge queue
     * Fails if PR already in merge queue/job
     * Cancels any currently running try jobs
-* Cancel running jobs
 * View queues and status of jobs
+
+## Usage
+
+On the PR page in GitHub, add a comment with one of the following:
+
+| Comment           | Description                 |
+|-------------------|-----------------------------|
+| lybot q+ [opts]   | Add to the merge queue      |
+| lybot q-          | Remove from the merge queue |
+| lybot try         | Create try job              |
+| lybot cancel      | Cancel merge/try job        |
+
+Options take the format `{ name = value, name = value }`. Available options:
+
+* `type = merge|squash`: determine merging algorithm
 
 ## Configuration
 
