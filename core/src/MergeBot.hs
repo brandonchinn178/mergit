@@ -12,6 +12,7 @@ module MergeBot
   ( PR(..)
   , PROption(..)
   , BotState(..)
+  , newBotState
   , BotAction(..)
   , handleAction
   ) where
@@ -43,7 +44,14 @@ data BotState = BotState
   , tryJobs    :: [PRId]
   } deriving (Show,Eq)
 
--- | Errors that may occur in the merge bot.
+newBotState :: BotState
+newBotState = BotState
+  { mergeQueue = []
+  , mergeJobs = []
+  , tryJobs = []
+  }
+
+-- | Errors that may occur in modifying the state of the merge bot.
 data BotError
   = AlreadyInMergeQueue -- ^ Cannot add to merge queue twice
   | MergeJobStarted     -- ^ Cannot remove from merge queue if PR already running
@@ -51,7 +59,7 @@ data BotError
   | DoesNotExist PRId   -- ^ The given PR does not exist
   deriving (Show,Eq)
 
--- | An action the user may send to the merge bot.
+-- | An action the user may send to the merge bot to modify the state.
 data BotAction
   = AddMergeQueue PR
   | RemoveMergeQueue PRId
@@ -71,3 +79,6 @@ handleAction action state@BotState{..} = case action of
   StartTryJob prId' -> do
     when (prId' `elem` tryJobs) $ Left TryJobStarted
     return $ state { tryJobs = prId' : tryJobs }
+
+startMergeJob :: BotState -> BotState
+startMergeJob state@BotState{..} = state { mergeQueue = [], mergeJobs = mergeQueue }
