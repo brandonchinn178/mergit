@@ -13,4 +13,4 @@ module MergeBot.Merge
 
 -- | The merging algorithm to run when a PR is to be upstreamed to master.
 data MergeAlgorithm = Merge | Squash
-  deriving (Show)
+  deriving (Show,Eq)
