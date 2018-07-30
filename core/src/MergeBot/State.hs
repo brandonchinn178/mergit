@@ -53,7 +53,7 @@ addMergeQueue diff options state@BotState{..} = do
   when (diff `Set.member` mergeQueue) $ Left AlreadyInMergeQueue
   return $ state
     { mergeQueue = Set.insert diff mergeQueue
-    , diffOptions = Map.insert diff options diffOptions -- TODO: clear this at some point
+    , diffOptions = Map.insert diff options diffOptions
     }
 
 -- | Remove the given diff from the merge queue.
@@ -65,11 +65,15 @@ removeMergeQueue diff state@BotState{..} = do
   unless (diff `Set.member` mergeQueue) $ Left DoesNotExist
   return $ state
     { mergeQueue = Set.delete diff mergeQueue
+    , diffOptions = Map.delete diff diffOptions
     }
 
 -- | Clear the merge jobs, either after a successful merge or after cancelling the merge job.
 clearMergeJobs :: BotState -> BotState
-clearMergeJobs state = state { mergeJobs = Set.empty }
+clearMergeJobs state@BotState{..} = state
+  { mergeJobs = Set.empty
+  , diffOptions = Map.withoutKeys diffOptions mergeJobs
+  }
 
 -- | Start a merge job with all the diffs in the queue.
 startMergeJob :: BotState -> BotState
