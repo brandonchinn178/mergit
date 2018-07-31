@@ -1,2 +1,5 @@
+defaults:
+  local: ../hpack.yaml
+
 name: merge-bot-server
 version: 0.1.0
