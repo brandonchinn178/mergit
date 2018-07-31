@@ -11,6 +11,12 @@ Defines the data type representing the internal state of the merge bot.
 module MergeBot.State
   ( BotState
   , newBotState
+  -- Queries
+  , inMergeQueue
+  , inMergeJobs
+  , inTryJobs
+  , getDiffOptions
+  -- Mutations
   , addMergeQueue
   , removeMergeQueue
   , clearMergeJobs
@@ -42,6 +48,28 @@ newBotState = BotState
   , tryJobs = Set.empty
   , diffOptions = Map.empty
   }
+
+{- Querying state -}
+
+-- | Helper for querying state.
+inState :: (BotState -> Set DiffId) -> BotState -> DiffId -> Bool
+inState f = flip Set.member . f
+
+-- | Check if the given diff is in the merge queue.
+inMergeQueue :: BotState -> DiffId -> Bool
+inMergeQueue = inState mergeQueue
+
+-- | Check if the given diff is a currently running merge job.
+inMergeJobs :: BotState -> DiffId -> Bool
+inMergeJobs = inState mergeJobs
+
+-- | Check if the given diff is a currently running try job.
+inTryJobs :: BotState -> DiffId -> Bool
+inTryJobs = inState tryJobs
+
+-- | Get the options for the given diff.
+getDiffOptions :: BotState -> DiffId -> Maybe (Set DiffOption)
+getDiffOptions = flip Map.lookup . diffOptions
 
 {- Modifying state -}
 
