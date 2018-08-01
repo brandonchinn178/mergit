@@ -6,7 +6,6 @@ Portability :  portable
 
 Defines the core functionality of the merge bot.
 -}
-{-# LANGUAGE RecordWildCards #-}
 
 module MergeBot
   ( execMerge
