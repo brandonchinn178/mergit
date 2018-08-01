@@ -15,7 +15,7 @@ import MergeBot.Monad
 import MergeBot.State
 
 -- | Execute a merge after a successful CI run.
-execMerge :: MonadGHBranch m => BotState -> m (Either String BotState)
+execMerge :: MonadGHPromote m => BotState -> m (Either String BotState)
 execMerge state = do
   canPromote <- canPromoteStaging
   if canPromote
