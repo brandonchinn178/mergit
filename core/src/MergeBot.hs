@@ -12,8 +12,8 @@ module MergeBot
   ( execMerge
   ) where
 
-import MergeBot.Monad (MonadGHBranch(..))
-import MergeBot.State (BotState, clearMergeJobs)
+import MergeBot.Monad
+import MergeBot.State
 
 -- | Execute a merge after a successful CI run.
 execMerge :: MonadGHBranch m => BotState -> m (Either String BotState)
