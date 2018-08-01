@@ -30,7 +30,7 @@ import qualified Data.Map.Strict as Map
 import Data.Set (Set)
 import qualified Data.Set as Set
 
-import MergeBot.Diff (DiffId, DiffOption)
+import MergeBot.Diff (DiffId, DiffOptionsPartial)
 import MergeBot.Error (BotError(..))
 
 -- | The state of the merge bot.
@@ -38,7 +38,7 @@ data BotState = BotState
   { mergeQueue  :: Set DiffId
   , mergeJobs   :: Set DiffId
   , tryJobs     :: Set DiffId
-  , diffOptions :: Map DiffId (Set DiffOption)
+  , diffOptions :: Map DiffId DiffOptionsPartial
   } deriving (Show,Eq)
 
 newBotState :: BotState
@@ -68,7 +68,7 @@ inTryJobs :: BotState -> DiffId -> Bool
 inTryJobs = inState tryJobs
 
 -- | Get the options for the given diff.
-getDiffOptions :: BotState -> DiffId -> Maybe (Set DiffOption)
+getDiffOptions :: BotState -> DiffId -> Maybe DiffOptionsPartial
 getDiffOptions = flip Map.lookup . diffOptions
 
 {- Modifying state -}
@@ -76,7 +76,7 @@ getDiffOptions = flip Map.lookup . diffOptions
 -- | Add the given diff to the merge queue.
 --
 -- Fails if the diff is already in the merge queue.
-addMergeQueue :: DiffId -> Set DiffOption -> BotState -> Either BotError BotState
+addMergeQueue :: DiffId -> DiffOptionsPartial -> BotState -> Either BotError BotState
 addMergeQueue diff options state@BotState{..} = do
   when (diff `Set.member` mergeQueue) $ Left AlreadyInMergeQueue
   return $ state
