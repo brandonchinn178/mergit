@@ -20,7 +20,7 @@ module MergeBot.State
   , addMergeQueue
   , removeMergeQueue
   , clearMergeJobs
-  , startMergeJob
+  , initMergeJob
   , startTryJob
   ) where
 
@@ -103,9 +103,9 @@ clearMergeJobs state@BotState{..} = state
   , diffOptions = Map.withoutKeys diffOptions mergeJobs
   }
 
--- | Start a merge job with all the diffs in the queue.
-startMergeJob :: BotState -> BotState
-startMergeJob state@BotState{..} = state
+-- | Initialize a merge job with all the diffs in the queue.
+initMergeJob :: BotState -> BotState
+initMergeJob state@BotState{..} = state
   { mergeJobs = mergeQueue
   , mergeQueue = Set.empty
   }
