@@ -14,8 +14,12 @@ module MergeBot
   , execMerge
   ) where
 
+import Data.Foldable (forM_)
+import Data.Maybe (fromJust)
 import qualified Data.Set as Set
 
+import MergeBot.Config
+import MergeBot.Diff
 import MergeBot.Monad
 import MergeBot.State
 
@@ -29,11 +33,10 @@ startMergeJob state = do
   return state'
 
 -- | Execute a merge after a successful CI run.
-execMerge :: MonadGHPromote m => BotState -> m (Either String BotState)
-execMerge state = do
-  canPromote <- canPromoteStaging
-  if canPromote
-    then do
-      promoteStaging
-      return $ Right $ clearMergeJobs state
-    else return $ Left "Could not promote 'staging' to 'master'"
+execMerge :: MonadGHPullRequest m => BotConfig -> BotState -> m BotState
+execMerge BotConfig{..} state = do
+  forM_ (getMergeJobs state) $ \diff ->
+    let options = fromJust $ getDiffOptions state diff
+        DiffOptions{..} = resolveOptions options defaultDiffOptions
+    in mergePullRequest diff mergeAlgorithm
+  return $ clearMergeJobs state

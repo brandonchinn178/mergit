@@ -10,7 +10,6 @@ Defines Monads used in the core library.
 module MergeBot.Monad
   ( MonadGHBranch(..)
   , MonadGHPullRequest(..)
-  , MonadGHPromote(..)
   ) where
 
 import Data.Text (Text)
@@ -31,10 +30,3 @@ class Monad m => MonadGHBranch m where
 class Monad m => MonadGHPullRequest m where
   -- | Merge the given pull request with the given merge algorithm.
   mergePullRequest :: DiffId -> MergeAlgorithm -> m ()
-
--- | Monad for promoting the staging branch to master.
-class Monad m => MonadGHPromote m where
-  -- | Check if staging can be merged into master safely.
-  canPromoteStaging :: m Bool
-  -- | Set `master` to the HEAD of `staging`.
-  promoteStaging :: m ()
