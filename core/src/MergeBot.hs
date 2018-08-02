@@ -20,7 +20,7 @@ import qualified Data.Set as Set
 
 import MergeBot.Config
 import MergeBot.Diff
-import MergeBot.Monad
+import MergeBot.Monad.Class
 import MergeBot.State
 
 -- | Start a merge job with all the diffs in the merge queue.

@@ -1,13 +1,13 @@
 {-|
-Module      :  MergeBot.Monad
+Module      :  MergeBot.Monad.Class
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
 Portability :  portable
 
-Defines Monads used in the core library.
+Defines Monad typeclasses used in the core library.
 -}
 
-module MergeBot.Monad
+module MergeBot.Monad.Class
   ( MonadGHBranch(..)
   , MonadGHPullRequest(..)
   ) where
