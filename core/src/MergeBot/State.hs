@@ -15,12 +15,13 @@ module MergeBot.State
   , inMergeQueue
   , inMergeJobs
   , inTryJobs
+  , getMergeJobs
   , getDiffOptions
   -- Mutations
   , addMergeQueue
   , removeMergeQueue
   , clearMergeJobs
-  , startMergeJob
+  , initMergeJob
   , startTryJob
   ) where
 
@@ -39,6 +40,7 @@ data BotState = BotState
   , mergeJobs   :: Set DiffId
   , tryJobs     :: Set DiffId
   , diffOptions :: Map DiffId DiffOptionsPartial
+    -- ^ Invariant: if DiffId is in mergeQueue or mergeJobs, it is in diffOptions
   } deriving (Show,Eq)
 
 newBotState :: BotState
@@ -67,9 +69,17 @@ inMergeJobs = inState mergeJobs
 inTryJobs :: BotState -> DiffId -> Bool
 inTryJobs = inState tryJobs
 
+-- | Get all the diffs in the merge job list.
+getMergeJobs :: BotState -> Set DiffId
+getMergeJobs = mergeJobs
+
 -- | Get the options for the given diff.
 getDiffOptions :: BotState -> DiffId -> Maybe DiffOptionsPartial
-getDiffOptions = flip Map.lookup . diffOptions
+getDiffOptions BotState{..} diffId
+  | all (diffId `Set.notMember`) [mergeQueue, mergeJobs] = Nothing
+  | otherwise = case Map.lookup diffId diffOptions of
+      Nothing -> fail $ "Diff in mergeJobs/mergeQueue does not have options: " ++ show diffId
+      Just options -> Just options
 
 {- Modifying state -}
 
@@ -103,9 +113,9 @@ clearMergeJobs state@BotState{..} = state
   , diffOptions = Map.withoutKeys diffOptions mergeJobs
   }
 
--- | Start a merge job with all the diffs in the queue.
-startMergeJob :: BotState -> BotState
-startMergeJob state@BotState{..} = state
+-- | Initialize a merge job with all the diffs in the queue.
+initMergeJob :: BotState -> BotState
+initMergeJob state@BotState{..} = state
   { mergeJobs = mergeQueue
   , mergeQueue = Set.empty
   }

@@ -32,7 +32,7 @@ type DiffId = Int
 
 -- | Options specified per-PR to customize merge bot behavior.
 data DiffOptions f = DiffOptions
-  { defaultMergeAlgorithm :: HKD f MergeAlgorithm
+  { mergeAlgorithm :: HKD f MergeAlgorithm
   }
 
 -- | Strip out Identity applications.
@@ -51,5 +51,5 @@ deriving instance Eq DiffOptionsFull
 -- | Resolve the given options using the given defaults.
 resolveOptions :: DiffOptionsPartial -> DiffOptionsFull -> DiffOptionsFull
 resolveOptions partial full = DiffOptions
-  { defaultMergeAlgorithm = fromMaybe (defaultMergeAlgorithm full) (defaultMergeAlgorithm partial)
+  { mergeAlgorithm = fromMaybe (mergeAlgorithm full) (mergeAlgorithm partial)
   }

@@ -24,6 +24,6 @@ data BotConfig = BotConfig
 defaultConfig :: BotConfig
 defaultConfig = BotConfig
   { defaultDiffOptions = DiffOptions
-    { defaultMergeAlgorithm = Merge
+    { mergeAlgorithm = Merge
     }
   }
