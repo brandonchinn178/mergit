@@ -76,7 +76,7 @@ getMergeJobs = mergeJobs
 -- | Get the options for the given diff.
 getDiffOptions :: BotState -> DiffId -> Maybe DiffOptionsPartial
 getDiffOptions BotState{..} diffId
-  | and . map (diffId `Set.member`) $ [mergeQueue, mergeJobs] = Nothing
+  | all (diffId `Set.notMember`) [mergeQueue, mergeJobs] = Nothing
   | otherwise = case Map.lookup diffId diffOptions of
       Nothing -> fail $ "Diff in mergeJobs/mergeQueue does not have options: " ++ show diffId
       Just options -> Just options
