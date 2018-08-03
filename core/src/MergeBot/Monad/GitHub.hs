@@ -24,6 +24,7 @@ import Control.Monad.IO.Class (MonadIO(..))
 import Control.Monad.Reader (MonadReader, ReaderT, ask, runReaderT)
 import Data.Aeson (ToJSON(..), Value(..), eitherDecode, object)
 import Data.ByteString.Lazy (ByteString)
+import Data.Monoid ((<>))
 import Data.Text (Text)
 import qualified Data.Text as Text
 import qualified Data.Text.Encoding as Text
@@ -70,7 +71,8 @@ instance MonadIO m => MonadGHPullRequest (GitHubT m) where
 
 {- Connecting to the GitHub API directly -}
 
--- | The GitHub API endpoint with question marks that can be replaced by passed-in values.
+-- | The GitHub API endpoint with placeholders of the form ":abc" that can be replaced by
+-- passed-in values.
 type Endpoint = Text
 
 -- | Data key-value pairs that can be sent to GitHub.
@@ -90,15 +92,20 @@ toGitHub endpoint values postData = githubAPI postWith' endpoint values
 
 {- Helpers -}
 
--- | Interpolate the given values into the given endpoint with question marks.
-populateEndpoint :: Endpoint -> [Text] -> Either String Text
+-- | Set the placeholders in the given endpoint to the given values.
+populateEndpoint :: Endpoint -> [Text] -> Text
 populateEndpoint endpoint values =
-  if length split == length values + 1
-    then Right . Text.concat $ interleave ("":values) split
-    else Left $ "Number of question marks mismatches number of arguments: " ++ Text.unpack endpoint
+  Text.intercalate "/" $ populate (Text.splitOn "/" endpoint) values
   where
-    split = Text.splitOn "?" endpoint
-    interleave xs ys = concat $ zipWith (\a b -> [a, b]) xs ys
+    populate [] [] = []
+    populate [] _ = fail' "Too many values passed into endpoint"
+    populate (x:xs) vs =
+      if ":" `Text.isPrefixOf` x
+        then case vs of
+          [] -> fail' "Not enough values passed into endpoint"
+          v:vs' -> v : populate xs vs'
+        else x : populate xs vs
+    fail' msg = error $ Text.unpack $ msg <> ": " <> endpoint
 
 -- | A helper function to connect to the GitHub API.
 githubAPI :: MonadIO m
@@ -110,10 +117,9 @@ githubAPI httpWith endpoint values = do
   GitHubConfig{..} <- ask
   let opts' = opts & auth ?~ basicAuth (Text.encodeUtf8 ghUsername) (Text.encodeUtf8 ghPassword)
 
-  endpoint' <- either fail return $ populateEndpoint endpoint values
-  liftIO $ decode' . view responseBody =<< httpWith opts' ghSession (url ++ Text.unpack endpoint')
+  liftIO $ decode' . view responseBody =<< httpWith opts' ghSession url
   where
     decode' = either fail return . eitherDecode
     opts = defaults
       & header "Accept" .~ ["application/vnd.github.v3+json"]
-    url = "https://api.github.com"
+    url = Text.unpack $ "https://api.github.com" <> populateEndpoint endpoint values
