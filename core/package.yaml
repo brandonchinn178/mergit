@@ -5,9 +5,12 @@ name: merge-bot-core
 version: 0.1.0
 
 dependencies:
+  - aeson
   - base
   - containers
+  - lens
   - text
+  - wreq
 
 library:
   source-dirs: src
