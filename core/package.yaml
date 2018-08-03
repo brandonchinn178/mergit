@@ -9,6 +9,7 @@ dependencies:
   - base
   - containers
   - lens
+  - mtl
   - text
   - wreq
 

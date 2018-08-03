@@ -8,25 +8,52 @@ Defines monad definitions for the GitHub API.
 -}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module MergeBot.Monad.GitHub
-  ( GitHubT(..)
+  ( GitHubT
+  , runGitHubT
   , fromGitHub
   ) where
 
 import Control.Lens (view, (&), (.~), (?~))
 import Control.Monad.IO.Class (MonadIO(..))
+import Control.Monad.Reader (MonadReader, ReaderT, ask, runReaderT)
 import Data.Aeson (Value, eitherDecode)
-import Data.String (fromString)
 import Data.Text (Text)
 import qualified Data.Text as Text
-import Network.Wreq (auth, basicAuth, defaults, getWith, header, responseBody)
+import qualified Data.Text.Encoding as Text
+import Network.Wreq (auth, basicAuth, defaults, header, responseBody)
+import Network.Wreq.Session (Session, getWith, newSession)
 import System.Environment (getEnv)
 
 import MergeBot.Monad.Class
 
-newtype GitHubT m a = GitHubT { runGitHubT :: m a }
-  deriving (Functor, Applicative, Monad)
+data GitHubConfig = GitHubConfig
+  { ghUsername :: Text
+  , ghPassword :: Text
+  , ghSession :: Session
+  }
+
+newtype GitHubT m a = GitHubT { unGitHubT :: ReaderT GitHubConfig m a }
+  deriving
+    ( Functor
+    , Applicative
+    , Monad
+    , MonadIO
+    , MonadReader GitHubConfig
+    )
+
+-- | Run GitHub actions.
+runGitHubT :: MonadIO m => GitHubT m a -> m a
+runGitHubT m = do
+  -- TODO: take credentials in as arguments to runGitHubT
+  ghUsername <- getEnv' "MERGEBOT_USERNAME"
+  ghPassword <- getEnv' "MERGEBOT_PASSWORD"
+  ghSession <- liftIO newSession
+  runReaderT (unGitHubT m) GitHubConfig{..}
+  where
+    getEnv' = liftIO . fmap Text.pack . getEnv
 
 instance MonadIO m => MonadGHBranch (GitHubT m) where
   createBranch _ = GitHubT $ liftIO $ putStrLn "createBranch"
@@ -50,15 +77,13 @@ populateEndpoint endpoint values =
     interleave xs ys = concat $ zipWith (\a b -> [a, b]) xs ys
 
 -- | Sends a GET request to the GitHub API.
-fromGitHub :: MonadIO m => Endpoint -> [Text] -> m Value
-fromGitHub endpoint values = liftIO $ do
-  -- TODO: save auth in GitHubT state, use Wreq.Session to cache network
-  user <- fromString <$> getEnv "USERNAME"
-  pass <- fromString <$> getEnv "PASSWORD"
-  let opts' = opts & auth ?~ basicAuth user pass
+fromGitHub :: MonadIO m => Endpoint -> [Text] -> GitHubT m Value
+fromGitHub endpoint values = do
+  GitHubConfig{..} <- ask
+  let opts' = opts & auth ?~ basicAuth (Text.encodeUtf8 ghUsername) (Text.encodeUtf8 ghPassword)
 
   endpoint' <- either fail return $ populateEndpoint endpoint values
-  decode' . view responseBody =<< getWith opts' (url ++ Text.unpack endpoint')
+  liftIO $ decode' . view responseBody =<< getWith opts' ghSession (url ++ Text.unpack endpoint')
   where
     decode' = either fail return . eitherDecode
     opts = defaults
