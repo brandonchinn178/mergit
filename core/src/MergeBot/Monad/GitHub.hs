@@ -20,9 +20,12 @@ module MergeBot.Monad.GitHub
   ) where
 
 import Control.Lens (view, (&), (.~), (?~))
+import Control.Monad (void)
 import Control.Monad.IO.Class (MonadIO(..))
 import Control.Monad.Reader (MonadReader, ReaderT, ask, runReaderT)
-import Data.Aeson (ToJSON(..), Value(..), eitherDecode, object)
+import Data.Aeson
+    (FromJSON, ToJSON(..), Value(..), eitherDecode, object, withObject)
+import Data.Aeson.Types (parseEither, parseField)
 import Data.ByteString.Lazy (ByteString)
 import Data.Monoid ((<>))
 import Data.Text (Text)
@@ -36,7 +39,9 @@ import System.Environment (getEnv)
 import MergeBot.Monad.Class
 
 data GitHubConfig = GitHubConfig
-  { ghUsername :: Text
+  { ghOwner    :: Text
+  , ghRepo     :: Text
+  , ghUsername :: Text
   , ghPassword :: Text
   , ghSession  :: Session
   }
@@ -53,7 +58,9 @@ newtype GitHubT m a = GitHubT { unGitHubT :: ReaderT GitHubConfig m a }
 -- | Run GitHub actions.
 runGitHubT :: MonadIO m => GitHubT m a -> m a
 runGitHubT m = do
-  -- TODO: take credentials in as arguments to runGitHubT
+  -- TODO: take owner/repo/credentials in as arguments to runGitHubT
+  let ghOwner = "brandon-leapyear"
+      ghRepo = "merge-bot-test"
   ghUsername <- getEnv' "MERGEBOT_USERNAME"
   ghPassword <- getEnv' "MERGEBOT_PASSWORD"
   ghSession <- liftIO newSession
@@ -62,7 +69,15 @@ runGitHubT m = do
     getEnv' = liftIO . fmap Text.pack . getEnv
 
 instance MonadIO m => MonadGHBranch (GitHubT m) where
-  createBranch _ = GitHubT $ liftIO $ putStrLn "createBranch"
+  createBranch branch = do
+    GitHubConfig{..} <- ask
+    master <- fromGitHub "/repos/:owner/:repo/git/refs/:ref" [ghOwner, ghRepo, "heads/master"]
+    let sha = master .: "object" .: "sha" :: Text
+    void $ toGitHub "/repos/:owner/:repo/git/refs" [ghOwner, ghRepo]
+      [ "ref" := "refs/heads/" <> branch
+      , "sha" := sha
+      ]
+
   deleteBranch _ = GitHubT $ liftIO $ putStrLn "deleteBranch"
   mergeBranches _ _ = GitHubT $ liftIO $ putStrLn "mergeBranches"
 
@@ -75,10 +90,6 @@ instance MonadIO m => MonadGHPullRequest (GitHubT m) where
 -- passed-in values.
 type Endpoint = Text
 
--- | Data key-value pairs that can be sent to GitHub.
-data GitHubData where
-  (:=) :: ToJSON v => Text -> v -> GitHubData
-
 -- | Sends a GET request to the GitHub API.
 fromGitHub :: MonadIO m => Endpoint -> [Text] -> GitHubT m Value
 fromGitHub = githubAPI getWith
@@ -87,10 +98,9 @@ fromGitHub = githubAPI getWith
 toGitHub :: MonadIO m => Endpoint -> [Text] -> [GitHubData] -> GitHubT m Value
 toGitHub endpoint values postData = githubAPI postWith' endpoint values
   where
-    postWith' opts session url = postWith opts session url postData'
-    postData' = object $ map (\(k := v) -> (k, toJSON v)) postData
+    postWith' opts session url = postWith opts session url $ fromData postData
 
-{- Helpers -}
+{- API Helpers -}
 
 -- | Set the placeholders in the given endpoint to the given values.
 populateEndpoint :: Endpoint -> [Text] -> Text
@@ -123,3 +133,19 @@ githubAPI httpWith endpoint values = do
     opts = defaults
       & header "Accept" .~ ["application/vnd.github.v3+json"]
     url = Text.unpack $ "https://api.github.com" <> populateEndpoint endpoint values
+
+{- JSON helpers -}
+
+-- | Data key-value pairs that can be sent to GitHub.
+data GitHubData where
+  (:=) :: ToJSON v => Text -> v -> GitHubData
+infixl 1 :=
+
+-- | Convert the given GitHubData into a JSON value to send to GitHub.
+fromData :: [GitHubData] -> Value
+fromData = object . map (\(k := v) -> (k, toJSON v))
+
+(.:) :: FromJSON a => Value -> Text -> a
+(.:) v key = either error id $ parseEither parseObject v
+  where
+    parseObject = withObject "parseObject" (`parseField` key)
