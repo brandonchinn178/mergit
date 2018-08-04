@@ -73,7 +73,7 @@ instance MonadIO m => MonadGHBranch (GitHubT m) where
     GitHubConfig{..} <- ask
     master <- fromGitHub "/repos/:owner/:repo/git/refs/:ref" [ghOwner, ghRepo, "heads/master"]
     let sha = master .: "object" .: "sha" :: Text
-    void $ toGitHub "/repos/:owner/:repo/git/refs" [ghOwner, ghRepo]
+    toGitHub "/repos/:owner/:repo/git/refs" [ghOwner, ghRepo]
       [ "ref" := "refs/heads/" <> branch
       , "sha" := sha
       ]
@@ -95,8 +95,8 @@ fromGitHub :: MonadIO m => Endpoint -> [Text] -> GitHubT m Value
 fromGitHub = githubAPI getWith
 
 -- | Sends a POST request to the GitHub API.
-toGitHub :: MonadIO m => Endpoint -> [Text] -> [GitHubData] -> GitHubT m Value
-toGitHub endpoint values postData = githubAPI postWith' endpoint values
+toGitHub :: MonadIO m => Endpoint -> [Text] -> [GitHubData] -> GitHubT m ()
+toGitHub endpoint values postData = void $ githubAPI postWith' endpoint values
   where
     postWith' opts session url = postWith opts session url $ fromData postData
 
