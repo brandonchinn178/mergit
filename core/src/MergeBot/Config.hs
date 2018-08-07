@@ -12,8 +12,8 @@ module MergeBot.Config
   , defaultConfig
   ) where
 
-import MergeBot.Patch (PatchOptions(..), PatchOptionsFull)
 import MergeBot.Merge (MergeAlgorithm(..))
+import MergeBot.Patch (PatchOptions(..), PatchOptionsFull)
 
 -- | The configuration of the merge bot.
 data BotConfig = BotConfig

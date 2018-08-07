@@ -19,8 +19,8 @@ import Data.Foldable (forM_)
 import Data.Maybe (fromJust)
 
 import MergeBot.Config
-import MergeBot.Patch
 import MergeBot.Monad.Class
+import MergeBot.Patch
 import MergeBot.State
 
 -- | Start a merge job with all the pull requests in the merge queue.

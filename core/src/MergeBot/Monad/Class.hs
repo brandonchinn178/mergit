@@ -14,8 +14,8 @@ module MergeBot.Monad.Class
 
 import Data.Text (Text)
 
-import MergeBot.Patch (PatchId)
 import MergeBot.Merge (MergeAlgorithm)
+import MergeBot.Patch (PatchId)
 
 -- | Monad for manipulating branches on GitHub.
 class Monad m => MonadGHBranch m where

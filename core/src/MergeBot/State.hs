@@ -31,14 +31,14 @@ import qualified Data.Map.Strict as Map
 import Data.Set (Set)
 import qualified Data.Set as Set
 
-import MergeBot.Patch (PatchId, PatchOptionsPartial)
 import MergeBot.Error (BotError(..))
+import MergeBot.Patch (PatchId, PatchOptionsPartial)
 
 -- | The state of the merge bot.
 data BotState = BotState
-  { mergeQueue  :: Set PatchId
-  , mergeJobs   :: Set PatchId
-  , tryJobs     :: Set PatchId
+  { mergeQueue   :: Set PatchId
+  , mergeJobs    :: Set PatchId
+  , tryJobs      :: Set PatchId
   , patchOptions :: Map PatchId PatchOptionsPartial
     -- ^ Invariant: if PatchId is in mergeQueue or mergeJobs, it is in patchOptions
   } deriving (Show,Eq)
