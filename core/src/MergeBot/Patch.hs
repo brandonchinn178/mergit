@@ -1,24 +1,21 @@
 {-|
-Module      :  MergeBot.Diff
+Module      :  MergeBot.Patch
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
 Portability :  portable
 
-Defines the Diff data type, representing a GitHub pull request.
-
-Note on naming: a pull request can be thought of as a code diff
-trying to be merged into the main codebase.
+Defines the Patch data type, representing a GitHub pull request.
 -}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 
-module MergeBot.Diff
-  ( DiffId
-  , DiffOptions(..)
-  , DiffOptionsPartial
-  , DiffOptionsFull
+module MergeBot.Patch
+  ( PatchId
+  , PatchOptions(..)
+  , PatchOptionsPartial
+  , PatchOptionsFull
   , resolveOptions
   ) where
 
@@ -28,10 +25,10 @@ import Data.Maybe (fromMaybe)
 import MergeBot.Merge (MergeAlgorithm)
 
 -- | The ID of a GitHub pull request.
-type DiffId = Int
+type PatchId = Int
 
 -- | Options specified per-PR to customize merge bot behavior.
-data DiffOptions f = DiffOptions
+data PatchOptions f = PatchOptions
   { mergeAlgorithm :: HKD f MergeAlgorithm
   }
 
@@ -40,16 +37,16 @@ type family HKD f a where
   HKD Identity a = a
   HKD f a = f a
 
-type DiffOptionsPartial = DiffOptions Maybe
-deriving instance Show DiffOptionsPartial
-deriving instance Eq DiffOptionsPartial
+type PatchOptionsPartial = PatchOptions Maybe
+deriving instance Show PatchOptionsPartial
+deriving instance Eq PatchOptionsPartial
 
-type DiffOptionsFull = DiffOptions Identity
-deriving instance Show DiffOptionsFull
-deriving instance Eq DiffOptionsFull
+type PatchOptionsFull = PatchOptions Identity
+deriving instance Show PatchOptionsFull
+deriving instance Eq PatchOptionsFull
 
 -- | Resolve the given options using the given defaults.
-resolveOptions :: DiffOptionsPartial -> DiffOptionsFull -> DiffOptionsFull
-resolveOptions partial full = DiffOptions
+resolveOptions :: PatchOptionsPartial -> PatchOptionsFull -> PatchOptionsFull
+resolveOptions partial full = PatchOptions
   { mergeAlgorithm = fromMaybe (mergeAlgorithm full) (mergeAlgorithm partial)
   }
