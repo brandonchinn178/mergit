@@ -71,6 +71,12 @@ runGitHubT m = do
     getEnv' = liftIO . fmap Text.pack . getEnv
 
 instance MonadIO m => MonadGHBranch (GitHubT m) where
+  getBranch diffId = do
+    GitHubConfig{..} <- ask
+    let diffId' = Text.pack $ show diffId
+    diff <- getGitHub "/repos/:owner/:repo/pulls/:number" [ghOwner, ghRepo, diffId']
+    return $ diff .: "head" .: "ref"
+
   createBranch branch = do
     GitHubConfig{..} <- ask
     master <- getGitHub "/repos/:owner/:repo/git/refs/:ref" [ghOwner, ghRepo, "heads/master"]
@@ -84,7 +90,13 @@ instance MonadIO m => MonadGHBranch (GitHubT m) where
     GitHubConfig{..} <- ask
     deleteGitHub "/repos/:owner/:repo/git/refs/:ref" [ghOwner, ghRepo, "heads/" <> branch]
 
-  mergeBranches _ _ = GitHubT $ liftIO $ putStrLn "mergeBranches"
+  mergeBranch base branch = do
+    GitHubConfig{..} <- ask
+    postGitHub "/repos/:owner/:repo/merges" [ghOwner, ghRepo]
+      [ "base" := base
+      , "head" := branch
+      , "commit_message" := Text.unwords ["[lybot] Merge branch", branch, "into", base]
+      ]
 
 instance MonadIO m => MonadGHPullRequest (GitHubT m) where
   mergePullRequest _ _ = GitHubT $ liftIO $ putStrLn "mergePullRequest"

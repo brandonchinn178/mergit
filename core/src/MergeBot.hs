@@ -14,9 +14,9 @@ module MergeBot
   , execMerge
   ) where
 
+import Control.Monad ((>=>))
 import Data.Foldable (forM_)
 import Data.Maybe (fromJust)
-import qualified Data.Set as Set
 
 import MergeBot.Config
 import MergeBot.Diff
@@ -29,7 +29,7 @@ startMergeJob state = do
   let state' = initMergeJob state
   deleteBranch "staging"
   createBranch "staging"
-  mergeBranches "staging" $ Set.toList $ getMergeJobs state'
+  forM_ (getMergeJobs state') $ getBranch >=> mergeBranch "staging"
   return state'
 
 -- | Execute a merge after a successful CI run.

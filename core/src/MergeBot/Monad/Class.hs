@@ -19,12 +19,14 @@ import MergeBot.Merge (MergeAlgorithm)
 
 -- | Monad for manipulating branches on GitHub.
 class Monad m => MonadGHBranch m where
+  -- | Get the branch for the given diff.
+  getBranch :: DiffId -> m Text
   -- | Create the given branch based off master.
   createBranch :: Text -> m ()
   -- | Forcibly delete the given branch.
   deleteBranch :: Text -> m ()
-  -- | Merge the given pull requests into the given branch.
-  mergeBranches :: Text -> [DiffId] -> m ()
+  -- | Merge the second branch into the first branch.
+  mergeBranch :: Text -> Text -> m ()
 
 -- | Monad for manipulating pull requests on GitHub.
 class Monad m => MonadGHPullRequest m where
