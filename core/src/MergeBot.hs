@@ -19,27 +19,27 @@ import Data.Foldable (forM_)
 import Data.Maybe (fromJust)
 
 import MergeBot.Config
-import MergeBot.Diff
 import MergeBot.Monad.Class
+import MergeBot.Patch
 import MergeBot.State
 
--- | Start a merge job with all the diffs in the merge queue.
+-- | Start a merge job with all the pull requests in the merge queue.
 startMergeJob :: (MonadGHBranch m, MonadGHPullRequest m) => BotState -> m BotState
 startMergeJob state = do
   let state' = initMergeJob state
   deleteBranch "staging"
   createBranch "staging"
-  forM_ (getMergeJobs state') $ \diff ->
-    getBranch diff >>= \case
-      Nothing -> fail $ "Could not find PR: " ++ show diff
+  forM_ (getMergeJobs state') $ \patchId ->
+    getBranch patchId >>= \case
+      Nothing -> fail $ "Could not find pull request #" ++ show patchId
       Just branch -> mergeBranch "staging" branch
   return state'
 
 -- | Execute a merge after a successful CI run.
 execMerge :: MonadGHPullRequest m => BotConfig -> BotState -> m BotState
 execMerge BotConfig{..} state = do
-  forM_ (getMergeJobs state) $ \diff ->
-    let options = fromJust $ getDiffOptions state diff
-        DiffOptions{..} = resolveOptions options defaultDiffOptions
-    in mergePullRequest diff mergeAlgorithm
+  forM_ (getMergeJobs state) $ \patch ->
+    let options = fromJust $ getPatchOptions state patch
+        PatchOptions{..} = resolveOptions options defaultPatchOptions
+    in mergePullRequest patch mergeAlgorithm
   return $ clearMergeJobs state

@@ -14,13 +14,13 @@ module MergeBot.Monad.Class
 
 import Data.Text (Text)
 
-import MergeBot.Diff (DiffId)
 import MergeBot.Merge (MergeAlgorithm)
+import MergeBot.Patch (PatchId)
 
 -- | Monad for manipulating branches on GitHub.
 class Monad m => MonadGHBranch m where
-  -- | Get the branch for the given diff.
-  getBranch :: DiffId -> m (Maybe Text)
+  -- | Get the branch for the given pull request.
+  getBranch :: PatchId -> m (Maybe Text)
   -- | Create the given branch based off master.
   createBranch :: Text -> m ()
   -- | Forcibly delete the given branch.
@@ -31,4 +31,4 @@ class Monad m => MonadGHBranch m where
 -- | Monad for manipulating pull requests on GitHub.
 class Monad m => MonadGHPullRequest m where
   -- | Merge the given pull request with the given merge algorithm.
-  mergePullRequest :: DiffId -> MergeAlgorithm -> m ()
+  mergePullRequest :: PatchId -> MergeAlgorithm -> m ()
