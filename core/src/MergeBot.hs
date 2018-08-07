@@ -6,6 +6,7 @@ Portability :  portable
 
 Defines the core functionality of the merge bot.
 -}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 
@@ -16,11 +17,10 @@ module MergeBot
 
 import Data.Foldable (forM_)
 import Data.Maybe (fromJust)
-import qualified Data.Set as Set
 
 import MergeBot.Config
 import MergeBot.Diff
-import MergeBot.Monad
+import MergeBot.Monad.Class
 import MergeBot.State
 
 -- | Start a merge job with all the diffs in the merge queue.
@@ -29,7 +29,10 @@ startMergeJob state = do
   let state' = initMergeJob state
   deleteBranch "staging"
   createBranch "staging"
-  mergeBranches "staging" $ Set.toList $ getMergeJobs state'
+  forM_ (getMergeJobs state') $ \diff ->
+    getBranch diff >>= \case
+      Nothing -> fail $ "Could not find PR: " ++ show diff
+      Just branch -> mergeBranch "staging" branch
   return state'
 
 -- | Execute a merge after a successful CI run.
