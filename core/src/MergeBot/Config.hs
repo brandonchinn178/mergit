@@ -12,18 +12,18 @@ module MergeBot.Config
   , defaultConfig
   ) where
 
-import MergeBot.Diff (DiffOptions(..), DiffOptionsFull)
+import MergeBot.Patch (PatchOptions(..), PatchOptionsFull)
 import MergeBot.Merge (MergeAlgorithm(..))
 
 -- | The configuration of the merge bot.
 data BotConfig = BotConfig
-  { defaultDiffOptions :: DiffOptionsFull
+  { defaultPatchOptions :: PatchOptionsFull
   } deriving (Show)
 
 -- | The default configuration.
 defaultConfig :: BotConfig
 defaultConfig = BotConfig
-  { defaultDiffOptions = DiffOptions
+  { defaultPatchOptions = PatchOptions
     { mergeAlgorithm = Merge
     }
   }

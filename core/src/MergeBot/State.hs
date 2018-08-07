@@ -16,7 +16,7 @@ module MergeBot.State
   , inMergeJobs
   , inTryJobs
   , getMergeJobs
-  , getDiffOptions
+  , getPatchOptions
   -- Mutations
   , addMergeQueue
   , removeMergeQueue
@@ -31,16 +31,16 @@ import qualified Data.Map.Strict as Map
 import Data.Set (Set)
 import qualified Data.Set as Set
 
-import MergeBot.Diff (DiffId, DiffOptionsPartial)
+import MergeBot.Patch (PatchId, PatchOptionsPartial)
 import MergeBot.Error (BotError(..))
 
 -- | The state of the merge bot.
 data BotState = BotState
-  { mergeQueue  :: Set DiffId
-  , mergeJobs   :: Set DiffId
-  , tryJobs     :: Set DiffId
-  , diffOptions :: Map DiffId DiffOptionsPartial
-    -- ^ Invariant: if DiffId is in mergeQueue or mergeJobs, it is in diffOptions
+  { mergeQueue  :: Set PatchId
+  , mergeJobs   :: Set PatchId
+  , tryJobs     :: Set PatchId
+  , patchOptions :: Map PatchId PatchOptionsPartial
+    -- ^ Invariant: if PatchId is in mergeQueue or mergeJobs, it is in patchOptions
   } deriving (Show,Eq)
 
 newBotState :: BotState
@@ -48,80 +48,80 @@ newBotState = BotState
   { mergeQueue = Set.empty
   , mergeJobs = Set.empty
   , tryJobs = Set.empty
-  , diffOptions = Map.empty
+  , patchOptions = Map.empty
   }
 
 {- Querying state -}
 
 -- | Helper for querying state.
-inState :: (BotState -> Set DiffId) -> BotState -> DiffId -> Bool
+inState :: (BotState -> Set PatchId) -> BotState -> PatchId -> Bool
 inState f = flip Set.member . f
 
--- | Check if the given diff is in the merge queue.
-inMergeQueue :: BotState -> DiffId -> Bool
+-- | Check if the given patch is in the merge queue.
+inMergeQueue :: BotState -> PatchId -> Bool
 inMergeQueue = inState mergeQueue
 
--- | Check if the given diff is a currently running merge job.
-inMergeJobs :: BotState -> DiffId -> Bool
+-- | Check if the given patch is a currently running merge job.
+inMergeJobs :: BotState -> PatchId -> Bool
 inMergeJobs = inState mergeJobs
 
--- | Check if the given diff is a currently running try job.
-inTryJobs :: BotState -> DiffId -> Bool
+-- | Check if the given patch is a currently running try job.
+inTryJobs :: BotState -> PatchId -> Bool
 inTryJobs = inState tryJobs
 
--- | Get all the diffs in the merge job list.
-getMergeJobs :: BotState -> Set DiffId
+-- | Get all the patchs in the merge job list.
+getMergeJobs :: BotState -> Set PatchId
 getMergeJobs = mergeJobs
 
--- | Get the options for the given diff.
-getDiffOptions :: BotState -> DiffId -> Maybe DiffOptionsPartial
-getDiffOptions BotState{..} diffId
-  | all (diffId `Set.notMember`) [mergeQueue, mergeJobs] = Nothing
-  | otherwise = case Map.lookup diffId diffOptions of
-      Nothing -> fail $ "Diff in mergeJobs/mergeQueue does not have options: " ++ show diffId
+-- | Get the options for the given patch.
+getPatchOptions :: BotState -> PatchId -> Maybe PatchOptionsPartial
+getPatchOptions BotState{..} patch
+  | all (patch `Set.notMember`) [mergeQueue, mergeJobs] = Nothing
+  | otherwise = case Map.lookup patch patchOptions of
+      Nothing -> fail $ "Patch in mergeJobs/mergeQueue does not have options: " ++ show patch
       Just options -> Just options
 
 {- Modifying state -}
 
--- | Add the given diff to the merge queue.
+-- | Add the given patch to the merge queue.
 --
--- Fails if the diff is already in the merge queue.
-addMergeQueue :: DiffId -> DiffOptionsPartial -> BotState -> Either BotError BotState
-addMergeQueue diff options state@BotState{..} = do
-  when (diff `Set.member` mergeQueue) $ Left AlreadyInMergeQueue
+-- Fails if the patch is already in the merge queue.
+addMergeQueue :: PatchId -> PatchOptionsPartial -> BotState -> Either BotError BotState
+addMergeQueue patch options state@BotState{..} = do
+  when (patch `Set.member` mergeQueue) $ Left AlreadyInMergeQueue
   return $ state
-    { mergeQueue = Set.insert diff mergeQueue
-    , diffOptions = Map.insert diff options diffOptions
+    { mergeQueue = Set.insert patch mergeQueue
+    , patchOptions = Map.insert patch options patchOptions
     }
 
--- | Remove the given diff from the merge queue.
+-- | Remove the given patch from the merge queue.
 --
--- Fails if the diff is not in the merge queue or is already running as a job.
-removeMergeQueue :: DiffId -> BotState -> Either BotError BotState
-removeMergeQueue diff state@BotState{..} = do
-  when (diff `Set.member` mergeJobs) $ Left MergeJobStarted
-  unless (diff `Set.member` mergeQueue) $ Left DoesNotExist
+-- Fails if the patch is not in the merge queue or is already running as a job.
+removeMergeQueue :: PatchId -> BotState -> Either BotError BotState
+removeMergeQueue patch state@BotState{..} = do
+  when (patch `Set.member` mergeJobs) $ Left MergeJobStarted
+  unless (patch `Set.member` mergeQueue) $ Left DoesNotExist
   return $ state
-    { mergeQueue = Set.delete diff mergeQueue
-    , diffOptions = Map.delete diff diffOptions
+    { mergeQueue = Set.delete patch mergeQueue
+    , patchOptions = Map.delete patch patchOptions
     }
 
 -- | Clear the merge jobs, either after a successful merge or after cancelling the merge job.
 clearMergeJobs :: BotState -> BotState
 clearMergeJobs state@BotState{..} = state
   { mergeJobs = Set.empty
-  , diffOptions = Map.withoutKeys diffOptions mergeJobs
+  , patchOptions = Map.withoutKeys patchOptions mergeJobs
   }
 
--- | Initialize a merge job with all the diffs in the queue.
+-- | Initialize a merge job with all the patchs in the queue.
 initMergeJob :: BotState -> BotState
 initMergeJob state@BotState{..} = state
   { mergeJobs = mergeQueue
   , mergeQueue = Set.empty
   }
 
--- | Start a try job for the given diff.
-startTryJob :: DiffId -> BotState -> Either BotError BotState
-startTryJob diff state@BotState{..} = do
-  when (diff `Set.member` tryJobs) $ Left TryJobStarted
-  return $ state { tryJobs = Set.insert diff tryJobs }
+-- | Start a try job for the given patch.
+startTryJob :: PatchId -> BotState -> Either BotError BotState
+startTryJob patch state@BotState{..} = do
+  when (patch `Set.member` tryJobs) $ Left TryJobStarted
+  return $ state { tryJobs = Set.insert patch tryJobs }
