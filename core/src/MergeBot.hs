@@ -29,7 +29,7 @@ startMergeJob state = do
   let state' = initMergeJob state
   deleteBranch "staging"
   createBranch "staging"
-  forM_ (getMergeJobs state') $ \diff -> do
+  forM_ (getMergeJobs state') $ \diff ->
     getBranch diff >>= \case
       Nothing -> fail $ "Could not find PR: " ++ show diff
       Just branch -> mergeBranch "staging" branch
