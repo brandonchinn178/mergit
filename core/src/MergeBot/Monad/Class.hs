@@ -20,7 +20,7 @@ import MergeBot.Merge (MergeAlgorithm)
 -- | Monad for manipulating branches on GitHub.
 class Monad m => MonadGHBranch m where
   -- | Get the branch for the given diff.
-  getBranch :: DiffId -> m Text
+  getBranch :: DiffId -> m (Maybe Text)
   -- | Create the given branch based off master.
   createBranch :: Text -> m ()
   -- | Forcibly delete the given branch.

@@ -15,13 +15,16 @@ module MergeBot.Monad.GitHub
   ( GitHubT
   , runGitHubT
   , GitHubData(..)
+  -- * Low-level operations
   , getGitHub
   , postGitHub
   , deleteGitHub
+  , handleStatus
   ) where
 
-import Control.Lens (view, (&), (.~), (?~))
+import Control.Lens (view, (&), (.~), (?~), (^.))
 import Control.Monad (void)
+import Control.Monad.Catch (MonadCatch, MonadThrow, handleJust)
 import Control.Monad.IO.Class (MonadIO(..))
 import Control.Monad.Reader (MonadReader, ReaderT, ask, runReaderT)
 import Data.Aeson
@@ -33,8 +36,18 @@ import Data.Monoid ((<>))
 import Data.Text (Text)
 import qualified Data.Text as Text
 import qualified Data.Text.Encoding as Text
+import Network.HTTP.Client (HttpException(..), HttpExceptionContent(..))
+import Network.HTTP.Types (Status, status404)
 import Network.Wreq
-    (Options, Response, auth, basicAuth, defaults, header, responseBody)
+    ( Options
+    , Response
+    , auth
+    , basicAuth
+    , defaults
+    , header
+    , responseBody
+    , responseStatus
+    )
 import Network.Wreq.Session (Session, deleteWith, getWith, newSession, postWith)
 import System.Environment (getEnv)
 
@@ -54,6 +67,8 @@ newtype GitHubT m a = GitHubT { unGitHubT :: ReaderT GitHubConfig m a }
     , Applicative
     , Monad
     , MonadIO
+    , MonadCatch
+    , MonadThrow
     , MonadReader GitHubConfig
     )
 
@@ -70,12 +85,13 @@ runGitHubT m = do
   where
     getEnv' = liftIO . fmap Text.pack . getEnv
 
-instance MonadIO m => MonadGHBranch (GitHubT m) where
+instance (MonadCatch m, MonadIO m) => MonadGHBranch (GitHubT m) where
   getBranch diffId = do
     GitHubConfig{..} <- ask
     let diffId' = Text.pack $ show diffId
-    diff <- getGitHub "/repos/:owner/:repo/pulls/:number" [ghOwner, ghRepo, diffId']
-    return $ diff .: "head" .: "ref"
+        getRef diff = diff .: "head" .: "ref"
+    either (const Nothing) (Just . getRef) <$> handleStatus status404
+      (getGitHub "/repos/:owner/:repo/pulls/:number" [ghOwner, ghRepo, diffId'])
 
   createBranch branch = do
     GitHubConfig{..} <- ask
@@ -153,12 +169,24 @@ githubAPI httpWith endpoint values = do
     then return $ object []
     else decode' response
   where
-    decode' = either fail return . eitherDecode
     opts = defaults
       & header "Accept" .~ ["application/vnd.github.v3+json"]
     url = Text.unpack $ "https://api.github.com" <> populateEndpoint endpoint values
 
+-- | Handle the given status code, returning Left if the error was given and Right if not, and
+-- the response body for each.
+handleStatus :: MonadCatch m => Status -> m a -> m (Either Value a)
+handleStatus status = handleJust statusException (fmap Left . decodeFromStrict) . fmap Right
+  where
+    decodeFromStrict = decode' . ByteString.fromStrict
+    statusException (HttpExceptionRequest _ (StatusCodeException r body))
+      | r ^. responseStatus == status = Just body
+    statusException _ = Nothing
+
 {- JSON helpers -}
+
+decode' :: (FromJSON a, Monad m) => ByteString -> m a
+decode' = either fail return . eitherDecode
 
 -- | Data key-value pairs that can be sent to GitHub.
 data GitHubData where

@@ -9,6 +9,9 @@ dependencies:
   - base
   - bytestring
   - containers
+  - exceptions
+  - http-client
+  - http-types
   - lens
   - mtl
   - text
