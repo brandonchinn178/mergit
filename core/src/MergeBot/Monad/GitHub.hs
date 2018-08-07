@@ -15,8 +15,9 @@ module MergeBot.Monad.GitHub
   ( GitHubT
   , runGitHubT
   , GitHubData(..)
-  , fromGitHub
-  , toGitHub
+  , getGitHub
+  , postGitHub
+  , deleteGitHub
   ) where
 
 import Control.Lens (view, (&), (.~), (?~))
@@ -27,13 +28,14 @@ import Data.Aeson
     (FromJSON, ToJSON(..), Value(..), eitherDecode, object, withObject)
 import Data.Aeson.Types (parseEither, parseField)
 import Data.ByteString.Lazy (ByteString)
+import qualified Data.ByteString.Lazy as ByteString
 import Data.Monoid ((<>))
 import Data.Text (Text)
 import qualified Data.Text as Text
 import qualified Data.Text.Encoding as Text
 import Network.Wreq
     (Options, Response, auth, basicAuth, defaults, header, responseBody)
-import Network.Wreq.Session (Session, getWith, newSession, postWith)
+import Network.Wreq.Session (Session, deleteWith, getWith, newSession, postWith)
 import System.Environment (getEnv)
 
 import MergeBot.Monad.Class
@@ -71,14 +73,17 @@ runGitHubT m = do
 instance MonadIO m => MonadGHBranch (GitHubT m) where
   createBranch branch = do
     GitHubConfig{..} <- ask
-    master <- fromGitHub "/repos/:owner/:repo/git/refs/:ref" [ghOwner, ghRepo, "heads/master"]
+    master <- getGitHub "/repos/:owner/:repo/git/refs/:ref" [ghOwner, ghRepo, "heads/master"]
     let sha = master .: "object" .: "sha" :: Text
-    toGitHub "/repos/:owner/:repo/git/refs" [ghOwner, ghRepo]
+    postGitHub "/repos/:owner/:repo/git/refs" [ghOwner, ghRepo]
       [ "ref" := "refs/heads/" <> branch
       , "sha" := sha
       ]
 
-  deleteBranch _ = GitHubT $ liftIO $ putStrLn "deleteBranch"
+  deleteBranch branch = do
+    GitHubConfig{..} <- ask
+    deleteGitHub "/repos/:owner/:repo/git/refs/:ref" [ghOwner, ghRepo, "heads/" <> branch]
+
   mergeBranches _ _ = GitHubT $ liftIO $ putStrLn "mergeBranches"
 
 instance MonadIO m => MonadGHPullRequest (GitHubT m) where
@@ -91,14 +96,18 @@ instance MonadIO m => MonadGHPullRequest (GitHubT m) where
 type Endpoint = Text
 
 -- | Sends a GET request to the GitHub API.
-fromGitHub :: MonadIO m => Endpoint -> [Text] -> GitHubT m Value
-fromGitHub = githubAPI getWith
+getGitHub :: MonadIO m => Endpoint -> [Text] -> GitHubT m Value
+getGitHub = githubAPI getWith
 
 -- | Sends a POST request to the GitHub API.
-toGitHub :: MonadIO m => Endpoint -> [Text] -> [GitHubData] -> GitHubT m ()
-toGitHub endpoint values postData = void $ githubAPI postWith' endpoint values
+postGitHub :: MonadIO m => Endpoint -> [Text] -> [GitHubData] -> GitHubT m ()
+postGitHub endpoint values postData = void $ githubAPI postWith' endpoint values
   where
     postWith' opts session url = postWith opts session url $ fromData postData
+
+-- | Sends a DELETE request to the GitHub API.
+deleteGitHub :: MonadIO m => Endpoint -> [Text] -> GitHubT m ()
+deleteGitHub endpoint = void . githubAPI deleteWith endpoint
 
 {- API Helpers -}
 
@@ -127,7 +136,10 @@ githubAPI httpWith endpoint values = do
   GitHubConfig{..} <- ask
   let opts' = opts & auth ?~ basicAuth (Text.encodeUtf8 ghUsername) (Text.encodeUtf8 ghPassword)
 
-  liftIO $ decode' . view responseBody =<< httpWith opts' ghSession url
+  response <- liftIO $ view responseBody <$> httpWith opts' ghSession url
+  if ByteString.null response
+    then return $ object []
+    else decode' response
   where
     decode' = either fail return . eitherDecode
     opts = defaults
