@@ -60,6 +60,7 @@ import Network.HTTP.Types
     , hUserAgent
     , renderStdMethod
     , status404
+    , status422
     )
 import System.Environment (getEnv)
 
@@ -111,7 +112,7 @@ instance (MonadCatch m, MonadIO m) => MonadGHBranch (GitHubT m) where
       , "sha" := master .: "object" .: "sha"
       ]
 
-  deleteBranch branch =
+  deleteBranch branch = void $ handleStatus status422 $
     github_ DELETE "/repos/:owner/:repo/git/refs/:ref" ["ref" := "heads/" <> branch]
 
   mergeBranch base branch =

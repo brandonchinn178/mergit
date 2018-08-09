@@ -23,7 +23,7 @@ class Monad m => MonadGHBranch m where
   getBranch :: PatchId -> m (Maybe Text)
   -- | Create the given branch based off master.
   createBranch :: Text -> m ()
-  -- | Forcibly delete the given branch.
+  -- | Forcibly delete the given branch, if it exists.
   deleteBranch :: Text -> m ()
   -- | Merge the second branch into the first branch.
   mergeBranch :: Text -> Text -> m ()
