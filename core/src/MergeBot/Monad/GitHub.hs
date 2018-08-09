@@ -48,7 +48,8 @@ import Network.Wreq
     , responseBody
     , responseStatus
     )
-import Network.Wreq.Session (Session, deleteWith, getWith, newSession, postWith)
+import Network.Wreq.Session
+    (Session, deleteWith, getWith, newSession, postWith, putWith)
 import System.Environment (getEnv)
 
 import MergeBot.Monad.Class
@@ -88,10 +89,9 @@ runGitHubT m = do
 instance (MonadCatch m, MonadIO m) => MonadGHBranch (GitHubT m) where
   getBranch diffId = do
     GitHubConfig{..} <- ask
-    let diffId' = Text.pack $ show diffId
-        getRef diff = diff .: "head" .: "ref"
+    let getRef diff = diff .: "head" .: "ref"
     either (const Nothing) (Just . getRef) <$> handleStatus status404
-      (getGitHub "/repos/:owner/:repo/pulls/:number" [ghOwner, ghRepo, diffId'])
+      (getGitHub "/repos/:owner/:repo/pulls/:number" [ghOwner, ghRepo, showT diffId])
 
   createBranch branch = do
     GitHubConfig{..} <- ask
@@ -114,8 +114,20 @@ instance (MonadCatch m, MonadIO m) => MonadGHBranch (GitHubT m) where
       , "commit_message" := Text.unwords ["[lybot] Merge branch", branch, "into", base]
       ]
 
-instance MonadIO m => MonadGHPullRequest (GitHubT m) where
-  mergePullRequest _ _ = GitHubT $ liftIO $ putStrLn "mergePullRequest"
+instance (MonadIO m, MonadCatch m) => MonadGHPullRequest (GitHubT m) where
+  mergePullRequest patchId mergeAlgorithm = do
+    GitHubConfig{..} <- ask
+    patch <- getGitHub "/repos/:owner/:repo/pulls/:number" [ghOwner, ghRepo, showT patchId]
+    let sha = patch .: "head" .: "sha" :: Text
+        patchName = patch .: "title" :: Text
+        branch = patch .: "head" .: "ref" :: Text
+    putGitHub "/repos/:owner/:repo/pulls/:number/merge" [ghOwner, ghRepo, showT patchId]
+      [ "commit_title" := "[lybot] Merge #" <> showT patchId
+      , "commit_message" := patchName
+      , "sha" := sha
+      , "merge_method" := showT mergeAlgorithm
+      ]
+    deleteBranch branch
 
 {- Connecting to the GitHub API directly -}
 
@@ -136,6 +148,12 @@ postGitHub endpoint values postData = void $ githubAPI postWith' endpoint values
 -- | Sends a DELETE request to the GitHub API.
 deleteGitHub :: MonadIO m => Endpoint -> [Text] -> GitHubT m ()
 deleteGitHub endpoint = void . githubAPI deleteWith endpoint
+
+-- | Sends a PUT request to the GitHub API.
+putGitHub :: MonadIO m => Endpoint -> [Text] -> [GitHubData] -> GitHubT m ()
+putGitHub endpoint values putData = void $ githubAPI putWith' endpoint values
+  where
+    putWith' opts session url = putWith opts session url $ fromData putData
 
 {- API Helpers -}
 
@@ -201,3 +219,8 @@ fromData = object . map (\(k := v) -> (k, toJSON v))
 (.:) v key = either error id $ parseEither parseObject v
   where
     parseObject = withObject "parseObject" (`parseField` key)
+
+{- Other helpers -}
+
+showT :: Show a => a -> Text
+showT = Text.pack . show
