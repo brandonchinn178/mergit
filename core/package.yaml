@@ -11,11 +11,10 @@ dependencies:
   - containers
   - exceptions
   - http-client
+  - http-client-tls
   - http-types
-  - lens
   - mtl
   - text
-  - wreq
 
 library:
   source-dirs: src
