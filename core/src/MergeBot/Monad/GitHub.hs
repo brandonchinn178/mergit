@@ -33,6 +33,7 @@ import Data.Aeson
 import Data.Aeson.Types (parseEither, parseField)
 import Data.ByteString.Lazy (ByteString)
 import qualified Data.ByteString.Lazy as ByteString
+import Data.Maybe (fromMaybe)
 import Data.Monoid ((<>))
 import Data.Ratio (denominator, numerator)
 import Data.Text (Text)
@@ -170,9 +171,9 @@ populateEndpoint values endpoint = Text.intercalate "/" . map populate . Text.sp
     values' = map kvToText values
     populate t = case Text.uncons t of
       Nothing -> t
-      Just (':', key) -> case lookup key values' of
-        Nothing -> fail' $ "Could not find value for key '" <> key <> "'"
-        Just v -> v
+      Just (':', key) -> fromMaybe
+        (fail' $ "Could not find value for key '" <> key <> "'")
+        $ lookup key values'
       Just _ -> t
     fail' msg = error . Text.unpack $ msg <> ": " <> endpoint
 
