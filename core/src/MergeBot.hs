@@ -36,10 +36,11 @@ startMergeJob state = do
   return state'
 
 -- | Execute a merge after a successful CI run.
-execMerge :: MonadGHPullRequest m => BotConfig -> BotState -> m BotState
+execMerge :: (MonadGHBranch m, MonadGHPullRequest m) => BotConfig -> BotState -> m BotState
 execMerge BotConfig{..} state = do
   forM_ (getMergeJobs state) $ \patch ->
     let options = fromJust $ getPatchOptions state patch
         PatchOptions{..} = resolveOptions options defaultPatchOptions
     in mergePullRequest patch mergeAlgorithm
+  deleteBranch "staging"
   return $ clearMergeJobs state
