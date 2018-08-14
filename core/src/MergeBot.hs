@@ -20,6 +20,7 @@ import Data.Foldable (forM_)
 import Data.Maybe (fromJust)
 
 import MergeBot.Config
+import MergeBot.Error
 import MergeBot.Monad.Class
 import MergeBot.Patch
 import MergeBot.State
@@ -28,10 +29,14 @@ import MergeBot.State
 addMergeQueue :: (MonadGHPullRequest m) =>
   PatchId -> PatchOptionsPartial -> BotState -> m BotState
 addMergeQueue patch options state = do
-  -- TODO: check if review
-  either fail' return $ insertMergeQueue patch options state
+  approved <- isApproved patch
+  if approved
+    then either fail' return $ insertMergeQueue patch options state
+    else fail' PatchNotApproved -- TODO: add to holding queue
   where
-    fail' e = undefined -- TODO: post comment
+    fail' e = do
+      -- TODO: post comment
+      return state
 
 -- | Start a merge job with all the pull requests in the merge queue.
 startMergeJob :: (MonadGHBranch m, MonadGHPullRequest m) => BotState -> m BotState
