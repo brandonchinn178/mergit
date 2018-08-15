@@ -29,7 +29,15 @@ import Control.Monad.Catch (MonadCatch, MonadThrow, handleJust)
 import Control.Monad.IO.Class (MonadIO(..))
 import Control.Monad.Reader (MonadReader, ReaderT, ask, runReaderT)
 import Data.Aeson
-    (FromJSON, ToJSON(..), Value(..), eitherDecode, encode, object, withArray, withObject)
+    ( FromJSON
+    , ToJSON(..)
+    , Value(..)
+    , eitherDecode
+    , encode
+    , object
+    , withArray
+    , withObject
+    )
 import Data.Aeson.Types (parseEither, parseField)
 import Data.ByteString.Lazy (ByteString)
 import qualified Data.ByteString.Lazy as ByteString
@@ -131,9 +139,9 @@ instance (MonadIO m, MonadCatch m) => MonadGHPullRequest (GitHubT m) where
     let reviewsThatMatter = filter ((/= Commented) . snd) . map getUserAndState . fromArray $ reviews
         userReviews = Map.fromList reviewsThatMatter -- only keeps latest review per user
         undismissedReviews = Map.filter (/= Dismissed) userReviews
-    return $ if Map.null undismissedReviews
-      then False
-      else all (== Approved) $ Map.elems undismissedReviews
+    return $
+      not (Map.null undismissedReviews) &&
+      all (== Approved) (Map.elems undismissedReviews)
     where
       getUserAndState review =
         let userId = review .: "user" .: "id" :: Int
