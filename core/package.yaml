@@ -15,6 +15,7 @@ dependencies:
   - http-types
   - mtl
   - text
+  - vector
 
 library:
   source-dirs: src

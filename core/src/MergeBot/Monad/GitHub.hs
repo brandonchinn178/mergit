@@ -29,16 +29,26 @@ import Control.Monad.Catch (MonadCatch, MonadThrow, handleJust)
 import Control.Monad.IO.Class (MonadIO(..))
 import Control.Monad.Reader (MonadReader, ReaderT, ask, runReaderT)
 import Data.Aeson
-    (FromJSON, ToJSON(..), Value(..), eitherDecode, encode, object, withObject)
+    ( FromJSON
+    , ToJSON(..)
+    , Value(..)
+    , eitherDecode
+    , encode
+    , object
+    , withArray
+    , withObject
+    )
 import Data.Aeson.Types (parseEither, parseField)
 import Data.ByteString.Lazy (ByteString)
 import qualified Data.ByteString.Lazy as ByteString
+import qualified Data.Map.Strict as Map
 import Data.Maybe (fromMaybe)
 import Data.Monoid ((<>))
 import Data.Ratio (denominator, numerator)
 import Data.Text (Text)
 import qualified Data.Text as Text
 import qualified Data.Text.Encoding as Text
+import qualified Data.Vector as Vector
 import Network.HTTP.Client
     ( HttpException(..)
     , HttpExceptionContent(..)
@@ -124,6 +134,30 @@ instance (MonadCatch m, MonadIO m) => MonadGHBranch (GitHubT m) where
       ]
 
 instance (MonadIO m, MonadCatch m) => MonadGHPullRequest (GitHubT m) where
+  isApproved patchId = do
+    reviews <- github GET "/repos/:owner/:repo/pulls/:number/reviews" ["number" :=* patchId]
+    let reviewsThatMatter = filter ((/= Commented) . snd) . map getUserAndState . fromArray $ reviews
+        userReviews = Map.fromList reviewsThatMatter -- only keeps latest review per user
+        undismissedReviews = Map.filter (/= Dismissed) userReviews
+    return $
+      not (Map.null undismissedReviews) &&
+      all (== Approved) (Map.elems undismissedReviews)
+    where
+      getUserAndState review =
+        let userId = review .: "user" .: "id" :: Int
+            state = case review .: "state" of
+              "APPROVED" -> Approved
+              "CHANGES_REQUESTED" -> ChangesRequested
+              "DISMISSED" -> Dismissed
+              "COMMENTED" -> Commented
+              s -> error $ "Got unknown state: " ++ s
+        in (userId, state)
+
+  postComment patchId comment =
+    githubWith_ POST "/repos/:owner/:repo/issues/:number/comments"
+      ["number" :=* patchId]
+      ["body" := comment]
+
   mergePullRequest patchId mergeAlgorithm = do
     patch <- github GET "/repos/:owner/:repo/pulls/:number" ["number" :=* patchId]
     githubWith_ PUT "/repos/:owner/:repo/pulls/:number/merge" ["number" :=* patchId]
@@ -163,6 +197,9 @@ githubWith_ :: MonadIO m => StdMethod -> Endpoint -> EndpointVals -> GitHubData 
 githubWith_ method endpoint vals ghData = void $ githubWith method endpoint vals ghData
 
 {- API Helpers -}
+
+data ReviewType = Approved | ChangesRequested | Dismissed | Commented
+  deriving (Show,Eq)
 
 -- | Set the placeholders in the given endpoint to the given values.
 populateEndpoint :: EndpointVals -> Endpoint -> Text
@@ -258,6 +295,11 @@ kvToText (k :=* v) = (k, v')
 (.:) v key = either error id $ parseEither parseObject v
   where
     parseObject = withObject "parseObject" (`parseField` key)
+
+fromArray :: Value -> [Value]
+fromArray = either error id . parseEither parseArray
+  where
+    parseArray = withArray "parseArray" (return . Vector.toList)
 
 {- Other helpers -}
 

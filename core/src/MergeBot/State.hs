@@ -18,7 +18,7 @@ module MergeBot.State
   , getMergeJobs
   , getPatchOptions
   -- Mutations
-  , addMergeQueue
+  , insertMergeQueue
   , removeMergeQueue
   , clearMergeJobs
   , initMergeJob
@@ -86,8 +86,8 @@ getPatchOptions BotState{..} patch
 -- | Add the given patch to the merge queue.
 --
 -- Fails if the patch is already in the merge queue.
-addMergeQueue :: PatchId -> PatchOptionsPartial -> BotState -> Either BotError BotState
-addMergeQueue patch options state@BotState{..} = do
+insertMergeQueue :: PatchId -> PatchOptionsPartial -> BotState -> Either BotError BotState
+insertMergeQueue patch options state@BotState{..} = do
   when (patch `Set.member` mergeQueue) $ Left AlreadyInMergeQueue
   return $ state
     { mergeQueue = Set.insert patch mergeQueue
@@ -100,7 +100,7 @@ addMergeQueue patch options state@BotState{..} = do
 removeMergeQueue :: PatchId -> BotState -> Either BotError BotState
 removeMergeQueue patch state@BotState{..} = do
   when (patch `Set.member` mergeJobs) $ Left MergeJobStarted
-  unless (patch `Set.member` mergeQueue) $ Left DoesNotExist
+  unless (patch `Set.member` mergeQueue) $ Left NotInMergeQueue
   return $ state
     { mergeQueue = Set.delete patch mergeQueue
     , patchOptions = Map.delete patch patchOptions

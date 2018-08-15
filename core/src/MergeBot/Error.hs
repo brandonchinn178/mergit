@@ -6,6 +6,7 @@ Portability :  portable
 
 Defines errors that can be thrown in the merge bot.
 -}
+{-# LANGUAGE LambdaCase #-}
 
 module MergeBot.Error
   ( BotError(..)
@@ -14,7 +15,16 @@ module MergeBot.Error
 -- | Errors that may occur in modifying the state of the merge bot.
 data BotError
   = AlreadyInMergeQueue -- ^ Cannot add to merge queue twice
+  | NotInMergeQueue     -- ^ The PR does not exist
+  | PatchNotApproved    -- ^ Cannot add to merge queue if it's approved
   | MergeJobStarted     -- ^ Cannot remove from merge queue if PR already running
   | TryJobStarted       -- ^ Cannot start a try job if PR already running a try job
-  | DoesNotExist        -- ^ The PR does not exist
-  deriving (Show,Eq)
+  deriving (Eq)
+
+instance Show BotError where
+  show = \case
+    AlreadyInMergeQueue -> "Pull request is already in merge queue"
+    NotInMergeQueue -> "Pull request is not in the merge queue"
+    PatchNotApproved -> "Pull request is not approved"
+    MergeJobStarted -> "Merge job has already started"
+    TryJobStarted -> "Try job is already running"

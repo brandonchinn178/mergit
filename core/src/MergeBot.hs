@@ -11,17 +11,33 @@ Defines the core functionality of the merge bot.
 {-# LANGUAGE RecordWildCards #-}
 
 module MergeBot
-  ( startMergeJob
+  ( addMergeQueue
+  , startMergeJob
   , execMerge
   ) where
 
 import Data.Foldable (forM_)
 import Data.Maybe (fromJust)
+import qualified Data.Text as Text
 
 import MergeBot.Config
+import MergeBot.Error
 import MergeBot.Monad.Class
 import MergeBot.Patch
 import MergeBot.State
+
+-- | Add the given pull request to the merge queue.
+addMergeQueue :: (MonadGHPullRequest m) =>
+  PatchId -> PatchOptionsPartial -> BotState -> m BotState
+addMergeQueue patch options state = do
+  approved <- isApproved patch
+  if approved
+    then either fail' return $ insertMergeQueue patch options state
+    else fail' PatchNotApproved -- TODO: add to holding queue, delete PatchNotApproved
+  where
+    fail' e = do
+      postComment patch $ Text.pack $ "Could not add to merge queue: " ++ show e
+      return state
 
 -- | Start a merge job with all the pull requests in the merge queue.
 startMergeJob :: (MonadGHBranch m, MonadGHPullRequest m) => BotState -> m BotState
