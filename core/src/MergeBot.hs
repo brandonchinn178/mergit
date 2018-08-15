@@ -18,6 +18,7 @@ module MergeBot
 
 import Data.Foldable (forM_)
 import Data.Maybe (fromJust)
+import qualified Data.Text as Text
 
 import MergeBot.Config
 import MergeBot.Error
@@ -32,10 +33,10 @@ addMergeQueue patch options state = do
   approved <- isApproved patch
   if approved
     then either fail' return $ insertMergeQueue patch options state
-    else fail' PatchNotApproved -- TODO: add to holding queue
+    else fail' PatchNotApproved -- TODO: add to holding queue, delete PatchNotApproved
   where
     fail' e = do
-      -- TODO: post comment
+      postComment patch $ Text.pack $ "Could not add to merge queue: " ++ show e
       return state
 
 -- | Start a merge job with all the pull requests in the merge queue.

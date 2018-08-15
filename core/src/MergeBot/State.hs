@@ -100,7 +100,7 @@ insertMergeQueue patch options state@BotState{..} = do
 removeMergeQueue :: PatchId -> BotState -> Either BotError BotState
 removeMergeQueue patch state@BotState{..} = do
   when (patch `Set.member` mergeJobs) $ Left MergeJobStarted
-  unless (patch `Set.member` mergeQueue) $ Left DoesNotExist
+  unless (patch `Set.member` mergeQueue) $ Left NotInMergeQueue
   return $ state
     { mergeQueue = Set.delete patch mergeQueue
     , patchOptions = Map.delete patch patchOptions

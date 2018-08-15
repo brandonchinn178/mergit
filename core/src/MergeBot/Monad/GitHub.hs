@@ -145,6 +145,11 @@ instance (MonadIO m, MonadCatch m) => MonadGHPullRequest (GitHubT m) where
               s -> error $ "Got unknown state: " ++ s
         in (userId, state)
 
+  postComment patchId comment =
+    githubWith_ POST "/repos/:owner/:repo/issues/:number/comments"
+      ["number" :=* patchId]
+      ["body" := comment]
+
   mergePullRequest patchId mergeAlgorithm = do
     patch <- github GET "/repos/:owner/:repo/pulls/:number" ["number" :=* patchId]
     githubWith_ PUT "/repos/:owner/:repo/pulls/:number/merge" ["number" :=* patchId]
