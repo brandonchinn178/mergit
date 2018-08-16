@@ -12,7 +12,8 @@ Defines the Patch data type, representing a GitHub pull request.
 {-# LANGUAGE TypeSynonymInstances #-}
 
 module MergeBot.Patch
-  ( PatchId
+  ( Patch(..)
+  , PatchId
   , PatchOptions(..)
   , PatchOptionsPartial
   , PatchOptionsFull
@@ -21,11 +22,22 @@ module MergeBot.Patch
 
 import Data.Functor.Identity (Identity)
 import Data.Maybe (fromMaybe)
+import Data.Text (Text)
 
 import MergeBot.Merge (MergeAlgorithm)
 
+{- Patch data type -}
+
+-- | A GitHub pull request.
+data Patch = Patch
+  { patchId   :: PatchId
+  , patchName :: Text
+  } deriving (Show,Eq)
+
 -- | The ID of a GitHub pull request.
 type PatchId = Int
+
+{- Merge options -}
 
 -- | Options specified per-PR to customize merge bot behavior.
 data PatchOptions f = PatchOptions

@@ -15,7 +15,7 @@ module MergeBot.Monad.Class
 import Data.Text (Text)
 
 import MergeBot.Merge (MergeAlgorithm)
-import MergeBot.Patch (PatchId)
+import MergeBot.Patch (Patch, PatchId)
 
 -- | Monad for manipulating branches on GitHub.
 class Monad m => MonadGHBranch m where
@@ -30,6 +30,8 @@ class Monad m => MonadGHBranch m where
 
 -- | Monad for manipulating pull requests on GitHub.
 class Monad m => MonadGHPullRequest m where
+  -- | Return all open pull requests.
+  listPullRequests :: m [Patch]
   -- | Return True if a pull request is approved by all reviewers.
   isApproved :: PatchId -> m Bool
   -- | Post a comment to a pull request.
