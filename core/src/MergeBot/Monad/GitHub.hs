@@ -76,6 +76,7 @@ import Network.HTTP.Types
 import System.Environment (getEnv)
 
 import MergeBot.Monad.Class
+import MergeBot.Patch (Patch(..))
 
 data GitHubConfig = GitHubConfig
   { ghOwner    :: Text
@@ -134,6 +135,13 @@ instance (MonadCatch m, MonadIO m) => MonadGHBranch (GitHubT m) where
       ]
 
 instance (MonadIO m, MonadCatch m) => MonadGHPullRequest (GitHubT m) where
+  listPullRequests = map toPatch . fromArray <$> github GET "/repos/:owner/:repo/pulls" []
+    where
+      toPatch o = Patch
+        { patchId = o .: "number"
+        , patchName = o .: "title"
+        }
+
   isApproved patchId = do
     reviews <- github GET "/repos/:owner/:repo/pulls/:number/reviews" ["number" :=* patchId]
     let reviewsThatMatter = filter ((/= Commented) . snd) . map getUserAndState . fromArray $ reviews
