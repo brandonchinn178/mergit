@@ -34,7 +34,5 @@ class Monad m => MonadGHPullRequest m where
   listPullRequests :: m [Patch]
   -- | Return True if a pull request is approved by all reviewers.
   isApproved :: PatchId -> m Bool
-  -- | Post a comment to a pull request.
-  postComment :: PatchId -> Text -> m ()
   -- | Merge the given pull request with the given merge algorithm.
   mergePullRequest :: PatchId -> MergeAlgorithm -> m ()
