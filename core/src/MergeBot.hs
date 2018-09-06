@@ -18,10 +18,8 @@ module MergeBot
 
 import Data.Foldable (forM_)
 import Data.Maybe (fromJust)
-import qualified Data.Text as Text
 
 import MergeBot.Config
-import MergeBot.Error
 import MergeBot.Monad.Class
 import MergeBot.Patch
 import MergeBot.State
@@ -32,12 +30,8 @@ addMergeQueue :: (MonadGHPullRequest m) =>
 addMergeQueue patch options state = do
   approved <- isApproved patch
   if approved
-    then either fail' return $ insertMergeQueue patch options state
-    else fail' PatchNotApproved -- TODO: add to holding queue, delete PatchNotApproved
-  where
-    fail' e = do
-      postComment patch $ Text.pack $ "Could not add to merge queue: " ++ show e
-      return state
+    then return $ insertMergeQueue patch options state
+    else fail "Could not add to merge queue" -- TODO: add to holding queue, delete PatchNotApproved
 
 -- | Start a merge job with all the pull requests in the merge queue.
 startMergeJob :: (MonadGHBranch m, MonadGHPullRequest m) => BotState -> m BotState
