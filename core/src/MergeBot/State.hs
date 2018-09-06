@@ -6,7 +6,6 @@ Portability :  portable
 
 Defines the data type representing the internal state of the merge bot.
 -}
-{-# LANGUAGE RecordWildCards #-}
 
 module MergeBot.State
   ( BotState
