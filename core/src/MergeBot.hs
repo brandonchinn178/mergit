@@ -32,7 +32,7 @@ addMergeQueue :: (MonadGHPullRequest m) =>
 addMergeQueue patch options state = do
   approved <- isApproved patch
   if approved
-    then either fail' return $ insertMergeQueue patch options state
+    then return $ insertMergeQueue patch options state
     else fail' PatchNotApproved -- TODO: add to holding queue, delete PatchNotApproved
   where
     fail' e = do

@@ -12,9 +12,6 @@ module MergeBot.State
   ( BotState
   , newBotState
   -- Queries
-  , inMergeQueue
-  , inMergeJobs
-  , inTryJobs
   , getMergeJobs
   , getPatchOptions
   -- Mutations
@@ -25,103 +22,76 @@ module MergeBot.State
   , startTryJob
   ) where
 
-import Control.Monad (unless, when)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Set (Set)
-import qualified Data.Set as Set
 
-import MergeBot.Error (BotError(..))
 import MergeBot.Patch (PatchId, PatchOptionsPartial)
 
+{- PatchState -}
+
+data PatchState
+  = TryJob
+  | MergeQueue PatchOptionsPartial
+  | MergeJob PatchOptionsPartial
+  deriving (Show)
+
+isMergeJob :: PatchState -> Bool
+isMergeJob (MergeJob _) = True
+isMergeJob _ = False
+
+{- BotState -}
+
 -- | The state of the merge bot.
-data BotState = BotState
-  { mergeQueue   :: Set PatchId
-  , mergeJobs    :: Set PatchId
-  , tryJobs      :: Set PatchId
-  , patchOptions :: Map PatchId PatchOptionsPartial
-    -- ^ Invariant: if PatchId is in mergeQueue or mergeJobs, it is in patchOptions
-  } deriving (Show,Eq)
+newtype BotState = BotState (Map PatchId PatchState)
+  deriving (Show)
 
 newBotState :: BotState
-newBotState = BotState
-  { mergeQueue = Set.empty
-  , mergeJobs = Set.empty
-  , tryJobs = Set.empty
-  , patchOptions = Map.empty
-  }
+newBotState = BotState Map.empty
 
 {- Querying state -}
 
--- | Helper for querying state.
-inState :: (BotState -> Set PatchId) -> BotState -> PatchId -> Bool
-inState f = flip Set.member . f
-
--- | Check if the given patch is in the merge queue.
-inMergeQueue :: BotState -> PatchId -> Bool
-inMergeQueue = inState mergeQueue
-
--- | Check if the given patch is a currently running merge job.
-inMergeJobs :: BotState -> PatchId -> Bool
-inMergeJobs = inState mergeJobs
-
--- | Check if the given patch is a currently running try job.
-inTryJobs :: BotState -> PatchId -> Bool
-inTryJobs = inState tryJobs
-
 -- | Get all the patchs in the merge job list.
 getMergeJobs :: BotState -> Set PatchId
-getMergeJobs = mergeJobs
+getMergeJobs (BotState patches) = Map.keysSet $ Map.filter isMergeJob patches
 
 -- | Get the options for the given patch.
 getPatchOptions :: BotState -> PatchId -> Maybe PatchOptionsPartial
-getPatchOptions BotState{..} patch
-  | all (patch `Set.notMember`) [mergeQueue, mergeJobs] = Nothing
-  | otherwise = case Map.lookup patch patchOptions of
-      Nothing -> fail $ "Patch in mergeJobs/mergeQueue does not have options: " ++ show patch
-      Just options -> Just options
+getPatchOptions (BotState patches) patch = case Map.lookup patch patches of
+  Just TryJob -> Nothing
+  Just (MergeQueue opts) -> Just opts
+  Just (MergeJob opts) -> Just opts
+  Nothing -> Nothing
 
 {- Modifying state -}
 
 -- | Add the given patch to the merge queue.
---
--- Fails if the patch is already in the merge queue.
-insertMergeQueue :: PatchId -> PatchOptionsPartial -> BotState -> Either BotError BotState
-insertMergeQueue patch options state@BotState{..} = do
-  when (patch `Set.member` mergeQueue) $ Left AlreadyInMergeQueue
-  return $ state
-    { mergeQueue = Set.insert patch mergeQueue
-    , patchOptions = Map.insert patch options patchOptions
-    }
+insertMergeQueue :: PatchId -> PatchOptionsPartial -> BotState -> BotState
+insertMergeQueue patch opts (BotState patches) = BotState $ Map.insert patch patchState patches
+  where
+    patchState = MergeQueue opts
 
 -- | Remove the given patch from the merge queue.
---
--- Fails if the patch is not in the merge queue or is already running as a job.
-removeMergeQueue :: PatchId -> BotState -> Either BotError BotState
-removeMergeQueue patch state@BotState{..} = do
-  when (patch `Set.member` mergeJobs) $ Left MergeJobStarted
-  unless (patch `Set.member` mergeQueue) $ Left NotInMergeQueue
-  return $ state
-    { mergeQueue = Set.delete patch mergeQueue
-    , patchOptions = Map.delete patch patchOptions
-    }
+removeMergeQueue :: PatchId -> BotState -> BotState
+removeMergeQueue patch (BotState patches) = BotState $ Map.update checkQueue patch patches
+  where
+    checkQueue (MergeQueue _) = Nothing
+    checkQueue patchState = Just patchState
 
 -- | Clear the merge jobs, either after a successful merge or after cancelling the merge job.
 clearMergeJobs :: BotState -> BotState
-clearMergeJobs state@BotState{..} = state
-  { mergeJobs = Set.empty
-  , patchOptions = Map.withoutKeys patchOptions mergeJobs
-  }
+clearMergeJobs (BotState patches) = BotState $ Map.filter (not . isMergeJob) patches
 
--- | Initialize a merge job with all the patchs in the queue.
+-- | Initialize a merge job with all the patches in the queue.
+--
+-- Assumes 'clearMergeJobs' has been run.
 initMergeJob :: BotState -> BotState
-initMergeJob state@BotState{..} = state
-  { mergeJobs = mergeQueue
-  , mergeQueue = Set.empty
-  }
+initMergeJob (BotState patches) = BotState $ Map.map toMergeJob patches
+  where
+    toMergeJob (MergeQueue opts) = MergeJob opts
+    toMergeJob (MergeJob _) = error "Found existing merge job in initMergeJob"
+    toMergeJob patchState = patchState
 
 -- | Start a try job for the given patch.
-startTryJob :: PatchId -> BotState -> Either BotError BotState
-startTryJob patch state@BotState{..} = do
-  when (patch `Set.member` tryJobs) $ Left TryJobStarted
-  return $ state { tryJobs = Set.insert patch tryJobs }
+startTryJob :: PatchId -> BotState -> BotState
+startTryJob patch (BotState patches) = BotState $ Map.insert patch TryJob patches
