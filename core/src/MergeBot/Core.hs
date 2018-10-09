@@ -8,7 +8,6 @@ Defines the core functionality of the merge bot.
 -}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards #-}
 
 module MergeBot.Core
   ( addMergeQueue
@@ -17,20 +16,19 @@ module MergeBot.Core
   ) where
 
 import Data.Foldable (forM_)
-import Data.Maybe (fromJust)
 
-import MergeBot.Core.Config
+import MergeBot.Core.Merge
 import MergeBot.Core.Monad.Class
 import MergeBot.Core.Patch
 import MergeBot.Core.State
 
 -- | Add the given pull request to the merge queue.
 addMergeQueue :: (MonadGHPullRequest m) =>
-  PatchId -> PatchOptionsPartial -> BotState -> m BotState
-addMergeQueue patch options state = do
+  PatchId -> BotState -> m BotState
+addMergeQueue patch state = do
   approved <- isApproved patch
   if approved
-    then return $ insertMergeQueue patch options state
+    then return $ insertMergeQueue patch state
     else fail "Could not add to merge queue" -- TODO: add to holding queue, delete PatchNotApproved
 
 -- | Start a merge job with all the pull requests in the merge queue.
@@ -39,18 +37,15 @@ startMergeJob state = do
   let state' = initMergeJob state
   deleteBranch "staging"
   createBranch "staging"
-  forM_ (getMergeJobs state') $ \patchId ->
-    getBranch patchId >>= \case
-      Nothing -> fail $ "Could not find pull request #" ++ show patchId
+  forM_ (getMergeJobs state') $ \patch ->
+    getBranch patch >>= \case
+      Nothing -> fail $ "Could not find pull request #" ++ show patch
       Just branch -> mergeBranch "staging" branch
   return state'
 
 -- | Execute a merge after a successful CI run.
-execMerge :: (MonadGHBranch m, MonadGHPullRequest m) => BotConfig -> BotState -> m BotState
-execMerge BotConfig{..} state = do
-  forM_ (getMergeJobs state) $ \patch ->
-    let options = fromJust $ getPatchOptions state patch
-        PatchOptions{..} = resolveOptions options defaultPatchOptions
-    in mergePullRequest patch mergeAlgorithm
+execMerge :: (MonadGHBranch m, MonadGHPullRequest m) => BotState -> m BotState
+execMerge state = do
+  forM_ (getMergeJobs state) $ \patch -> mergePullRequest patch Merge
   deleteBranch "staging"
   return $ clearMergeJobs state
