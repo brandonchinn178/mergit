@@ -1,5 +1,5 @@
 {-|
-Module      :  MergeBot.Patch
+Module      :  MergeBot.Core.Patch
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
 Portability :  portable
@@ -11,7 +11,7 @@ Defines the Patch data type, representing a GitHub pull request.
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 
-module MergeBot.Patch
+module MergeBot.Core.Patch
   ( Patch(..)
   , PatchId
   , PatchOptions(..)
@@ -24,7 +24,7 @@ import Data.Functor.Identity (Identity)
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 
-import MergeBot.Merge (MergeAlgorithm)
+import MergeBot.Core.Merge (MergeAlgorithm)
 
 {- Patch data type -}
 

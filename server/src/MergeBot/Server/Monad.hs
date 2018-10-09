@@ -23,7 +23,7 @@ import Control.Monad.IO.Class (MonadIO)
 import Control.Monad.Reader (MonadReader, ReaderT, runReaderT)
 import Servant
 
-import MergeBot.State (BotState, newBotState)
+import MergeBot.Core.State (BotState, newBotState)
 
 -- | The environment shared by all API endpoints.
 newtype MergeBotEnv = MergeBotEnv

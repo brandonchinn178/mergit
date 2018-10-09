@@ -1,5 +1,5 @@
 {-|
-Module      :  MergeBot.Monad.Class
+Module      :  MergeBot.Core.Monad.Class
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
 Portability :  portable
@@ -7,15 +7,15 @@ Portability :  portable
 Defines Monad typeclasses used in the core library.
 -}
 
-module MergeBot.Monad.Class
+module MergeBot.Core.Monad.Class
   ( MonadGHBranch(..)
   , MonadGHPullRequest(..)
   ) where
 
 import Data.Text (Text)
 
-import MergeBot.Merge (MergeAlgorithm)
-import MergeBot.Patch (Patch, PatchId)
+import MergeBot.Core.Merge (MergeAlgorithm)
+import MergeBot.Core.Patch (Patch, PatchId)
 
 -- | Monad for manipulating branches on GitHub.
 class Monad m => MonadGHBranch m where

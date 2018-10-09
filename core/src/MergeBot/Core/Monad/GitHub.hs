@@ -1,5 +1,5 @@
 {-|
-Module      :  MergeBot.Monad.GitHub
+Module      :  MergeBot.Core.Monad.GitHub
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
 Portability :  portable
@@ -11,7 +11,7 @@ Defines monad definitions for the GitHub API.
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 
-module MergeBot.Monad.GitHub
+module MergeBot.Core.Monad.GitHub
   ( GitHubT
   , runGitHubT
   , KeyValue(..)
@@ -75,8 +75,8 @@ import Network.HTTP.Types
     )
 import System.Environment (getEnv)
 
-import MergeBot.Monad.Class
-import MergeBot.Patch (Patch(..))
+import MergeBot.Core.Monad.Class
+import MergeBot.Core.Patch (Patch(..))
 
 data GitHubConfig = GitHubConfig
   { ghOwner    :: Text

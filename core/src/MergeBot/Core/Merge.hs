@@ -1,5 +1,5 @@
 {-|
-Module      :  MergeBot.Merge
+Module      :  MergeBot.Core.Merge
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
 Portability :  portable
@@ -7,7 +7,7 @@ Portability :  portable
 Defines the merging capabilities of the merge bot.
 -}
 
-module MergeBot.Merge
+module MergeBot.Core.Merge
   ( MergeAlgorithm(..)
   ) where
 

@@ -1,5 +1,5 @@
 {-|
-Module      :  MergeBot.Config
+Module      :  MergeBot.Core.Config
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
 Portability :  portable
@@ -7,13 +7,13 @@ Portability :  portable
 Defines the configuration of the merge bot.
 -}
 
-module MergeBot.Config
+module MergeBot.Core.Config
   ( BotConfig(..)
   , defaultConfig
   ) where
 
-import MergeBot.Merge (MergeAlgorithm(..))
-import MergeBot.Patch (PatchOptions(..), PatchOptionsFull)
+import MergeBot.Core.Merge (MergeAlgorithm(..))
+import MergeBot.Core.Patch (PatchOptions(..), PatchOptionsFull)
 
 -- | The configuration of the merge bot.
 data BotConfig = BotConfig

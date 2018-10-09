@@ -1,5 +1,5 @@
 {-|
-Module      :  MergeBot
+Module      :  MergeBot.Core
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
 Portability :  portable
@@ -10,7 +10,7 @@ Defines the core functionality of the merge bot.
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 
-module MergeBot
+module MergeBot.Core
   ( addMergeQueue
   , startMergeJob
   , execMerge
@@ -19,10 +19,10 @@ module MergeBot
 import Data.Foldable (forM_)
 import Data.Maybe (fromJust)
 
-import MergeBot.Config
-import MergeBot.Monad.Class
-import MergeBot.Patch
-import MergeBot.State
+import MergeBot.Core.Config
+import MergeBot.Core.Monad.Class
+import MergeBot.Core.Patch
+import MergeBot.Core.State
 
 -- | Add the given pull request to the merge queue.
 addMergeQueue :: (MonadGHPullRequest m) =>

@@ -1,5 +1,5 @@
 {-|
-Module      :  MergeBot.State
+Module      :  MergeBot.Core.State
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
 Portability :  portable
@@ -7,7 +7,7 @@ Portability :  portable
 Defines the data type representing the internal state of the merge bot.
 -}
 
-module MergeBot.State
+module MergeBot.Core.State
   ( BotState
   , newBotState
   -- Queries
@@ -25,7 +25,7 @@ import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Set (Set)
 
-import MergeBot.Patch (PatchId, PatchOptionsPartial)
+import MergeBot.Core.Patch (PatchId, PatchOptionsPartial)
 
 {- PatchState -}
 
