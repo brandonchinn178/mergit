@@ -3,3 +3,21 @@ defaults:
 
 name: merge-bot-server
 version: 0.1.0
+
+dependencies:
+- aeson
+- base
+- merge-bot-core
+- mtl
+- servant-server
+
+library:
+  source-dirs: src
+
+executables:
+  merge-bot:
+    source-dirs:  exe
+    main:         Main.hs
+    dependencies:
+    - merge-bot-server
+    - warp
