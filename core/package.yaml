@@ -16,6 +16,7 @@ dependencies:
   - http-types
   - mtl
   - text
+  - time
   - vector
 
 library:

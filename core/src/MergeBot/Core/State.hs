@@ -20,10 +20,10 @@ module MergeBot.Core.State
 
 import Data.Set (Set)
 import qualified Data.Set as Set
-import GitHub.Data.Id (Id)
-import GitHub.Data.PullRequests (PullRequest)
 
-type MergeQueue = Set (Id PullRequest)
+import MergeBot.Core.Data (PullRequestId)
+
+type MergeQueue = Set PullRequestId
 
 -- | The state of the merge bot.
 --
@@ -43,8 +43,8 @@ getMergeQueue = mergeQueue
 clearMergeQueue :: BotState -> BotState
 clearMergeQueue state = state{mergeQueue = Set.empty}
 
-insertMergeQueue :: Id PullRequest -> BotState -> BotState
+insertMergeQueue :: PullRequestId -> BotState -> BotState
 insertMergeQueue pr state@BotState{..} = state{mergeQueue = Set.insert pr mergeQueue}
 
-removeMergeQueue :: Id PullRequest -> BotState -> BotState
+removeMergeQueue :: PullRequestId -> BotState -> BotState
 removeMergeQueue pr state@BotState{..} = state{mergeQueue = Set.delete pr mergeQueue}
