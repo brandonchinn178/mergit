@@ -8,31 +8,11 @@ Defines Monad typeclasses used in the core library.
 -}
 
 module MergeBot.Core.Monad.Class
-  ( MonadGHBranch(..)
-  , MonadGHPullRequest(..)
+  ( MonadGithub(..)
   ) where
 
-import Data.Text (Text)
+import MergeBot.Core.Data
 
-import MergeBot.Core.Merge (MergeAlgorithm)
-import MergeBot.Core.Patch (Patch, PatchId)
-
--- | Monad for manipulating branches on GitHub.
-class Monad m => MonadGHBranch m where
-  -- | Get the branch for the given pull request.
-  getBranch :: PatchId -> m (Maybe Text)
-  -- | Create the given branch based off master.
-  createBranch :: Text -> m ()
-  -- | Forcibly delete the given branch, if it exists.
-  deleteBranch :: Text -> m ()
-  -- | Merge the second branch into the first branch.
-  mergeBranch :: Text -> Text -> m ()
-
--- | Monad for manipulating pull requests on GitHub.
-class Monad m => MonadGHPullRequest m where
-  -- | Return all open pull requests.
-  listPullRequests :: m [Patch]
-  -- | Return True if a pull request is approved by all reviewers.
-  isApproved :: PatchId -> m Bool
-  -- | Merge the given pull request with the given merge algorithm.
-  mergePullRequest :: PatchId -> MergeAlgorithm -> m ()
+class Monad m => MonadGithub m where
+  -- | List all open pull requests.
+  listPullRequests :: m [PullRequest]
