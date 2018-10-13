@@ -29,7 +29,7 @@ newtype Result = Result Object
 
 instance HasArgs Result where
   type QueryArgs Result = Args
-  fromArgs args = object
+  fromArgs _ args = object
     [ "repoOwner" .= _repoOwner args
     , "repoName"  .= _repoName args
     , "after"     .= _after args
@@ -60,7 +60,7 @@ schema = SchemaObject
                           [ ( "contexts"
                             , SchemaList $ SchemaObject
                               [ ("context", SchemaString)
-                              , ("state", SchemaEnum StatusState)
+                              , ("state", SchemaEnum (Proxy :: Proxy StatusState))
                               ]
                             )
                           ]
