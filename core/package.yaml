@@ -7,15 +7,9 @@ version: 0.1.0
 dependencies:
   - aeson
   - base
-  - bytestring
   - containers
-  - exceptions
-  - http-client
-  - http-client-tls
-  - http-types
-  - mtl
   - text
-  - vector
+  - time
 
 library:
   source-dirs: src
