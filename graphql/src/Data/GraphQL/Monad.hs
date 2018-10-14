@@ -13,10 +13,9 @@ module Data.GraphQL.Monad
   ( MonadQuery(..)
   , IsQueryable(..)
   , execQueryIO
-  , module GraphQL
   ) where
 
-import Data.GraphQL.Error as GraphQL
+import Data.GraphQL.Error (GraphQLError)
 import Data.GraphQL.Query (HasArgs(..), Query)
 
 -- | A type class for monads that can run queries for the given type.

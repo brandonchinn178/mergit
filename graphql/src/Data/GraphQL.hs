@@ -9,5 +9,7 @@ Core functionality for querying GraphQL APIs.
 
 module Data.GraphQL (module X) where
 
+import Data.GraphQL.Error as X
 import Data.GraphQL.Monad as X
 import Data.GraphQL.Query as X
+import Data.GraphQL.Result as X

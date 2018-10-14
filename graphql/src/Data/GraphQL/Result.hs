@@ -1,32 +1,27 @@
 {-|
-Module      :  Data.GraphQL.Query.Schema
+Module      :  Data.GraphQL.Result
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
 Portability :  portable
 
-Definitions for defining and parsing schemas.
+Definitions for defining schemas and querying GraphQL results.
 -}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE RankNTypes #-}
 
-module Data.GraphQL.Query.Schema
+module Data.GraphQL.Result
   ( getterFor
   , Schema(..)
-  , GraphQLEnum(..)
-  , fromText
+  , module Result
   -- * Re-exports
-  , Proxy(..)
   , QuasiQuoter
   ) where
 
 import Data.Proxy (Proxy(..))
 import Data.Text (Text)
-import qualified Data.Text as Text
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
 
--- | An alias for Text.unpack.
-fromText :: Text -> String
-fromText = Text.unpack
+import Data.GraphQL.Result.Parse as Result
 
 -- | Return a QuasiQuoter that can parse the given schema.
 --
@@ -89,7 +84,3 @@ data Schema
   | SchemaMaybe Schema
   | SchemaList Schema
   | SchemaObject [(Text, Schema)]
-
--- | A type class for resolving SchemaEnum.
-class GraphQLEnum e where
-  parseEnum :: Proxy e -> Text -> e

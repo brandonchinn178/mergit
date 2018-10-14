@@ -9,7 +9,7 @@ Defines enums defined in the GraphQL schema.
 
 module MergeBot.Core.GraphQL.Enums where
 
-import Data.GraphQL.Query
+import Data.GraphQL
 
 {- TODO: THIS FILE SHOULD BE GENERATED -}
 
@@ -22,7 +22,7 @@ data StatusState
   deriving (Show,Eq,Enum)
 
 instance GraphQLEnum StatusState where
-  parseEnum _ t = case fromText t of
+  getEnum _ t = case fromText t of
     "EXPECTED" -> StatusStateEXPECTED
     "ERROR" -> StatusStateERROR
     "FAILURE" -> StatusStateFAILURE

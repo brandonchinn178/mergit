@@ -15,7 +15,6 @@ module Data.GraphQL.Query
   , HasArgs(..)
   , readGraphQLFile
   , object
-  , module Query
   -- * Re-exports
   , Object
   , (.=)
@@ -32,7 +31,6 @@ import Path (fromAbsFile, parseRelFile, reldir, (</>))
 import Path.IO (getCurrentDir)
 
 import Data.GraphQL.Query.Internal
-import Data.GraphQL.Query.Schema as Query
 
 -- | An alias for HashMap.fromList.
 object :: [Pair] -> Object
