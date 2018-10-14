@@ -51,14 +51,14 @@ schema = SchemaObject
         , SchemaObject
           [ ( "edges"
             , SchemaMaybe $ SchemaList $ SchemaMaybe $ SchemaObject
-              [ ("cursor", SchemaString)
+              [ ("cursor", SchemaText)
               , ( "node"
                 , SchemaMaybe $ SchemaObject
                   [ ("number", SchemaInt)
-                  , ("title", SchemaString)
+                  , ("title", SchemaText)
                   , ( "author"
                     , SchemaMaybe $ SchemaObject
-                      [ ("login", SchemaString)
+                      [ ("login", SchemaText)
                       ]
                     )
                   , ("createdAt", SchemaScalar)

@@ -9,9 +9,11 @@ dependencies:
   - base
   - path
   - path-io
+  - scientific
   - template-haskell
   - text
   - unordered-containers
+  - vector
 
 library:
   source-dirs: src

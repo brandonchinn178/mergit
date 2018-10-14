@@ -32,11 +32,11 @@ import Data.GraphQL.Result.Parse as Result
 --     "foo": {                  # SchemaObject
 --          "a": 1,              #   SchemaInt
 --          "nodes": [           #   SchemaList
---               { "b": true },  #     SchemaObject [("b", SchemaBool)]
+--               { "b": true },  #     SchemaObject [("b", SchemaMaybe SchemaBool)]
 --               { "b": false },
 --               { "b": null },
 --          ],
---          "c": "asdf",         #   SchemaMaybe SchemaString
+--          "c": "asdf",         #   SchemaText
 --     }
 -- }
 -- @
@@ -47,11 +47,11 @@ import Data.GraphQL.Result.Parse as Result
 -- @
 -- get = getterFor schema -- the above schema
 --
--- [get| result.foo.a |]         :: Int
--- [get| result.foo.nodes[] |]   :: [Object]
--- [get| result.foo.nodes[].b |] :: [Bool]
--- [get| result.foo.c |]         :: Maybe Text
--- [get| result.foo.c! |]        :: Text
+-- [get| result.foo.a |]          :: Int
+-- [get| result.foo.nodes[] |]    :: [Object]
+-- [get| result.foo.nodes[].b |]  :: [Maybe Bool]
+-- [get| result.foo.nodes[].b! |] :: [Bool]
+-- [get| result.foo.c |]          :: Text
 -- @
 --
 -- Rules:
@@ -78,7 +78,7 @@ data Schema
   = SchemaBool
   | SchemaInt
   | SchemaDouble
-  | SchemaString
+  | SchemaText
   | SchemaScalar
   | forall e. SchemaEnum (GraphQLEnum e => Proxy e)
   | SchemaMaybe Schema

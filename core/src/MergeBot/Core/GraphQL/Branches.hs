@@ -53,17 +53,17 @@ schema = SchemaObject
         , SchemaMaybe $ SchemaObject
           [ ( "edges"
             , SchemaMaybe $ SchemaList $ SchemaMaybe $ SchemaObject
-              [ ("cursor", SchemaString)
+              [ ("cursor", SchemaText)
               , ( "node"
                 , SchemaMaybe $ SchemaObject
-                  [ ("name", SchemaString)
+                  [ ("name", SchemaText)
                   , ( "target"
                     , SchemaObject
                       [ ( "status"
                         , SchemaMaybe $ SchemaObject
                           [ ( "contexts"
                             , SchemaList $ SchemaObject
-                              [ ("context", SchemaString)
+                              [ ("context", SchemaText)
                               , ("state", SchemaEnum (Proxy :: Proxy StatusState))
                               ]
                             )
