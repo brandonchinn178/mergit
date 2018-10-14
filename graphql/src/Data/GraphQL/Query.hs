@@ -16,11 +16,13 @@ module Data.GraphQL.Query
   , readGraphQLFile
   , getterFor
   , Schema(..)
+  , GraphQLEnum(..)
+  , object
+  , fromText
   -- * Re-exports
   , Object
   , Proxy(..)
   , QuasiQuoter
-  , object
   , (.=)
   ) where
 
@@ -29,6 +31,7 @@ import Data.Aeson.Types (Pair)
 import qualified Data.HashMap.Strict as HashMap
 import Data.Proxy (Proxy(..))
 import Data.Text (Text)
+import qualified Data.Text as Text
 import Language.Haskell.TH
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
 
@@ -37,6 +40,10 @@ import Data.GraphQL.Query.Internal
 -- | An alias for HashMap.fromList.
 object :: [Pair] -> Object
 object = HashMap.fromList
+
+-- | An alias for Text.unpack.
+fromText :: Text -> String
+fromText = Text.unpack
 
 -- | A type class for GraphQL queries with arguments.
 class HasArgs r where
@@ -105,7 +112,11 @@ data Schema
   | SchemaDouble
   | SchemaString
   | SchemaScalar
-  | forall e. SchemaEnum (Enum e => Proxy e)
+  | forall e. SchemaEnum (GraphQLEnum e => Proxy e)
   | SchemaMaybe Schema
   | SchemaList Schema
   | SchemaObject [(Text, Schema)]
+
+-- | A type class for resolving SchemaEnum.
+class GraphQLEnum e where
+  parseEnum :: Proxy e -> Text -> e
