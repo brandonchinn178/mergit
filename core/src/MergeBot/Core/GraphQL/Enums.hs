@@ -14,18 +14,18 @@ import Data.GraphQL.Query
 {- TODO: THIS FILE SHOULD BE GENERATED -}
 
 data StatusState
-  = StatusState_EXPECTED
-  | StatusState_ERROR
-  | StatusState_FAILURE
-  | StatusState_PENDING
-  | StatusState_SUCCESS
+  = StatusStateEXPECTED
+  | StatusStateERROR
+  | StatusStateFAILURE
+  | StatusStatePENDING
+  | StatusStateSUCCESS
   deriving (Show,Eq,Enum)
 
 instance GraphQLEnum StatusState where
   parseEnum _ t = case fromText t of
-    "EXPECTED" -> StatusState_EXPECTED
-    "ERROR" -> StatusState_ERROR
-    "FAILURE" -> StatusState_FAILURE
-    "PENDING" -> StatusState_PENDING
-    "SUCCESS" -> StatusState_SUCCESS
+    "EXPECTED" -> StatusStateEXPECTED
+    "ERROR" -> StatusStateERROR
+    "FAILURE" -> StatusStateFAILURE
+    "PENDING" -> StatusStatePENDING
+    "SUCCESS" -> StatusStateSUCCESS
     s -> error $ "Invalid StatusState: " ++ s
