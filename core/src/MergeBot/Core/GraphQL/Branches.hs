@@ -6,6 +6,7 @@ Portability :  portable
 
 Defines the Branches graphql query.
 -}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -14,7 +15,7 @@ module MergeBot.Core.GraphQL.Branches where
 
 {- TODO: THIS FILE SHOULD BE GENERATED -}
 
-import Data.GraphQL.Query
+import Data.GraphQL
 
 import MergeBot.Core.GraphQL.Enums
 
@@ -34,6 +35,9 @@ instance HasArgs Result where
     , "repoName"  .= _repoName args
     , "after"     .= _after args
     ]
+
+instance IsQueryable IO Result where
+  execQuery = execQueryIO
 
 query :: Query Result
 query = $(readGraphQLFile "Branches.graphql") -- TODO: when generated, will actually be file contents

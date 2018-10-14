@@ -6,6 +6,7 @@ Portability :  portable
 
 Defines the PullRequests graphql query.
 -}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -14,7 +15,7 @@ module MergeBot.Core.GraphQL.PullRequests where
 
 {- TODO: THIS FILE SHOULD BE GENERATED -}
 
-import Data.GraphQL.Query
+import Data.GraphQL
 
 data Args = Args
   { _repoOwner :: String
@@ -32,6 +33,9 @@ instance HasArgs Result where
     , "repoName"  .= _repoName args
     , "after"     .= _after args
     ]
+
+instance IsQueryable IO Result where
+  execQuery = execQueryIO
 
 query :: Query Result
 query = $(readGraphQLFile "PullRequests.graphql") -- TODO: when generated, will actually be file contents

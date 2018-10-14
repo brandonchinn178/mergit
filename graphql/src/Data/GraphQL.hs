@@ -7,4 +7,7 @@ Portability :  portable
 Core functionality for querying GraphQL APIs.
 -}
 
-module Data.GraphQL where
+module Data.GraphQL (module X) where
+
+import Data.GraphQL.Monad as X
+import Data.GraphQL.Query as X
