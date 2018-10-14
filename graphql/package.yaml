@@ -7,6 +7,8 @@ version: 0.1.0
 dependencies:
   - aeson
   - base
+  - path
+  - path-io
   - template-haskell
   - text
   - unordered-containers

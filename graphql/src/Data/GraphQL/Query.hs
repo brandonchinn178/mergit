@@ -6,6 +6,8 @@ Portability :  portable
 
 Definitions needed by GraphQL queries.
 -}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 
 module Data.GraphQL.Query
@@ -23,7 +25,11 @@ import Data.Aeson (Object, (.=))
 import Data.Aeson.Types (Pair)
 import qualified Data.HashMap.Strict as HashMap
 import Data.Proxy (Proxy)
-import Language.Haskell.TH
+import qualified Data.Text as Text
+import Language.Haskell.TH (ExpQ, runIO)
+import Language.Haskell.TH.Syntax (lift)
+import Path (fromAbsFile, parseRelFile, reldir, (</>))
+import Path.IO (getCurrentDir)
 
 import Data.GraphQL.Query.Internal
 import Data.GraphQL.Query.Schema as Query
@@ -41,4 +47,9 @@ class HasArgs r where
 --
 -- This function should go away when we generate the entire file with Template Haskell.
 readGraphQLFile :: FilePath -> ExpQ
-readGraphQLFile = undefined
+readGraphQLFile fp = do
+  query <- runIO $ do
+    cwd <- getCurrentDir
+    file <- parseRelFile fp
+    readFile (fromAbsFile $ cwd </> [reldir|graphql|] </> file)
+  [| Query $ Text.pack $(lift query) |]
