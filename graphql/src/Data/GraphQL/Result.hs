@@ -10,8 +10,8 @@ Definitions for defining schemas and querying GraphQL results.
 {-# LANGUAGE RankNTypes #-}
 
 module Data.GraphQL.Result
-  ( getterFor
-  , Schema(..)
+  ( Schema(..)
+  , getterFor
   , module Result
   -- * Re-exports
   , QuasiQuoter
@@ -22,6 +22,18 @@ import Data.Text (Text)
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
 
 import Data.GraphQL.Result.Parse as Result
+
+-- | A datatype to represent the schema of a GraphQL result.
+data Schema
+  = SchemaBool
+  | SchemaInt
+  | SchemaDouble
+  | SchemaText
+  | SchemaScalar
+  | forall e. SchemaEnum (GraphQLEnum e => Proxy e)
+  | SchemaMaybe Schema
+  | SchemaList Schema
+  | SchemaObject [(Text, Schema)]
 
 -- | Return a QuasiQuoter that can parse the given schema.
 --
@@ -72,15 +84,3 @@ getterFor _ = QuasiQuoter
   , quoteType = \_ -> error "'get' can only used as an expression"
   , quoteDec = \_ -> error "'get' can only used as an expression"
   }
-
--- | A datatype to represent the schema of a GraphQL result.
-data Schema
-  = SchemaBool
-  | SchemaInt
-  | SchemaDouble
-  | SchemaText
-  | SchemaScalar
-  | forall e. SchemaEnum (GraphQLEnum e => Proxy e)
-  | SchemaMaybe Schema
-  | SchemaList Schema
-  | SchemaObject [(Text, Schema)]
