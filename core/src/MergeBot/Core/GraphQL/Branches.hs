@@ -30,7 +30,7 @@ newtype Result = Result Object
 
 instance HasArgs Result where
   type QueryArgs Result = Args
-  fromArgs _ args = object
+  fromArgs args = object
     [ "repoOwner" .= _repoOwner args
     , "repoName"  .= _repoName args
     , "after"     .= _after args

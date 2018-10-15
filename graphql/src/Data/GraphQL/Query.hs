@@ -9,6 +9,7 @@ Definitions needed by GraphQL queries.
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeFamilyDependencies #-}
 
 module Data.GraphQL.Query
   ( Query
@@ -23,7 +24,6 @@ module Data.GraphQL.Query
 import Data.Aeson (Object, (.=))
 import Data.Aeson.Types (Pair)
 import qualified Data.HashMap.Strict as HashMap
-import Data.Proxy (Proxy)
 import qualified Data.Text as Text
 import Language.Haskell.TH (ExpQ, runIO)
 import Language.Haskell.TH.Syntax (lift)
@@ -38,8 +38,8 @@ object = HashMap.fromList
 
 -- | A type class for GraphQL queries with arguments.
 class HasArgs r where
-  type QueryArgs r
-  fromArgs :: Proxy r -> QueryArgs r -> Object
+  type QueryArgs r = a | a -> r
+  fromArgs :: QueryArgs r -> Object
 
 -- | A temporary function to read a graphql file and output it as a Query.
 --
