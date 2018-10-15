@@ -23,7 +23,7 @@ data Args = Args
   , _after     :: Maybe String
   } deriving (Show)
 
-newtype Result = Result Object
+newtype Result = Result Value
   deriving (Show)
 
 instance HasArgs Result where
@@ -41,7 +41,7 @@ query :: Query Result
 query = $(readGraphQLFile "PullRequests.graphql") -- TODO: when generated, will actually be file contents
 
 get :: QuasiQuoter
-get = getterFor schema
+get = getterFor 'Result schema
 
 schema :: Schema
 schema = SchemaObject

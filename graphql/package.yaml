@@ -13,6 +13,7 @@ dependencies:
   - scientific
   - template-haskell
   - text
+  - th-utilities
   - unordered-containers
   - vector
 

@@ -6,8 +6,8 @@ Portability :  portable
 
 Helpers for parsing GraphQL results.
 -}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 
 module Data.GraphQL.Result.Parse
   ( getBool
@@ -15,10 +15,12 @@ module Data.GraphQL.Result.Parse
   , getDouble
   , getText
   , getScalar
-  , getMaybe
-  , getList
+  , mapMaybe
+  , mapList
   , getObject
-  , atKey
+  , getKey
+  , lookupKey
+  , fromJust
   , GraphQLEnum(..)
   , fromText
   -- * Re-exports
@@ -26,12 +28,14 @@ module Data.GraphQL.Result.Parse
   ) where
 
 import Data.Aeson (Object, Value(..))
-import Data.HashMap.Strict ((!))
+import qualified Data.HashMap.Strict as HashMap
+import qualified Data.Maybe as Maybe
 import Data.Proxy (Proxy(..))
 import Data.Scientific (Scientific, floatingOrInteger)
 import Data.Text (Text)
-import qualified Data.Vector as Vector
 import qualified Data.Text as Text
+import qualified Data.Vector as Vector
+import GHC.Stack (HasCallStack)
 
 -- | Parse a Bool.
 getBool :: Value -> Bool
@@ -50,9 +54,9 @@ getInt = \case
   v -> error $ "Unexpected value (expected Int): " ++ show v
 
 -- | Parse a Double.
-getDouble :: Value -> Int
+getDouble :: Value -> Double
 getDouble = \case
-  Number n | Right d <- floatingOrInteger' n -> d
+  Number n | Left d <- floatingOrInteger' n -> d
   v -> error $ "Unexpected value (expected Double): " ++ show v
 
 -- | Parse a Text.
@@ -68,14 +72,18 @@ getScalar = \case
   v -> error $ "Unexpected value (expected Scalar): " ++ show v
 
 -- | Parse a Maybe value.
-getMaybe :: (Value -> a) -> Value -> Maybe a
-getMaybe f = \case
+getMaybe :: Value -> Maybe Value
+getMaybe = \case
   Null -> Nothing
-  v -> Just $ f v
+  v -> Just v
 
--- | Parse a List.
-getList :: (Value -> a) -> Value -> [a]
-getList f = \case
+-- | Parse a Maybe value, mapping over the wrapped element with the given parser.
+mapMaybe :: (Value -> a) -> Value -> Maybe a
+mapMaybe f = fmap f . getMaybe
+
+-- | Parse a List, mapping over the elements with the given parser.
+mapList :: (Value -> a) -> Value -> [a]
+mapList f = \case
   Array xs -> map f $ Vector.toList xs
   v -> error $ "Unexpected value (expected List): " ++ show v
 
@@ -85,9 +93,17 @@ getObject = \case
   Object o -> o
   v -> error $ "Unexpected value (expected Object): " ++ show v
 
--- | Use the given parser at the given key.
-atKey :: Text -> (Value -> a) -> Object -> a
-atKey key f o = f $ o ! key
+-- | Get the given key from the given Value.
+getKey :: String -> Value -> Value
+getKey key = fromJust . lookupKey key
+
+-- | Lookup the given key from the given Value.
+lookupKey :: String -> Value -> Value
+lookupKey key = Maybe.fromMaybe Null . HashMap.lookup (Text.pack key) . getObject
+
+-- | Data.Maybe.fromJust for JSON Values.
+fromJust :: HasCallStack => Value -> Value
+fromJust = Maybe.fromJust . getMaybe
 
 -- | An alias for Text.unpack.
 fromText :: Text -> String

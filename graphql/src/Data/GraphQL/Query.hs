@@ -17,7 +17,6 @@ module Data.GraphQL.Query
   , readGraphQLFile
   , object
   -- * Re-exports
-  , Object
   , (.=)
   ) where
 
