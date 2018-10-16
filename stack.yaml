@@ -4,3 +4,6 @@ packages:
   - core
   - graphql
   - server
+
+extra-deps:
+  - graphql/example
