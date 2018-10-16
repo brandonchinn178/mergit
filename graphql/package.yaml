@@ -19,3 +19,14 @@ dependencies:
 
 library:
   source-dirs: src
+
+tests:
+  graphql-client-test:
+    source-dirs:  test
+    main:         Main.hs
+    dependencies:
+      - bytestring
+      - graphql-client
+      - tasty
+      - tasty-discover
+      - tasty-golden
