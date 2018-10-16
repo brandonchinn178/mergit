@@ -6,14 +6,22 @@ Portability :  portable
 
 Definitions for defining schemas and querying GraphQL results.
 -}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 module Data.GraphQL.Result
-  ( Schema(..)
+  ( GraphQLResult(..)
+  , GraphQLError(..)
+  , GraphQLErrorLoc(..)
+  , Schema(..)
   , getterFor
   , module Result
   -- * Re-exports
@@ -23,14 +31,16 @@ module Data.GraphQL.Result
 
 import Control.Applicative (many, (<|>))
 import Control.Monad (void)
-import Data.Aeson (Value)
+import Data.Aeson (FromJSON(..), Value, withObject, (.!=), (.:?))
 import Data.Functor (($>))
 import Data.List (intercalate)
+import qualified Data.Maybe as Maybe
 import Data.Proxy (Proxy(..))
 import Data.Text (Text)
 import qualified Data.Text as Text
 import Data.Typeable (Typeable, typeRep)
 import Data.Void (Void)
+import GHC.Generics (Generic)
 import Language.Haskell.TH
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
 import Language.Haskell.TH.Syntax (lift)
@@ -39,6 +49,31 @@ import Text.Megaparsec.Char (alphaNumChar, letterChar, space, string)
 import TH.Utilities (proxyE, typeRepToType)
 
 import Data.GraphQL.Result.Parse as Result
+
+-- | A result of a GraphQL query.
+data GraphQLResult r = GraphQLResult
+  { getErrors :: [GraphQLError]
+  , getResult :: Maybe r
+  } deriving (Show,Functor)
+
+instance FromJSON (GraphQLResult Value) where
+  parseJSON = withObject "GraphQLResult" $ \o ->
+    GraphQLResult
+      <$> o .:? "errors" .!= []
+      <*> o .:? "data"
+
+-- | An error in a GraphQL query.
+data GraphQLError = GraphQLError
+  { message   :: Text
+  , locations :: Maybe [GraphQLErrorLoc]
+  , path      :: Maybe [Value]
+  } deriving (Show,Generic,FromJSON)
+
+-- | A location in an error in a GraphQL query.
+data GraphQLErrorLoc = GraphQLErrorLoc
+  { errorLine :: Int
+  , errorCol  :: Int
+  } deriving (Show,Generic,FromJSON)
 
 -- | A datatype to represent the schema of a GraphQL result.
 data Schema where
@@ -77,20 +112,22 @@ instance Show Schema where
 --
 -- @
 -- {
---     "foo": {                  # SchemaObject
---          "a": 1,              #   SchemaInt
---          "nodes": [           #   SchemaList
---               { "b": true },  #     SchemaObject [("b", SchemaMaybe SchemaBool)]
---               { "b": false },
---               { "b": null },
---          ],
---          "c": "asdf",         #   SchemaText
+--   "data": {
+--     "foo": {              # SchemaObject
+--        "a": 1,            #   SchemaInt
+--        "nodes": [         #   SchemaList
+--           { "b": true },  #     SchemaObject [("b", SchemaMaybe SchemaBool)]
+--           { "b": false },
+--           { "b": null },
+--        ],
+--        "c": "asdf",       #   SchemaText
 --     }
+--   }
 -- }
 -- @
 --
--- If you have a variable named 'result' with the result of the GraphQL query, the quasiquoter can
--- be used in the following way:
+-- If you have a variable named 'result' with the result of the GraphQL query (as a GraphQLResult),
+-- the quasiquoter can be used in the following way:
 --
 -- @
 -- get = getterFor schema -- the above schema
@@ -129,8 +166,12 @@ getterFor resultCon schema = QuasiQuoter
         then newName $ '_':innerResult -- prevent name clash between 'var' and (Result 'result')
         else newName innerResult
       letE
-        -- let (Result result) = var
-        [valD (conP resultCon [varP result]) (normalB $ varE $ mkName var) []]
+        -- let (Result result) = fromJust $ getResult var
+        [ valD
+            (conP resultCon [varP result])
+            (normalB [| Maybe.fromJust $ getResult $(varE $ mkName var) |])
+            []
+        ]
         -- in ... $ result
         $ appE (mkGetter terms schema) $ varE result
   , quotePat = \_ -> error "'get' can only used as an expression"

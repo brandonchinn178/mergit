@@ -8,6 +8,7 @@ import qualified Data.ByteString.Lazy.Char8 as ByteString
 import Test.Tasty
 import Test.Tasty.Golden (goldenVsString)
 
+import Data.GraphQL (GraphQLResult(..))
 import qualified Data.GraphQL.Test.AllTypes as AllTypes
 
 data GoldenResult = forall s. Show s => GoldenResult
@@ -22,7 +23,7 @@ makeGoldenTest GoldenResult{..} = goldenVsString name ("test/goldens/" ++ name +
 
 test_validGetters :: IO [TestTree]
 test_validGetters = do
-  let result = AllTypes.result
+  let result = GraphQLResult [] (Just AllTypes.result)
   return $ map makeGoldenTest
     [ GoldenResult "bool"               [AllTypes.get| result.bool |]
     , GoldenResult "int"                [AllTypes.get| result.int |]

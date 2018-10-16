@@ -34,7 +34,7 @@ instance HasArgs Result where
     , "after"     .= _after args
     ]
 
-instance IsQueryable (QueryT m) Result where
+instance IsQueryable Result where
   execQuery = execQueryFor UnsafeResult
 
 query :: Query Result

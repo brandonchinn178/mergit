@@ -10,6 +10,7 @@ Definitions for monads that can run GraphQL queries.
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeFamilies #-}
 
@@ -21,27 +22,38 @@ module Data.GraphQL.Monad
   , defaultQuerySettings
   , runQueryT
   , execQueryFor
+  -- * Re-exports
+  , MonadIO
   ) where
 
+import Control.Monad.Catch (MonadThrow)
 import Control.Monad.IO.Class (MonadIO(..))
-import Control.Monad.Reader (MonadReader, ReaderT, runReaderT)
-import Data.Aeson (Value)
+import Control.Monad.Reader (MonadReader, ReaderT, ask, runReaderT)
+import Data.Aeson (Value, eitherDecode, encode, object, (.=))
 import Network.HTTP.Client
-    (Manager, ManagerSettings, Request, defaultManagerSettings, newManager)
+    ( Manager
+    , ManagerSettings
+    , Request(..)
+    , RequestBody(..)
+    , httpLbs
+    , newManager
+    , parseUrlThrow
+    , responseBody
+    )
+import Network.HTTP.Client.TLS (tlsManagerSettings)
+import Network.HTTP.Types (hContentType)
 
-import Data.GraphQL.Error (GraphQLError)
-import Data.GraphQL.Query (HasArgs(..), Query)
+import Data.GraphQL.Query (HasArgs(..))
+import Data.GraphQL.Query.Internal (Query(..))
+import Data.GraphQL.Result (GraphQLResult(..))
 
--- | A type class for monads that can run queries for the given type.
---
--- Instances for this type class are typically generated for GraphQL results, for the 'QueryT m'
--- monad.
-class HasArgs r => IsQueryable m r where
-  execQuery :: Query r -> QueryArgs r -> m (Either GraphQLError r)
+-- | A type class for queryable results.
+class HasArgs r => IsQueryable r where
+  execQuery :: MonadIO m => Query r -> QueryArgs r -> QueryT m (GraphQLResult r)
 
 -- | A type class for monads that can run queries.
-class Monad m => MonadQuery m where
-  runQuery :: IsQueryable m r => Query r -> QueryArgs r -> m (Either GraphQLError r)
+class MonadIO m => MonadQuery m where
+  runQuery :: IsQueryable r => Query r -> QueryArgs r -> m (GraphQLResult r)
 
 -- | The monad transformer type that should be used to run GraphQL queries.
 --
@@ -59,24 +71,22 @@ class Monad m => MonadQuery m where
 --           }
 --       }
 -- @
-newtype QueryT m a = QueryT { unQueryT :: ReaderT QuerySettings m a }
+newtype QueryT m a = QueryT { unQueryT :: ReaderT QueryState m a }
   deriving
     ( Functor
     , Applicative
     , Monad
-    , MonadReader QuerySettings
+    , MonadIO
+    , MonadReader QueryState
     )
 
-instance Monad m => MonadQuery (QueryT m) where
-  runQuery :: IsQueryable (QueryT m) r => Query r -> QueryArgs r -> QueryT m (Either GraphQLError r)
+instance MonadIO m => MonadQuery (QueryT m) where
   runQuery = execQuery
 
 -- | The settings for running QueryT.
 data QuerySettings = QuerySettings
-  { manager         :: Maybe Manager
-    -- ^ if none is provided, a new manager will be allocated with runQueryT
-  , managerSettings :: ManagerSettings
-    -- ^ used if 'manager' is Nothing
+  { managerSettings :: ManagerSettings
+    -- ^ Uses TLS by default
   , url             :: String
   , modifyReq       :: Request -> Request
   }
@@ -84,22 +94,40 @@ data QuerySettings = QuerySettings
 -- | Default query settings.
 defaultQuerySettings :: QuerySettings
 defaultQuerySettings = QuerySettings
-  { manager = Nothing
-  , managerSettings = defaultManagerSettings
+  { managerSettings = tlsManagerSettings
   , url = error "No URL is provided"
   , modifyReq = id
   }
 
+-- | The state for running QueryT.
+data QueryState = QueryState
+  { manager :: Manager
+  , baseReq :: Request
+  }
+
 -- | Run a QueryT stack.
-runQueryT :: MonadIO m => QuerySettings -> QueryT m a -> m a
-runQueryT settings@QuerySettings{..} query = do
-  manager' <- liftIO $ maybe (newManager managerSettings) return manager
-  let settings' = settings { manager = Just manager' }
-  (`runReaderT` settings')
+runQueryT :: (MonadThrow m, MonadIO m) => QuerySettings -> QueryT m a -> m a
+runQueryT QuerySettings{..} query = do
+  manager <- liftIO $ newManager managerSettings
+  baseReq <- modifyReq . modifyReq' <$> parseUrlThrow url
+  (`runReaderT` QueryState{..})
     . unQueryT
     $ query
+  where
+    modifyReq' req = req
+      { method = "POST"
+      , requestHeaders = (hContentType, "application/json") : requestHeaders req
+      }
 
 -- | Run the given query within a QueryT.
-execQueryFor :: HasArgs r
-  => (Value -> r) -> Query r -> QueryArgs r -> QueryT m (Either GraphQLError r)
-execQueryFor = undefined
+execQueryFor :: (MonadIO m, HasArgs r)
+  => (Value -> r) -> Query r -> QueryArgs r -> QueryT m (GraphQLResult r)
+execQueryFor fromValue (Query query) args = do
+  QueryState{..} <- ask
+  let requestObject = object
+        [ "query" .= query
+        , "variables" .= fromArgs args
+        ]
+      request = baseReq { requestBody = RequestBodyLBS $ encode requestObject }
+  response <- liftIO $ httpLbs request manager
+  either fail (return . fmap fromValue) $ eitherDecode $ responseBody response
