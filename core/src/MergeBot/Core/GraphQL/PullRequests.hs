@@ -23,7 +23,7 @@ data Args = Args
   , _after     :: Maybe String
   } deriving (Show)
 
-newtype Result = Result Value
+newtype Result = UnsafeResult Value
   deriving (Show)
 
 instance HasArgs Result where
@@ -35,13 +35,13 @@ instance HasArgs Result where
     ]
 
 instance IsQueryable IO Result where
-  execQuery = execQueryIO
+  execQuery = execQueryIO UnsafeResult
 
 query :: Query Result
 query = $(readGraphQLFile "PullRequests.graphql") -- TODO: when generated, will actually be file contents
 
 get :: QuasiQuoter
-get = getterFor 'Result schema
+get = getterFor 'UnsafeResult schema
 
 schema :: Schema
 schema = SchemaObject

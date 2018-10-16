@@ -15,6 +15,8 @@ module Data.GraphQL.Monad
   , execQueryIO
   ) where
 
+import Data.Aeson (Value)
+
 import Data.GraphQL.Error (GraphQLError)
 import Data.GraphQL.Query (HasArgs(..), Query)
 
@@ -34,5 +36,6 @@ class Monad m => MonadQuery m where
   runQuery :: IsQueryable m r => Query r -> QueryArgs r -> m (Either GraphQLError r)
 
 -- | Run the given query against the given URL and return the result.
-execQueryIO :: HasArgs r => String -> Query r -> QueryArgs r -> IO (Either GraphQLError r)
+execQueryIO :: HasArgs r
+  => (Value -> r) -> String -> Query r -> QueryArgs r -> IO (Either GraphQLError r)
 execQueryIO = undefined
