@@ -34,8 +34,8 @@ instance HasArgs Result where
     , "after"     .= _after args
     ]
 
-instance IsQueryable IO Result where
-  execQuery = execQueryIO UnsafeResult
+instance IsQueryable (QueryT m) Result where
+  execQuery = execQueryFor UnsafeResult
 
 query :: Query Result
 query = $(readGraphQLFile "PullRequests.graphql") -- TODO: when generated, will actually be file contents
