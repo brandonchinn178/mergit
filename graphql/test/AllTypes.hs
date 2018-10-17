@@ -19,7 +19,7 @@ instance GraphQLEnum Greeting where
     "GOODBYE" -> GreetingGOODBYE
     s -> error $ "Invalid Greeting: " ++ s
 
-newtype Result = Result Value
+newtype Result = UnsafeResult Value
 
 schema :: Schema
 schema = SchemaObject
@@ -41,10 +41,10 @@ schema = SchemaObject
   ]
 
 get :: QuasiQuoter
-get = getterFor 'Result schema
+get = getterFor 'UnsafeResult schema
 
 result :: Result
 result = $(do
   obj <- runIO $ decodeFileStrict "test/all_types.json"
-  [| Result $(lift $ Maybe.fromJust (obj :: Maybe Value)) |]
+  [| UnsafeResult $(lift $ Maybe.fromJust (obj :: Maybe Value)) |]
   )
