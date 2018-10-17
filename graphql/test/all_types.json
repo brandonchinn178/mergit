@@ -16,7 +16,11 @@
         },
         {
             "type": "int",
-            "maybeInt": null
+            "maybeInt": 2
+        },
+        {
+            "type": "null",
+            "maybeNull": null
         }
     ]
 }

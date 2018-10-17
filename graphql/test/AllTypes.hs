@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-module Data.GraphQL.Test.AllTypes where
+module AllTypes where
 
 import Data.Aeson (decodeFileStrict)
 import qualified Data.Maybe as Maybe
@@ -35,7 +35,7 @@ schema = SchemaObject
       [ ("type", SchemaText)
       , ("maybeBool", SchemaMaybe SchemaBool)
       , ("maybeInt", SchemaMaybe SchemaInt)
-      , ("maybeDouble", SchemaMaybe SchemaDouble)
+      , ("maybeNull", SchemaMaybe SchemaBool)
       ]
     )
   ]
@@ -45,6 +45,6 @@ get = getterFor 'Result schema
 
 result :: Result
 result = $(do
-  obj <- runIO $ decodeFileStrict "test/testdata/all_types.json"
+  obj <- runIO $ decodeFileStrict "test/all_types.json"
   [| Result $(lift $ Maybe.fromJust (obj :: Maybe Value)) |]
   )
