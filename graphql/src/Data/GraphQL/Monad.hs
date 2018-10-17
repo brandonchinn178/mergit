@@ -18,7 +18,7 @@ Definitions for monads that can run GraphQL queries.
 module Data.GraphQL.Monad
   ( IsQueryable(..)
   , MonadQuery(..)
-  , QueryT(..)
+  , QueryT
   , QuerySettings(..)
   , defaultQuerySettings
   , runQueryT
@@ -66,7 +66,7 @@ class MonadIO m => MonadQuery m where
 --   where
 --     querySettings = defaultQuerySettings
 --       { url = "https://api.github.com/graphql"
---       , modifyReq = \req -> req
+--       , modifyReq = \\req -> req
 --           { requestHeaders =
 --               (hAuthorization, "bearer my_github_token") : requestHeaders req
 --           }
@@ -91,6 +91,7 @@ data QuerySettings = QuerySettings
   , url             :: String
   , modifyReq       :: Request -> Request
   , mockResponse    :: Maybe (Text -> Object -> Value)
+    -- ^ Instead of querying an API, use the given function to mock the response
   }
 
 -- | Default query settings.
