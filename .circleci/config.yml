@@ -25,6 +25,8 @@ aliases:
           hpack.yaml
           core/package.yaml
           server/package.yaml
+          graphql/package.yaml
+          graphql/example/package.yaml
           scripts/install-stack-deps.sh
         )
         cat "${FILES[@]}" > cache-key.txt
@@ -62,10 +64,6 @@ aliases:
     run:
       name: Run the graphql example
       command: stack exec graphql-example
-  - &test-example
-    run:
-      name: Run the graphql example tests
-      command: stack test graphql-example
 
 jobs:
   prebuild:
@@ -89,18 +87,19 @@ jobs:
       - restore_cache:
           key: *cache-key
       - *install-stack-deps
-      - *run-build
       - save_cache:
           key: *cache-key
           paths:
             - ~/.stack
             - .stack-work
+      - *run-build
       - persist_to_workspace:
           root: .
           paths:
             - .stack-work
             - core/.stack-work
             - graphql/.stack-work
+            - graphql/example/.stack-work
             - server/.stack-work
 
   lint:
@@ -126,7 +125,6 @@ jobs:
           key: *cache-key
       - *run-tests
       - *run-example
-      - *test-example
 
 workflows:
   version: 2
