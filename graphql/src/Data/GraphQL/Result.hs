@@ -62,9 +62,11 @@ instance FromJSON (GraphQLResult Value) where
       <$> o .:? "errors" .!= []
       <*> o .:? "data"
 
+-- | Get the errors in the @GraphQLResult@.
 getErrors :: GraphQLResult r -> [GraphQLError]
 getErrors = resultErrors
 
+-- | Get the result of the @GraphQLResult@.
 getResult :: GraphQLResult r -> Maybe r
 getResult = resultResult
 
@@ -153,17 +155,32 @@ type GetterData = [(String, Schema)]
 --     * @x[]!@ calls @fromJust@ on all values in @x@
 --
 -- * @> name@ is only valid at the end of a getter for a value containing an @Object@. Stores the
---   schema of the contained @Object@ for subsequent queries.
+--   schema of the contained @Object@ for subsequent queries. After storing the schema for @name@,
+--   the schema can be used as normal: @[get| name.bar.etc |]@.
 --
---     * @name@ needs to match the name of the value being queried; e.g. the following won't work:
+--     * @name@ needs to match the name of the value being queried. The following won't work:
 --
---     @
---     let nodes = [get| result.foo.nodes[] > node |]
---         bs = flip map nodes $ \n -> fromMaybe True [get| n.b |]
---                             -- ^ 'n' /= 'node'
---     @
+--         @
+--         let nodes = [get| result.foo.nodes[] > node |]
+--             bs = flip map nodes $ \\n -> fromMaybe True [get| n.b |]
+--                                                           -- ^ BAD: 'n' /= 'node'
+--         @
 --
---     That example will try to parse @n@ with the full schema.
+--         That example will try to parse @n@ with the full @Result@ schema.
+--
+--     * @> name@ needs to run before using @name@. The following won't work:
+--
+--         @
+--         do
+--           result <- runQuery ...
+--           let nodes = [get| result.foo.nodes[] > node |]
+--           return $ map fromNode nodes
+--         where
+--           fromNode node = [get| node.b |]
+--         @
+--
+--         That example won't know about @> node@ before compiling @fromNode@, so @node@ in @fromNode@
+--         will be parsed with the full @Result@ schema as well.
 getterFor :: Name -> Schema -> QuasiQuoter
 getterFor resultCon fullSchema = QuasiQuoter
   { quoteExp = \s -> do
