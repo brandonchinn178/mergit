@@ -30,6 +30,8 @@ import GHC.Generics (Generic)
 
 type PullRequestId = Int
 
+type HTML = Text
+
 -- | A pull request as displayed in the pull request list.
 data PullRequest = PullRequest
   { number  :: !PullRequestId
@@ -48,7 +50,7 @@ data PullRequestDetail = PullRequestDetail
   , created    :: !UTCTime
   , updated    :: !UTCTime
   , url        :: !Text
-  , body       :: !(Maybe Text)
+  , body       :: !HTML
   , commit     :: !Text
   , base       :: !Text
   , approved   :: !Bool
@@ -94,11 +96,9 @@ data MergeStatus = MergeRunning | MergeFailed
   deriving (Show,Generic,ToJSON)
 
 -- | The status of a CI job.
-data JobStatus = CISuccess | CIRunning | CIFailed
+data JobStatus = CISuccess | CIRunning | CIWaiting | CIFailed
   deriving (Show,Generic,ToJSON)
 
 -- | The status of CI for a pull request.
-data CIStatus = CIStatus
-  { label  :: !Text
-  , status :: !JobStatus
-  } deriving (Show,Generic,ToJSON)
+newtype CIStatus = CIStatus [(Text, JobStatus)]
+  deriving (Show,Generic,ToJSON)
