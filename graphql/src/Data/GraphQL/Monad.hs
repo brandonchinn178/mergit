@@ -6,6 +6,7 @@ Portability :  portable
 
 Definitions for monads that can run GraphQL queries.
 -}
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE InstanceSigs #-}
@@ -26,10 +27,10 @@ module Data.GraphQL.Monad
   , MonadIO
   ) where
 
-import Control.Monad.Catch (MonadThrow)
 import Control.Monad.IO.Class (MonadIO(..))
 import Control.Monad.Reader (MonadReader, ReaderT, ask, runReaderT)
-import Data.Aeson (Value, eitherDecode, encode, object, (.=))
+import Data.Aeson (Object, Value(..), eitherDecode, encode, object, (.=))
+import Data.Text (Text)
 import Network.HTTP.Client
     ( Manager
     , ManagerSettings
@@ -89,6 +90,7 @@ data QuerySettings = QuerySettings
     -- ^ Uses TLS by default
   , url             :: String
   , modifyReq       :: Request -> Request
+  , mockResponse    :: Maybe (Text -> Object -> Value)
   }
 
 -- | Default query settings.
@@ -97,20 +99,27 @@ defaultQuerySettings = QuerySettings
   { managerSettings = tlsManagerSettings
   , url = error "No URL is provided"
   , modifyReq = id
+  , mockResponse = Nothing
   }
 
 -- | The state for running QueryT.
-data QueryState = QueryState
-  { manager :: Manager
-  , baseReq :: Request
-  }
+data QueryState
+  = QueryState
+      { manager :: Manager
+      , baseReq :: Request
+      }
+  | QueryMockState (Text -> Object -> Value)
 
 -- | Run a QueryT stack.
-runQueryT :: (MonadThrow m, MonadIO m) => QuerySettings -> QueryT m a -> m a
+runQueryT :: MonadIO m => QuerySettings -> QueryT m a -> m a
 runQueryT QuerySettings{..} query = do
-  manager <- liftIO $ newManager managerSettings
-  baseReq <- modifyReq . modifyReq' <$> parseUrlThrow url
-  (`runReaderT` QueryState{..})
+  state <- case mockResponse of
+    Nothing -> liftIO $ do
+      manager <- newManager managerSettings
+      baseReq <- modifyReq . modifyReq' <$> parseUrlThrow url
+      return QueryState{..}
+    Just mockResp -> return $ QueryMockState mockResp
+  (`runReaderT` state)
     . unQueryT
     $ query
   where
@@ -123,11 +132,16 @@ runQueryT QuerySettings{..} query = do
 execQueryFor :: (MonadIO m, HasArgs r)
   => (Value -> r) -> Query r -> QueryArgs r -> QueryT m (GraphQLResult r)
 execQueryFor fromValue (Query query) args = do
-  QueryState{..} <- ask
-  let requestObject = object
-        [ "query" .= query
-        , "variables" .= fromArgs args
-        ]
-      request = baseReq { requestBody = RequestBodyLBS $ encode requestObject }
-  response <- liftIO $ httpLbs request manager
-  either fail (return . fmap fromValue) $ eitherDecode $ responseBody response
+  state <- ask
+  fmap (fmap fromValue) $ case state of
+    QueryState{..} ->
+      let request = baseReq { requestBody = body }
+      in liftIO $ decodeResponse =<< httpLbs request manager
+    QueryMockState f ->
+      return $ GraphQLResult [] $ Just $ f query $ fromArgs args
+  where
+    body = RequestBodyLBS $ encode $ object
+      [ "query" .= query
+      , "variables" .= fromArgs args
+      ]
+    decodeResponse = either fail return . eitherDecode . responseBody

@@ -7,7 +7,6 @@ version: 0.1.0
 dependencies:
   - aeson
   - base
-  - exceptions
   - http-client
   - http-client-tls
   - http-types
