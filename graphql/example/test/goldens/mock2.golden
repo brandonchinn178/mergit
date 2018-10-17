@@ -1,0 +1,1 @@
+fromList [(NorthAmerica,["Bar"]),(SouthAmerica,["Quux","Baz"])]

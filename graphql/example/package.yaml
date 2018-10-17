@@ -16,6 +16,16 @@ library:
 executable:
   source-dirs:    exe
   main:           Main.hs
-  other-modules:  []
   dependencies:
     - graphql-example
+
+tests:
+  graphql-example-test:
+    source-dirs:  test
+    main:         Test.hs
+    dependencies:
+      - aeson-qq
+      - bytestring
+      - graphql-example
+      - tasty
+      - tasty-golden

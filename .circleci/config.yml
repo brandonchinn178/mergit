@@ -44,10 +44,6 @@ aliases:
     run:
       name: Build package
       command: stack build --test --no-run-tests
-  - &build-example
-    run:
-      name: Build the graphql example
-      command: stack build graphql-example --test --no-run-tests
 
   # test steps
   - &run-hlint
@@ -66,6 +62,10 @@ aliases:
     run:
       name: Run the graphql example
       command: stack exec graphql-example
+  - &test-example
+    run:
+      name: Run the graphql example tests
+      command: stack test graphql-example
 
 jobs:
   prebuild:
@@ -90,7 +90,6 @@ jobs:
           key: *cache-key
       - *install-stack-deps
       - *run-build
-      - *build-example
       - save_cache:
           key: *cache-key
           paths:
@@ -127,6 +126,7 @@ jobs:
           key: *cache-key
       - *run-tests
       - *run-example
+      - *test-example
 
 workflows:
   version: 2
