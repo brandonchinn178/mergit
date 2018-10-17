@@ -2,4 +2,6 @@ resolver: lts-12.2
 
 packages:
   - core
+  - graphql
+  - graphql/example
   - server

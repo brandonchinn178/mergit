@@ -1,0 +1,31 @@
+defaults:
+  local: ../../hpack.yaml
+
+name: graphql-example
+version: 0.1.0
+
+dependencies:
+  - base
+  - containers
+  - graphql-client
+  - text
+
+library:
+  source-dirs: src
+
+executable:
+  source-dirs:    exe
+  main:           Main.hs
+  dependencies:
+    - graphql-example
+
+tests:
+  graphql-example-test:
+    source-dirs:  test
+    main:         Test.hs
+    dependencies:
+      - aeson-qq
+      - bytestring
+      - graphql-example
+      - tasty
+      - tasty-golden

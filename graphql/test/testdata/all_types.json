@@ -1,0 +1,22 @@
+{
+    "bool": true,
+    "int": 1,
+    "double": 2.5,
+    "text": "asdf",
+    "scalar": "2018-08-03T21:51:32Z",
+    "enum": "HELLO",
+    "maybeNull": null,
+    "maybeObject": {
+        "text": "foo"
+    },
+    "list": [
+        {
+            "type": "bool",
+            "maybeBool": true
+        },
+        {
+            "type": "int",
+            "maybeInt": null
+        }
+    ]
+}

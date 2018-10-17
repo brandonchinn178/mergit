@@ -25,11 +25,13 @@ aliases:
           hpack.yaml
           core/package.yaml
           server/package.yaml
+          graphql/package.yaml
+          graphql/example/package.yaml
           scripts/install-stack-deps.sh
         )
         cat "${FILES[@]}" > cache-key.txt
   - &cache-key
-    v2-{{ checksum "cache-key.txt" }}
+    v0-{{ checksum "cache-key.txt" }}
   - &install-system-deps
     run:
       name: Install system dependencies
@@ -54,6 +56,14 @@ aliases:
     run:
       name: Run stylish-haskell
       command: scripts/stylish-haskell.sh
+  - &run-tests
+    run:
+      name: Run tests
+      command: stack test
+  - &run-example
+    run:
+      name: Run the graphql example
+      command: stack exec graphql-example
 
 jobs:
   prebuild:
@@ -86,9 +96,13 @@ jobs:
       - persist_to_workspace:
           root: .
           paths:
-              - .stack-work
+            - .stack-work
+            - core/.stack-work
+            - graphql/.stack-work
+            - graphql/example/.stack-work
+            - server/.stack-work
 
-  hlint:
+  lint:
     <<: *docker-linux
     steps:
       - checkout
@@ -98,8 +112,9 @@ jobs:
       - restore_cache:
           key: *cache-key
       - *run-hlint
+      - *run-stylish-haskell
 
-  stylish-haskell:
+  test:
     <<: *docker-linux
     steps:
       - checkout
@@ -108,7 +123,8 @@ jobs:
       - *install-stack
       - restore_cache:
           key: *cache-key
-      - *run-stylish-haskell
+      - *run-tests
+      - *run-example
 
 workflows:
   version: 2
@@ -119,9 +135,9 @@ workflows:
       - build:
           requires:
             - prebuild
-      - hlint:
+      - lint:
           requires:
             - build
-      - stylish-haskell:
+      - test:
           requires:
             - build

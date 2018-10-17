@@ -1,0 +1,36 @@
+defaults:
+  local: ../hpack.yaml
+
+name: graphql-client
+version: 0.1.0
+
+dependencies:
+  - aeson
+  - base
+  - http-client
+  - http-client-tls
+  - http-types
+  - megaparsec
+  - mtl
+  - path
+  - path-io
+  - scientific
+  - template-haskell
+  - text
+  - th-utilities
+  - unordered-containers
+  - vector
+
+library:
+  source-dirs: src
+
+tests:
+  graphql-client-test:
+    source-dirs:  test
+    main:         Main.hs
+    dependencies:
+      - bytestring
+      - graphql-client
+      - tasty
+      - tasty-discover
+      - tasty-golden
