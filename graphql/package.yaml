@@ -32,5 +32,4 @@ tests:
       - bytestring
       - graphql-client
       - tasty
-      - tasty-discover
       - tasty-golden

@@ -22,7 +22,7 @@ executable:
 tests:
   graphql-example-test:
     source-dirs:  test
-    main:         Test.hs
+    main:         Main.hs
     dependencies:
       - aeson-qq
       - bytestring

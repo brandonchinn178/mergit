@@ -18,9 +18,9 @@ Definitions for defining schemas and querying GraphQL results.
 {-# LANGUAGE TemplateHaskell #-}
 
 module Data.GraphQL.Result
-  ( GraphQLResult(..)
-  , GraphQLError(..)
-  , GraphQLErrorLoc(..)
+  ( GraphQLResult
+  , getErrors
+  , getResult
   , Schema(..)
   , getterFor
   , module Result
@@ -31,29 +31,29 @@ module Data.GraphQL.Result
 
 import Control.Applicative (many, (<|>))
 import Control.Monad (void)
-import Data.Aeson (FromJSON(..), Value, withObject, (.!=), (.:?))
+import Data.Aeson (FromJSON(..), Value(..), withObject, (.!=), (.:?))
 import Data.Functor (($>))
 import Data.List (intercalate)
-import qualified Data.Maybe as Maybe
+import Data.Maybe (fromMaybe, isNothing)
 import Data.Proxy (Proxy(..))
 import Data.Text (Text)
 import qualified Data.Text as Text
 import Data.Typeable (Typeable, typeRep)
 import Data.Void (Void)
-import GHC.Generics (Generic)
 import Language.Haskell.TH
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
-import Language.Haskell.TH.Syntax (lift)
+import Language.Haskell.TH.Syntax (getQ, lift, putQ)
 import Text.Megaparsec (Parsec, eof, parseErrorPretty, runParser)
-import Text.Megaparsec.Char (alphaNumChar, letterChar, space, string)
+import Text.Megaparsec.Char (alphaNumChar, char, lowerChar, space, string)
 import TH.Utilities (proxyE, typeRepToType)
 
+import Data.GraphQL.Error (GraphQLError)
 import Data.GraphQL.Result.Parse as Result
 
 -- | A result of a GraphQL query.
 data GraphQLResult r = GraphQLResult
-  { getErrors :: [GraphQLError]
-  , getResult :: Maybe r
+  { resultErrors :: [GraphQLError]
+  , resultResult :: Maybe r
   } deriving (Show,Functor)
 
 instance FromJSON (GraphQLResult Value) where
@@ -62,18 +62,13 @@ instance FromJSON (GraphQLResult Value) where
       <$> o .:? "errors" .!= []
       <*> o .:? "data"
 
--- | An error in a GraphQL query.
-data GraphQLError = GraphQLError
-  { message   :: Text
-  , locations :: Maybe [GraphQLErrorLoc]
-  , path      :: Maybe [Value]
-  } deriving (Show,Generic,FromJSON)
+-- | Get the errors in the @GraphQLResult@.
+getErrors :: GraphQLResult r -> [GraphQLError]
+getErrors = resultErrors
 
--- | A location in an error in a GraphQL query.
-data GraphQLErrorLoc = GraphQLErrorLoc
-  { errorLine :: Int
-  , errorCol  :: Int
-  } deriving (Show,Generic,FromJSON)
+-- | Get the result of the @GraphQLResult@.
+getResult :: GraphQLResult r -> Maybe r
+getResult = resultResult
 
 -- | A datatype to represent the schema of a GraphQL result.
 data Schema where
@@ -106,27 +101,27 @@ instance Show Schema where
           else "SchemaObject{..}"
       showField (name, field) = Text.unpack name ++ "=" ++ showSchema False field
 
+type GetterData = [(String, Schema)]
+
 -- | Return a QuasiQuoter that can parse the given schema.
 --
 -- For example, with the given result and schema:
 --
 -- @
 -- {
---   "data": {
---     "foo": {              # SchemaObject
---        "a": 1,            #   SchemaInt
---        "nodes": [         #   SchemaList
---           { "b": true },  #     SchemaObject [("b", SchemaMaybe SchemaBool)]
---           { "b": false },
---           { "b": null },
---        ],
---        "c": "asdf",       #   SchemaText
---     }
+--   "foo": {              # SchemaObject
+--      "a": 1,            #   SchemaInt
+--      "nodes": [         #   SchemaList
+--         { "b": true },  #     SchemaObject [("b", SchemaMaybe SchemaBool)]
+--         { "b": false },
+--         { "b": null },
+--      ],
+--      "c": "asdf",       #   SchemaText
 --   }
 -- }
 -- @
 --
--- If you have a variable named 'result' with the result of the GraphQL query (as a GraphQLResult),
+-- If you have a variable named 'result' with the result of the GraphQL query,
 -- the quasiquoter can be used in the following way:
 --
 -- @
@@ -136,51 +131,123 @@ instance Show Schema where
 -- [get| result.foo.nodes |]      :: [Object]
 -- [get| result.foo.nodes[] |]    :: [Object]
 -- [get| result.foo.nodes[].b |]  :: [Maybe Bool]
--- [get| result.foo.nodes[].b! |] :: [Bool]
+-- [get| result.foo.nodes[].b! |] :: [Bool]       -- will error at {"b": null}
 -- [get| result.foo.c |]          :: Text
+--
+-- let nodes = [get| result.foo.nodes[] > node |]
+--     bs = flip map nodes $ \node -> fromMaybe True [get| node.b |]
 -- @
 --
--- Rules:
+-- The QuasiQuoter follows the given rules:
 --
--- * 'x' returns the value of 'x'
+-- * @x@ returns the value of @x@
 --
---     * Returns the value of 'x'
---     * Will be 'Maybe' if 'x' is within an inline fragment
---
--- * 'x.y' is only valid if 'x' is an 'Object' or a 'Maybe Object'. Returns the value of the key 'y'
+-- * @x.y@ is only valid if @x@ is an @Object@ or a @Maybe Object@. Returns the value of the key @y@
 --   in the Object(s).
 --
--- * 'x!' is only valid if 'x' is a 'Maybe'. Calls 'fromJust' on 'x'.
+-- * @x!@ is only valid if @x@ is a @Maybe@. Calls @fromJust@ on @x@.
 --
--- * 'x[]' is only valid if 'x' is [t]. Applies remaining rules as an fmap over the values of 'x'.
+-- * @x[]@ is only valid if @x@ is @[t]@. Applies remaining rules as an @fmap@ over the values of
+--   @x@. Examples:
 --
---     * 'x[]' without anything after is equivalent to 'x'
---     * 'x[].y' gets the key 'y' in all the objects in 'x'
---     * 'x[]!' calls `fromJust` on all values in 'x'
+--     * @x[]@ without anything after is equivalent to @x@
+--     * @x[].y@ gets the key @y@ in all the objects in @x@
+--     * @x[]!@ calls @fromJust@ on all values in @x@
+--
+-- * @> name@ is only valid at the end of a getter for a value containing an @Object@. Stores the
+--   schema of the contained @Object@ for subsequent queries. After storing the schema for @name@,
+--   the schema can be used as normal: @[get| name.bar.etc |]@.
+--
+--     * @name@ needs to match the name of the value being queried. The following won't work:
+--
+--         @
+--         let nodes = [get| result.foo.nodes[] > node |]
+--             bs = flip map nodes $ \\n -> fromMaybe True [get| n.b |]
+--                                                           -- ^ BAD: 'n' /= 'node'
+--         @
+--
+--         That example will try to parse @n@ with the full @Result@ schema.
+--
+--     * @> name@ needs to run before using @name@. The following won't work:
+--
+--         @
+--         do
+--           result <- runQuery ...
+--           let nodes = [get| result.foo.nodes[] > node |]
+--           return $ map fromNode nodes
+--         where
+--           fromNode node = [get| node.b |]
+--         @
+--
+--         That example won't know about @> node@ before compiling @fromNode@, so @node@ in @fromNode@
+--         will be parsed with the full @Result@ schema as well.
 getterFor :: Name -> Schema -> QuasiQuoter
-getterFor resultCon schema = QuasiQuoter
+getterFor resultCon fullSchema = QuasiQuoter
   { quoteExp = \s -> do
       GetterExpr{..} <- parse getterExpr s
       let innerResult = "result"
+          varExp = varE $ mkName var
       result <- if var == innerResult
         then newName $ '_':innerResult -- prevent name clash between 'var' and (Result 'result')
         else newName innerResult
-      letE
-        -- let (Result result) = fromJust $ getResult var
-        [ valD
-            (conP resultCon [varP result])
-            (normalB [| Maybe.fromJust $ getResult $(varE $ mkName var) |])
-            []
-        ]
-        -- in ... $ result
-        $ appE (mkGetter terms schema) $ varE result
+
+      getterData <- fromMaybe [] <$> getQ :: Q GetterData
+      let varSchema = lookup var getterData
+          initialSchema = fromMaybe fullSchema varSchema
+          (getterFunc, finalSchema) = mkGetter terms initialSchema
+          letDecl = if isNothing varSchema
+            -- let (UnsafeResult result) = var
+            then valD (conP resultCon [varP result]) (normalB varExp) []
+            -- let result = Object var
+            else valD (varP result) (normalB [| Object $varExp |]) []
+          -- in ... $ result
+          letExpr = appE getterFunc $ varE result
+
+      case keep of
+        Nothing -> return ()
+        Just name -> putQ $
+          -- undefined behavior if 'name' already exists in GetterData
+          (name, getObjectSchema finalSchema) : getterData
+
+      letE [letDecl] letExpr
   , quotePat = \_ -> error "'get' can only used as an expression"
   , quoteType = \_ -> error "'get' can only used as an expression"
   , quoteDec = \_ -> error "'get' can only used as an expression"
   }
   where
     parse p s = either (fail . parseErrorPretty) return $ runParser p s s
-    mkGetter [] schema' = case schema' of
+    mkGetter [] schema' = (getFinalizer schema', schema')
+    mkGetter (term:terms) schema' = case term of
+      GetterKey key -> case schema' of
+        SchemaObject fields ->
+          case lookup (Text.pack key) fields of
+            Just field ->
+              let (f, final) = mkGetter terms field
+                  expr = case field of
+                    SchemaMaybe _ ->[| $f . lookupKey $(lift key) |]
+                    _ -> [| $f . getKey $(lift key) |]
+              in (expr, final)
+            Nothing -> error $
+              "Invalid key: " ++ key ++ ". Possible keys: " ++
+              intercalate ", " (map (Text.unpack . fst) fields)
+        SchemaMaybe inner ->
+          let (f, final) = mkGetter (term:terms) inner
+              expr = [| ($f `mapMaybe`) |]
+          in (expr, final)
+        _ -> error $ "Cannot get key '" ++ key ++ "' at schema " ++ show schema'
+      GetterBang -> case schema' of
+        SchemaMaybe inner ->
+          let (f, final) = mkGetter terms inner
+              expr = [| $f . fromJust |]
+          in (expr, final)
+        _ -> error $ "Cannot use the '!' operator on the schema " ++ show schema'
+      GetterList -> case schema' of
+        SchemaList inner ->
+          let (f, final) = mkGetter terms inner
+              expr = [| ($f `mapList`) |]
+          in (expr, final)
+        _ -> error $ "Cannot use the '[]' operator on the schema " ++ show schema'
+    getFinalizer = \case
       SchemaBool -> [| getBool |]
       SchemaInt -> [| getInt |]
       SchemaDouble -> [| getDouble |]
@@ -189,33 +256,21 @@ getterFor resultCon schema = QuasiQuoter
       SchemaEnum proxy ->
         let proxyType = typeRep proxy
         in [| getEnum $(proxyE $ typeRepToType proxyType) . getText |]
-      SchemaMaybe inner -> [| mapMaybe $(mkGetter [] inner) |]
-      SchemaList inner -> [| mapList $(mkGetter [] inner) |]
+      SchemaMaybe inner -> [| mapMaybe $(getFinalizer inner) |]
+      SchemaList inner -> [| mapList $(getFinalizer inner) |]
       SchemaObject _ -> [| getObject |]
-    mkGetter (term:terms) schema' = case term of
-      GetterKey key -> case schema' of
-        SchemaObject fields ->
-          case lookup (Text.pack key) fields of
-            Just field -> case field of
-              SchemaMaybe _ -> [| $(mkGetter terms field) . lookupKey $(lift key) |]
-              _ -> [| $(mkGetter terms field) . getKey $(lift key) |]
-            Nothing -> fail $
-              "Invalid key: " ++ key ++ ". Possible keys: " ++
-              intercalate ", " (map (Text.unpack . fst) fields)
-        SchemaMaybe inner -> [| ($(mkGetter (term:terms) inner) `mapMaybe`) |]
-        _ -> fail $ "Cannot get key '" ++ key ++ "' at schema " ++ show schema'
-      GetterBang -> case schema' of
-        SchemaMaybe inner -> [| $(mkGetter terms inner) . fromJust |]
-        _ -> fail $ "Cannot use the '!' operator on the schema " ++ show schema'
-      GetterList -> case schema' of
-        SchemaList inner -> [| ($(mkGetter terms inner) `mapList`) |]
-        _ -> fail $ "Cannot use the '[]' operator on the schema " ++ show schema'
+    getObjectSchema = \case
+      SchemaMaybe inner -> getObjectSchema inner
+      SchemaList inner -> getObjectSchema inner
+      schema'@(SchemaObject _) -> schema'
+      schema' -> error $ "Cannot store schema " ++ show schema'
 
 {- Parser for getter quasiquotes -}
 
 data GetterExpr = GetterExpr
   { var   :: String
   , terms :: [GetterTerm]
+  , keep  :: Maybe String
   } deriving (Show)
 
 data GetterTerm
@@ -227,13 +282,15 @@ data GetterTerm
 type Parser = Parsec Void String
 
 identifier :: Parser String
-identifier = (:) <$> letterChar <*> many alphaNumChar
+identifier = (:) <$> lowerChar <*> many (alphaNumChar <|> char '\'')
 
 getterExpr :: Parser GetterExpr
 getterExpr = do
   space
   var <- identifier
   terms <- many getterTerm
+  space
+  keep <- (string ">" *> space *> fmap Just identifier) <|> pure Nothing
   space
   void eof
   return GetterExpr{..}

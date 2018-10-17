@@ -44,9 +44,19 @@ fromCode = \case
   "OC" -> Oceania
   code -> error $ "Invalid code: " ++ show code
 
-getCountries :: App (Map Continent [Text])
+getCountries :: App [Text]
 getCountries = do
   result <- runQuery Countries.query Countries.Args
-  let names = [Countries.get| result.countries[].name |]
-      codes = [Countries.get| result.countries[].continent.code |]
-  return $ Map.fromListWith (++) $ zip (map fromCode codes) (map (:[]) names)
+  return [Countries.get| result.countries[].name |]
+
+getContinents :: App (Map Continent [Text])
+getContinents = do
+  result <- runQuery Countries.query Countries.Args
+  let countries = [Countries.get| result.countries[] > country |]
+      fromCountry country =
+        ( fromCode [Countries.get| country.continent.code |]
+        , [Countries.get| country.name |]
+        )
+  return . Map.fromListWith (++) . map (listSnd . fromCountry) $ countries
+  where
+    listSnd (a, b) = (a, [b])
