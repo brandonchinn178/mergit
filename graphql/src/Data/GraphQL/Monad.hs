@@ -18,6 +18,7 @@ Definitions for monads that can run GraphQL queries.
 module Data.GraphQL.Monad
   ( IsQueryable(..)
   , MonadQuery(..)
+  , runQuery
   , QueryT
   , QuerySettings(..)
   , defaultQuerySettings
@@ -27,9 +28,11 @@ module Data.GraphQL.Monad
   , MonadIO
   ) where
 
+import Control.Exception (throwIO)
 import Control.Monad.IO.Class (MonadIO(..))
 import Control.Monad.Reader (MonadReader, ReaderT, ask, runReaderT)
 import Data.Aeson (Object, Value(..), eitherDecode, encode, object, (.=))
+import Data.Maybe (fromJust)
 import Data.Text (Text)
 import Network.HTTP.Client
     ( Manager
@@ -44,9 +47,10 @@ import Network.HTTP.Client
 import Network.HTTP.Client.TLS (tlsManagerSettings)
 import Network.HTTP.Types (hContentType)
 
+import Data.GraphQL.Error (GraphQLError, GraphQLException(..))
 import Data.GraphQL.Query (HasArgs(..))
 import Data.GraphQL.Query.Internal (Query(..))
-import Data.GraphQL.Result (GraphQLResult(..))
+import Data.GraphQL.Result (GraphQLResult, getErrors, getResult)
 
 -- | A type class for queryable results.
 class HasArgs r => IsQueryable r where
@@ -54,7 +58,15 @@ class HasArgs r => IsQueryable r where
 
 -- | A type class for monads that can run queries.
 class MonadIO m => MonadQuery m where
-  runQuery :: IsQueryable r => Query r -> QueryArgs r -> m (GraphQLResult r)
+  runQuerySafe :: IsQueryable r => Query r -> QueryArgs r -> m (GraphQLResult r)
+
+-- | Runs the given query and returns the result, erroring if the query returned errors.
+runQuery :: (MonadQuery m, IsQueryable r) => Query r -> QueryArgs r -> m r
+runQuery query args = do
+  result <- runQuerySafe query args
+  case getErrors result of
+    [] -> return $ fromJust $ getResult result
+    errors -> liftIO $ throwIO $ GraphQLException errors
 
 -- | The monad transformer type that should be used to run GraphQL queries.
 --
@@ -82,7 +94,7 @@ newtype QueryT m a = QueryT { unQueryT :: ReaderT QueryState m a }
     )
 
 instance MonadIO m => MonadQuery (QueryT m) where
-  runQuery = execQuery
+  runQuerySafe = execQuery
 
 -- | The settings for running QueryT.
 data QuerySettings = QuerySettings
@@ -134,15 +146,18 @@ execQueryFor :: (MonadIO m, HasArgs r)
   => (Value -> r) -> Query r -> QueryArgs r -> QueryT m (GraphQLResult r)
 execQueryFor fromValue (Query query) args = do
   state <- ask
-  fmap (fmap fromValue) $ case state of
+  decodeResponse =<< case state of
     QueryState{..} ->
       let request = baseReq { requestBody = body }
-      in liftIO $ decodeResponse =<< httpLbs request manager
+      in liftIO $ responseBody <$> httpLbs request manager
     QueryMockState f ->
-      return $ GraphQLResult [] $ Just $ f query $ fromArgs args
+      return $ encode $ object
+        [ "errors" .= ([] :: [GraphQLError])
+        , "data" .= Just (f query $ fromArgs args)
+        ]
   where
     body = RequestBodyLBS $ encode $ object
       [ "query" .= query
       , "variables" .= fromArgs args
       ]
-    decodeResponse = either fail return . eitherDecode . responseBody
+    decodeResponse = either fail (return . fmap fromValue) . eitherDecode
