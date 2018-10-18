@@ -52,10 +52,10 @@ getCountries = do
 getContinents :: App (Map Continent [Text])
 getContinents = do
   result <- runQuery Countries.query Countries.Args
-  let countries = [Countries.get| result.countries[] > country |]
+  let countries = [Countries.get| result.countries[] #country |]
       fromCountry country =
-        ( fromCode [Countries.get| country.continent.code |]
-        , [Countries.get| country.name |]
+        ( fromCode [Countries.get| #country.continent.code |]
+        , [Countries.get| #country.name |]
         )
   return . Map.fromListWith (++) . map (listSnd . fromCountry) $ countries
   where
