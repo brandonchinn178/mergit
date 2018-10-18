@@ -135,7 +135,7 @@ type GetterData = [(String, Schema)]
 -- [get| result.foo.c |]          :: Text
 --
 -- let nodes = [get| result.foo.nodes[] > node |]
---     bs = flip map nodes $ \node -> fromMaybe True [get| node.b |]
+--     bs = flip map nodes $ \node -> fromMaybe True [get| @node.b |]
 -- @
 --
 -- The QuasiQuoter follows the given rules:
@@ -156,19 +156,19 @@ type GetterData = [(String, Schema)]
 --
 -- * @> name@ is only valid at the end of a getter for a value containing an @Object@. Stores the
 --   schema of the contained @Object@ for subsequent queries. After storing the schema for @name@,
---   the schema can be used as normal: @[get| name.bar.etc |]@.
+--   the schema can be used by prefixing the variable with @\@@: @[get| \@name.bar.etc |]@.
 --
 --     * @name@ needs to match the name of the value being queried. The following won't work:
 --
 --         @
 --         let nodes = [get| result.foo.nodes[] > node |]
---             bs = flip map nodes $ \\n -> fromMaybe True [get| n.b |]
---                                                           -- ^ BAD: 'n' /= 'node'
+--             bs = flip map nodes $ \\n -> fromMaybe True [get| @n.b |]
+--                                                            -- ^ BAD: 'n' /= 'node'
 --         @
 --
---         That example will try to parse @n@ with the full @Result@ schema.
+--         This example will error, saying that a schema for @n@ is not stored.
 --
---     * @> name@ needs to run before using @name@. The following won't work:
+--     * The schema needs to be stored before being used. The following won't work:
 --
 --         @
 --         do
@@ -176,11 +176,11 @@ type GetterData = [(String, Schema)]
 --           let nodes = [get| result.foo.nodes[] > node |]
 --           return $ map fromNode nodes
 --         where
---           fromNode node = [get| node.b |]
+--           fromNode node = [get| @node.b |]
 --         @
 --
---         That example won't know about @> node@ before compiling @fromNode@, so @node@ in @fromNode@
---         will be parsed with the full @Result@ schema as well.
+--         Since @fromNode@ is in a where clause, it's compiled before the @get@ quote that stores
+--         the schema of @node@, so this example will error.
 getterFor :: Name -> Schema -> QuasiQuoter
 getterFor resultCon fullSchema = QuasiQuoter
   { quoteExp = \s -> do
@@ -192,7 +192,11 @@ getterFor resultCon fullSchema = QuasiQuoter
         else newName innerResult
 
       getterData <- fromMaybe [] <$> getQ :: Q GetterData
-      let varSchema = lookup var getterData
+      let varSchema = case (lookup var getterData, useSchema) of
+            (Nothing, False) -> Nothing
+            (Just schema, True) -> Just schema
+            (Nothing, True) -> error $ "Schema is not stored for " ++ var
+            (Just _, False) -> error $ "Did you intend to use `@" ++ var ++ "` instead?"
           initialSchema = fromMaybe fullSchema varSchema
           (getterFunc, finalSchema) = mkGetter terms initialSchema
           letDecl = if isNothing varSchema
@@ -203,7 +207,7 @@ getterFor resultCon fullSchema = QuasiQuoter
           -- in ... $ result
           letExpr = appE getterFunc $ varE result
 
-      case keep of
+      case storeSchema of
         Nothing -> return ()
         Just name -> putQ $
           -- undefined behavior if 'name' already exists in GetterData
@@ -268,9 +272,10 @@ getterFor resultCon fullSchema = QuasiQuoter
 {- Parser for getter quasiquotes -}
 
 data GetterExpr = GetterExpr
-  { var   :: String
-  , terms :: [GetterTerm]
-  , keep  :: Maybe String
+  { var         :: String
+  , useSchema   :: Bool
+  , terms       :: [GetterTerm]
+  , storeSchema :: Maybe String
   } deriving (Show)
 
 data GetterTerm
@@ -287,10 +292,11 @@ identifier = (:) <$> lowerChar <*> many (alphaNumChar <|> char '\'')
 getterExpr :: Parser GetterExpr
 getterExpr = do
   space
+  useSchema <- (string "@" $> True) <|> pure False
   var <- identifier
   terms <- many getterTerm
   space
-  keep <- (string ">" *> space *> fmap Just identifier) <|> pure Nothing
+  storeSchema <- (string ">" *> space *> fmap Just identifier) <|> pure Nothing
   space
   void eof
   return GetterExpr{..}

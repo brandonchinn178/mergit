@@ -48,10 +48,10 @@ testKeepSchema = goldens "list_type_contents" $ map fromObj list
   where
     result = AllTypes.result
     list = [AllTypes.get| result.list[] > o |]
-    fromObj o = case [AllTypes.get| o.type |] of
-      "bool" -> show [AllTypes.get| o.maybeBool! |]
-      "int"  -> show [AllTypes.get| o.maybeInt!  |]
-      "null" -> show [AllTypes.get| o.maybeNull  |]
+    fromObj o = case [AllTypes.get| @o.type |] of
+      "bool" -> show [AllTypes.get| @o.maybeBool! |]
+      "int"  -> show [AllTypes.get| @o.maybeInt!  |]
+      "null" -> show [AllTypes.get| @o.maybeNull  |]
       _ -> error "unreachable"
 
 testKeepSchemaNested :: TestTree
@@ -59,6 +59,6 @@ testKeepSchemaNested = goldens "keep_schema_nested" $ map fromObj list
   where
     result = Nested.result
     list = [Nested.get| result.list[] > o |]
-    fromObj o = case [Nested.get| o.a > field |] of
-      Just field -> [Nested.get| field.b |]
-      Nothing    -> [Nested.get| o.b     |]
+    fromObj o = case [Nested.get| @o.a > field |] of
+      Just field -> [Nested.get| @field.b |]
+      Nothing    -> [Nested.get| @o.b     |]
