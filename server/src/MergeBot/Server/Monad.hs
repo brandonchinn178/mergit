@@ -8,6 +8,7 @@ Defines the monads used in the MergeBot API.
 -}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module MergeBot.Server.Monad
   ( MergeBotEnv(..)
@@ -22,6 +23,7 @@ import Control.Monad.Except (MonadError)
 import Control.Monad.IO.Class (MonadIO)
 import Control.Monad.Reader (MonadReader, ReaderT, runReaderT)
 import Servant
+import System.Environment (getEnv)
 
 import MergeBot.Core.State (BotState, newBotState)
 
@@ -31,7 +33,11 @@ newtype MergeBotEnv = MergeBotEnv
   }
 
 initEnv :: IO MergeBotEnv
-initEnv = MergeBotEnv <$> newMVar newBotState
+initEnv = do
+  repoOwner <- getEnv "BOT_REPO_OWNER"
+  repoName <- getEnv "BOT_REPO_NAME"
+  botState <- newMVar $ newBotState repoOwner repoName
+  return MergeBotEnv{..}
 
 -- | The ServerT monad for MergeBotHandler.
 type MergeBotServer api = ServerT api MergeBotHandler
