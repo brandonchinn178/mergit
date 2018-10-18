@@ -181,6 +181,16 @@ type GetterData = [(String, Schema)]
 --
 --         Since @fromNode@ is in a where clause, it's compiled before the @get@ quote that stores
 --         the schema of @node@, so this example will error.
+--
+--     * The stored schema is global to the module (but can only be used after being stored) and is
+--       namespaced to the type being queried.
+--
+--         @
+--         [Foo.get| result.nodes[] > node |] -- stored as Foo.node
+--         [Bar.get| result.nodes[] > node |] -- stored as Bar.node
+--         [Foo.get| @node.foo |]             -- uses Foo.node
+--         [Bar.get| result.other > node |]   -- errors that Bar.node is already stored
+--         @
 getterFor :: Name -> Schema -> QuasiQuoter
 getterFor resultCon fullSchema = QuasiQuoter
   { quoteExp = \s -> do
@@ -192,7 +202,7 @@ getterFor resultCon fullSchema = QuasiQuoter
         else newName innerResult
 
       getterData <- fromMaybe [] <$> getQ :: Q GetterData
-      let varSchema = case (lookup var getterData, useSchema) of
+      let varSchema = case (lookup (toStoreName var) getterData, useSchema) of
             (Nothing, False) -> Nothing
             (Just schema, True) -> Just schema
             (Nothing, True) -> error $ "Schema is not stored for " ++ var
@@ -209,9 +219,11 @@ getterFor resultCon fullSchema = QuasiQuoter
 
       case storeSchema of
         Nothing -> return ()
-        Just name -> putQ $
-          -- undefined behavior if 'name' already exists in GetterData
-          (name, getObjectSchema finalSchema) : getterData
+        Just name -> do
+          let storeName = toStoreName name
+          if any ((== storeName) . fst) getterData
+            then error $ "Schema is already stored for " ++ name
+            else putQ $ (storeName, getObjectSchema finalSchema) : getterData
 
       letE [letDecl] letExpr
   , quotePat = \_ -> error "'get' can only used as an expression"
@@ -219,6 +231,7 @@ getterFor resultCon fullSchema = QuasiQuoter
   , quoteDec = \_ -> error "'get' can only used as an expression"
   }
   where
+    toStoreName name = show resultCon ++ "$" ++ name
     parse p s = either (fail . parseErrorPretty) return $ runParser p s s
     mkGetter [] schema' = (getFinalizer schema', schema')
     mkGetter (term:terms) schema' = case term of
