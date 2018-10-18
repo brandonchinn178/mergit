@@ -9,6 +9,7 @@ dependencies:
   - base
   - containers
   - graphql-client
+  - iso8601-time
   - text
   - time
 
