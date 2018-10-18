@@ -134,8 +134,8 @@ type GetterData = [(String, Schema)]
 -- [get| result.foo.nodes[].b! |] :: [Bool]       -- will error at {"b": null}
 -- [get| result.foo.c |]          :: Text
 --
--- let nodes = [get| result.foo.nodes[] #node |]
---     bs = flip map nodes $ \node -> fromMaybe True [get| #node.b |]
+-- let nodes = [get| result.foo.nodes[] > node |]
+--     bs = flip map nodes $ \node -> fromMaybe True [get| @node.b |]
 -- @
 --
 -- The QuasiQuoter follows the given rules:
@@ -154,19 +154,29 @@ type GetterData = [(String, Schema)]
 --     * @x[].y@ gets the key @y@ in all the objects in @x@
 --     * @x[]!@ calls @fromJust@ on all values in @x@
 --
--- * @#name@ is only valid at the end of a getter for a value containing an @Object@. Stores the
+-- * @> name@ is only valid at the end of a getter for a value containing an @Object@. Stores the
 --   schema of the contained @Object@ for subsequent queries. After storing the schema for @name@,
---   the schema can be used by prefixing the variable with @#@: @[get| #name.bar.etc |]@.
+--   the schema can be used by prefixing the variable with @\@@: @[get| \@name.bar.etc |]@.
+--
+--     * @name@ needs to match the name of the value being queried. The following won't work:
+--
+--         @
+--         let nodes = [get| result.foo.nodes[] > node |]
+--             bs = flip map nodes $ \\n -> fromMaybe True [get| @n.b |]
+--                                                            -- ^ BAD: 'n' /= 'node'
+--         @
+--
+--         This example will error, saying that a schema for @n@ is not stored.
 --
 --     * The schema needs to be stored before being used. The following won't work:
 --
 --         @
 --         do
 --           result <- runQuery ...
---           let nodes = [get| result.foo.nodes[] #node |]
+--           let nodes = [get| result.foo.nodes[] > node |]
 --           return $ map fromNode nodes
 --         where
---           fromNode node = [get| #node.b |]
+--           fromNode node = [get| @node.b |]
 --         @
 --
 --         Since @fromNode@ is in a where clause, it's compiled before the @get@ quote that stores
@@ -186,7 +196,7 @@ getterFor resultCon fullSchema = QuasiQuoter
             (Nothing, False) -> Nothing
             (Just schema, True) -> Just schema
             (Nothing, True) -> error $ "Schema is not stored for " ++ var
-            (Just _, False) -> error $ "Did you intend to use `#" ++ var ++ "` instead?"
+            (Just _, False) -> error $ "Did you intend to use `@" ++ var ++ "` instead?"
           initialSchema = fromMaybe fullSchema varSchema
           (getterFunc, finalSchema) = mkGetter terms initialSchema
           letDecl = if isNothing varSchema
@@ -282,11 +292,11 @@ identifier = (:) <$> lowerChar <*> many (alphaNumChar <|> char '\'')
 getterExpr :: Parser GetterExpr
 getterExpr = do
   space
-  useSchema <- (string "#" $> True) <|> pure False
+  useSchema <- (string "@" $> True) <|> pure False
   var <- identifier
   terms <- many getterTerm
   space
-  storeSchema <- (string "#" *> fmap Just identifier) <|> pure Nothing
+  storeSchema <- (string ">" *> space *> fmap Just identifier) <|> pure Nothing
   space
   void eof
   return GetterExpr{..}
