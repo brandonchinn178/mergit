@@ -49,23 +49,24 @@ schema = SchemaObject
     , SchemaObject
       [ ( "pullRequests"
         , SchemaObject
-          [ ( "edges"
-            , SchemaMaybe $ SchemaList $ SchemaMaybe $ SchemaObject
-              [ ("cursor", SchemaText)
-              , ( "node"
-                , SchemaMaybe $ SchemaObject
-                  [ ("number", SchemaInt)
-                  , ("title", SchemaText)
-                  , ( "author"
-                    , SchemaMaybe $ SchemaObject
-                      [ ("login", SchemaText)
-                      ]
-                    )
-                  , ("createdAt", SchemaScalar)
-                  , ("updatedAt", SchemaScalar)
-                  ]
-                )
+          [ ( "pageInfo"
+            , SchemaObject
+              [ ("hasNextPage", SchemaBool)
+              , ("endCursor", SchemaMaybe SchemaText)
               ]
+            )
+          , ( "nodes"
+            , SchemaMaybe $ SchemaList $ SchemaMaybe $ SchemaObject
+                [ ("number", SchemaInt)
+                , ("title", SchemaText)
+                , ( "author"
+                  , SchemaMaybe $ SchemaObject
+                    [ ("login", SchemaText)
+                    ]
+                  )
+                , ("createdAt", SchemaScalar)
+                , ("updatedAt", SchemaScalar)
+                ]
             )
           ]
         )

@@ -1,17 +1,18 @@
 query Branches($repoOwner: String!, $repoName: String!, $after: String) {
   repository(owner: $repoOwner, name: $repoName) {
     refs(refPrefix: "refs/heads/", first: 100, after: $after) {
-      edges {
-        cursor
-        node {
-          name
-          target {
-            ... on Commit {
-              status {
-                contexts {
-                  context
-                  state
-                }
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+      nodes {
+        name
+        target {
+          ... on Commit {
+            status {
+              contexts {
+                context
+                state
               }
             }
           }

@@ -1,17 +1,18 @@
 query PullRequests($repoOwner: String!, $repoName: String!, $after: String) {
   repository(owner: $repoOwner, name: $repoName) {
     pullRequests(first: 100, after: $after) {
-      edges {
-        cursor
-        node {
-          number
-          title
-          author {
-            login
-          }
-          createdAt
-          updatedAt
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+      nodes {
+        number
+        title
+        author {
+          login
         }
+        createdAt
+        updatedAt
       }
     }
   }
