@@ -1,15 +1,15 @@
 {-|
-Module      :  Data.GraphQL.Result.Parse
+Module      :  Data.GraphQL.Result.Aeson
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
 Portability :  portable
 
-Helpers for parsing GraphQL results.
+Helpers for parsing Aeson values from GraphQL queries.
 -}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
 
-module Data.GraphQL.Result.Parse
+module Data.GraphQL.Result.Aeson
   ( getBool
   , getInt
   , getDouble
@@ -21,16 +21,11 @@ module Data.GraphQL.Result.Parse
   , getKey
   , lookupKey
   , fromJust
-  , GraphQLEnum(..)
-  , fromText
-  -- * Re-exports
-  , Proxy(..)
   ) where
 
 import Data.Aeson (Object, Value(..))
 import qualified Data.HashMap.Strict as HashMap
 import qualified Data.Maybe as Maybe
-import Data.Proxy (Proxy(..))
 import Data.Scientific (Scientific, floatingOrInteger)
 import Data.Text (Text)
 import qualified Data.Text as Text
@@ -104,11 +99,3 @@ lookupKey key = Maybe.fromMaybe Null . HashMap.lookup (Text.pack key) . getObjec
 -- | Data.Maybe.fromJust for JSON Values.
 fromJust :: HasCallStack => Value -> Value
 fromJust = Maybe.fromJust . getMaybe
-
--- | An alias for Text.unpack.
-fromText :: Text -> String
-fromText = Text.unpack
-
--- | A type class for parsing SchemaEnum.
-class GraphQLEnum e where
-  getEnum :: Proxy e -> Text -> e
