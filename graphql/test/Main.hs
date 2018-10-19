@@ -11,7 +11,7 @@ import qualified Nested
 main :: IO ()
 main = defaultMain $ testGroup "graphql-client"
   [ testValidGetters
-  , testKeepSchema
+  , testKeepSchemaAllTypes
   , testKeepSchemaNested
   ]
 
@@ -53,8 +53,8 @@ testValidGetters = testGroup "Test valid getters"
   where
     result = AllTypes.result
 
-testKeepSchema :: TestTree
-testKeepSchema = goldens "list_type_contents" $ map fromObj list
+testKeepSchemaAllTypes :: TestTree
+testKeepSchemaAllTypes = goldens "keep_schema_all_types" $ map fromObj list
   where
     result = AllTypes.result
     list = [AllTypes.get| result.list[] > o |]
