@@ -9,6 +9,15 @@
         "text": "foo"
     },
     "maybeObjectNull": null,
+    "maybeList": [
+        {
+            "text": "foo"
+        },
+        {
+            "text": "bar"
+        }
+    ],
+    "maybeListNull": null,
     "list": [
         {
             "type": "bool",
