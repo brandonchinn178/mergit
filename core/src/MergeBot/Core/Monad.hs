@@ -15,13 +15,14 @@ module MergeBot.Core.Monad
   ) where
 
 import Control.Monad.IO.Class (MonadIO)
+import Control.Monad.Trans.Class (MonadTrans)
 import qualified Data.ByteString.Char8 as ByteString
 import Data.GraphQL (MonadQuery, QuerySettings(..), QueryT, defaultQuerySettings, runQueryT)
 import Network.HTTP.Client (requestHeaders)
 import Network.HTTP.Types (hAuthorization, hUserAgent)
 
 newtype BotAppT m a = BotAppT { unBotApp :: QueryT m a }
-  deriving (Functor,Applicative,Monad,MonadIO,MonadQuery)
+  deriving (Functor,Applicative,Monad,MonadIO,MonadQuery,MonadTrans)
 
 runBot :: MonadIO m => String -> BotAppT m a -> m a
 runBot token = runQueryT querySettings . unBotApp
