@@ -39,6 +39,7 @@ testValidGetters = testGroup "Test valid getters"
   , goldens "list_type"          [AllTypes.get| result.list[].type          |]
   , goldens "list_maybeBool"     [AllTypes.get| result.list[].maybeBool     |]
   , goldens "list_maybeInt"      [AllTypes.get| result.list[].maybeInt      |]
+  , goldens "nonexistent"        [AllTypes.get| result.nonexistent          |]
   ]
   where
     result = AllTypes.result

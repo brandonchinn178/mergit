@@ -38,6 +38,7 @@ schema = SchemaObject
       , ("maybeNull", SchemaMaybe SchemaBool)
       ]
     )
+  , ("nonexistent", SchemaMaybe SchemaText)
   ]
 
 get :: QuasiQuoter
