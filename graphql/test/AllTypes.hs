@@ -29,8 +29,8 @@ schema = SchemaObject
   , ("text", SchemaText)
   , ("scalar", SchemaScalar)
   , ("enum", SchemaEnum (Proxy :: Proxy Greeting))
-  , ("maybeNull", SchemaMaybe $ SchemaObject [("text", SchemaText)])
   , ("maybeObject", SchemaMaybe $ SchemaObject [("text", SchemaText)])
+  , ("maybeObjectNull", SchemaMaybe $ SchemaObject [("text", SchemaText)])
   , ("list", SchemaList $ SchemaObject
       [ ("type", SchemaText)
       , ("maybeBool", SchemaMaybe SchemaBool)
