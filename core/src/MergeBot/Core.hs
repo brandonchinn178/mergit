@@ -20,14 +20,14 @@ module MergeBot.Core
   ) where
 
 import Data.GraphQL (MonadQuery, runQuery)
-import Data.Maybe (fromMaybe)
 import qualified Data.Map.Strict as Map
+import Data.Maybe (fromMaybe)
 import qualified Data.Text as Text
 
 import MergeBot.Core.Branch
 import MergeBot.Core.Data
-import MergeBot.Core.GraphQL.Scalars (parseUTCTime)
 import qualified MergeBot.Core.GraphQL.PullRequests as PullRequests
+import MergeBot.Core.GraphQL.Scalars (parseUTCTime)
 import MergeBot.Core.State
 
 -- | List all open pull requests.

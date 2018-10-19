@@ -17,7 +17,8 @@ module MergeBot.Core.Monad
 import Control.Monad.IO.Class (MonadIO)
 import Control.Monad.Trans.Class (MonadTrans)
 import qualified Data.ByteString.Char8 as ByteString
-import Data.GraphQL (MonadQuery, QuerySettings(..), QueryT, defaultQuerySettings, runQueryT)
+import Data.GraphQL
+    (MonadQuery, QuerySettings(..), QueryT, defaultQuerySettings, runQueryT)
 import Network.HTTP.Client (requestHeaders)
 import Network.HTTP.Types (hAuthorization, hUserAgent)
 
