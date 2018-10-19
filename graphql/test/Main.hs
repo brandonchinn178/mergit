@@ -2,6 +2,7 @@
 {-# LANGUAGE QuasiQuotes #-}
 
 import qualified Data.ByteString.Lazy.Char8 as ByteString
+import qualified Data.Text as Text
 import Test.Tasty (TestTree, defaultMain, testGroup)
 import Test.Tasty.Golden (goldenVsString)
 
@@ -13,6 +14,7 @@ main = defaultMain $ testGroup "graphql-client"
   [ testValidGetters
   , testKeepSchemaAllTypes
   , testKeepSchemaNested
+  , testKeepSchemaNamespaced
   ]
 
 goldens :: Show s => String -> s -> TestTree
@@ -72,3 +74,16 @@ testKeepSchemaNested = goldens "keep_schema_nested" $ map fromObj list
     fromObj o = case [Nested.get| @o.a > field |] of
       Just field -> [Nested.get| @field.b |]
       Nothing    -> [Nested.get| @o.b     |]
+
+-- | Kept schemas can have the same name for different Results. Here, two schemas are stored with
+-- the name "o", but one is stored for AllTypes and the other is stored for Nested.
+testKeepSchemaNamespaced :: TestTree
+testKeepSchemaNamespaced = goldens "keep_schema_namespaced" $
+  map fromAllTypes allTypesList ++ map fromNested nestedList
+  where
+    allTypes = AllTypes.result
+    nested = Nested.result
+    allTypesList = [AllTypes.get| allTypes.list[] > o |]
+    nestedList = [Nested.get| nested.list[] > o |]
+    fromAllTypes o = Text.unpack [AllTypes.get| @o.type |]
+    fromNested o = show [Nested.get| @o.b |]

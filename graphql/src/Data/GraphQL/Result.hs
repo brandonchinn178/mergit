@@ -82,6 +82,18 @@ data Schema where
   SchemaList :: Schema -> Schema
   SchemaObject :: [(Text, Schema)] -> Schema
 
+instance Eq Schema where
+  SchemaBool == SchemaBool = True
+  SchemaInt == SchemaInt = True
+  SchemaDouble == SchemaDouble = True
+  SchemaText == SchemaText = True
+  SchemaScalar == SchemaScalar = True
+  SchemaEnum p0 == SchemaEnum p1 = typeRep p0 == typeRep p1
+  SchemaMaybe s0 == SchemaMaybe s1 = s0 == s1
+  SchemaList s0 == SchemaList s1 = s0 == s1
+  SchemaObject f1 == SchemaObject f2 = f1 == f2
+  _ == _ = False
+
 instance Show Schema where
   show = showSchema True
     where
@@ -221,9 +233,11 @@ getterFor resultCon fullSchema = QuasiQuoter
         Nothing -> return ()
         Just name -> do
           let storeName = toStoreName name
-          if any ((== storeName) . fst) getterData
-            then error $ "Schema is already stored for " ++ name
-            else putQ $ (storeName, getObjectSchema finalSchema) : getterData
+          case filter ((== storeName) . fst) getterData of
+            [] -> putQ $ (storeName, getObjectSchema finalSchema) : getterData
+            [(_, schema)] | schema /= finalSchema ->
+              error $ "Another schema is already stored for " ++ name
+            _ -> return ()
 
       letE [letDecl] letExpr
   , quotePat = \_ -> error "'get' can only used as an expression"
