@@ -263,6 +263,10 @@ getterFor resultCon fullSchema = QuasiQuoter
           let (f, final) = mkGetter terms inner
               expr = [| ($f `mapList`) |]
           in (expr, final)
+        SchemaMaybe inner ->
+          let (f, final) = mkGetter (term:terms) inner
+              expr = [| ($f `mapMaybe`) |]
+          in (expr, final)
         _ -> error $ "Cannot use the '[]' operator on the schema " ++ show schema'
     getFinalizer = \case
       SchemaBool -> [| getBool |]
