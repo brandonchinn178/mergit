@@ -25,17 +25,20 @@ import Control.Monad.Reader (MonadReader, ReaderT, runReaderT)
 import Servant
 import System.Environment (getEnv)
 
+import MergeBot.Core.Monad (BotAppT, runBot)
 import MergeBot.Core.State (BotState, newBotState)
 
 -- | The environment shared by all API endpoints.
-newtype MergeBotEnv = MergeBotEnv
-  { botState :: MVar BotState
+data MergeBotEnv = MergeBotEnv
+  { botState    :: MVar BotState
+  , githubToken :: String
   }
 
 initEnv :: IO MergeBotEnv
 initEnv = do
   repoOwner <- getEnv "BOT_REPO_OWNER"
   repoName <- getEnv "BOT_REPO_NAME"
+  githubToken <- getEnv "GITHUB_TOKEN"
   botState <- newMVar $ newBotState repoOwner repoName
   return MergeBotEnv{..}
 
@@ -44,7 +47,7 @@ type MergeBotServer api = ServerT api MergeBotHandler
 
 -- | The handler for the merge bot API endpoints.
 newtype MergeBotHandler a = MergeBotHandler
-  { getHandler :: ReaderT MergeBotEnv Handler a
+  { getHandler :: ReaderT MergeBotEnv (BotAppT Handler) a
   }
   deriving
     ( Functor
@@ -57,4 +60,4 @@ newtype MergeBotHandler a = MergeBotHandler
 
 -- | Run a MergeBotHandler with the given environment.
 runMergeBotHandler :: MergeBotEnv -> MergeBotHandler a -> Handler a
-runMergeBotHandler env = (`runReaderT` env) . getHandler
+runMergeBotHandler env = runBot (githubToken env) . (`runReaderT` env) . getHandler
