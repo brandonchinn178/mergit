@@ -10,6 +10,7 @@ dependencies:
 - merge-bot-core
 - mtl
 - servant-server
+- transformers
 
 library:
   source-dirs: src

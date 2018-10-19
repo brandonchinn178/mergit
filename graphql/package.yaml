@@ -18,6 +18,7 @@ dependencies:
   - template-haskell
   - text
   - th-utilities
+  - transformers
   - unordered-containers
   - vector
 

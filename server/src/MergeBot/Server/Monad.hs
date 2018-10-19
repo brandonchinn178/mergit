@@ -8,6 +8,8 @@ Defines the monads used in the MergeBot API.
 -}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module MergeBot.Server.Monad
   ( MergeBotEnv(..)
@@ -18,37 +20,52 @@ module MergeBot.Server.Monad
   ) where
 
 import Control.Concurrent.MVar (MVar, newMVar)
-import Control.Monad.Except (MonadError)
+import Control.Monad.Except (MonadError(..))
 import Control.Monad.IO.Class (MonadIO)
-import Control.Monad.Reader (MonadReader, ReaderT, runReaderT)
+import Control.Monad.Reader (MonadReader, ReaderT, ask, runReaderT)
+import Control.Monad.Trans.Class (MonadTrans(..))
 import Servant
+import System.Environment (getEnv)
 
+import MergeBot.Core.Monad (BotAppT, runBot)
 import MergeBot.Core.State (BotState, newBotState)
 
 -- | The environment shared by all API endpoints.
-newtype MergeBotEnv = MergeBotEnv
-  { botState :: MVar BotState
+data MergeBotEnv = MergeBotEnv
+  { botState    :: MVar BotState
+  , githubToken :: String
   }
 
 initEnv :: IO MergeBotEnv
-initEnv = MergeBotEnv <$> newMVar newBotState
+initEnv = do
+  repoOwner <- getEnv "BOT_REPO_OWNER"
+  repoName <- getEnv "BOT_REPO_NAME"
+  githubToken <- getEnv "GITHUB_TOKEN"
+  botState <- newMVar $ newBotState repoOwner repoName
+  return MergeBotEnv{..}
 
 -- | The ServerT monad for MergeBotHandler.
 type MergeBotServer api = ServerT api MergeBotHandler
 
 -- | The handler for the merge bot API endpoints.
 newtype MergeBotHandler a = MergeBotHandler
-  { getHandler :: ReaderT MergeBotEnv Handler a
+  { getHandler :: ReaderT MergeBotEnv (BotAppT Handler) a
   }
   deriving
     ( Functor
     , Applicative
     , Monad
-    , MonadError ServantErr
     , MonadIO
     , MonadReader MergeBotEnv
     )
 
+instance MonadError ServantErr MergeBotHandler where
+  throwError = MergeBotHandler . lift . lift . throwError
+  catchError m f = do
+    env <- ask
+    MergeBotHandler . lift . lift $
+      catchError (runMergeBotHandler env m) (runMergeBotHandler env . f)
+
 -- | Run a MergeBotHandler with the given environment.
 runMergeBotHandler :: MergeBotEnv -> MergeBotHandler a -> Handler a
-runMergeBotHandler env = (`runReaderT` env) . getHandler
+runMergeBotHandler env = runBot (githubToken env) . (`runReaderT` env) . getHandler

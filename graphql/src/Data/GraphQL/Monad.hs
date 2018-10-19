@@ -31,6 +31,7 @@ module Data.GraphQL.Monad
 import Control.Exception (throwIO)
 import Control.Monad.IO.Class (MonadIO(..))
 import Control.Monad.Reader (MonadReader, ReaderT, ask, runReaderT)
+import Control.Monad.Trans.Class (MonadTrans)
 import Data.Aeson (Object, Value(..), eitherDecode, encode, object, (.=))
 import Data.Maybe (fromJust)
 import Data.Text (Text)
@@ -91,6 +92,7 @@ newtype QueryT m a = QueryT { unQueryT :: ReaderT QueryState m a }
     , Monad
     , MonadIO
     , MonadReader QueryState
+    , MonadTrans
     )
 
 instance MonadIO m => MonadQuery (QueryT m) where

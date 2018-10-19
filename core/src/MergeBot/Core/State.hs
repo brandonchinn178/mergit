@@ -13,6 +13,7 @@ module MergeBot.Core.State
   , BotState
   , newBotState
   , getMergeQueue
+  , getRepo
   , clearMergeQueue
   , insertMergeQueue
   , removeMergeQueue
@@ -30,15 +31,22 @@ type MergeQueue = Set PullRequestId
 -- Most of the merge bot should be stateless; everything is either retrieved from the GitHub API
 -- or stored in-memory. Could also cache replies from the GitHub API, but we should NOT be storing
 -- persisted data anywhere.
-newtype BotState = BotState
-  { mergeQueue :: MergeQueue
+data BotState = BotState
+  { repoOwner  :: String
+  , repoName   :: String
+  , mergeQueue :: MergeQueue
   } deriving (Show)
 
-newBotState :: BotState
-newBotState = BotState Set.empty
+newBotState :: String -> String -> BotState
+newBotState repoOwner repoName = BotState{..}
+  where
+    mergeQueue = Set.empty
 
 getMergeQueue :: BotState -> MergeQueue
 getMergeQueue = mergeQueue
+
+getRepo :: BotState -> (String, String)
+getRepo BotState{..} = (repoOwner, repoName)
 
 clearMergeQueue :: BotState -> BotState
 clearMergeQueue state = state{mergeQueue = Set.empty}

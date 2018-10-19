@@ -51,22 +51,23 @@ schema = SchemaObject
     , SchemaObject
       [ ( "refs"
         , SchemaMaybe $ SchemaObject
-          [ ( "edges"
+          [ ( "pageInfo"
+            , SchemaObject
+              [ ("hasNextPage", SchemaBool)
+              , ("endCursor", SchemaMaybe SchemaText)
+              ]
+            )
+          , ( "nodes"
             , SchemaMaybe $ SchemaList $ SchemaMaybe $ SchemaObject
-              [ ("cursor", SchemaText)
-              , ( "node"
-                , SchemaMaybe $ SchemaObject
-                  [ ("name", SchemaText)
-                  , ( "target"
-                    , SchemaObject
-                      [ ( "status"
-                        , SchemaMaybe $ SchemaObject
-                          [ ( "contexts"
-                            , SchemaList $ SchemaObject
-                              [ ("context", SchemaText)
-                              , ("state", SchemaEnum (Proxy :: Proxy StatusState))
-                              ]
-                            )
+              [ ("name", SchemaText)
+              , ( "target"
+                , SchemaObject
+                  [ ( "status"
+                    , SchemaMaybe $ SchemaObject
+                      [ ( "contexts"
+                        , SchemaList $ SchemaObject
+                          [ ("context", SchemaText)
+                          , ("state", SchemaEnum (Proxy :: Proxy StatusState))
                           ]
                         )
                       ]
