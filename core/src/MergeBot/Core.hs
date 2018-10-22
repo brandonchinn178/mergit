@@ -22,10 +22,10 @@ module MergeBot.Core
 import Data.GraphQL (MonadQuery, runQuery)
 import qualified Data.Map.Strict as Map
 import Data.Maybe (fromMaybe)
-import qualified Data.Text as Text
 
 import MergeBot.Core.Branch
 import MergeBot.Core.Data
+import MergeBot.Core.GitHub (queryAll)
 import qualified MergeBot.Core.GraphQL.PullRequests as PullRequests
 import MergeBot.Core.GraphQL.Scalars (parseUTCTime)
 import MergeBot.Core.State
@@ -34,29 +34,27 @@ import MergeBot.Core.State
 listPullRequests :: MonadQuery m => BotState -> m [PullRequest]
 listPullRequests state = do
   branchStatuses <- getBranchStatuses state
-  queryPullRequests branchStatuses Nothing
+  queryAll $ \_after -> do
+    result <- runQuery PullRequests.query PullRequests.Args{..}
+    let info = [PullRequests.get| result.repository.pullRequests > info |]
+        prs = [PullRequests.get| @info.nodes![]! > pr |]
+        toPullRequest pr =
+          let prNum = [PullRequests.get| @pr.number |]
+          in PullRequest
+            { number  = prNum
+            , title   = [PullRequests.get| @pr.title |]
+            , author  = [PullRequests.get| @pr.author!.login |]
+            , created = parseUTCTime [PullRequests.get| @pr.createdAt |]
+            , updated = parseUTCTime [PullRequests.get| @pr.updatedAt |]
+            , status  = fromMaybe None $ Map.lookup prNum branchStatuses
+            }
+    return
+      ( map toPullRequest prs
+      , [PullRequests.get| @info.pageInfo.hasNextPage |]
+      , [PullRequests.get| @info.pageInfo.endCursor |]
+      )
   where
     (_repoOwner, _repoName) = getRepo state
-    queryPullRequests branchStatuses _after = do
-      result <- runQuery PullRequests.query PullRequests.Args{..}
-      let info = [PullRequests.get| result.repository.pullRequests > info |]
-          pageInfo = [PullRequests.get| @info.pageInfo > pageInfo |]
-          prs = [PullRequests.get| @info.nodes![]! > pr |]
-          toPullRequest pr =
-            let prNum = [PullRequests.get| @pr.number |]
-            in PullRequest
-              { number  = prNum
-              , title   = [PullRequests.get| @pr.title |]
-              , author  = [PullRequests.get| @pr.author!.login |]
-              , created = parseUTCTime [PullRequests.get| @pr.createdAt |]
-              , updated = parseUTCTime [PullRequests.get| @pr.updatedAt |]
-              , status  = fromMaybe None $ Map.lookup prNum branchStatuses
-              }
-      next <- if [PullRequests.get| @pageInfo.hasNextPage |]
-        then queryPullRequests branchStatuses $
-          Just $ Text.unpack [PullRequests.get| @pageInfo.endCursor! |]
-        else return []
-      return $ map toPullRequest prs ++ next
 
 -- | Return a single pull request.
 getPullRequest :: Monad m => PullRequestId -> m PullRequestDetail

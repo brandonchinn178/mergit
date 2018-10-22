@@ -24,6 +24,7 @@ import qualified Data.Text as Text
 import Text.Read (readMaybe)
 
 import MergeBot.Core.Data (BotStatus(..), PullRequestId, TryStatus(..))
+import MergeBot.Core.GitHub (queryAll)
 import qualified MergeBot.Core.GraphQL.Branches as Branches
 import MergeBot.Core.GraphQL.Enums (StatusState(..))
 import MergeBot.Core.State (BotState, getMergeQueue, getRepo)
@@ -31,7 +32,7 @@ import MergeBot.Core.State (BotState, getMergeQueue, getRepo)
 -- | Get all branches managed by the merge bot and the CI status of each.
 getBranchStatuses :: MonadQuery m => BotState -> m (Map PullRequestId BotStatus)
 getBranchStatuses state = do
-  branches <- queryBranches Nothing
+  branches <- queryAll queryBranches
   let isStaging branch = [Branches.get| @branch.name |] == "staging"
       stagingPRs = case filter isStaging branches of
         [] -> []
@@ -44,12 +45,11 @@ getBranchStatuses state = do
     queryBranches _after = do
       result <- runQuery Branches.query Branches.Args{..}
       let info = [Branches.get| result.repository.refs! > info |]
-          pageInfo = [Branches.get| @info.pageInfo > pageInfo |]
-          branches = [Branches.get| @info.nodes![]! > branch |]
-      next <- if [Branches.get| @pageInfo.hasNextPage |]
-        then queryBranches $ Just $ Text.unpack [Branches.get| @pageInfo.endCursor! |]
-        else return []
-      return $ branches ++ next
+      return
+        ( [Branches.get| @info.nodes![]! > branch |]
+        , [Branches.get| @info.pageInfo.hasNextPage |]
+        , [Branches.get| @info.pageInfo.endCursor |]
+        )
     queuedPRs = map (, MergeQueue) . Set.toList . getMergeQueue $ state
     parseTrying branch =
       let isTrying = Text.stripPrefix "trying-" [Branches.get| @branch.name |]
