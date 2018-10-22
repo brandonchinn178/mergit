@@ -26,6 +26,7 @@ import qualified Data.Set as Set
 import Data.Text (Text)
 
 import MergeBot.Core.Branch
+import MergeBot.Core.CIStatus
 import MergeBot.Core.Data
 import MergeBot.Core.GitHub (queryAll)
 import qualified MergeBot.Core.GraphQL.PullRequest as PullRequest
@@ -87,7 +88,7 @@ getPullRequest state _number = do
     , tryRun      = TryRun <$> tryStatus
     , mergeQueue  = queue
     , mergeRun    = mergeRun
-    , canTry      = isNothing mergeRun && isNothing tryStatus
+    , canTry      = isNothing mergeRun && maybe True (not . isPending) tryStatus
     , canQueue    = isNothing queue
     , canUnqueue  = isJust queue
     }
