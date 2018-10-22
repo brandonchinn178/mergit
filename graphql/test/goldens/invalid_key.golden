@@ -1,0 +1,3 @@
+Invalid key: foo. Possible keys: bool, int, double, text, scalar, enum, maybeObject, maybeObjectNull, maybeList, maybeListNull, list, nonexistent
+CallStack (from HasCallStack):
+  error, called at src/Data/GraphQL/Result/Getter/Internal.hs:123:22 in graphql-client-0.1.0-56eSVdBnMkzJYo9pxki0G:Data.GraphQL.Result.Getter.Internal

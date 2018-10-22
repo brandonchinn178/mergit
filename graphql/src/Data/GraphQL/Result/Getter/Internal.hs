@@ -23,7 +23,8 @@ import qualified Data.Text as Text
 import Data.Typeable (typeRep)
 import Data.Void (Void)
 import Language.Haskell.TH
-import Language.Haskell.TH.Syntax (getQ, lift, putQ)
+import Language.Haskell.TH.Syntax (lift)
+import qualified Language.Haskell.TH.Syntax as TH
 import Text.Megaparsec (Parsec, eof, parseErrorPretty, runParser)
 import Text.Megaparsec.Char (alphaNumChar, char, lowerChar, space, string)
 import TH.Utilities (proxyE, typeRepToType)
@@ -53,7 +54,10 @@ type GetterData = [(String, Schema)]
 -- These expressions are partial (all the `get*` functions), but since we typecheck the schemas,
 -- they should be type-safe.
 generateGetter :: Name -> Schema -> String -> ExpQ
-generateGetter resultCon fullSchema input = do
+generateGetter = generateGetter' TH.getQ TH.putQ
+
+generateGetter' :: Q (Maybe GetterData) -> (GetterData -> Q ()) -> Name -> Schema -> String -> ExpQ
+generateGetter' getQ putQ resultCon fullSchema input = do
   GetterExpr{..} <- parse getterExpr input
 
   -- `startVar` is the local variable being queried
@@ -64,7 +68,7 @@ generateGetter resultCon fullSchema input = do
     "result" -> "_result"
     _ -> "result"
 
-  getterData <- fromMaybe [] <$> getQ :: Q GetterData
+  getterData <- fromMaybe [] <$> getQ
   let varSchema = case (toStoreName start `lookup` getterData, useSchema) of
         (Nothing, False) -> Nothing
         (Just schema, True) -> Just schema
@@ -88,6 +92,7 @@ generateGetter resultCon fullSchema input = do
         [] -> putQ $ (storeName, getObjectSchema finalSchema) : getterData
         [(_, schema)] -> unless (schema == finalSchema) $
           error $ "Another schema is already stored for " ++ name
+        -- unreachable
         _ -> error $ "Multiple schema stored for " ++ name
 
   letE [letDecl] letExpr

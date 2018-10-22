@@ -1,10 +1,17 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeApplications #-}
 
+import Control.Exception (SomeException, try)
 import qualified Data.ByteString.Lazy.Char8 as ByteString
 import qualified Data.Text as Text
+import Language.Haskell.TH (runIO, runQ)
 import Test.Tasty (TestTree, defaultMain, testGroup)
 import Test.Tasty.Golden (goldenVsString)
+
+import Data.GraphQL (Schema(..))
+import Data.GraphQL.Result.Getter.Internal (generateGetter')
 
 import qualified AllTypes
 import qualified Nested
@@ -15,12 +22,16 @@ main = defaultMain $ testGroup "graphql-client"
   , testKeepSchemaAllTypes
   , testKeepSchemaNested
   , testKeepSchemaNamespaced
+  , testInvalidGetters
   ]
 
-goldens :: Show s => String -> s -> TestTree
-goldens name = goldenVsString name fp . pure . ByteString.pack . show
+goldens' :: Show s => String -> IO s -> TestTree
+goldens' name = goldenVsString name fp . fmap (ByteString.pack . show)
   where
     fp = "test/goldens/" ++ name ++ ".golden"
+
+goldens :: Show s => String -> s -> TestTree
+goldens name = goldens' name . pure
 
 testValidGetters :: TestTree
 testValidGetters = testGroup "Test valid getters"
@@ -87,3 +98,22 @@ testKeepSchemaNamespaced = goldens "keep_schema_namespaced" $
     nestedList = [Nested.get| nested.list[] > o |]
     fromAllTypes o = Text.unpack [AllTypes.get| @o.type |]
     fromNested o = show [Nested.get| @o.b |]
+
+testInvalidGetters :: TestTree
+testInvalidGetters = testGroup "Test invalid getters"
+  [ badGoldens "unstored_schema" "@asdf.foo.bar"
+  , badGoldens "reference_stored" "node.a"
+  , badGoldens "store_duplicate" "result.maybeObject > node"
+  , badGoldens "store_not_object" "result.bool > bool"
+  , badGoldens "invalid_key" "result.foo"
+  , badGoldens "invalid_type_key" "result.bool.foo"
+  , badGoldens "invalid_bang" "result.bool!"
+  , badGoldens "invalid_list" "result.maybeObject[]"
+  ]
+  where
+    badGoldens name input = goldens' name $
+      try @SomeException (runQ $ generateGetter input) >>=
+        either return (\_ -> fail "Invalid getter incorrectly parsed the input")
+    generateGetter = generateGetter' getQ putQ 'AllTypes.UnsafeResult AllTypes.schema
+    getQ = pure $ Just [("AllTypes.UnsafeResult$node", SchemaObject [("a", SchemaText)])]
+    putQ = runIO . print
