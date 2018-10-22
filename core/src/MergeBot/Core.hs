@@ -89,7 +89,7 @@ getPullRequest state _number = do
     , mergeQueue  = queue
     , mergeRun    = mergeRun
     , canTry      = isNothing mergeRun && maybe True (not . isPending) tryStatus
-    , canQueue    = isNothing queue
+    , canQueue    = isNothing queue && isNothing mergeRun
     , canUnqueue  = isJust queue
     }
   where
