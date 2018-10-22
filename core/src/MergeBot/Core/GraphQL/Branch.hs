@@ -1,17 +1,17 @@
 {-|
-Module      :  MergeBot.Core.GraphQL.Branches
+Module      :  MergeBot.Core.GraphQL.Branch
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
 Portability :  portable
 
-Defines the Branches graphql query.
+Defines the Branch graphql query.
 -}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 
-module MergeBot.Core.GraphQL.Branches where
+module MergeBot.Core.GraphQL.Branch where
 
 {- TODO: THIS FILE SHOULD BE GENERATED -}
 
@@ -22,7 +22,7 @@ import MergeBot.Core.GraphQL.StatusState (StatusState)
 data Args = Args
   { _repoOwner :: String
   , _repoName  :: String
-  , _after     :: Maybe String
+  , _name      :: String
   } deriving (Show)
 
 newtype Result = UnsafeResult Value
@@ -33,14 +33,14 @@ instance HasArgs Result where
   fromArgs args = object
     [ "repoOwner" .= _repoOwner args
     , "repoName"  .= _repoName args
-    , "after"     .= _after args
+    , "name"      .= _name args
     ]
 
 instance IsQueryable Result where
   execQuery = execQueryFor UnsafeResult
 
 query :: Query Result
-query = $(readGraphQLFile "Branches.graphql") -- TODO: when generated, will actually be file contents
+query = $(readGraphQLFile "Branch.graphql") -- TODO: when generated, will actually be file contents
 
 get :: QuasiQuoter
 get = getterFor 'UnsafeResult schema
@@ -49,27 +49,16 @@ schema :: Schema
 schema = SchemaObject
   [ ( "repository"
     , SchemaObject
-      [ ( "refs"
+      [ ( "ref"
         , SchemaMaybe $ SchemaObject
-          [ ( "pageInfo"
+          [ ( "target"
             , SchemaObject
-              [ ("hasNextPage", SchemaBool)
-              , ("endCursor", SchemaMaybe SchemaText)
-              ]
-            )
-          , ( "nodes"
-            , SchemaMaybe $ SchemaList $ SchemaMaybe $ SchemaObject
-              [ ("name", SchemaText)
-              , ( "target"
-                , SchemaObject
-                  [ ( "status"
-                    , SchemaMaybe $ SchemaObject
-                      [ ( "contexts"
-                        , SchemaList $ SchemaObject
-                          [ ("context", SchemaText)
-                          , ("state", SchemaEnum (Proxy :: Proxy StatusState))
-                          ]
-                        )
+              [ ( "status"
+                , SchemaMaybe $ SchemaObject
+                  [ ( "contexts"
+                    , SchemaList $ SchemaObject
+                      [ ("context", SchemaText)
+                      , ("state", SchemaEnum (Proxy :: Proxy StatusState))
                       ]
                     )
                   ]

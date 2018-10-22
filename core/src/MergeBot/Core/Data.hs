@@ -10,18 +10,7 @@ Defines the data types for data types sent back from the merge bot.
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 
-module MergeBot.Core.Data
-  ( PullRequest(..)
-  , PullRequestId
-  , PullRequestDetail(..)
-  , PullRequestSimple(..)
-  , BotStatus(..)
-  , TryStatus(..)
-  , MergeStatus(..)
-  , CIStatus(..)
-  , TryRun(..)
-  , MergeRun(..)
-  ) where
+module MergeBot.Core.Data where
 
 import Data.Aeson (ToJSON)
 import Data.Text (Text)
@@ -97,7 +86,7 @@ data MergeStatus = MergeRunning | MergeFailed
 
 -- | The status of a CI job.
 data JobStatus = CISuccess | CIRunning | CIWaiting | CIFailed
-  deriving (Show,Generic,ToJSON)
+  deriving (Show,Generic,ToJSON,Eq)
 
 -- | The status of CI for a pull request.
 newtype CIStatus = CIStatus [(Text, JobStatus)]

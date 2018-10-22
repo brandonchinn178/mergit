@@ -1,27 +1,28 @@
 {-|
-Module      :  MergeBot.Core.GraphQL.Branches
+Module      :  MergeBot.Core.GraphQL.PullRequestReview
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
 Portability :  portable
 
-Defines the Branches graphql query.
+Defines the PullRequestReview graphql query.
 -}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 
-module MergeBot.Core.GraphQL.Branches where
+module MergeBot.Core.GraphQL.PullRequestReview where
 
 {- TODO: THIS FILE SHOULD BE GENERATED -}
 
 import Data.GraphQL
 
-import MergeBot.Core.GraphQL.StatusState (StatusState)
+import MergeBot.Core.GraphQL.PullRequestReviewState (PullRequestReviewState)
 
 data Args = Args
   { _repoOwner :: String
   , _repoName  :: String
+  , _number    :: Int
   , _after     :: Maybe String
   } deriving (Show)
 
@@ -33,6 +34,7 @@ instance HasArgs Result where
   fromArgs args = object
     [ "repoOwner" .= _repoOwner args
     , "repoName"  .= _repoName args
+    , "number"    .= _number args
     , "after"     .= _after args
     ]
 
@@ -40,7 +42,7 @@ instance IsQueryable Result where
   execQuery = execQueryFor UnsafeResult
 
 query :: Query Result
-query = $(readGraphQLFile "Branches.graphql") -- TODO: when generated, will actually be file contents
+query = $(readGraphQLFile "PullRequestReview.graphql") -- TODO: when generated, will actually be file contents
 
 get :: QuasiQuoter
 get = getterFor 'UnsafeResult schema
@@ -49,29 +51,24 @@ schema :: Schema
 schema = SchemaObject
   [ ( "repository"
     , SchemaObject
-      [ ( "refs"
+      [ ( "pullRequest"
         , SchemaMaybe $ SchemaObject
-          [ ( "pageInfo"
-            , SchemaObject
-              [ ("hasNextPage", SchemaBool)
-              , ("endCursor", SchemaMaybe SchemaText)
-              ]
-            )
-          , ( "nodes"
-            , SchemaMaybe $ SchemaList $ SchemaMaybe $ SchemaObject
-              [ ("name", SchemaText)
-              , ( "target"
+          [ ( "reviews"
+            , SchemaMaybe $ SchemaObject
+              [ ( "pageInfo"
                 , SchemaObject
-                  [ ( "status"
+                  [ ("hasNextPage", SchemaBool)
+                  , ("endCursor", SchemaMaybe SchemaText)
+                  ]
+                )
+              , ( "nodes"
+                , SchemaMaybe $ SchemaList $ SchemaMaybe $ SchemaObject
+                  [ ( "author"
                     , SchemaMaybe $ SchemaObject
-                      [ ( "contexts"
-                        , SchemaList $ SchemaObject
-                          [ ("context", SchemaText)
-                          , ("state", SchemaEnum (Proxy :: Proxy StatusState))
-                          ]
-                        )
+                      [ ("login", SchemaText)
                       ]
                     )
+                  , ("state", SchemaEnum (Proxy :: Proxy PullRequestReviewState))
                   ]
                 )
               ]
