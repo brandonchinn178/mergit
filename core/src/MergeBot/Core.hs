@@ -72,6 +72,7 @@ getPullRequest state _number = do
   queue <- if _number `Set.member` mergeQueue
     then fmap Just $ mapM getSimplePullRequest $ Set.toList mergeQueue
     else return Nothing
+  let mergeRun = Nothing -- TODO: get PRs in staging branch and the status of the merge run
   return PullRequestDetail
     { number      = [PullRequest.get| @pr.number |]
     , title       = [PullRequest.get| @pr.title |]
@@ -85,7 +86,7 @@ getPullRequest state _number = do
     , approved    = not (null reviews) && all (== APPROVED) reviews
     , tryRun      = TryRun <$> tryStatus
     , mergeQueue  = queue
-    , mergeRun    = error "mergeRun"
+    , mergeRun    = mergeRun
     , canTry      = error "canTry"
     , canQueue    = error "canQueue"
     , canUnqueue  = error "canUnqueue"
