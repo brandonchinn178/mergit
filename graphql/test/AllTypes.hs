@@ -10,13 +10,13 @@ import Language.Haskell.TH.Syntax (lift)
 
 import Data.GraphQL
 
-data Greeting = GreetingHELLO | GreetingGOODBYE
+data Greeting = HELLO | GOODBYE
   deriving (Show)
 
 instance GraphQLEnum Greeting where
   getEnum _ t = case fromText t of
-    "HELLO" -> GreetingHELLO
-    "GOODBYE" -> GreetingGOODBYE
+    "HELLO" -> HELLO
+    "GOODBYE" -> GOODBYE
     s -> error $ "Invalid Greeting: " ++ s
 
 newtype Result = UnsafeResult Value

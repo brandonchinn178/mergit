@@ -17,7 +17,7 @@ module MergeBot.Core.GraphQL.Branches where
 
 import Data.GraphQL
 
-import MergeBot.Core.GraphQL.Enums
+import MergeBot.Core.GraphQL.StatusState (StatusState)
 
 data Args = Args
   { _repoOwner :: String

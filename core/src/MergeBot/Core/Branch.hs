@@ -26,7 +26,7 @@ import Text.Read (readMaybe)
 import MergeBot.Core.Data (BotStatus(..), PullRequestId, TryStatus(..))
 import MergeBot.Core.GitHub (queryAll)
 import qualified MergeBot.Core.GraphQL.Branches as Branches
-import MergeBot.Core.GraphQL.Enums (StatusState(..))
+import MergeBot.Core.GraphQL.StatusState (StatusState(..))
 import MergeBot.Core.State (BotState, getMergeQueue, getRepo)
 
 -- | Get all branches managed by the merge bot and the CI status of each.
@@ -56,7 +56,7 @@ getBranchStatuses state = do
           maybeBranchId = readMaybe . Text.unpack =<< isTrying
           contexts = fromMaybe [] [Branches.get| @branch.target.status.contexts[].state |]
           status
-            | any (`elem` [StatusStateEXPECTED, StatusStatePENDING]) contexts = TryRunning
-            | all (== StatusStateSUCCESS) contexts = TrySuccess
+            | any (`elem` [EXPECTED, PENDING]) contexts = TryRunning
+            | all (== SUCCESS) contexts = TrySuccess
             | otherwise = TryFailed
       in (, Trying status) <$> maybeBranchId
