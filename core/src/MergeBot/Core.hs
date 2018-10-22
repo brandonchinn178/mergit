@@ -26,6 +26,7 @@ import Data.Maybe (fromMaybe)
 import MergeBot.Core.Branch
 import MergeBot.Core.Data
 import MergeBot.Core.GitHub (queryAll)
+import qualified MergeBot.Core.GraphQL.PullRequest as PullRequest
 import qualified MergeBot.Core.GraphQL.PullRequests as PullRequests
 import MergeBot.Core.GraphQL.Scalars (parseUTCTime)
 import MergeBot.Core.State
@@ -57,8 +58,30 @@ listPullRequests state = do
     (_repoOwner, _repoName) = getRepo state
 
 -- | Return a single pull request.
-getPullRequest :: Monad m => PullRequestId -> m PullRequestDetail
-getPullRequest = undefined
+getPullRequest :: MonadQuery m => BotState -> PullRequestId -> m PullRequestDetail
+getPullRequest state prNum = do
+  result <- runQuery PullRequest.query PullRequest.Args{_number = prNum, ..}
+  let pr = [PullRequest.get| result.repository.pullRequest! > pr |]
+  return PullRequestDetail
+    { number      = [PullRequest.get| @pr.number |]
+    , title       = [PullRequest.get| @pr.title |]
+    , author      = [PullRequest.get| @pr.author!.login |]
+    , created     = parseUTCTime [PullRequest.get| @pr.createdAt |]
+    , updated     = parseUTCTime [PullRequest.get| @pr.updatedAt |]
+    , url         = [PullRequest.get| @pr.url |]
+    , body        = [PullRequest.get| @pr.bodyHTML |]
+    , commit      = [PullRequest.get| @pr.headRefOid |]
+    , base        = [PullRequest.get| @pr.baseRefName |]
+    , approved    = error "approved"
+    , tryRun      = error "tryRun"
+    , mergeQueue  = error "mergeQueue"
+    , mergeRun    = error "mergeRun"
+    , canTry      = error "canTry"
+    , canQueue    = error "canQueue"
+    , canUnqueue  = error "canUnqueue"
+    }
+  where
+    (_repoOwner, _repoName) = getRepo state
 
 -- | Start a try job for the given pull request.
 tryPullRequest :: Monad m => PullRequestId -> m ()
