@@ -22,6 +22,7 @@ module MergeBot.Core
 import Data.GraphQL (MonadQuery, runQuery)
 import qualified Data.Map.Strict as Map
 import Data.Maybe (fromMaybe)
+import qualified Data.Set as Set
 import Data.Text (Text)
 
 import MergeBot.Core.Branch
@@ -31,6 +32,7 @@ import qualified MergeBot.Core.GraphQL.PullRequest as PullRequest
 import qualified MergeBot.Core.GraphQL.PullRequestReview as PullRequestReview
 import MergeBot.Core.GraphQL.PullRequestReviewState (PullRequestReviewState(..))
 import qualified MergeBot.Core.GraphQL.PullRequests as PullRequests
+import qualified MergeBot.Core.GraphQL.PullRequestSimple as PullRequestSimple
 import MergeBot.Core.GraphQL.Scalars (parseUTCTime)
 import MergeBot.Core.State
 
@@ -67,6 +69,9 @@ getPullRequest state _number = do
   let pr = [PullRequest.get| result.repository.pullRequest! > pr |]
   reviews <- resolveReviews <$> queryAll getReviews
   tryStatus <- getTryStatus state _number
+  queue <- if _number `Set.member` mergeQueue
+    then fmap Just $ mapM getSimplePullRequest $ Set.toList mergeQueue
+    else return Nothing
   return PullRequestDetail
     { number      = [PullRequest.get| @pr.number |]
     , title       = [PullRequest.get| @pr.title |]
@@ -79,7 +84,7 @@ getPullRequest state _number = do
     , base        = [PullRequest.get| @pr.baseRefName |]
     , approved    = not (null reviews) && all (== APPROVED) reviews
     , tryRun      = TryRun <$> tryStatus
-    , mergeQueue  = error "mergeQueue"
+    , mergeQueue  = queue
     , mergeRun    = error "mergeRun"
     , canTry      = error "canTry"
     , canQueue    = error "canQueue"
@@ -87,6 +92,7 @@ getPullRequest state _number = do
     }
   where
     (_repoOwner, _repoName) = getRepo state
+    mergeQueue = getMergeQueue state
     getReviews _after = do
       result <- runQuery PullRequestReview.query PullRequestReview.Args{..}
       let info = [PullRequestReview.get| result.repository.pullRequest!.reviews! > info |]
@@ -100,6 +106,13 @@ getPullRequest state _number = do
         , [PullRequestReview.get| @info.pageInfo.hasNextPage |]
         , [PullRequestReview.get| @info.pageInfo.endCursor |]
         )
+    getSimplePullRequest num = do
+      result <- runQuery PullRequestSimple.query PullRequestSimple.Args{_number=num, ..}
+      let pr = [PullRequestSimple.get| result.repository.pullRequest! > pr |]
+      return PullRequestSimple
+        { number = [PullRequestSimple.get| @pr.number |]
+        , title  = [PullRequestSimple.get| @pr.title |]
+        }
 
 -- | Start a try job for the given pull request.
 tryPullRequest :: Monad m => PullRequestId -> m ()
