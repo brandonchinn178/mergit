@@ -21,7 +21,7 @@ module MergeBot.Core
 
 import Data.GraphQL (MonadQuery, runQuery)
 import qualified Data.Map.Strict as Map
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, isJust, isNothing)
 import qualified Data.Set as Set
 import Data.Text (Text)
 
@@ -87,9 +87,9 @@ getPullRequest state _number = do
     , tryRun      = TryRun <$> tryStatus
     , mergeQueue  = queue
     , mergeRun    = mergeRun
-    , canTry      = error "canTry"
-    , canQueue    = error "canQueue"
-    , canUnqueue  = error "canUnqueue"
+    , canTry      = isNothing mergeRun && isNothing tryStatus
+    , canQueue    = isNothing queue
+    , canUnqueue  = isJust queue
     }
   where
     (_repoOwner, _repoName) = getRepo state
