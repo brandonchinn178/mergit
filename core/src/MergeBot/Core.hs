@@ -22,11 +22,14 @@ module MergeBot.Core
 import Data.GraphQL (MonadQuery, runQuery)
 import qualified Data.Map.Strict as Map
 import Data.Maybe (fromMaybe)
+import Data.Text (Text)
 
 import MergeBot.Core.Branch
 import MergeBot.Core.Data
 import MergeBot.Core.GitHub (queryAll)
 import qualified MergeBot.Core.GraphQL.PullRequest as PullRequest
+import qualified MergeBot.Core.GraphQL.PullRequestReview as PullRequestReview
+import MergeBot.Core.GraphQL.PullRequestReviewState (PullRequestReviewState(..))
 import qualified MergeBot.Core.GraphQL.PullRequests as PullRequests
 import MergeBot.Core.GraphQL.Scalars (parseUTCTime)
 import MergeBot.Core.State
@@ -59,9 +62,10 @@ listPullRequests state = do
 
 -- | Return a single pull request.
 getPullRequest :: MonadQuery m => BotState -> PullRequestId -> m PullRequestDetail
-getPullRequest state prNum = do
-  result <- runQuery PullRequest.query PullRequest.Args{_number = prNum, ..}
+getPullRequest state _number = do
+  result <- runQuery PullRequest.query PullRequest.Args{..}
   let pr = [PullRequest.get| result.repository.pullRequest! > pr |]
+  reviews <- resolveReviews <$> queryAll getReviews
   return PullRequestDetail
     { number      = [PullRequest.get| @pr.number |]
     , title       = [PullRequest.get| @pr.title |]
@@ -72,7 +76,7 @@ getPullRequest state prNum = do
     , body        = [PullRequest.get| @pr.bodyHTML |]
     , commit      = [PullRequest.get| @pr.headRefOid |]
     , base        = [PullRequest.get| @pr.baseRefName |]
-    , approved    = error "approved"
+    , approved    = not (null reviews) && all (== APPROVED) reviews
     , tryRun      = error "tryRun"
     , mergeQueue  = error "mergeQueue"
     , mergeRun    = error "mergeRun"
@@ -82,6 +86,19 @@ getPullRequest state prNum = do
     }
   where
     (_repoOwner, _repoName) = getRepo state
+    getReviews _after = do
+      result <- runQuery PullRequestReview.query PullRequestReview.Args{..}
+      let info = [PullRequestReview.get| result.repository.pullRequest!.reviews! > info |]
+          reviews = [PullRequestReview.get| @info.nodes![]! > review |]
+          fromReview review =
+            ( [PullRequestReview.get| @review.author!.login |]
+            , [PullRequestReview.get| @review.state |]
+            )
+      return
+        ( map fromReview reviews
+        , [PullRequestReview.get| @info.pageInfo.hasNextPage |]
+        , [PullRequestReview.get| @info.pageInfo.endCursor |]
+        )
 
 -- | Start a try job for the given pull request.
 tryPullRequest :: Monad m => PullRequestId -> m ()
@@ -102,3 +119,19 @@ startMergeJob = undefined
 -- | Merge pull requests after a successful merge job.
 runMerge :: Monad m => m ()
 runMerge = undefined
+
+{- Helpers -}
+
+-- | Resolve the given pull request reviews according to the given rules:
+--
+-- * Only track APPROVED or CHANGES_REQUESTED reviews
+-- * A given author's reviews later in the list overrule their reviews earlier in the list
+resolveReviews :: [(Text, PullRequestReviewState)] -> [PullRequestReviewState]
+resolveReviews = squashReviews' Map.empty
+  where
+    squashReviews' reviews [] = Map.elems reviews
+    squashReviews' reviews ((author, review):rest) =
+      let reviews' = if review `elem` [APPROVED, CHANGES_REQUESTED]
+            then Map.insert author review reviews
+            else reviews
+      in squashReviews' reviews' rest
