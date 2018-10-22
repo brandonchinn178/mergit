@@ -10,18 +10,7 @@ Defines the data types for data types sent back from the merge bot.
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 
-module MergeBot.Core.Data
-  ( PullRequest(..)
-  , PullRequestId
-  , PullRequestDetail(..)
-  , PullRequestSimple(..)
-  , BotStatus(..)
-  , TryStatus(..)
-  , MergeStatus(..)
-  , CIStatus(..)
-  , TryRun(..)
-  , MergeRun(..)
-  ) where
+module MergeBot.Core.Data where
 
 import Data.Aeson (ToJSON)
 import Data.Text (Text)

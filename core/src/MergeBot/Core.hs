@@ -66,6 +66,7 @@ getPullRequest state _number = do
   result <- runQuery PullRequest.query PullRequest.Args{..}
   let pr = [PullRequest.get| result.repository.pullRequest! > pr |]
   reviews <- resolveReviews <$> queryAll getReviews
+  tryStatus <- getTryStatus state _number
   return PullRequestDetail
     { number      = [PullRequest.get| @pr.number |]
     , title       = [PullRequest.get| @pr.title |]
@@ -77,7 +78,7 @@ getPullRequest state _number = do
     , commit      = [PullRequest.get| @pr.headRefOid |]
     , base        = [PullRequest.get| @pr.baseRefName |]
     , approved    = not (null reviews) && all (== APPROVED) reviews
-    , tryRun      = error "tryRun"
+    , tryRun      = TryRun <$> tryStatus
     , mergeQueue  = error "mergeQueue"
     , mergeRun    = error "mergeRun"
     , canTry      = error "canTry"
