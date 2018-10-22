@@ -8,6 +8,7 @@ Definitions for GraphQL errors and exceptions.
 -}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Data.GraphQL.Error
   ( GraphQLError(..)
@@ -16,7 +17,7 @@ module Data.GraphQL.Error
   ) where
 
 import Control.Exception (Exception)
-import Data.Aeson (FromJSON, ToJSON, Value)
+import Data.Aeson (FromJSON(..), ToJSON, Value, withObject, (.:))
 import Data.Text (Text)
 import GHC.Generics (Generic)
 
@@ -31,7 +32,13 @@ data GraphQLError = GraphQLError
 data GraphQLErrorLoc = GraphQLErrorLoc
   { errorLine :: Int
   , errorCol  :: Int
-  } deriving (Show,Generic,ToJSON,FromJSON)
+  } deriving (Show,Generic,ToJSON)
+
+instance FromJSON GraphQLErrorLoc where
+  parseJSON = withObject "GraphQLErrorLoc" $ \o ->
+    GraphQLErrorLoc
+      <$> o .: "line"
+      <*> o .: "column"
 
 -- | An exception thrown as a result of an error in a GraphQL query.
 newtype GraphQLException = GraphQLException [GraphQLError]
