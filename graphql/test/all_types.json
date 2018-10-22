@@ -5,10 +5,19 @@
     "text": "asdf",
     "scalar": "2018-08-03T21:51:32Z",
     "enum": "HELLO",
-    "maybeNull": null,
     "maybeObject": {
         "text": "foo"
     },
+    "maybeObjectNull": null,
+    "maybeList": [
+        {
+            "text": "foo"
+        },
+        {
+            "text": "bar"
+        }
+    ],
+    "maybeListNull": null,
     "list": [
         {
             "type": "bool",

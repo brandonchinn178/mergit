@@ -29,8 +29,10 @@ schema = SchemaObject
   , ("text", SchemaText)
   , ("scalar", SchemaScalar)
   , ("enum", SchemaEnum (Proxy :: Proxy Greeting))
-  , ("maybeNull", SchemaMaybe $ SchemaObject [("text", SchemaText)])
   , ("maybeObject", SchemaMaybe $ SchemaObject [("text", SchemaText)])
+  , ("maybeObjectNull", SchemaMaybe $ SchemaObject [("text", SchemaText)])
+  , ("maybeList", SchemaMaybe $ SchemaList $ SchemaObject [("text", SchemaText)])
+  , ("maybeListNull", SchemaMaybe $ SchemaList $ SchemaObject [("text", SchemaText)])
   , ("list", SchemaList $ SchemaObject
       [ ("type", SchemaText)
       , ("maybeBool", SchemaMaybe SchemaBool)
@@ -38,6 +40,7 @@ schema = SchemaObject
       , ("maybeNull", SchemaMaybe SchemaBool)
       ]
     )
+  , ("nonexistent", SchemaMaybe SchemaText)
   ]
 
 get :: QuasiQuoter

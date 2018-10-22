@@ -1,0 +1,3 @@
+Did you intend to use `@node` instead?
+CallStack (from HasCallStack):
+  error, called at src/Data/GraphQL/Result/Getter/Internal.hs:76:28 in graphql-client-0.1.0-56eSVdBnMkzJYo9pxki0G:Data.GraphQL.Result.Getter.Internal
