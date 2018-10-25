@@ -17,6 +17,8 @@ module MergeBot.Core.Monad
   , getRepo
   ) where
 
+import Control.Monad.Catch (MonadCatch(..), MonadThrow(..))
+import Control.Monad.Except (MonadError)
 import Control.Monad.IO.Class (MonadIO(..))
 import Control.Monad.Reader (MonadReader, ReaderT, ask, runReaderT)
 import Control.Monad.Trans.Class (MonadTrans(..))
@@ -44,12 +46,22 @@ newtype BotAppT m a = BotAppT { unBotApp :: ReaderT BotEnv (QueryT m) a }
     ( Functor
     , Applicative
     , Monad
+    , MonadError e
     , MonadIO
     , MonadReader BotEnv
     )
 
 instance MonadTrans BotAppT where
   lift = BotAppT . lift . lift
+
+instance MonadThrow m => MonadThrow (BotAppT m) where
+  throwM = BotAppT . lift . lift . throwM
+
+instance (MonadIO m, MonadCatch m) => MonadCatch (BotAppT m) where
+  catch m f = do
+    env <- ask
+    BotAppT . lift . lift $
+      catch (runBotWith env m) (runBotWith env . f)
 
 instance MonadIO m => MonadQuery (BotAppT m) where
   runQuerySafe query = BotAppT . lift . runQuerySafe query
@@ -69,7 +81,7 @@ runBot BotConfig{..} app = do
         , ghToken = cfgToken
         , ghManager = manager
         }
-  runQueryT (graphqlSettings cfgToken)
-    . (`runReaderT` env)
-    . unBotApp
-    $ app
+  runBotWith env app
+
+runBotWith :: MonadIO m => BotEnv -> BotAppT m a -> m a
+runBotWith env = runQueryT (graphqlSettings $ ghToken env) . (`runReaderT` env) . unBotApp

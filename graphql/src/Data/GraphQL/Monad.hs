@@ -29,6 +29,7 @@ module Data.GraphQL.Monad
   ) where
 
 import Control.Exception (throwIO)
+import Control.Monad.Except (MonadError)
 import Control.Monad.IO.Class (MonadIO(..))
 import Control.Monad.Reader (MonadReader, ReaderT, ask, runReaderT)
 import Control.Monad.Trans.Class (MonadTrans)
@@ -90,6 +91,7 @@ newtype QueryT m a = QueryT { unQueryT :: ReaderT QueryState m a }
     ( Functor
     , Applicative
     , Monad
+    , MonadError e
     , MonadIO
     , MonadReader QueryState
     , MonadTrans
