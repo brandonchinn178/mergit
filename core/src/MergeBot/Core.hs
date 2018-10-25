@@ -8,6 +8,7 @@ Defines the core functionality of the merge bot.
 -}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE RecordWildCards #-}
 
@@ -76,6 +77,7 @@ getPullRequest state _number = do
 
   result <- runQuery PullRequest.query PullRequest.Args{..}
   let pr = [PullRequest.get| result.repository.pullRequest! > pr |]
+      base = [PullRequest.get| @pr.baseRefName |]
 
   reviews <- fmap resolveReviews $ queryAll $ \_after -> getReviews PullRequestReview.Args{..}
   tryStatus <- getTryStatus _number
@@ -94,13 +96,13 @@ getPullRequest state _number = do
     , url         = [PullRequest.get| @pr.url |]
     , body        = [PullRequest.get| @pr.bodyHTML |]
     , commit      = [PullRequest.get| @pr.headRefOid |]
-    , base        = [PullRequest.get| @pr.baseRefName |]
+    , base        = base
     , approved    = not (null reviews) && all (== APPROVED) reviews
     , tryRun      = TryRun <$> tryStatus
     , mergeQueue  = queue
     , mergeRun    = mergeRun
     , canTry      = isNothing mergeRun && maybe True (not . isPending) tryStatus
-    , canQueue    = isNothing queue && isNothing mergeRun
+    , canQueue    = isNothing queue && isNothing mergeRun && base == "master"
     , canUnqueue  = isJust queue
     }
   where
