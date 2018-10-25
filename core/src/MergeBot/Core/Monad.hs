@@ -7,7 +7,6 @@ Portability :  portable
 Defines the monad used for the core functions of the merge bot.
 -}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE OverloadedStrings #-}
 
 module MergeBot.Core.Monad
   ( BotAppT
@@ -17,18 +16,10 @@ module MergeBot.Core.Monad
 import Control.Monad.IO.Class (MonadIO)
 import Control.Monad.Reader (MonadReader, ReaderT, runReaderT)
 import Control.Monad.Trans.Class (MonadTrans(..))
-import qualified Data.ByteString.Char8 as ByteString
-import Data.GraphQL
-    ( MonadQuery(..)
-    , QuerySettings(..)
-    , QueryT
-    , defaultQuerySettings
-    , runQueryT
-    )
-import Network.HTTP.Client (requestHeaders)
-import Network.HTTP.Types (hAuthorization, hUserAgent)
+import Data.GraphQL (MonadQuery(..), QueryT, runQueryT)
 
 import MergeBot.Core.Config (BotConfig(..))
+import MergeBot.Core.GitHub (graphqlSettings)
 
 newtype BotAppT m a = BotAppT { unBotApp :: ReaderT BotConfig (QueryT m) a }
   deriving
@@ -46,14 +37,7 @@ instance MonadIO m => MonadQuery (BotAppT m) where
   runQuerySafe query = BotAppT . lift . runQuerySafe query
 
 runBot :: MonadIO m => BotConfig -> BotAppT m a -> m a
-runBot config = runQueryT querySettings . (`runReaderT` config) . unBotApp
-  where
-    querySettings = defaultQuerySettings
-      { url = "https://api.github.com/graphql"
-      , modifyReq = \req -> req
-          { requestHeaders =
-              (hAuthorization, ByteString.pack $ "bearer " ++ githubToken config)
-              : (hUserAgent, "LeapYear/merge-bot")
-              : requestHeaders req
-          }
-      }
+runBot config =
+  runQueryT (graphqlSettings $ githubToken config)
+    . (`runReaderT` config)
+    . unBotApp
