@@ -1,6 +1,6 @@
 query PullRequests($repoOwner: String!, $repoName: String!, $after: String) {
   repository(owner: $repoOwner, name: $repoName) {
-    pullRequests(first: 100, after: $after) {
+    pullRequests(first: 100, after: $after, states: OPEN) {
       pageInfo {
         hasNextPage
         endCursor
