@@ -7,6 +7,7 @@ Portability :  portable
 Defines the monad used for the core functions of the merge bot.
 -}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 
 module MergeBot.Core.Monad
@@ -25,7 +26,7 @@ import Network.HTTP.Client.TLS (tlsManagerSettings)
 
 import MergeBot.Core.Config (BotConfig(..))
 import MergeBot.Core.GitHub (graphqlSettings)
-import MergeBot.Core.GitHub.REST (MonadGitHub(..), githubAPI)
+import MergeBot.Core.GitHub.REST (KeyValue(..), MonadGitHub(..), githubAPI)
 
 data BotEnv = BotEnv
   { repoOwner :: String
@@ -56,7 +57,8 @@ instance MonadIO m => MonadQuery (BotAppT m) where
 instance MonadIO m => MonadGitHub (BotAppT m) where
   queryGitHub method endpoint vals ghData = do
     BotEnv{..} <- ask
-    githubAPI method endpoint vals ghData ghToken ghManager
+    let vals' = vals ++ ["owner" :=* repoOwner, "repo" :=* repoName]
+    githubAPI method endpoint vals' ghData ghToken ghManager
 
 runBot :: MonadIO m => BotConfig -> BotAppT m a -> m a
 runBot BotConfig{..} app = do

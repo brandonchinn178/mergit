@@ -53,7 +53,13 @@ schema = SchemaObject
         , SchemaMaybe $ SchemaObject
           [ ( "target"
             , SchemaObject
-              [ ( "status"
+              [ ("oid", SchemaScalar)
+              , ( "tree"
+                , SchemaMaybe $ SchemaObject
+                  [ ("oid", SchemaScalar)
+                  ]
+                )
+              , ( "status"
                 , SchemaMaybe $ SchemaObject
                   [ ( "contexts"
                     , SchemaList $ SchemaObject

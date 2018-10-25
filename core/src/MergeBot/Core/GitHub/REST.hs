@@ -16,9 +16,11 @@ module MergeBot.Core.GitHub.REST
   , GitHubData
   , KeyValue(..)
   , githubAPI
+  , handleStatus
   , (.:)
   ) where
 
+import Control.Monad.Catch (MonadCatch, handleJust)
 import Control.Monad.IO.Class (MonadIO(..))
 import Data.Aeson
     (FromJSON, ToJSON(..), Value(..), eitherDecode, encode, object, withObject)
@@ -87,6 +89,18 @@ populateEndpoint endpoint values = Text.intercalate "/" . map populate . Text.sp
         $ lookup key values'
       Just _ -> t
     fail' msg = error . Text.unpack $ msg <> ": " <> endpoint
+
+{- HTTP exception handling -}
+
+-- | Handle the given status code, returning Left if the error was given and Right if not, and
+-- the response body for each.
+handleStatus :: MonadCatch m => Status -> m a -> m (Either Value a)
+handleStatus status = handleJust statusException (fmap Left . decodeFromStrict) . fmap Right
+  where
+    decodeFromStrict = either fail return . eitherDecode . ByteStringL.fromStrict
+    statusException (HttpExceptionRequest _ (StatusCodeException r body))
+      | responseStatus r == status = Just body
+    statusException _ = Nothing
 
 {- Aeson helpers -}
 

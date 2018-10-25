@@ -9,6 +9,7 @@ dependencies:
   - base
   - bytestring
   - containers
+  - exceptions
   - graphql-client
   - http-client
   - http-client-tls

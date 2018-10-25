@@ -16,14 +16,18 @@ Defines functions to query and manage branches utilized by the merge bot.
 module MergeBot.Core.Branch
   ( getBranchStatuses
   , getTryStatus
+  , createTryBranch
+  , deleteBranch
   ) where
 
 import Control.Monad ((<=<))
+import Control.Monad.Catch (MonadCatch)
 import Control.Monad.Reader (MonadReader, asks)
 import Data.GraphQL (MonadQuery, runQuery)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Maybe (fromMaybe, mapMaybe)
+import Data.Monoid ((<>))
 import qualified Data.Set as Set
 import Data.Text (Text)
 import qualified Data.Text as Text
@@ -32,9 +36,19 @@ import Text.Read (readMaybe)
 import MergeBot.Core.CIStatus (isPending, isSuccess, toCIStatus)
 import MergeBot.Core.Data
     (BotStatus(..), CIStatus(..), PullRequestId, TryStatus(..))
-import MergeBot.Core.GitHub (queryAll)
+import MergeBot.Core.GitHub
+    ( KeyValue(..)
+    , MonadGitHub(..)
+    , createBranch
+    , createCommit
+    , deleteBranch
+    , mergeBranches
+    , queryAll
+    , (.:)
+    )
 import qualified MergeBot.Core.GraphQL.Branch as Branch
 import qualified MergeBot.Core.GraphQL.Branches as Branches
+import qualified MergeBot.Core.GraphQL.PullRequest as PullRequest
 import MergeBot.Core.Monad (BotEnv, getRepo)
 import MergeBot.Core.State (BotState, getMergeQueue)
 
@@ -98,3 +112,64 @@ getTryStatus prNum = do
       in map fromContext contexts
   where
     _name = Text.unpack $ toTryBranch prNum
+
+-- | Create a trying branch for the given PR.
+createTryBranch :: (MonadCatch m, MonadGitHub m, MonadReader BotEnv m, MonadQuery m)
+  => PullRequestId -> m ()
+createTryBranch prNum = do
+  (_repoOwner, _repoName) <- asks getRepo
+
+  -- delete try branch if it exists
+  deleteBranch tempBranch
+  deleteBranch tryBranch
+
+  -- get master branch
+  masterBranch <- runQuery Branch.query Branch.Args{_name = "master", ..}
+  let master = [Branch.get| masterBranch.repository.ref!.target > master |]
+      masterTree = [Branch.get| @master.tree!.oid |]
+      masterCommit = [Branch.get| @master.oid |]
+
+  -- get PR commit hash
+  pr <- runQuery PullRequest.query PullRequest.Args{_number = prNum, ..}
+  let prCommit = [PullRequest.get| pr.repository.pullRequest!.headRefOid |]
+
+  -- create a new temp commit off master
+  tempCommit <- createCommit
+    [ "message" := "[ci skip] temp"
+    , "tree" := masterTree
+    , "parents" :=* [masterCommit]
+    ]
+
+  -- create temp branch on new commit
+  createBranch
+    [ "ref" := "refs/heads/" <> tempBranch
+    , "sha" := tempCommit
+    ]
+
+  -- merge pr into temp branch
+  -- TODO: handle merge conflict
+  mergeCommit <- mergeBranches
+    [ "base" := "refs/heads/" <> tempBranch
+    , "head" := prCommit
+    , "message" := "[ci skip] merge into temp"
+    ]
+  let mergeTree = mergeCommit .: "tree" .: "sha"
+
+  -- create a new try commit off master
+  tryCommit <- createCommit
+    [ "message" :=* "Try #" ++ show prNum
+    , "tree" := mergeTree
+    , "parents" :=* [masterCommit, prCommit]
+    ]
+
+  -- create try branch on new commit
+  createBranch
+    [ "ref" := "refs/heads/" <> tryBranch
+    , "sha" := tryCommit
+    ]
+
+  -- delete temp branch
+  deleteBranch tempBranch
+  where
+    tempBranch = "temp-" <> tryBranch
+    tryBranch = toTryBranch prNum

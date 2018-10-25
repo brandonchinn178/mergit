@@ -22,6 +22,7 @@ module MergeBot.Core
   ) where
 
 import Control.Monad (forM)
+import Control.Monad.Catch (MonadCatch)
 import Control.Monad.Reader (MonadReader, asks)
 import Data.GraphQL (MonadQuery, runQuery)
 import qualified Data.Map.Strict as Map
@@ -32,7 +33,7 @@ import Data.Text (Text)
 import MergeBot.Core.Branch
 import MergeBot.Core.CIStatus
 import MergeBot.Core.Data
-import MergeBot.Core.GitHub (queryAll)
+import MergeBot.Core.GitHub
 import qualified MergeBot.Core.GraphQL.PullRequest as PullRequest
 import qualified MergeBot.Core.GraphQL.PullRequestReview as PullRequestReview
 import MergeBot.Core.GraphQL.PullRequestReviewState (PullRequestReviewState(..))
@@ -126,8 +127,8 @@ getPullRequest state _number = do
         }
 
 -- | Start a try job for the given pull request.
-tryPullRequest :: Monad m => PullRequestId -> m ()
-tryPullRequest = undefined
+tryPullRequest :: (MonadCatch m, MonadGitHub m, MonadReader BotEnv m, MonadQuery m) => PullRequestId -> m ()
+tryPullRequest = createTryBranch
 
 -- | Queue the given pull request.
 queuePullRequest :: PullRequestId -> BotState -> BotState
