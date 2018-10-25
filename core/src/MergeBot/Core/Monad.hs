@@ -8,52 +8,80 @@ Defines the monad used for the core functions of the merge bot.
 -}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module MergeBot.Core.Monad
   ( BotAppT
   , runBot
+  , BotEnv(..)
+  , getRepo
   ) where
 
-import Control.Monad.IO.Class (MonadIO)
-import Control.Monad.Reader (MonadReader, ReaderT, runReaderT)
+import Control.Monad.Catch (MonadCatch(..), MonadThrow(..))
+import Control.Monad.Except (MonadError)
+import Control.Monad.IO.Class (MonadIO(..))
+import Control.Monad.Reader (MonadReader, ReaderT, ask, runReaderT)
 import Control.Monad.Trans.Class (MonadTrans(..))
-import qualified Data.ByteString.Char8 as ByteString
-import Data.GraphQL
-    ( MonadQuery(..)
-    , QuerySettings(..)
-    , QueryT
-    , defaultQuerySettings
-    , runQueryT
-    )
-import Network.HTTP.Client (requestHeaders)
-import Network.HTTP.Types (hAuthorization, hUserAgent)
+import Data.GraphQL (MonadQuery(..), QueryT, runQueryT)
+import Network.HTTP.Client (Manager, newManager)
+import Network.HTTP.Client.TLS (tlsManagerSettings)
 
 import MergeBot.Core.Config (BotConfig(..))
+import MergeBot.Core.GitHub (graphqlSettings)
+import MergeBot.Core.GitHub.REST (KeyValue(..), MonadGitHub(..), githubAPI)
 
-newtype BotAppT m a = BotAppT { unBotApp :: ReaderT BotConfig (QueryT m) a }
+data BotEnv = BotEnv
+  { repoOwner :: String
+  , repoName  :: String
+  , ghToken   :: String
+  , ghManager :: Manager
+  }
+
+-- | A helper to get the repoOwner and repoName as a pair.
+getRepo :: BotEnv -> (String, String)
+getRepo BotEnv{..} = (repoOwner, repoName)
+
+newtype BotAppT m a = BotAppT { unBotApp :: ReaderT BotEnv (QueryT m) a }
   deriving
     ( Functor
     , Applicative
     , Monad
+    , MonadError e
     , MonadIO
-    , MonadReader BotConfig
+    , MonadReader BotEnv
     )
 
 instance MonadTrans BotAppT where
   lift = BotAppT . lift . lift
 
+instance MonadThrow m => MonadThrow (BotAppT m) where
+  throwM = BotAppT . lift . lift . throwM
+
+instance (MonadIO m, MonadCatch m) => MonadCatch (BotAppT m) where
+  catch m f = do
+    env <- ask
+    BotAppT . lift . lift $
+      catch (runBotWith env m) (runBotWith env . f)
+
 instance MonadIO m => MonadQuery (BotAppT m) where
   runQuerySafe query = BotAppT . lift . runQuerySafe query
 
+instance MonadIO m => MonadGitHub (BotAppT m) where
+  queryGitHub method endpoint vals ghData = do
+    BotEnv{..} <- ask
+    let vals' = vals ++ ["owner" :=* repoOwner, "repo" :=* repoName]
+    githubAPI method endpoint vals' ghData ghToken ghManager
+
 runBot :: MonadIO m => BotConfig -> BotAppT m a -> m a
-runBot config = runQueryT querySettings . (`runReaderT` config) . unBotApp
-  where
-    querySettings = defaultQuerySettings
-      { url = "https://api.github.com/graphql"
-      , modifyReq = \req -> req
-          { requestHeaders =
-              (hAuthorization, ByteString.pack $ "bearer " ++ githubToken config)
-              : (hUserAgent, "LeapYear/merge-bot")
-              : requestHeaders req
-          }
-      }
+runBot BotConfig{..} app = do
+  manager <- liftIO $ newManager tlsManagerSettings
+  let env = BotEnv
+        { repoOwner = cfgRepoOwner
+        , repoName = cfgRepoName
+        , ghToken = cfgToken
+        , ghManager = manager
+        }
+  runBotWith env app
+
+runBotWith :: MonadIO m => BotEnv -> BotAppT m a -> m a
+runBotWith env = runQueryT (graphqlSettings $ ghToken env) . (`runReaderT` env) . unBotApp

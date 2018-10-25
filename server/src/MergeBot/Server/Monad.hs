@@ -22,8 +22,7 @@ module MergeBot.Server.Monad
 import Control.Concurrent.MVar (MVar, newMVar)
 import Control.Monad.Except (MonadError(..))
 import Control.Monad.IO.Class (MonadIO)
-import Control.Monad.Reader (MonadReader, ReaderT, ask, runReaderT)
-import Control.Monad.Trans.Class (MonadTrans(..))
+import Control.Monad.Reader (MonadReader, ReaderT, runReaderT)
 import Servant
 import System.Environment (getEnv)
 
@@ -39,9 +38,9 @@ data MergeBotEnv = MergeBotEnv
 
 initEnv :: IO MergeBotEnv
 initEnv = do
-  repoOwner <- getEnv "BOT_REPO_OWNER"
-  repoName <- getEnv "BOT_REPO_NAME"
-  githubToken <- getEnv "GITHUB_TOKEN"
+  cfgRepoOwner <- getEnv "BOT_REPO_OWNER"
+  cfgRepoName <- getEnv "BOT_REPO_NAME"
+  cfgToken <- getEnv "GITHUB_TOKEN"
   botState <- newMVar newBotState
   let botConfig = BotConfig{..}
   return MergeBotEnv{..}
@@ -57,16 +56,10 @@ newtype MergeBotHandler a = MergeBotHandler
     ( Functor
     , Applicative
     , Monad
+    , MonadError ServantErr
     , MonadIO
     , MonadReader MergeBotEnv
     )
-
-instance MonadError ServantErr MergeBotHandler where
-  throwError = MergeBotHandler . lift . lift . throwError
-  catchError m f = do
-    env <- ask
-    MergeBotHandler . lift . lift $
-      catchError (runMergeBotHandler env m) (runMergeBotHandler env . f)
 
 -- | Run a MergeBotHandler with the given environment.
 runMergeBotHandler :: MergeBotEnv -> MergeBotHandler a -> Handler a

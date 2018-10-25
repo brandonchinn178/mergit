@@ -9,8 +9,10 @@ dependencies:
   - base
   - bytestring
   - containers
+  - exceptions
   - graphql-client
   - http-client
+  - http-client-tls
   - http-types
   - iso8601-time
   - mtl
