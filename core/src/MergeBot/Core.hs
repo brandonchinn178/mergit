@@ -6,6 +6,8 @@ Portability :  portable
 
 Defines the core functionality of the merge bot.
 -}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE RecordWildCards #-}
 
@@ -19,6 +21,8 @@ module MergeBot.Core
   , runMerge
   ) where
 
+import Control.Monad (forM)
+import Control.Monad.Reader (MonadReader, asks)
 import Data.GraphQL (MonadQuery, runQuery)
 import qualified Data.Map.Strict as Map
 import Data.Maybe (fromMaybe, isJust, isNothing)
@@ -27,6 +31,7 @@ import Data.Text (Text)
 
 import MergeBot.Core.Branch
 import MergeBot.Core.CIStatus
+import MergeBot.Core.Config
 import MergeBot.Core.Data
 import MergeBot.Core.GitHub (queryAll)
 import qualified MergeBot.Core.GraphQL.PullRequest as PullRequest
@@ -38,9 +43,10 @@ import MergeBot.Core.GraphQL.Scalars (parseUTCTime)
 import MergeBot.Core.State
 
 -- | List all open pull requests.
-listPullRequests :: MonadQuery m => BotState -> m [PullRequest]
+listPullRequests :: (MonadReader BotConfig m, MonadQuery m) => BotState -> m [PullRequest]
 listPullRequests state = do
   branchStatuses <- getBranchStatuses state
+  (_repoOwner, _repoName) <- asks getRepo
   queryAll $ \_after -> do
     result <- runQuery PullRequests.query PullRequests.Args{..}
     let info = [PullRequests.get| result.repository.pullRequests > info |]
@@ -60,20 +66,24 @@ listPullRequests state = do
       , [PullRequests.get| @info.pageInfo.hasNextPage |]
       , [PullRequests.get| @info.pageInfo.endCursor |]
       )
-  where
-    (_repoOwner, _repoName) = getRepo state
 
 -- | Return a single pull request.
-getPullRequest :: MonadQuery m => BotState -> PullRequestId -> m PullRequestDetail
+getPullRequest :: (MonadReader BotConfig m, MonadQuery m)
+  => BotState -> PullRequestId -> m PullRequestDetail
 getPullRequest state _number = do
+  (_repoOwner, _repoName) <- asks getRepo
+
   result <- runQuery PullRequest.query PullRequest.Args{..}
   let pr = [PullRequest.get| result.repository.pullRequest! > pr |]
-  reviews <- resolveReviews <$> queryAll getReviews
-  tryStatus <- getTryStatus state _number
+
+  reviews <- fmap resolveReviews $ queryAll $ \_after -> getReviews PullRequestReview.Args{..}
+  tryStatus <- getTryStatus _number
   queue <- if _number `Set.member` mergeQueue
-    then fmap Just $ mapM getSimplePullRequest $ Set.toList mergeQueue
+    then fmap Just $ forM (Set.toList mergeQueue) $ \_number ->
+      getSimplePullRequest PullRequestSimple.Args{..}
     else return Nothing
   let mergeRun = Nothing -- TODO: get PRs in staging branch and the status of the merge run
+
   return PullRequestDetail
     { number      = [PullRequest.get| @pr.number |]
     , title       = [PullRequest.get| @pr.title |]
@@ -93,10 +103,9 @@ getPullRequest state _number = do
     , canUnqueue  = isJust queue
     }
   where
-    (_repoOwner, _repoName) = getRepo state
     mergeQueue = getMergeQueue state
-    getReviews _after = do
-      result <- runQuery PullRequestReview.query PullRequestReview.Args{..}
+    getReviews args = do
+      result <- runQuery PullRequestReview.query args
       let info = [PullRequestReview.get| result.repository.pullRequest!.reviews! > info |]
           reviews = [PullRequestReview.get| @info.nodes![]! > review |]
           fromReview review =
@@ -108,8 +117,8 @@ getPullRequest state _number = do
         , [PullRequestReview.get| @info.pageInfo.hasNextPage |]
         , [PullRequestReview.get| @info.pageInfo.endCursor |]
         )
-    getSimplePullRequest num = do
-      result <- runQuery PullRequestSimple.query PullRequestSimple.Args{_number=num, ..}
+    getSimplePullRequest args = do
+      result <- runQuery PullRequestSimple.query args
       let pr = [PullRequestSimple.get| result.repository.pullRequest! > pr |]
       return PullRequestSimple
         { number = [PullRequestSimple.get| @pr.number |]
