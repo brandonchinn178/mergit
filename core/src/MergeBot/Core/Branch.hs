@@ -28,16 +28,16 @@ import qualified Data.Text as Text
 import Text.Read (readMaybe)
 
 import MergeBot.Core.CIStatus (isPending, isSuccess, toCIStatus)
-import MergeBot.Core.Config (BotConfig, getRepo)
 import MergeBot.Core.Data
     (BotStatus(..), CIStatus(..), PullRequestId, TryStatus(..))
 import MergeBot.Core.GitHub (queryAll)
 import qualified MergeBot.Core.GraphQL.Branch as Branch
 import qualified MergeBot.Core.GraphQL.Branches as Branches
+import MergeBot.Core.Monad (BotEnv, getRepo)
 import MergeBot.Core.State (BotState, getMergeQueue)
 
 -- | Get all branches managed by the merge bot and the CI status of each.
-getBranchStatuses :: (MonadReader BotConfig m, MonadQuery m)
+getBranchStatuses :: (MonadReader BotEnv m, MonadQuery m)
   => BotState -> m (Map PullRequestId BotStatus)
 getBranchStatuses state = do
   (_repoOwner, _repoName) <- asks getRepo
@@ -75,7 +75,7 @@ getBranchStatuses state = do
       in (, Trying status) <$> maybeBranchId
 
 -- | Get the CI status for the trying branch for the given PR.
-getTryStatus :: (MonadReader BotConfig m, MonadQuery m) => PullRequestId -> m (Maybe CIStatus)
+getTryStatus :: (MonadReader BotEnv m, MonadQuery m) => PullRequestId -> m (Maybe CIStatus)
 getTryStatus prNum = do
   (_repoOwner, _repoName) <- asks getRepo
   result <- runQuery Branch.query Branch.Args{..}

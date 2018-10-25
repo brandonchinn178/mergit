@@ -31,7 +31,6 @@ import Data.Text (Text)
 
 import MergeBot.Core.Branch
 import MergeBot.Core.CIStatus
-import MergeBot.Core.Config
 import MergeBot.Core.Data
 import MergeBot.Core.GitHub (queryAll)
 import qualified MergeBot.Core.GraphQL.PullRequest as PullRequest
@@ -40,10 +39,11 @@ import MergeBot.Core.GraphQL.PullRequestReviewState (PullRequestReviewState(..))
 import qualified MergeBot.Core.GraphQL.PullRequests as PullRequests
 import qualified MergeBot.Core.GraphQL.PullRequestSimple as PullRequestSimple
 import MergeBot.Core.GraphQL.Scalars (parseUTCTime)
+import MergeBot.Core.Monad
 import MergeBot.Core.State
 
 -- | List all open pull requests.
-listPullRequests :: (MonadReader BotConfig m, MonadQuery m) => BotState -> m [PullRequest]
+listPullRequests :: (MonadReader BotEnv m, MonadQuery m) => BotState -> m [PullRequest]
 listPullRequests state = do
   branchStatuses <- getBranchStatuses state
   (_repoOwner, _repoName) <- asks getRepo
@@ -68,7 +68,7 @@ listPullRequests state = do
       )
 
 -- | Return a single pull request.
-getPullRequest :: (MonadReader BotConfig m, MonadQuery m)
+getPullRequest :: (MonadReader BotEnv m, MonadQuery m)
   => BotState -> PullRequestId -> m PullRequestDetail
 getPullRequest state _number = do
   (_repoOwner, _repoName) <- asks getRepo

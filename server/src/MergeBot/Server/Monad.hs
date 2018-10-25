@@ -39,9 +39,9 @@ data MergeBotEnv = MergeBotEnv
 
 initEnv :: IO MergeBotEnv
 initEnv = do
-  repoOwner <- getEnv "BOT_REPO_OWNER"
-  repoName <- getEnv "BOT_REPO_NAME"
-  githubToken <- getEnv "GITHUB_TOKEN"
+  cfgRepoOwner <- getEnv "BOT_REPO_OWNER"
+  cfgRepoName <- getEnv "BOT_REPO_NAME"
+  cfgToken <- getEnv "GITHUB_TOKEN"
   botState <- newMVar newBotState
   let botConfig = BotConfig{..}
   return MergeBotEnv{..}
