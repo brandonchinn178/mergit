@@ -54,6 +54,7 @@ schema = SchemaObject
           [ ( "target"
             , SchemaObject
               [ ("oid", SchemaScalar)
+              , ("message", SchemaMaybe SchemaText)
               , ( "tree"
                 , SchemaMaybe $ SchemaObject
                   [ ("oid", SchemaScalar)
