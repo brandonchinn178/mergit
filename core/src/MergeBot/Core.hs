@@ -129,7 +129,8 @@ getPullRequest state _number = do
         }
 
 -- | Start a try job for the given pull request.
-tryPullRequest :: (MonadCatch m, MonadGitHub m, MonadReader BotEnv m, MonadQuery m) => PullRequestId -> m ()
+tryPullRequest :: (MonadCatch m, MonadGitHub m, MonadReader BotEnv m, MonadQuery m)
+  => PullRequestId -> m ()
 tryPullRequest = createTryBranch
 
 -- | Queue the given pull request.
@@ -141,8 +142,13 @@ unqueuePullRequest :: PullRequestId -> BotState -> BotState
 unqueuePullRequest = removeMergeQueue
 
 -- | Start a merge job.
-startMergeJob :: Monad m => BotState -> m BotState
-startMergeJob = undefined
+startMergeJob :: (MonadCatch m, MonadGitHub m, MonadReader BotEnv m, MonadQuery m)
+  => BotState -> m BotState
+startMergeJob state = do
+  createMergeBranch $ Set.toList queue
+  return $ clearMergeQueue state
+  where
+    queue = getMergeQueue state
 
 -- | Merge pull requests after a successful merge job.
 runMerge :: Monad m => m ()

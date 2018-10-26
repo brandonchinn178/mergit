@@ -4,6 +4,7 @@ query Branch($repoOwner: String!, $repoName: String!, $name: String!) {
       target {
         oid
         ... on Commit {
+          message
           tree {
             oid
           }
