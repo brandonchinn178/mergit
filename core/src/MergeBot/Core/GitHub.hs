@@ -24,7 +24,6 @@ module MergeBot.Core.GitHub
 
 import Control.Monad (void)
 import Control.Monad.Catch (MonadCatch)
-import Data.Aeson (Value)
 import qualified Data.ByteString.Char8 as ByteString
 import Data.GraphQL (QuerySettings(..), defaultQuerySettings)
 import Data.Maybe (fromJust)
@@ -86,5 +85,5 @@ deleteBranch branch = void $ handleStatus status422 $
 -- TODO: handle merge conflicts
 --
 -- https://developer.github.com/v3/repos/merging/#perform-a-merge
-mergeBranches :: MonadGitHub m => GitHubData -> m Value
-mergeBranches = fmap (.: "commit") . queryGitHub POST "/repos/:owner/:repo/merges" []
+mergeBranches :: MonadGitHub m => GitHubData -> m ()
+mergeBranches = void . queryGitHub POST "/repos/:owner/:repo/merges" []

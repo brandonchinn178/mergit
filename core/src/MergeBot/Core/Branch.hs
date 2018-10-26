@@ -17,7 +17,7 @@ module MergeBot.Core.Branch
   ( getBranchStatuses
   , getTryStatus
   , createTryBranch
-  , deleteBranch
+  , createMergeBranch
   ) where
 
 import Control.Monad ((<=<))
@@ -37,14 +37,14 @@ import MergeBot.Core.CIStatus (isPending, isSuccess, toCIStatus)
 import MergeBot.Core.Data
     (BotStatus(..), CIStatus(..), PullRequestId, TryStatus(..))
 import MergeBot.Core.GitHub
-    ( KeyValue(..)
+    ( GitHubData
+    , KeyValue(..)
     , MonadGitHub(..)
     , createBranch
     , createCommit
     , deleteBranch
     , mergeBranches
     , queryAll
-    , (.:)
     )
 import qualified MergeBot.Core.GraphQL.Branch as Branch
 import qualified MergeBot.Core.GraphQL.Branches as Branches
@@ -52,13 +52,37 @@ import qualified MergeBot.Core.GraphQL.PullRequest as PullRequest
 import MergeBot.Core.Monad (BotEnv, getRepo)
 import MergeBot.Core.State (BotState, getMergeQueue)
 
+{- Branch labels and messages -}
+
+-- | Display the pull request number.
+toId :: PullRequestId -> Text
+toId = Text.pack . ('#':) . show
+
 -- | Get the name of the try branch for the given pull request.
 toTryBranch :: PullRequestId -> Text
-toTryBranch = Text.pack . ("trying-" ++) . show
+toTryBranch = ("trying-" <>) . Text.pack . show
 
 -- | Get the pull request for the given try branch.
 fromTryBranch :: Text -> Maybe PullRequestId
 fromTryBranch = readMaybe . Text.unpack <=< Text.stripPrefix "trying-"
+
+-- | Get the try commit message for the given pull request.
+toTryMessage :: PullRequestId -> Text
+toTryMessage prNum = Text.unwords ["Try", toId prNum]
+
+-- | Get the name of the staging branch.
+stagingBranch :: Text
+stagingBranch = "staging"
+
+-- | Get the message for the staging branch.
+toStagingMessage :: [PullRequestId] -> Text
+toStagingMessage = Text.unwords . ("Merge":) . map toId
+
+-- | Get the pull requests from the given message.
+fromStagingMessage :: Text -> [PullRequestId]
+fromStagingMessage = map (read . tail . Text.unpack) . tail . Text.words
+
+{- Branch operations -}
 
 -- | Get all branches managed by the merge bot and the CI status of each.
 getBranchStatuses :: (MonadReader BotEnv m, MonadQuery m)
@@ -117,21 +141,15 @@ getTryStatus prNum = do
 createTryBranch :: (MonadCatch m, MonadGitHub m, MonadReader BotEnv m, MonadQuery m)
   => PullRequestId -> m ()
 createTryBranch prNum = do
-  (_repoOwner, _repoName) <- asks getRepo
-
   -- delete try branch if it exists
   deleteBranch tempBranch
   deleteBranch tryBranch
 
   -- get master branch
-  masterBranch <- runQuery Branch.query Branch.Args{_name = "master", ..}
-  let master = [Branch.get| masterBranch.repository.ref!.target > master |]
-      masterTree = [Branch.get| @master.tree!.oid |]
-      masterCommit = [Branch.get| @master.oid |]
+  (masterCommit, masterTree) <- getBranch "master"
 
   -- get PR commit hash
-  pr <- runQuery PullRequest.query PullRequest.Args{_number = prNum, ..}
-  let prCommit = [PullRequest.get| pr.repository.pullRequest!.headRefOid |]
+  prCommit <- getPullRequest prNum
 
   -- create a new temp commit off master
   tempCommit <- createCommit
@@ -148,16 +166,12 @@ createTryBranch prNum = do
 
   -- merge pr into temp branch
   -- TODO: handle merge conflict
-  mergeCommit <- mergeBranches
-    [ "base" := "refs/heads/" <> tempBranch
-    , "head" := prCommit
-    , "message" := "[ci skip] merge into temp"
-    ]
-  let mergeTree = mergeCommit .: "tree" .: "sha"
+  mergeBranches $ makeMerge tempBranch prCommit
+  (_, mergeTree) <- getBranch tempBranch
 
   -- create a new try commit off master
   tryCommit <- createCommit
-    [ "message" :=* "Try #" ++ show prNum
+    [ "message" := toTryMessage prNum
     , "tree" := mergeTree
     , "parents" :=* [masterCommit, prCommit]
     ]
@@ -173,3 +187,82 @@ createTryBranch prNum = do
   where
     tempBranch = "temp-" <> tryBranch
     tryBranch = toTryBranch prNum
+
+-- | Create a merge branch for the given PRs.
+createMergeBranch :: (MonadCatch m, MonadGitHub m, MonadReader BotEnv m, MonadQuery m)
+  => [PullRequestId] -> m ()
+createMergeBranch prs = do
+  -- delete staging branch if it exists
+  deleteBranch tempBranch
+  deleteBranch stagingBranch
+
+  -- get master branch
+  (masterCommit, masterTree) <- getBranch "master"
+
+  -- get commit hash of PRs
+  prCommits <- mapM getPullRequest prs
+
+  -- create a new temp commit off master
+  tempCommit <- createCommit
+    [ "message" := "[ci skip] temp"
+    , "tree" := masterTree
+    , "parents" :=* [masterCommit]
+    ]
+
+  -- create temp branch on new commit
+  createBranch
+    [ "ref" := "refs/heads/" <> tempBranch
+    , "sha" := tempCommit
+    ]
+
+  -- merge PRs into temp branch
+  -- TODO: handle merge conflict
+  mapM_ (mergeBranches . makeMerge tempBranch) prCommits
+  (_, mergeTree) <- getBranch tempBranch
+
+  -- create a new commit off master
+  tryCommit <- createCommit
+    [ "message" := toStagingMessage prs
+    , "tree" := mergeTree
+    , "parents" :=* (masterCommit : prCommits)
+    ]
+
+  -- create staging branch on new commit
+  createBranch
+    [ "ref" := "refs/heads/" <> stagingBranch
+    , "sha" := tryCommit
+    ]
+
+  -- delete temp branch
+  deleteBranch tempBranch
+  where
+    tempBranch = "temp-" <> stagingBranch
+
+{- Helpers -}
+
+-- | Get the commit hash and the tree SHA for the given branch.
+getBranch :: (MonadReader BotEnv m, MonadQuery m) => Text -> m (Text, Text)
+getBranch name = do
+  (_repoOwner, _repoName) <- asks getRepo
+  result <- runQuery Branch.query Branch.Args{_name = Text.unpack name, ..}
+  let branch = [Branch.get| result.repository.ref!.target > branch |]
+      branchCommit = [Branch.get| @branch.oid |]
+      branchTree = [Branch.get| @branch.tree!.oid |]
+  return (branchCommit, branchTree)
+
+-- | Get the commit hash for the given pull request.
+getPullRequest :: (MonadReader BotEnv m, MonadQuery m) => Int -> m Text
+getPullRequest _number = do
+  (_repoOwner, _repoName) <- asks getRepo
+  result <- runQuery PullRequest.query PullRequest.Args{..}
+  let pr = [PullRequest.get| result.repository.pullRequest! > pr |]
+      commit = [PullRequest.get| @pr.headRefOid |]
+  return commit
+
+-- | Make a merge request payload for the given branch and commit hash.
+makeMerge :: Text -> Text -> GitHubData
+makeMerge branch commit =
+  [ "base" := "refs/heads/" <> branch
+  , "head" := commit
+  , "message" := "[ci skip] merge into temp"
+  ]
