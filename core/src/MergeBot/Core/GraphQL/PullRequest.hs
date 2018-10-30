@@ -61,6 +61,7 @@ schema = SchemaObject
           , ("url", SchemaScalar)
           , ("bodyHTML", SchemaScalar)
           , ("headRefOid", SchemaScalar)
+          , ("headRefName", SchemaText)
           , ("baseRefName", SchemaText)
           ]
         )

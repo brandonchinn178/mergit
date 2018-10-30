@@ -7,6 +7,7 @@ Portability :  portable
 Defines the core functionality of the merge bot.
 -}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
@@ -22,7 +23,7 @@ module MergeBot.Core
   , runMerge
   ) where
 
-import Control.Monad (forM)
+import Control.Monad (forM, forM_)
 import Control.Monad.Catch (MonadCatch)
 import Control.Monad.Reader (MonadReader, asks)
 import Data.GraphQL (MonadQuery, runQuery)
@@ -151,8 +152,18 @@ startMergeJob state = do
     queue = getMergeQueue state
 
 -- | Merge pull requests after a successful merge job.
-runMerge :: Monad m => m ()
-runMerge = undefined
+runMerge :: (MonadCatch m, MonadGitHub m, MonadReader BotEnv m, MonadQuery m) => m ()
+runMerge = do
+  (_repoOwner, _repoName) <- asks getRepo
+  mergeStaging >>= \case
+    -- TODO: handle master being different than when staging started
+    Nothing -> fail "Update was not a fast-forward"
+    Just prs -> forM_ prs $ \prNum -> do
+      result <- runQuery PullRequest.query PullRequest.Args{_number = prNum, ..}
+      let pr = [PullRequest.get| result.repository.pullRequest! > pr |]
+          branch = [PullRequest.get| @pr.headRefName |]
+      deleteBranch branch
+      deleteBranch $ toTryBranch prNum
 
 {- Helpers -}
 

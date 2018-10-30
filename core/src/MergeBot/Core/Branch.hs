@@ -14,10 +14,12 @@ Defines functions to query and manage branches utilized by the merge bot.
 {-# LANGUAGE TupleSections #-}
 
 module MergeBot.Core.Branch
-  ( getBranchStatuses
+  ( toTryBranch
+  , getBranchStatuses
   , getTryStatus
   , createTryBranch
   , createMergeBranch
+  , mergeStaging
   ) where
 
 import Control.Monad ((<=<))
@@ -50,6 +52,7 @@ import MergeBot.Core.GitHub
     , deleteBranch
     , mergeBranches
     , queryAll
+    , updateBranch
     )
 import qualified MergeBot.Core.GraphQL.Branch as Branch
 import qualified MergeBot.Core.GraphQL.Branches as Branches
@@ -250,6 +253,19 @@ createMergeBranch prs = do
   deleteBranch tempBranch
   where
     tempBranch = "temp-" <> stagingBranch
+
+-- | Merge the staging branch into master. Return Nothing if the merge fails and the list of PRs
+-- merged otherwise.
+mergeStaging :: (MonadCatch m, MonadGitHub m, MonadReader BotEnv m, MonadQuery m)
+  => m (Maybe [PullRequestId])
+mergeStaging = do
+  (commit, message, _) <- getBranch stagingBranch
+  success <- updateBranch "master" ["sha" := commit]
+  if success
+    then do
+      deleteBranch stagingBranch
+      return $ Just $ fromStagingMessage message
+    else return Nothing
 
 {- Helpers -}
 

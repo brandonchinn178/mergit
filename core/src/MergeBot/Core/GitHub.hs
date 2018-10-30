@@ -18,6 +18,7 @@ module MergeBot.Core.GitHub
   , createCommit
   , deleteBranch
   , mergeBranches
+  , updateBranch
   -- * Re-exports
   , module MergeBot.Core.GitHub.REST
   ) where
@@ -25,6 +26,7 @@ module MergeBot.Core.GitHub
 import Control.Monad (void)
 import Control.Monad.Catch (MonadCatch)
 import qualified Data.ByteString.Char8 as ByteString
+import Data.Either (isRight)
 import Data.GraphQL (QuerySettings(..), defaultQuerySettings)
 import Data.Maybe (fromJust)
 import Data.Monoid ((<>))
@@ -87,3 +89,10 @@ deleteBranch branch = void $ handleStatus status422 $
 -- https://developer.github.com/v3/repos/merging/#perform-a-merge
 mergeBranches :: MonadGitHub m => GitHubData -> m ()
 mergeBranches = void . queryGitHub POST "/repos/:owner/:repo/merges" []
+
+-- | Set the given branch to the given commit. Returns false if update is not a fast-forward.
+--
+-- https://developer.github.com/v3/git/refs/#update-a-reference
+updateBranch :: (MonadCatch m, MonadGitHub m) => Text -> GitHubData -> m Bool
+updateBranch branch = fmap isRight . handleStatus status422 .
+  queryGitHub PATCH "/repos/:owner/:repo/git/refs/:ref" ["ref" := "heads/" <> branch]

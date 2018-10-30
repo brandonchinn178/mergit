@@ -11,6 +11,7 @@ query PullRequest($repoOwner: String!, $repoName: String!, $number: Int!) {
       url
       bodyHTML
       headRefOid
+      headRefName
       baseRefName
     }
   }
