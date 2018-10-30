@@ -14,7 +14,8 @@ Defines functions to query and manage branches utilized by the merge bot.
 {-# LANGUAGE TupleSections #-}
 
 module MergeBot.Core.Branch
-  ( getBranchStatuses
+  ( toTryBranch
+  , getBranchStatuses
   , getTryStatus
   , createTryBranch
   , createMergeBranch

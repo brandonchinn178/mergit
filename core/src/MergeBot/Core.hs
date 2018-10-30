@@ -158,11 +158,12 @@ runMerge = do
   mergeStaging >>= \case
     -- TODO: handle master being different than when staging started
     Nothing -> fail "Update was not a fast-forward"
-    Just prs -> forM_ prs $ \_number -> do
-      result <- runQuery PullRequest.query PullRequest.Args{..}
+    Just prs -> forM_ prs $ \prNum -> do
+      result <- runQuery PullRequest.query PullRequest.Args{_number = prNum, ..}
       let pr = [PullRequest.get| result.repository.pullRequest! > pr |]
           branch = [PullRequest.get| @pr.headRefName |]
       deleteBranch branch
+      deleteBranch $ toTryBranch prNum
 
 {- Helpers -}
 
