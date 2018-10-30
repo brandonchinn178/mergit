@@ -18,9 +18,10 @@ module MergeBot.Core.Branch
   , getTryStatus
   , createTryBranch
   , createMergeBranch
+  , mergeStaging
   ) where
 
-import Control.Monad ((<=<))
+import Control.Monad (unless, (<=<))
 import Control.Monad.Catch (MonadCatch)
 import Control.Monad.Reader (MonadReader, asks)
 import Data.GraphQL (MonadQuery, runQuery)
@@ -50,6 +51,7 @@ import MergeBot.Core.GitHub
     , deleteBranch
     , mergeBranches
     , queryAll
+    , updateBranch
     )
 import qualified MergeBot.Core.GraphQL.Branch as Branch
 import qualified MergeBot.Core.GraphQL.Branches as Branches
@@ -250,6 +252,14 @@ createMergeBranch prs = do
   deleteBranch tempBranch
   where
     tempBranch = "temp-" <> stagingBranch
+
+-- | Merge the staging branch into master.
+mergeStaging :: (MonadCatch m, MonadGitHub m, MonadReader BotEnv m, MonadQuery m) => m ()
+mergeStaging = do
+  (commit, _, _) <- getBranch stagingBranch
+  success <- updateBranch "master" ["sha" := commit]
+  -- TODO: handle master being different than when staging started
+  unless success $ fail "Update is not a fast-forward"
 
 {- Helpers -}
 

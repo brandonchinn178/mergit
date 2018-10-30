@@ -151,8 +151,8 @@ startMergeJob state = do
     queue = getMergeQueue state
 
 -- | Merge pull requests after a successful merge job.
-runMerge :: Monad m => m ()
-runMerge = undefined
+runMerge :: (MonadCatch m, MonadGitHub m, MonadReader BotEnv m, MonadQuery m) => m ()
+runMerge = mergeStaging
 
 {- Helpers -}
 
