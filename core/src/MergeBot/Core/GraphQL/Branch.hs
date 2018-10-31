@@ -58,6 +58,14 @@ schema = SchemaObject
               , ( "tree"
                 , SchemaMaybe $ SchemaObject
                   [ ("oid", SchemaScalar)
+                  , ("entries", SchemaMaybe $ SchemaList $ SchemaObject
+                      [ ("name", SchemaText)
+                      , ("object", SchemaMaybe $ SchemaObject
+                          [ ("text", SchemaMaybe SchemaText)
+                          ]
+                        )
+                      ]
+                    )
                   ]
                 )
               , ( "status"

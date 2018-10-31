@@ -10,6 +10,7 @@ dependencies:
   - bytestring
   - containers
   - exceptions
+  - extra
   - graphql-client
   - http-client
   - http-client-tls
@@ -19,6 +20,7 @@ dependencies:
   - text
   - time
   - transformers
+  - yaml
 
 library:
   source-dirs: src
