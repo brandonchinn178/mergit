@@ -19,6 +19,7 @@ import Control.Applicative (many, (<|>))
 import Control.Monad (unless, void)
 import Data.Aeson (Value(..))
 import Data.Functor (($>))
+import Data.List.Extra (allSame)
 import Data.Maybe (fromMaybe, isNothing)
 import qualified Data.Text as Text
 import Data.Typeable (typeRep)
@@ -26,7 +27,8 @@ import Data.Void (Void)
 import Language.Haskell.TH
 import Language.Haskell.TH.Syntax (lift)
 import qualified Language.Haskell.TH.Syntax as TH
-import Text.Megaparsec (Parsec, eof, parseErrorPretty, runParser)
+import Text.Megaparsec
+    (Parsec, between, choice, eof, option, parseErrorPretty, runParser, sepBy1)
 import Text.Megaparsec.Char (alphaNumChar, char, lowerChar, space, string)
 import TH.Utilities (proxyE, typeRepToType)
 
@@ -91,14 +93,17 @@ generateGetter' getQ putQ resultCon fullSchema input = do
 
   case storeSchema of
     Nothing -> return ()
-    Just name -> do
-      let storeName = toStoreName name
-      case filter ((== storeName) . fst) getterData of
-        [] -> putQ $ (storeName, getObjectSchema finalSchema) : getterData
-        [(_, schema)] -> unless (schema == finalSchema) $
-          error $ "Another schema is already stored for " ++ name
-        -- unreachable
-        _ -> error $ "Multiple schema stored for " ++ name
+    Just name ->
+      case finalSchema of
+        Just finalSchema' -> do
+          let storeName = toStoreName name
+          case filter ((== storeName) . fst) getterData of
+            [] -> putQ $ (storeName, getObjectSchema finalSchema') : getterData
+            [(_, schema)] -> unless (schema == finalSchema') $
+              error $ "Another schema is already stored for " ++ name
+            -- unreachable
+            _ -> error $ "Multiple schema stored for " ++ name
+        Nothing -> error $ "Unable to store schema after: " ++ show (last getterOps)
 
   letE [letDecl] letExpr
   where
@@ -113,23 +118,22 @@ generateGetter' getQ putQ resultCon fullSchema input = do
 -- | Make the getter function, iterating over each operation and traversing the given schema.
 --
 -- Returns the getter function and the final schema leftover from the traversal.
-mkGetter :: [GetterOperation] -> Schema -> (ExpQ, Schema)
-mkGetter [] schema = (getFinalizer schema, schema)
+mkGetter :: [GetterOperation] -> Schema -> (ExpQ, Maybe Schema)
+mkGetter [] schema = (getFinalizer schema, Just schema)
 mkGetter (op:ops) schema = case op of
-  GetterKey key ->
-    case schema of
-      SchemaObject fields ->
-        case Text.pack key `lookup` fields of
-          Just field ->
-            let fromKey = case field of
-                  SchemaMaybe _ -> [| lookupKey |]
-                  _ -> [| getKey |]
-            in withNext ops field $ \f -> [| $f . $fromKey $(lift key) |]
-          Nothing -> error $
-            "Invalid key: " ++ key ++ ". Possible keys: " ++
-            Text.unpack (Text.intercalate ", " $ map fst fields)
-      SchemaMaybe inner -> withNext (op:ops) inner $ \f -> [| ($f `mapMaybe`) |]
-      _ -> error $ "Cannot get key '" ++ key ++ "' at schema " ++ show schema
+  GetterKey key -> getterKey key
+  GetterKeyList keys ->
+    let (getterKeys, schemas) = unzip $ map getterKey keys
+        val = mkName "v"
+        appliedKeys = map (`appE` varE val) getterKeys
+    in if allSame schemas
+      then (lamE [varP val] $ listE appliedKeys, Nothing)
+      else error $ "List must contain all the same types: " ++ show schemas
+  GetterKeyTuple keys ->
+    let getterKeys = map (fst . getterKey) keys
+        val = mkName "v"
+        appliedKeys = map (`appE` varE val) getterKeys
+    in (lamE [varP val] $ tupE appliedKeys, Nothing)
   GetterBang ->
     case schema of
       SchemaMaybe inner -> withNext ops inner $ \f -> [| $f . fromJust |]
@@ -143,6 +147,20 @@ mkGetter (op:ops) schema = case op of
     withNext ops' schema' mkExpr =
       let (f, finalSchema) = mkGetter ops' schema'
       in (mkExpr f, finalSchema)
+    getterKey key =
+      case schema of
+        SchemaObject fields ->
+          case Text.pack key `lookup` fields of
+            Just field ->
+              let fromKey = case field of
+                    SchemaMaybe _ -> [| lookupKey |]
+                    _ -> [| getKey |]
+              in withNext ops field $ \f -> [| $f . $fromKey $(lift key) |]
+            Nothing -> error $
+              "Invalid key: " ++ key ++ ". Possible keys: " ++
+              Text.unpack (Text.intercalate ", " $ map fst fields)
+        SchemaMaybe inner -> withNext (op:ops) inner $ \f -> [| ($f `mapMaybe`) |]
+        _ -> error $ "Cannot get key '" ++ key ++ "' at schema " ++ show schema
 
 -- | Get the final function to parse a value with the given schema.
 getFinalizer :: Schema -> ExpQ
@@ -170,6 +188,8 @@ data GetterExpr = GetterExpr
 
 data GetterOperation
   = GetterKey String
+  | GetterKeyList [String]
+  | GetterKeyTuple [String]
   | GetterBang
   | GetterList
   deriving (Show)
@@ -185,7 +205,7 @@ getterExpr = do
   (start, useSchema) <- getStart
   getterOps <- many getterOp
   space
-  storeSchema <- (string ">" *> space *> fmap Just identifier) <|> pure Nothing
+  storeSchema <- option Nothing $ string ">" *> space *> fmap Just identifier
   space
   void eof
   return GetterExpr{..}
@@ -201,12 +221,15 @@ getStart = (string "@" *> getStartWithSchema) <|> fmap (, Nothing) identifier
   where
     getStartWithSchema = do
       ident <- identifier
-      fmap (, Just ident) $
-        (space *> identifier) <|> pure ident
+      fmap (, Just ident) $ option ident $ space *> identifier
 
 getterOp :: Parser GetterOperation
-getterOp = parseGetterKey <|> parseGetterBang <|> parseGetterList
-  where
-    parseGetterKey = GetterKey <$> (string "." *> identifier)
-    parseGetterBang = string "!" $> GetterBang
-    parseGetterList = string "[]" $> GetterList
+getterOp = choice
+  [ string "." *> choice
+      [ fmap GetterKey identifier
+      , fmap GetterKeyList $ between (string "[") (string "]") $ identifier `sepBy1` string ","
+      , fmap GetterKeyTuple $ between (string "(") (string ")") $ identifier `sepBy1` string ","
+      ]
+  , string "!" $> GetterBang
+  , string "[]" $> GetterList
+  ]
