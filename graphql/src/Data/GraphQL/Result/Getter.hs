@@ -89,8 +89,21 @@ These "getter" expressions follow the given rules:
     * @x[]!@ unwraps all 'Just' values in @x@ (and errors if any 'Nothing' values exist in @x@)
 
 * @> name@ is only valid at the end of a getter for a value containing an 'Object'. Stores the
-  schema of the contained 'Object' for subsequent queries. After storing the schema for @name@,
-  the schema can be used by prefixing the variable with @\@@: @[get| \@name.bar.etc |]@.
+  schema of the contained 'Object' as the given name for subsequent queries. After storing the
+  schema as @name@, the schema can be used by including @\@name@ at the beginning of a getter; e.g.
+
+    @
+    let obj = [get| result.node > node |]
+        a = [get| \@node obj.a |]
+    @
+
+    If the name of the stored schema is the same as the object being queried, you can simply prefix
+    the object with @\@@; e.g.
+
+    @
+    let node = [get| result.node > node |]
+        a = [get| \@node.a |]
+    @
 
     * Can store the schema of a plain @Object@, a @Maybe Object@, or a @[Object]@.
 
@@ -108,16 +121,6 @@ These "getter" expressions follow the given rules:
             as = map (\\elem -> [get| \@elem.a |]) list
             bs = map (\\elem -> [get| \@elem.b |]) list
         @
-
-    * @name@ needs to match the name of the value being queried. The following won't work:
-
-        @
-        let nodes = [get| result.foo.nodes[] > node |]
-            bs = flip map nodes $ \\n -> fromMaybe True [get| @n.b |]
-                                                           -- ^ BAD: 'n' /= 'node'
-        @
-
-        This example will error, saying that a schema for @n@ is not stored.
 
     * The schema needs to be stored before being used. The following won't work:
 
