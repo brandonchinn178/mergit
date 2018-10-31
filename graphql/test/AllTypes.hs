@@ -25,6 +25,7 @@ schema :: Schema
 schema = SchemaObject
   [ ("bool", SchemaBool)
   , ("int", SchemaInt)
+  , ("int2", SchemaInt)
   , ("double", SchemaDouble)
   , ("text", SchemaText)
   , ("scalar", SchemaScalar)

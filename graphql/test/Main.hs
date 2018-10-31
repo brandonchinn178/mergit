@@ -39,7 +39,9 @@ testValidGetters :: TestTree
 testValidGetters = testGroup "Test valid getters"
   [ goldens "bool"                     [AllTypes.get| result.bool                 |]
   , goldens "int"                      [AllTypes.get| result.int                  |]
+  , goldens "int_int2"                 [AllTypes.get| result.[int,int2]           |]
   , goldens "double"                   [AllTypes.get| result.double               |]
+  , goldens "bool_int_double"          [AllTypes.get| result.(bool,int,double)    |]
   , goldens "text"                     [AllTypes.get| result.text                 |]
   , goldens "scalar"                   [AllTypes.get| result.scalar               |]
   , goldens "enum"                     [AllTypes.get| result.enum                 |]
