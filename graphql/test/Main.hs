@@ -82,9 +82,9 @@ testKeepSchemaNested = goldens "keep_schema_nested" $ map fromObj list
   where
     result = Nested.result
     list = [Nested.get| result.list[] > o |]
-    fromObj o = case [Nested.get| @o.a > field |] of
+    fromObj obj = case [Nested.get| @o obj.a > field |] of
       Just field -> [Nested.get| @field.b |]
-      Nothing    -> [Nested.get| @o.b     |]
+      Nothing    -> [Nested.get| @o obj.b |]
 
 -- | Kept schemas can have the same name for different Results. Here, two schemas are stored with
 -- the name "o", but one is stored for AllTypes and the other is stored for Nested.
