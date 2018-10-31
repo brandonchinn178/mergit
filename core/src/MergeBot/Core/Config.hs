@@ -27,5 +27,5 @@ data BotConfig = BotConfig
 
 -- | In-repo configuration.
 data BranchConfig = BranchConfig
-  { statuses :: [Text]
+  { requiredStatuses :: [Text]
   } deriving (Generic,FromJSON)

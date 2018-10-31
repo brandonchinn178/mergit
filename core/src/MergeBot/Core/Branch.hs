@@ -25,11 +25,13 @@ module MergeBot.Core.Branch
 
 import Control.Monad ((<=<))
 import Control.Monad.Catch (MonadCatch)
+import Control.Monad.Extra (mapMaybeM)
 import Control.Monad.Reader (MonadReader, asks)
+import Data.Aeson (Object)
 import Data.GraphQL (MonadQuery, runQuery)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
-import Data.Maybe (fromMaybe, mapMaybe)
+import Data.Maybe (fromMaybe)
 import Data.Monoid ((<>))
 import qualified Data.Set as Set
 import Data.Text (Text)
@@ -107,13 +109,14 @@ getBranchStatuses state = do
     [] -> return []
     [branch] -> do
       (_, commitMessage, _) <- getBranch stagingBranch
+      config <- fromMaybe (error "Staging branch does not have .lymerge.yaml") <$> getBranchConfig stagingBranch
       let prIds = fromStagingMessage commitMessage
-          ciStatus = getCIStatus branch
+          ciStatus = toCIStatus config $ getContexts branch
           status = if isPending ciStatus || isSuccess ciStatus
             then MergeRunning else MergeFailed
       return $ map (, Merging status) prIds
     _ -> fail "Found multiple branches named staging?"
-  let tryingPRs = mapMaybe parseTrying branches
+  tryingPRs <- mapMaybeM parseTrying branches
   return $ Map.fromList $ concat [tryingPRs, queuedPRs, stagingPRs]
   where
     queuedPRs = map (, MergeQueue) . Set.toList . getMergeQueue $ state
@@ -125,39 +128,43 @@ getBranchStatuses state = do
         , [Branches.get| @info.pageInfo.hasNextPage |]
         , [Branches.get| @info.pageInfo.endCursor |]
         )
-    parseTrying branch =
-      let ciStatus = getCIStatus branch
+    parseTrying branch = do
+      let name = [Branches.get| @branch.name |]
+      config <- fromMaybe (error "Trying branch does not have .lymerge.yaml") <$> getBranchConfig name
+      let ciStatus = toCIStatus config $ getContexts branch
           status
             | isPending ciStatus = TryRunning
             | isSuccess ciStatus = TrySuccess
             | otherwise = TryFailed
-      in (, Trying status) <$> fromTryBranch [Branches.get| @branch.name |]
-    getCIStatus branch =
+      return $ (, Trying status) <$> fromTryBranch name
+    getContexts branch =
       let contexts = fromMaybe [] [Branches.get| @branch.target.status.contexts[] > context |]
           fromContext context =
             ( [Branches.get| @context.context |]
             , [Branches.get| @context.state |]
             )
-      in toCIStatus $ map fromContext contexts
+      in map fromContext contexts
 
 -- | Get the CI statuses required to pass for the given branch.
 getRequiredStatuses :: (MonadReader BotEnv m, MonadQuery m) => Text -> m [Text]
-getRequiredStatuses = fmap (maybe [] statuses) . getBranchConfig
+getRequiredStatuses = fmap (maybe [] requiredStatuses) . getBranchConfig
 
 -- | Get the CI status for the trying branch for the given PR.
 getTryStatus :: (MonadReader BotEnv m, MonadQuery m) => PullRequestId -> m (Maybe CIStatus)
 getTryStatus prNum = do
   (_repoOwner, _repoName) <- asks getRepo
   result <- runQuery Branch.query Branch.Args{..}
-  case [Branch.get| result.repository.ref > ref |] of
-    Nothing -> return Nothing
-    Just ref -> return $ Just $ toCIStatus $
-      let contexts = [Branch.get| @ref.target.status!.contexts[] > context |]
-          fromContext context =
-            ( [Branch.get| @context.context |]
-            , [Branch.get| @context.state |]
-            )
-      in map fromContext contexts
+  let ref = [Branch.get| result.repository.ref.target > branch |]
+      getStatus branch = case extractBranchConfig branch of
+        Nothing -> error "Try branch does not have .lymerge.yaml"
+        Just config -> toCIStatus config $
+          let contexts = [Branch.get| @branch.status!.contexts[] > context |]
+              fromContext context =
+                ( [Branch.get| @context.context |]
+                , [Branch.get| @context.state |]
+                )
+          in map fromContext contexts
+  return $ getStatus <$> ref
   where
     _name = Text.unpack $ toTryBranch prNum
 
@@ -171,6 +178,8 @@ createTryBranch prNum = do
 
   -- get master branch
   (masterCommit, _, masterTree) <- getBranch "master"
+
+  -- TODO: check that either master or PR branch has a config
 
   -- get PR commit hash
   prCommit <- getPullRequest prNum
@@ -222,6 +231,8 @@ createMergeBranch prs = do
 
   -- get master branch
   (masterCommit, _, masterTree) <- getBranch "master"
+
+  -- TODO: check that either master or one of PR branches has a config
 
   -- get commit hash of PRs
   prCommits <- mapM getPullRequest prs
@@ -294,12 +305,18 @@ getBranchConfig name = do
   (_repoOwner, _repoName) <- asks getRepo
   result <- runQuery Branch.query Branch.Args{_name = Text.unpack name, ..}
   let branch = [Branch.get| result.repository.ref!.target > branch |]
-      entries = [Branch.get| @branch.tree!.entries![] > entry |]
-  case filter (\entry -> [Branch.get| @entry.name |] == configFile) entries of
-    [] -> return Nothing
-    [entry] -> return $ decodeThrow $ Text.encodeUtf8 [Branch.get| @entry.object!.text! |]
+  return $ extractBranchConfig branch
+
+-- | Get the configuration file for the given branch.
+extractBranchConfig :: Object -> Maybe BranchConfig
+extractBranchConfig branch =
+  case filter isConfig entries of
+    [] -> Nothing
+    [entry] -> decodeThrow $ Text.encodeUtf8 [Branch.get| @entry.object!.text! |]
     _ -> error "Multiple .lymerge.yaml files found?"
   where
+    entries = [Branch.get| @branch.tree!.entries![] > entry |]
+    isConfig entry = [Branch.get| @entry.name |] == configFile
     configFile = ".lymerge.yaml"
 
 -- | Get the commit hash for the given pull request.
