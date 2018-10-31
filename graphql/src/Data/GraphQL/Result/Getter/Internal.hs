@@ -11,6 +11,7 @@ should NOT be used directly otherwise.
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TupleSections #-}
 
 module Data.GraphQL.Result.Getter.Internal where
 
@@ -69,11 +70,15 @@ generateGetter' getQ putQ resultCon fullSchema input = do
     _ -> "result"
 
   getterData <- fromMaybe [] <$> getQ
-  let varSchema = case (toStoreName start `lookup` getterData, useSchema) of
-        (Nothing, False) -> Nothing
-        (Just schema, True) -> Just schema
-        (Nothing, True) -> error $ "Schema is not stored for " ++ start
-        (Just _, False) -> error $ "Did you intend to use `@" ++ start ++ "` instead?"
+  let varSchema = case useSchema of
+        Nothing ->
+          case toStoreName start `lookup` getterData of
+            Nothing -> Nothing
+            Just _ -> error $ "Did you intend to use `@" ++ start ++ "` instead?"
+        Just schemaName ->
+          case toStoreName schemaName `lookup` getterData of
+            Nothing -> error $ "Schema is not stored for " ++ start
+            Just schema -> Just schema
       initialSchema = fromMaybe fullSchema varSchema
       (getterFunc, finalSchema) = mkGetter getterOps initialSchema
       letDecl = if isNothing varSchema
@@ -158,7 +163,7 @@ getFinalizer = \case
 
 data GetterExpr = GetterExpr
   { start       :: String
-  , useSchema   :: Bool
+  , useSchema   :: Maybe String
   , getterOps   :: [GetterOperation]
   , storeSchema :: Maybe String
   } deriving (Show)
@@ -177,14 +182,27 @@ identifier = (:) <$> lowerChar <*> many (alphaNumChar <|> char '\'')
 getterExpr :: Parser GetterExpr
 getterExpr = do
   space
-  useSchema <- (string "@" $> True) <|> pure False
-  start <- identifier
+  (start, useSchema) <- getStart
   getterOps <- many getterOp
   space
   storeSchema <- (string ">" *> space *> fmap Just identifier) <|> pure Nothing
   space
   void eof
   return GetterExpr{..}
+
+-- | Gets the starting identifier and possibly the stored schema to start with.
+--
+-- One of:
+--   * `var`      -> ("var", Nothing)
+--   * `@var`     -> ("var", Just "var")
+--   * `@tag var` -> ("var", Just "tag")
+getStart :: Parser (String, Maybe String)
+getStart = (string "@" *> getStartWithSchema) <|> fmap (, Nothing) identifier
+  where
+    getStartWithSchema = do
+      ident <- identifier
+      fmap (, Just ident) $
+        (space *> identifier) <|> pure ident
 
 getterOp :: Parser GetterOperation
 getterOp = parseGetterKey <|> parseGetterBang <|> parseGetterList
