@@ -35,6 +35,7 @@ schema = SchemaObject
           ]
         )
       , ("c", SchemaText)
+      , ("d", SchemaText)
       ]
     )
   ]
@@ -54,6 +55,8 @@ doFoo = do
   [get| result.foo.nodes[].b |]  :: [Maybe Bool]
   [get| result.foo.nodes[].b! |] :: [Bool] -- would error at runtime if any "b" values are null
   [get| result.foo.c |]          :: Text
+  [get| result.foo.(a,c) |]      :: (Int, Text)
+  [get| result.foo.[c,d] |]      :: [Text]
 
   let nodes = [get| result.foo.nodes[] > node |]
   flip map nodes $ \\node -> case [get| \@node.b |] of
@@ -77,6 +80,13 @@ These "getter" expressions follow the given rules:
 
 * @x.y@ is only valid if @x@ is a @SchemaObject@ or a @SchemaMaybe SchemaObject@. Returns the value
   of the key @y@ in the (potentially wrapped) 'Object'.
+
+* @x.[y,z]@ is only valid if @x@ is a @SchemaObject@ or a @SchemaMaybe SchemaObject@, and if @y@ and
+  @z@ have the same schema. Returns the value of the keys @y@ and @z@ in the (potentially wrapped)
+  'Object' as a list.
+
+* @x.(y,z)@ is only valid if @x@ is a @SchemaObject@ or a @SchemaMaybe SchemaObject@. Returns the
+  value of the keys @y@ and @z@ in the (potentially wrapped) 'Object' as a tuple.
 
 * @x!@ is only valid if @x@ is a @SchemaMaybe@. Unwraps the value of @x@ from a 'Just' value and
   errors (at runtime!) if @x@ is 'Nothing'.
