@@ -11,28 +11,22 @@ should NOT be used directly otherwise.
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TupleSections #-}
 
 module Data.GraphQL.Result.Getter.Internal where
 
-import Control.Applicative (many, (<|>))
-import Control.Monad (unless, void)
+import Control.Monad (unless)
 import Data.Aeson (Value(..))
-import Data.Functor (($>))
 import Data.List.Extra (allSame)
 import Data.Maybe (fromMaybe, isNothing)
 import qualified Data.Text as Text
 import Data.Typeable (typeRep)
-import Data.Void (Void)
 import Language.Haskell.TH
 import Language.Haskell.TH.Syntax (lift)
 import qualified Language.Haskell.TH.Syntax as TH
-import Text.Megaparsec
-    (Parsec, between, choice, eof, option, parseErrorPretty, runParser, sepBy1)
-import Text.Megaparsec.Char (alphaNumChar, char, lowerChar, space, string)
 import TH.Utilities (proxyE, typeRepToType)
 
 import Data.GraphQL.Result.Aeson
+import Data.GraphQL.Result.Getter.Parse
 import Data.GraphQL.Result.Schema (Schema(..), getEnum)
 
 type GetterData = [(String, Schema)]
@@ -61,7 +55,7 @@ generateGetter = generateGetter' TH.getQ TH.putQ
 
 generateGetter' :: Q (Maybe GetterData) -> (GetterData -> Q ()) -> Name -> Schema -> String -> ExpQ
 generateGetter' getQ putQ resultCon fullSchema input = do
-  GetterExpr{..} <- parse getterExpr input
+  GetterExpr{..} <- parse input
 
   -- `startVar` is the local variable being queried
   -- `resultVar` is the `Value` created/extracted from `start`
@@ -107,7 +101,6 @@ generateGetter' getQ putQ resultCon fullSchema input = do
 
   letE [letDecl] letExpr
   where
-    parse p s = either (fail . parseErrorPretty) return $ runParser p s s
     toStoreName name = show resultCon ++ "$" ++ name
     getObjectSchema = \case
       SchemaMaybe inner -> getObjectSchema inner
@@ -176,60 +169,3 @@ getFinalizer = \case
   SchemaMaybe inner -> [| mapMaybe $(getFinalizer inner) |]
   SchemaList inner -> [| mapList $(getFinalizer inner) |]
   SchemaObject _ -> [| getObject |]
-
-{- Parser for getter quasiquotes -}
-
-data GetterExpr = GetterExpr
-  { start       :: String
-  , useSchema   :: Maybe String
-  , getterOps   :: [GetterOperation]
-  , storeSchema :: Maybe String
-  } deriving (Show)
-
-data GetterOperation
-  = GetterKey String
-  | GetterKeyList [String]
-  | GetterKeyTuple [String]
-  | GetterBang
-  | GetterList
-  deriving (Show)
-
-type Parser = Parsec Void String
-
-identifier :: Parser String
-identifier = (:) <$> lowerChar <*> many (alphaNumChar <|> char '\'')
-
-getterExpr :: Parser GetterExpr
-getterExpr = do
-  space
-  (start, useSchema) <- getStart
-  getterOps <- many getterOp
-  space
-  storeSchema <- option Nothing $ string ">" *> space *> fmap Just identifier
-  space
-  void eof
-  return GetterExpr{..}
-
--- | Gets the starting identifier and possibly the stored schema to start with.
---
--- One of:
---   * `var`      -> ("var", Nothing)
---   * `@var`     -> ("var", Just "var")
---   * `@tag var` -> ("var", Just "tag")
-getStart :: Parser (String, Maybe String)
-getStart = (string "@" *> getStartWithSchema) <|> fmap (, Nothing) identifier
-  where
-    getStartWithSchema = do
-      ident <- identifier
-      fmap (, Just ident) $ option ident $ space *> identifier
-
-getterOp :: Parser GetterOperation
-getterOp = choice
-  [ string "." *> choice
-      [ fmap GetterKey identifier
-      , fmap GetterKeyList $ between (string "[") (string "]") $ identifier `sepBy1` string ","
-      , fmap GetterKeyTuple $ between (string "(") (string ")") $ identifier `sepBy1` string ","
-      ]
-  , string "!" $> GetterBang
-  , string "[]" $> GetterList
-  ]
