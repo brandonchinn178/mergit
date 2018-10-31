@@ -1,11 +1,13 @@
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
 
-import Control.Exception (SomeException, try)
+import Control.Exception (try)
 import qualified Data.ByteString.Lazy.Char8 as ByteString
 import qualified Data.Text as Text
+import GHC.Exception (ErrorCall(..))
 import Language.Haskell.TH (runIO, runQ)
 import Test.Tasty (TestTree, defaultMain, testGroup)
 import Test.Tasty.Golden (goldenVsString)
@@ -25,19 +27,21 @@ main = defaultMain $ testGroup "graphql-client"
   , testInvalidGetters
   ]
 
-goldens' :: Show s => String -> IO s -> TestTree
-goldens' name = goldenVsString name fp . fmap (ByteString.pack . show)
+goldens' :: String -> IO String -> TestTree
+goldens' name = goldenVsString name fp . fmap ByteString.pack
   where
     fp = "test/goldens/" ++ name ++ ".golden"
 
 goldens :: Show s => String -> s -> TestTree
-goldens name = goldens' name . pure
+goldens name = goldens' name . pure . show
 
 testValidGetters :: TestTree
 testValidGetters = testGroup "Test valid getters"
   [ goldens "bool"                     [AllTypes.get| result.bool                 |]
   , goldens "int"                      [AllTypes.get| result.int                  |]
+  , goldens "int_int2"                 [AllTypes.get| result.[int,int2]           |]
   , goldens "double"                   [AllTypes.get| result.double               |]
+  , goldens "bool_int_double"          [AllTypes.get| result.(bool,int,double)    |]
   , goldens "text"                     [AllTypes.get| result.text                 |]
   , goldens "scalar"                   [AllTypes.get| result.scalar               |]
   , goldens "enum"                     [AllTypes.get| result.enum                 |]
@@ -82,9 +86,9 @@ testKeepSchemaNested = goldens "keep_schema_nested" $ map fromObj list
   where
     result = Nested.result
     list = [Nested.get| result.list[] > o |]
-    fromObj o = case [Nested.get| @o.a > field |] of
+    fromObj obj = case [Nested.get| @o obj.a > field |] of
       Just field -> [Nested.get| @field.b |]
-      Nothing    -> [Nested.get| @o.b     |]
+      Nothing    -> [Nested.get| @o obj.b |]
 
 -- | Kept schemas can have the same name for different Results. Here, two schemas are stored with
 -- the name "o", but one is stored for AllTypes and the other is stored for Nested.
@@ -112,8 +116,9 @@ testInvalidGetters = testGroup "Test invalid getters"
   ]
   where
     badGoldens name input = goldens' name $
-      try @SomeException (runQ $ generateGetter input) >>=
-        either return (\_ -> fail "Invalid getter incorrectly parsed the input")
+      try (runQ $ generateGetter input) >>= \case
+        Right _ -> fail "Invalid getter incorrectly parsed the input"
+        Left (ErrorCall msg) -> return msg
     generateGetter = generateGetter' getQ putQ 'AllTypes.UnsafeResult AllTypes.schema
     getQ = pure $ Just [("AllTypes.UnsafeResult$node", SchemaObject [("a", SchemaText)])]
     putQ = runIO . print

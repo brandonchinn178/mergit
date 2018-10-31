@@ -35,6 +35,7 @@ schema = SchemaObject
           ]
         )
       , ("c", SchemaText)
+      , ("d", SchemaText)
       ]
     )
   ]
@@ -54,6 +55,8 @@ doFoo = do
   [get| result.foo.nodes[].b |]  :: [Maybe Bool]
   [get| result.foo.nodes[].b! |] :: [Bool] -- would error at runtime if any "b" values are null
   [get| result.foo.c |]          :: Text
+  [get| result.foo.(a,c) |]      :: (Int, Text)
+  [get| result.foo.[c,d] |]      :: [Text]
 
   let nodes = [get| result.foo.nodes[] > node |]
   flip map nodes $ \\node -> case [get| \@node.b |] of
@@ -78,6 +81,13 @@ These "getter" expressions follow the given rules:
 * @x.y@ is only valid if @x@ is a @SchemaObject@ or a @SchemaMaybe SchemaObject@. Returns the value
   of the key @y@ in the (potentially wrapped) 'Object'.
 
+* @x.[y,z]@ is only valid if @x@ is a @SchemaObject@ or a @SchemaMaybe SchemaObject@, and if @y@ and
+  @z@ have the same schema. Returns the value of the keys @y@ and @z@ in the (potentially wrapped)
+  'Object' as a list.
+
+* @x.(y,z)@ is only valid if @x@ is a @SchemaObject@ or a @SchemaMaybe SchemaObject@. Returns the
+  value of the keys @y@ and @z@ in the (potentially wrapped) 'Object' as a tuple.
+
 * @x!@ is only valid if @x@ is a @SchemaMaybe@. Unwraps the value of @x@ from a 'Just' value and
   errors (at runtime!) if @x@ is 'Nothing'.
 
@@ -89,8 +99,21 @@ These "getter" expressions follow the given rules:
     * @x[]!@ unwraps all 'Just' values in @x@ (and errors if any 'Nothing' values exist in @x@)
 
 * @> name@ is only valid at the end of a getter for a value containing an 'Object'. Stores the
-  schema of the contained 'Object' for subsequent queries. After storing the schema for @name@,
-  the schema can be used by prefixing the variable with @\@@: @[get| \@name.bar.etc |]@.
+  schema of the contained 'Object' as the given name for subsequent queries. After storing the
+  schema as @name@, the schema can be used by including @\@name@ at the beginning of a getter; e.g.
+
+    @
+    let obj = [get| result.node > node |]
+        a = [get| \@node obj.a |]
+    @
+
+    If the name of the stored schema is the same as the object being queried, you can simply prefix
+    the object with @\@@; e.g.
+
+    @
+    let node = [get| result.node > node |]
+        a = [get| \@node.a |]
+    @
 
     * Can store the schema of a plain @Object@, a @Maybe Object@, or a @[Object]@.
 
@@ -108,16 +131,6 @@ These "getter" expressions follow the given rules:
             as = map (\\elem -> [get| \@elem.a |]) list
             bs = map (\\elem -> [get| \@elem.b |]) list
         @
-
-    * @name@ needs to match the name of the value being queried. The following won't work:
-
-        @
-        let nodes = [get| result.foo.nodes[] > node |]
-            bs = flip map nodes $ \\n -> fromMaybe True [get| @n.b |]
-                                                           -- ^ BAD: 'n' /= 'node'
-        @
-
-        This example will error, saying that a schema for @n@ is not stored.
 
     * The schema needs to be stored before being used. The following won't work:
 
