@@ -16,6 +16,7 @@ Defines functions to query and manage branches utilized by the merge bot.
 module MergeBot.Core.Branch
   ( toTryBranch
   , getBranchStatuses
+  , getRequiredStatuses
   , getTryStatus
   , createTryBranch
   , createMergeBranch
@@ -33,9 +34,12 @@ import Data.Monoid ((<>))
 import qualified Data.Set as Set
 import Data.Text (Text)
 import qualified Data.Text as Text
+import qualified Data.Text.Encoding as Text
+import Data.Yaml (decodeThrow)
 import Text.Read (readMaybe)
 
 import MergeBot.Core.CIStatus (isPending, isSuccess, toCIStatus)
+import MergeBot.Core.Config (BranchConfig(..))
 import MergeBot.Core.Data
     ( BotStatus(..)
     , CIStatus(..)
@@ -135,6 +139,10 @@ getBranchStatuses state = do
             , [Branches.get| @context.state |]
             )
       in toCIStatus $ map fromContext contexts
+
+-- | Get the CI statuses required to pass for the given branch.
+getRequiredStatuses :: (MonadReader BotEnv m, MonadQuery m) => Text -> m [Text]
+getRequiredStatuses = fmap (maybe [] statuses) . getBranchConfig
 
 -- | Get the CI status for the trying branch for the given PR.
 getTryStatus :: (MonadReader BotEnv m, MonadQuery m) => PullRequestId -> m (Maybe CIStatus)
@@ -279,6 +287,20 @@ getBranch name = do
       branchCommitMessage = [Branch.get| @branch.message! |]
       branchTree = [Branch.get| @branch.tree!.oid |]
   return (branchCommit, branchCommitMessage, branchTree)
+
+-- | Get the configuration file for the given branch.
+getBranchConfig :: (MonadReader BotEnv m, MonadQuery m) => Text -> m (Maybe BranchConfig)
+getBranchConfig name = do
+  (_repoOwner, _repoName) <- asks getRepo
+  result <- runQuery Branch.query Branch.Args{_name = Text.unpack name, ..}
+  let branch = [Branch.get| result.repository.ref!.target > branch |]
+      entries = [Branch.get| @branch.tree!.entries![] > entry |]
+  case filter (\entry -> [Branch.get| @entry.name |] == configFile) entries of
+    [] -> return Nothing
+    [entry] -> return $ decodeThrow $ Text.encodeUtf8 [Branch.get| @entry.object!.text! |]
+    _ -> error "Multiple .lymerge.yaml files found?"
+  where
+    configFile = ".lymerge.yaml"
 
 -- | Get the commit hash for the given pull request.
 getPullRequest :: (MonadReader BotEnv m, MonadQuery m) => Int -> m Text

@@ -7,6 +7,14 @@ query Branch($repoOwner: String!, $repoName: String!, $name: String!) {
           message
           tree {
             oid
+            entries {
+              name
+              object {
+                ... on Blob {
+                  text
+                }
+              }
+            }
           }
           status {
             contexts {
