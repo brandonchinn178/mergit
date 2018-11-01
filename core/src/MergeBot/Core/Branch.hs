@@ -98,6 +98,13 @@ fromStagingMessage = map (read . tail . Text.unpack) . tail . Text.words
 
 {- Branch operations -}
 
+-- | Get the commit hash and the tree SHA for the given branch.
+getBranch :: (MonadReader BotEnv m, MonadQuery m) => Text -> m Object
+getBranch name = do
+  (_repoOwner, _repoName) <- asks getRepo
+  result <- runQuery Branch.query Branch.Args{_name = Text.unpack name, ..}
+  return [Branch.get| result.repository.ref!.target > branch |]
+
 -- | Get all branches managed by the merge bot and the CI status of each.
 getBranchStatuses :: (MonadReader BotEnv m, MonadQuery m)
   => BotState -> m (Map PullRequestId BotStatus)
@@ -108,9 +115,9 @@ getBranchStatuses state = do
   stagingPRs <- case filter isStaging branches of
     [] -> return []
     [branch] -> do
-      (_, commitMessage, _) <- getBranch stagingBranch
-      config <- fromMaybe (error "Staging branch does not have .lymerge.yaml") <$> getBranchConfig stagingBranch
-      let prIds = fromStagingMessage commitMessage
+      staging <- getBranch stagingBranch
+      config <- fromMaybe (error "Staging branch does not have .lymerge.yaml") . extractBranchConfig <$> getBranch stagingBranch
+      let prIds = fromStagingMessage [Branch.get| @branch staging.message! |]
           ciStatus = toCIStatus config $ getContexts branch
           status = if isPending ciStatus || isSuccess ciStatus
             then MergeRunning else MergeFailed
@@ -130,7 +137,7 @@ getBranchStatuses state = do
         )
     parseTrying branch = do
       let name = [Branches.get| @branch.name |]
-      config <- fromMaybe (error "Trying branch does not have .lymerge.yaml") <$> getBranchConfig name
+      config <- fromMaybe (error "Trying branch does not have .lymerge.yaml") . extractBranchConfig <$> getBranch name
       let ciStatus = toCIStatus config $ getContexts branch
           status
             | isPending ciStatus = TryRunning
@@ -147,7 +154,7 @@ getBranchStatuses state = do
 
 -- | Get the CI statuses required to pass for the given branch.
 getRequiredStatuses :: (MonadReader BotEnv m, MonadQuery m) => Text -> m [Text]
-getRequiredStatuses = fmap (maybe [] requiredStatuses) . getBranchConfig
+getRequiredStatuses = fmap (maybe [] requiredStatuses . extractBranchConfig) . getBranch
 
 -- | Get the CI status for the trying branch for the given PR.
 getTryStatus :: (MonadReader BotEnv m, MonadQuery m) => PullRequestId -> m (Maybe CIStatus)
@@ -173,11 +180,13 @@ createTryBranch :: (MonadCatch m, MonadGitHub m, MonadReader BotEnv m, MonadQuer
   => PullRequestId -> m ()
 createTryBranch prNum = do
   -- delete try branch if it exists
-  deleteBranch tempBranch
+  deleteBranch tempBranchName
   deleteBranch tryBranch
 
   -- get master branch
-  (masterCommit, _, masterTree) <- getBranch "master"
+  master <- getBranch "master"
+  let masterCommit = [Branch.get| @branch master.oid |]
+      masterTree = [Branch.get| @branch master.tree!.oid |]
 
   -- TODO: check that either master or PR branch has a config
 
@@ -193,14 +202,15 @@ createTryBranch prNum = do
 
   -- create temp branch on new commit
   createBranch
-    [ "ref" := "refs/heads/" <> tempBranch
+    [ "ref" := "refs/heads/" <> tempBranchName
     , "sha" := tempCommit
     ]
 
   -- merge pr into temp branch
   -- TODO: handle merge conflict
-  mergeBranches $ makeMerge tempBranch prCommit
-  (_, _, mergeTree) <- getBranch tempBranch
+  mergeBranches $ makeMerge tempBranchName prCommit
+  tempBranch <- getBranch tempBranchName
+  let mergeTree = [Branch.get| @branch tempBranch.tree!.oid |]
 
   -- create a new try commit off master
   tryCommit <- createCommit
@@ -216,9 +226,9 @@ createTryBranch prNum = do
     ]
 
   -- delete temp branch
-  deleteBranch tempBranch
+  deleteBranch tempBranchName
   where
-    tempBranch = "temp-" <> tryBranch
+    tempBranchName = "temp-" <> tryBranch
     tryBranch = toTryBranch prNum
 
 -- | Create a merge branch for the given PRs.
@@ -226,11 +236,13 @@ createMergeBranch :: (MonadCatch m, MonadGitHub m, MonadReader BotEnv m, MonadQu
   => [PullRequestId] -> m ()
 createMergeBranch prs = do
   -- delete staging branch if it exists
-  deleteBranch tempBranch
+  deleteBranch tempBranchName
   deleteBranch stagingBranch
 
   -- get master branch
-  (masterCommit, _, masterTree) <- getBranch "master"
+  master <- getBranch "master"
+  let masterCommit = [Branch.get| @branch master.oid |]
+      masterTree = [Branch.get| @branch master.tree!.oid |]
 
   -- TODO: check that either master or one of PR branches has a config
 
@@ -246,14 +258,15 @@ createMergeBranch prs = do
 
   -- create temp branch on new commit
   createBranch
-    [ "ref" := "refs/heads/" <> tempBranch
+    [ "ref" := "refs/heads/" <> tempBranchName
     , "sha" := tempCommit
     ]
 
   -- merge PRs into temp branch
   -- TODO: handle merge conflict
-  mapM_ (mergeBranches . makeMerge tempBranch) prCommits
-  (_, _, mergeTree) <- getBranch tempBranch
+  mapM_ (mergeBranches . makeMerge tempBranchName) prCommits
+  tempBranch <- getBranch tempBranchName
+  let mergeTree = [Branch.get| @branch tempBranch.tree!.oid |]
 
   -- create a new commit off master
   tryCommit <- createCommit
@@ -269,43 +282,25 @@ createMergeBranch prs = do
     ]
 
   -- delete temp branch
-  deleteBranch tempBranch
+  deleteBranch tempBranchName
   where
-    tempBranch = "temp-" <> stagingBranch
+    tempBranchName = "temp-" <> stagingBranch
 
 -- | Merge the staging branch into master. Return Nothing if the merge fails and the list of PRs
 -- merged otherwise.
 mergeStaging :: (MonadCatch m, MonadGitHub m, MonadReader BotEnv m, MonadQuery m)
   => m (Maybe [PullRequestId])
 mergeStaging = do
-  (commit, message, _) <- getBranch stagingBranch
+  branch <- getBranch stagingBranch
+  let commit = [Branch.get| @branch.oid |]
   success <- updateBranch "master" ["sha" := commit]
   if success
     then do
       deleteBranch stagingBranch
-      return $ Just $ fromStagingMessage message
+      return $ Just $ fromStagingMessage [Branch.get| @branch.message! |]
     else return Nothing
 
 {- Helpers -}
-
--- | Get the commit hash and the tree SHA for the given branch.
-getBranch :: (MonadReader BotEnv m, MonadQuery m) => Text -> m (Text, Text, Text)
-getBranch name = do
-  (_repoOwner, _repoName) <- asks getRepo
-  result <- runQuery Branch.query Branch.Args{_name = Text.unpack name, ..}
-  let branch = [Branch.get| result.repository.ref!.target > branch |]
-      branchCommit = [Branch.get| @branch.oid |]
-      branchCommitMessage = [Branch.get| @branch.message! |]
-      branchTree = [Branch.get| @branch.tree!.oid |]
-  return (branchCommit, branchCommitMessage, branchTree)
-
--- | Get the configuration file for the given branch.
-getBranchConfig :: (MonadReader BotEnv m, MonadQuery m) => Text -> m (Maybe BranchConfig)
-getBranchConfig name = do
-  (_repoOwner, _repoName) <- asks getRepo
-  result <- runQuery Branch.query Branch.Args{_name = Text.unpack name, ..}
-  let branch = [Branch.get| result.repository.ref!.target > branch |]
-  return $ extractBranchConfig branch
 
 -- | Get the configuration file for the given branch.
 extractBranchConfig :: Object -> Maybe BranchConfig
