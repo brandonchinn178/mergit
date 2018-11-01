@@ -73,7 +73,7 @@ generateGetter' getQ putQ resultCon fullSchema input = do
             Just _ -> error $ "Did you intend to use `@" ++ start ++ "` instead?"
         Just schemaName ->
           case toStoreName schemaName `lookup` getterData of
-            Nothing -> error $ "Schema is not stored for " ++ start
+            Nothing -> error $ "Schema is not stored for " ++ schemaName
             Just schema -> Just schema
       initialSchema = fromMaybe fullSchema varSchema
       (getterFunc, finalSchema) = mkGetter getterOps initialSchema
