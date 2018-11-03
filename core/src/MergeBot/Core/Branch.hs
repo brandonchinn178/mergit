@@ -53,6 +53,7 @@ import MergeBot.Core.GitHub
     ( GitHubData
     , KeyValue(..)
     , MonadGitHub(..)
+    , PaginatedResult(..)
     , createBranch
     , createCommit
     , deleteBranch
@@ -130,11 +131,11 @@ getBranchStatuses state = do
     queryBranches args = do
       result <- runQuery Branches.query args
       let info = [Branches.get| result.repository.refs! > info |]
-      return
-        ( [Branches.get| @info.nodes![]! > branch |]
-        , [Branches.get| @info.pageInfo.hasNextPage |]
-        , [Branches.get| @info.pageInfo.endCursor |]
-        )
+      return PaginatedResult
+        { chunk      = [Branches.get| @info.nodes![]! > branch |]
+        , hasNext    = [Branches.get| @info.pageInfo.hasNextPage |]
+        , nextCursor = [Branches.get| @info.pageInfo.endCursor |]
+        }
     parseTrying branch = do
       let name = [Branches.get| @branch.name |]
       config <- fromMaybe (error "Trying branch does not have .lymerge.yaml") . extractBranchConfig <$> getBranch name

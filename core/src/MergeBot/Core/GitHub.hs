@@ -7,11 +7,13 @@ Portability :  portable
 Defines helpers for querying the GitHub API.
 -}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module MergeBot.Core.GitHub
   (
   -- * GraphQL API
     graphqlSettings
+  , PaginatedResult(..)
   , queryAll
   -- * REST API
   , createBranch
@@ -51,16 +53,23 @@ graphqlSettings token = defaultQuerySettings
       }
   }
 
+data PaginatedResult a = PaginatedResult
+  { chunk      :: [a]
+  , hasNext    :: Bool
+  , nextCursor :: Maybe Text
+  }
+
 -- | Run a paginated query as many times as possible until all the results have been fetched.
-queryAll :: Monad m => (Maybe String -> m ([a], Bool, Maybe Text)) -> m [a]
-queryAll f = queryAll' Nothing
+queryAll :: Monad m => (Maybe String -> m (PaginatedResult a)) -> m [a]
+queryAll doQuery = queryAll' Nothing
   where
     queryAll' cursor = do
-      (result, hasNext, nextCursor) <- f $ Text.unpack <$> cursor
+      PaginatedResult{..} <- doQuery cursor
       next <- if hasNext
-        then queryAll' $ Just $ fromJust nextCursor -- ensure Just to avoid infinite loop
+        -- ensure Just to avoid infinite loop
+        then queryAll' . Just . Text.unpack . fromJust $ nextCursor
         else return []
-      return $ result ++ next
+      return $ chunk ++ next
 
 {- REST API -}
 
