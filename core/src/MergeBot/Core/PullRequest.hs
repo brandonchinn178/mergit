@@ -102,26 +102,23 @@ getPullRequestDetail prNum tryRun maybeQueue = do
   let base = [PullRequest.get| @pr.baseRefName |]
 
   reviews <- getReviews prNum
-  queue <- traverse (mapM getPullRequestSimple) maybeQueue
-  let mergeRun = Nothing -- TODO: get PRs in staging branch and the status of the merge run
+  mergeQueue <- traverse (mapM getPullRequestSimple) maybeQueue
+  let approved = not (null reviews) && all (== APPROVED) reviews
+      mergeRun = Nothing -- TODO: get PRs in staging branch and the status of the merge run
+      canTry = isNothing mergeRun && maybe True (not . isPending . tryStatus) tryRun
+      canQueue = isNothing mergeQueue && isNothing mergeRun && base == "master"
+      canUnqueue = isJust mergeQueue
 
   return PullRequestDetail
-    { number      = [PullRequest.get| @pr.number |]
-    , title       = [PullRequest.get| @pr.title |]
-    , author      = [PullRequest.get| @pr.author!.login |]
-    , created     = parseUTCTime [PullRequest.get| @pr.createdAt |]
-    , updated     = parseUTCTime [PullRequest.get| @pr.updatedAt |]
-    , url         = [PullRequest.get| @pr.url |]
-    , body        = [PullRequest.get| @pr.bodyHTML |]
-    , commit      = [PullRequest.get| @pr.headRefOid |]
-    , base        = base
-    , approved    = not (null reviews) && all (== APPROVED) reviews
-    , tryRun      = tryRun
-    , mergeQueue  = queue
-    , mergeRun    = mergeRun
-    , canTry      = isNothing mergeRun && maybe True (not . isPending . tryStatus) tryRun
-    , canQueue    = isNothing queue && isNothing mergeRun && base == "master"
-    , canUnqueue  = isJust queue
+    { number  = [PullRequest.get| @pr.number |]
+    , title   = [PullRequest.get| @pr.title |]
+    , author  = [PullRequest.get| @pr.author!.login |]
+    , created = parseUTCTime [PullRequest.get| @pr.createdAt |]
+    , updated = parseUTCTime [PullRequest.get| @pr.updatedAt |]
+    , url     = [PullRequest.get| @pr.url |]
+    , body    = [PullRequest.get| @pr.bodyHTML |]
+    , commit  = [PullRequest.get| @pr.headRefOid |]
+    , ..
     }
 
 -- | Get the reviews for the given pull request.
