@@ -36,7 +36,7 @@ import MergeBot.Core.Data
     , PullRequestSimple(..)
     , TryRun(..)
     )
-import MergeBot.Core.GitHub (queryAll)
+import MergeBot.Core.GitHub (PaginatedResult(..), queryAll)
 import qualified MergeBot.Core.GraphQL.PullRequest as PullRequest
 import qualified MergeBot.Core.GraphQL.PullRequestReview as PullRequestReview
 import MergeBot.Core.GraphQL.PullRequestReviewState (PullRequestReviewState(..))
@@ -63,11 +63,11 @@ getPullRequests getStatus = do
             , updated = parseUTCTime [PullRequests.get| @pr.updatedAt |]
             , status  = getStatus prNum
             }
-    return
-      ( map toPullRequest prs
-      , [PullRequests.get| @info.pageInfo.hasNextPage |]
-      , [PullRequests.get| @info.pageInfo.endCursor |]
-      )
+    return PaginatedResult
+      { chunk      = map toPullRequest prs
+      , hasNext    = [PullRequests.get| @info.pageInfo.hasNextPage |]
+      , nextCursor = [PullRequests.get| @info.pageInfo.endCursor |]
+      }
 
 -- | Get the GraphQL result for a single pull request.
 getPullRequest :: (MonadReader BotEnv m, MonadQuery m) => PullRequestId -> m Object
@@ -137,11 +137,11 @@ getReviews prNum = do
           ( [PullRequestReview.get| @review.author!.login |]
           , [PullRequestReview.get| @review.state |]
           )
-    return
-      ( map fromReview reviews
-      , [PullRequestReview.get| @info.pageInfo.hasNextPage |]
-      , [PullRequestReview.get| @info.pageInfo.endCursor |]
-      )
+    return PaginatedResult
+      { chunk      = map fromReview reviews
+      , hasNext    = [PullRequestReview.get| @info.pageInfo.hasNextPage |]
+      , nextCursor = [PullRequestReview.get| @info.pageInfo.endCursor |]
+      }
 
 {- Helpers -}
 
