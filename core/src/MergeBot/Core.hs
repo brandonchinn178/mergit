@@ -39,7 +39,7 @@ import MergeBot.Core.State
 -- | List all open pull requests.
 listPullRequests :: (MonadReader BotEnv m, MonadQuery m) => BotState -> m [PullRequest]
 listPullRequests state = do
-  branchStatuses <- getBranchStatuses state
+  branchStatuses <- getBranchStatuses $ Set.toList $ getMergeQueue state
   getPullRequests $ fromMaybe None . (branchStatuses !?)
 
 -- | Return a single pull request.

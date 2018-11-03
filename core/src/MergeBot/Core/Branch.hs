@@ -33,7 +33,6 @@ import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Maybe (fromMaybe)
 import Data.Monoid ((<>))
-import qualified Data.Set as Set
 import Data.Text (Text)
 import qualified Data.Text as Text
 import qualified Data.Text.Encoding as Text
@@ -65,7 +64,6 @@ import qualified MergeBot.Core.GraphQL.Branch as Branch
 import qualified MergeBot.Core.GraphQL.Branches as Branches
 import qualified MergeBot.Core.GraphQL.PullRequest as PullRequest
 import MergeBot.Core.Monad (BotEnv, getRepo)
-import MergeBot.Core.State (BotState, getMergeQueue)
 
 {- Branch labels and messages -}
 
@@ -108,8 +106,8 @@ getBranch name = do
 
 -- | Get all branches managed by the merge bot and the CI status of each.
 getBranchStatuses :: (MonadReader BotEnv m, MonadQuery m)
-  => BotState -> m (Map PullRequestId BotStatus)
-getBranchStatuses state = do
+  => [PullRequestId] -> m (Map PullRequestId BotStatus)
+getBranchStatuses mergeQueue = do
   (_repoOwner, _repoName) <- asks getRepo
   branches <- queryAll $ \_after -> queryBranches Branches.Args{..}
   let isStaging branch = [Branches.get| @branch.name |] == stagingBranch
@@ -127,7 +125,7 @@ getBranchStatuses state = do
   tryingPRs <- mapMaybeM parseTrying branches
   return $ Map.fromList $ concat [tryingPRs, queuedPRs, stagingPRs]
   where
-    queuedPRs = map (, MergeQueue) . Set.toList . getMergeQueue $ state
+    queuedPRs = map (, MergeQueue) mergeQueue
     queryBranches args = do
       result <- runQuery Branches.query args
       let info = [Branches.get| result.repository.refs! > info |]
