@@ -29,7 +29,6 @@ import Data.Text (Text)
 import MergeBot.Core.CIStatus (isPending)
 import MergeBot.Core.Data
     ( BotStatus
-    , CIStatus(..)
     , PullRequest(..)
     , PullRequestDetail(..)
     , PullRequestId
@@ -95,8 +94,8 @@ getBranch prNum = do
 
 -- | Get a detailed pull request.
 getPullRequestDetail :: (MonadReader BotEnv m, MonadQuery m)
-  => PullRequestId -> Maybe CIStatus -> Maybe [PullRequestId] -> m PullRequestDetail
-getPullRequestDetail prNum tryStatus maybeQueue = do
+  => PullRequestId -> Maybe TryRun -> Maybe [PullRequestId] -> m PullRequestDetail
+getPullRequestDetail prNum tryRun maybeQueue = do
   (_repoOwner, _repoName) <- asks getRepo
 
   pr <- getPullRequest prNum
@@ -117,10 +116,10 @@ getPullRequestDetail prNum tryStatus maybeQueue = do
     , commit      = [PullRequest.get| @pr.headRefOid |]
     , base        = base
     , approved    = not (null reviews) && all (== APPROVED) reviews
-    , tryRun      = TryRun <$> tryStatus
+    , tryRun      = tryRun
     , mergeQueue  = queue
     , mergeRun    = mergeRun
-    , canTry      = isNothing mergeRun && maybe True (not . isPending) tryStatus
+    , canTry      = isNothing mergeRun && maybe True (not . isPending . tryStatus) tryRun
     , canQueue    = isNothing queue && isNothing mergeRun && base == "master"
     , canUnqueue  = isJust queue
     }

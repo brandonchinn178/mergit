@@ -59,13 +59,13 @@ data PullRequestSimple = PullRequestSimple
 
 -- | The status or result of a try run.
 data TryRun = TryRun
-  { status :: !CIStatus
+  { tryStatus :: !CIStatus
   } deriving (Show,Generic,ToJSON)
 
 -- | The status or result of a merge run.
 data MergeRun = MergeRun
-  { mergePRs :: ![PullRequestSimple]
-  , status   :: !CIStatus
+  { mergePRs    :: ![PullRequestSimple]
+  , mergeStatus :: !CIStatus
   } deriving (Show,Generic,ToJSON)
 
 -- | The status of a pull request according to the merge bot.

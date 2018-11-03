@@ -46,8 +46,8 @@ listPullRequests state = do
 getPullRequest :: (MonadReader BotEnv m, MonadQuery m)
   => BotState -> PullRequestId -> m PullRequestDetail
 getPullRequest state prNum = do
-  tryStatus <- getTryStatus prNum
-  getPullRequestDetail prNum tryStatus maybeQueue
+  prTryRun <- fmap TryRun <$> getTryStatus prNum
+  getPullRequestDetail prNum prTryRun maybeQueue
   where
     queue = getMergeQueue state
     maybeQueue = if prNum `Set.member` queue
