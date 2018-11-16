@@ -15,7 +15,6 @@ Defines functions to query and manage branches utilized by the merge bot.
 
 module MergeBot.Core.Branch
   ( getBranchStatuses
-  , getRequiredStatuses
   , getTryStatus
   , getStagingStatus
   , createTryBranch
@@ -154,10 +153,6 @@ getBranchStatuses mergeQueue = do
             , [Branches.get| @context.state |]
             )
       in map fromContext contexts
-
--- | Get the CI statuses required to pass for the given branch.
-getRequiredStatuses :: MonadGraphQL m => Text -> m [Text]
-getRequiredStatuses = fmap (maybe [] requiredStatuses . extractBranchConfig) . getBranch
 
 -- | Get the CI status for the given branch.
 getCIStatus :: MonadGraphQL m => Text -> m (Maybe CIStatus)
