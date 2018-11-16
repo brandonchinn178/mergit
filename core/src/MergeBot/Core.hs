@@ -85,4 +85,4 @@ runMerge = do
     Nothing -> fail "Update was not a fast-forward"
     Just prs -> forM_ prs $ \prNum -> do
       deleteBranch =<< getBranch prNum
-      deleteBranch $ toTryBranch prNum
+      deleteTryBranch prNum

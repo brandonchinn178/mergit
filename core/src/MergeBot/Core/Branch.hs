@@ -14,11 +14,11 @@ Defines functions to query and manage branches utilized by the merge bot.
 {-# LANGUAGE TupleSections #-}
 
 module MergeBot.Core.Branch
-  ( toTryBranch
-  , getBranchStatuses
+  ( getBranchStatuses
   , getRequiredStatuses
   , getTryStatus
   , createTryBranch
+  , deleteTryBranch
   , createMergeBranch
   , mergeStaging
   ) where
@@ -229,6 +229,10 @@ createTryBranch prNum = do
   where
     tempBranchName = "temp-" <> tryBranch
     tryBranch = toTryBranch prNum
+
+-- | Delete the trying branch for the given PR.
+deleteTryBranch :: (MonadCatch m, MonadGitHub m) => PullRequestId -> m ()
+deleteTryBranch = deleteBranch . toTryBranch
 
 -- | Create a merge branch for the given PRs.
 createMergeBranch :: (MonadCatch m, MonadGitHub m, MonadReader BotEnv m, MonadQuery m)
