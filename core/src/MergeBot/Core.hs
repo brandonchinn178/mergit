@@ -10,6 +10,7 @@ Defines the core functionality of the merge bot.
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TupleSections #-}
 
 module MergeBot.Core
   ( listPullRequests
@@ -47,7 +48,11 @@ getPullRequest :: (MonadReader BotEnv m, MonadQuery m)
   => BotState -> PullRequestId -> m PullRequestDetail
 getPullRequest state prNum = do
   prTryRun <- fmap TryRun <$> getTryStatus prNum
-  getPullRequestDetail prNum prTryRun maybeQueue
+  staging <- getStagingPRs
+  maybeStaging <- if prNum `elem` staging
+    then fmap (staging,) <$> getStagingStatus
+    else return Nothing
+  getPullRequestDetail prNum prTryRun maybeQueue maybeStaging
   where
     queue = getMergeQueue state
     maybeQueue = if prNum `Set.member` queue

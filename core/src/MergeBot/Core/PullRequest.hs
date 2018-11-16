@@ -29,6 +29,8 @@ import Data.Text (Text)
 import MergeBot.Core.CIStatus (isPending)
 import MergeBot.Core.Data
     ( BotStatus
+    , CIStatus
+    , MergeRun(..)
     , PullRequest(..)
     , PullRequestDetail(..)
     , PullRequestId
@@ -94,8 +96,12 @@ getBranch prNum = do
 
 -- | Get a detailed pull request.
 getPullRequestDetail :: (MonadReader BotEnv m, MonadQuery m)
-  => PullRequestId -> Maybe TryRun -> Maybe [PullRequestId] -> m PullRequestDetail
-getPullRequestDetail prNum tryRun maybeQueue = do
+  => PullRequestId
+  -> Maybe TryRun
+  -> Maybe [PullRequestId]
+  -> Maybe ([PullRequestId], CIStatus)
+  -> m PullRequestDetail
+getPullRequestDetail prNum tryRun maybeQueue maybeStaging = do
   (_repoOwner, _repoName) <- asks getRepo
 
   pr <- getPullRequest prNum
@@ -103,8 +109,12 @@ getPullRequestDetail prNum tryRun maybeQueue = do
 
   reviews <- getReviews prNum
   mergeQueue <- traverse (mapM getPullRequestSimple) maybeQueue
+  mergeRun <- case maybeStaging of
+    Nothing -> return Nothing
+    Just (staging, mergeStatus) -> do
+      mergePRs <- mapM getPullRequestSimple staging
+      return $ Just MergeRun{..}
   let approved = not (null reviews) && all (== APPROVED) reviews
-      mergeRun = Nothing -- TODO: get PRs in staging branch and the status of the merge run
       canTry = isNothing mergeRun && maybe True (not . isPending . tryStatus) tryRun
       canQueue = isNothing mergeQueue && isNothing mergeRun && base == "master"
       canUnqueue = isJust mergeQueue

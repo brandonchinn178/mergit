@@ -7,6 +7,7 @@ Portability :  portable
 Defines functions to query and manage branches utilized by the merge bot.
 -}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
@@ -17,9 +18,11 @@ module MergeBot.Core.Branch
   ( getBranchStatuses
   , getRequiredStatuses
   , getTryStatus
+  , getStagingStatus
   , createTryBranch
   , deleteTryBranch
   , createMergeBranch
+  , getStagingPRs
   , mergeStaging
   ) where
 
@@ -31,7 +34,7 @@ import Data.Aeson (Object)
 import Data.GraphQL (MonadQuery, runQuery)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromJust, fromMaybe)
 import Data.Monoid ((<>))
 import Data.Text (Text)
 import qualified Data.Text as Text
@@ -97,12 +100,16 @@ fromStagingMessage = map (read . tail . Text.unpack) . tail . Text.words
 
 {- Branch operations -}
 
--- | Get the commit hash and the tree SHA for the given branch.
+-- | Get the given branch.
 getBranch :: (MonadReader BotEnv m, MonadQuery m) => Text -> m Object
-getBranch name = do
+getBranch = fmap fromJust . getBranch'
+
+-- | Get the given branch.
+getBranch' :: (MonadReader BotEnv m, MonadQuery m) => Text -> m (Maybe Object)
+getBranch' name = do
   (_repoOwner, _repoName) <- asks getRepo
   result <- runQuery Branch.query Branch.Args{_name = Text.unpack name, ..}
-  return [Branch.get| result.repository.ref!.target > branch |]
+  return [Branch.get| result.repository.ref.target > branch |]
 
 -- | Get all branches managed by the merge bot and the CI status of each.
 getBranchStatuses :: (MonadReader BotEnv m, MonadQuery m)
@@ -155,14 +162,14 @@ getBranchStatuses mergeQueue = do
 getRequiredStatuses :: (MonadReader BotEnv m, MonadQuery m) => Text -> m [Text]
 getRequiredStatuses = fmap (maybe [] requiredStatuses . extractBranchConfig) . getBranch
 
--- | Get the CI status for the trying branch for the given PR.
-getTryStatus :: (MonadReader BotEnv m, MonadQuery m) => PullRequestId -> m (Maybe CIStatus)
-getTryStatus prNum = do
+-- | Get the CI status for the given branch.
+getCIStatus :: (MonadReader BotEnv m, MonadQuery m) => Text -> m (Maybe CIStatus)
+getCIStatus name = do
   (_repoOwner, _repoName) <- asks getRepo
-  result <- runQuery Branch.query Branch.Args{..}
+  result <- runQuery Branch.query Branch.Args{_name = Text.unpack name, ..}
   let ref = [Branch.get| result.repository.ref.target > branch |]
       getStatus branch = case extractBranchConfig branch of
-        Nothing -> error "Try branch does not have .lymerge.yaml"
+        Nothing -> error $ "Branch does not have .lymerge.yaml: " ++ Text.unpack name
         Just config -> toCIStatus config $
           let contexts = [Branch.get| @branch.status!.contexts[] > context |]
               fromContext context =
@@ -171,8 +178,14 @@ getTryStatus prNum = do
                 )
           in map fromContext contexts
   return $ getStatus <$> ref
-  where
-    _name = Text.unpack $ toTryBranch prNum
+
+-- | Get the CI status for the trying branch for the given PR.
+getTryStatus :: (MonadReader BotEnv m, MonadQuery m) => PullRequestId -> m (Maybe CIStatus)
+getTryStatus = getCIStatus . toTryBranch
+
+-- | Get the CI status for the staging branch.
+getStagingStatus :: (MonadReader BotEnv m, MonadQuery m) => m (Maybe CIStatus)
+getStagingStatus = getCIStatus stagingBranch
 
 -- | Create a trying branch for the given PR.
 createTryBranch :: (MonadCatch m, MonadGitHub m, MonadReader BotEnv m, MonadQuery m)
@@ -288,6 +301,12 @@ createMergeBranch prs = do
   deleteBranch tempBranchName
   where
     tempBranchName = "temp-" <> stagingBranch
+
+-- | Get the pull requests currently in staging.
+getStagingPRs :: (MonadReader BotEnv m, MonadQuery m) => m [PullRequestId]
+getStagingPRs = getBranch' stagingBranch >>= \case
+  Nothing -> return []
+  Just branch -> return $ fromStagingMessage [Branch.get| @branch.message! |]
 
 -- | Merge the staging branch into master. Return Nothing if the merge fails and the list of PRs
 -- merged otherwise.
