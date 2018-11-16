@@ -187,15 +187,15 @@ getTryStatus = getCIStatus . toTryBranch
 getStagingStatus :: (MonadReader BotEnv m, MonadQuery m) => m (Maybe CIStatus)
 getStagingStatus = getCIStatus stagingBranch
 
--- | Create a trying branch for the given PR.
-createTryBranch :: (MonadCatch m, MonadGitHub m, MonadReader BotEnv m, MonadQuery m)
-  => PullRequestId -> m ()
-createTryBranch prNum = do
-  -- delete try branch if it exists
+-- | Create a CI branch by merging the given PRs on top of master.
+createCIBranch :: (MonadCatch m, MonadGitHub m, MonadReader BotEnv m, MonadQuery m)
+  => [PullRequestId] -> Text -> Text -> Text -> m ()
+createCIBranch prs tempBranchName ciBranchName commitMessage = do
+  -- delete temp/ci branches if they exist
   deleteBranch tempBranchName
-  deleteBranch tryBranch
+  deleteBranch ciBranchName
 
-  -- get master branch
+  -- get base branch
   master <- getBranch "master"
   let masterCommit = [Branch.get| @branch master.oid |]
       masterTree = [Branch.get| @branch master.tree!.oid |]
@@ -203,7 +203,7 @@ createTryBranch prNum = do
   -- TODO: check that either master or PR branch has a config
 
   -- get PR commit hash
-  prCommit <- getPullRequest prNum
+  prCommits <- mapM getPRCommit prs
 
   -- create a new temp commit off master
   tempCommit <- createCommit
@@ -218,30 +218,36 @@ createTryBranch prNum = do
     , "sha" := tempCommit
     ]
 
-  -- merge pr into temp branch
+  -- merge prs into temp branch and get the final git tree
   -- TODO: handle merge conflict
-  mergeBranches $ makeMerge tempBranchName prCommit
+  mapM_ (mergeBranches . makeMerge tempBranchName) prCommits
   tempBranch <- getBranch tempBranchName
   let mergeTree = [Branch.get| @branch tempBranch.tree!.oid |]
 
-  -- create a new try commit off master
-  tryCommit <- createCommit
-    [ "message" := toTryMessage prNum
+  -- create a new commit off master
+  ciCommit <- createCommit
+    [ "message" := commitMessage
     , "tree" := mergeTree
-    , "parents" :=* [masterCommit, prCommit]
+    , "parents" :=* (masterCommit : prCommits)
     ]
 
   -- create try branch on new commit
   createBranch
-    [ "ref" := "refs/heads/" <> tryBranch
-    , "sha" := tryCommit
+    [ "ref" := "refs/heads/" <> ciBranchName
+    , "sha" := ciCommit
     ]
 
   -- delete temp branch
   deleteBranch tempBranchName
+
+-- | Create a trying branch for the given PR.
+createTryBranch :: (MonadCatch m, MonadGitHub m, MonadReader BotEnv m, MonadQuery m)
+  => PullRequestId -> m ()
+createTryBranch prNum = createCIBranch [prNum] tempBranchName tryBranch tryMessage
   where
     tempBranchName = "temp-" <> tryBranch
     tryBranch = toTryBranch prNum
+    tryMessage = toTryMessage prNum
 
 -- | Delete the trying branch for the given PR.
 deleteTryBranch :: (MonadCatch m, MonadGitHub m) => PullRequestId -> m ()
@@ -250,57 +256,10 @@ deleteTryBranch = deleteBranch . toTryBranch
 -- | Create a merge branch for the given PRs.
 createMergeBranch :: (MonadCatch m, MonadGitHub m, MonadReader BotEnv m, MonadQuery m)
   => [PullRequestId] -> m ()
-createMergeBranch prs = do
-  -- delete staging branch if it exists
-  deleteBranch tempBranchName
-  deleteBranch stagingBranch
-
-  -- get master branch
-  master <- getBranch "master"
-  let masterCommit = [Branch.get| @branch master.oid |]
-      masterTree = [Branch.get| @branch master.tree!.oid |]
-
-  -- TODO: check that either master or one of PR branches has a config
-
-  -- get commit hash of PRs
-  prCommits <- mapM getPullRequest prs
-
-  -- create a new temp commit off master
-  tempCommit <- createCommit
-    [ "message" := "[ci skip] temp"
-    , "tree" := masterTree
-    , "parents" :=* [masterCommit]
-    ]
-
-  -- create temp branch on new commit
-  createBranch
-    [ "ref" := "refs/heads/" <> tempBranchName
-    , "sha" := tempCommit
-    ]
-
-  -- merge PRs into temp branch
-  -- TODO: handle merge conflict
-  mapM_ (mergeBranches . makeMerge tempBranchName) prCommits
-  tempBranch <- getBranch tempBranchName
-  let mergeTree = [Branch.get| @branch tempBranch.tree!.oid |]
-
-  -- create a new commit off master
-  tryCommit <- createCommit
-    [ "message" := toStagingMessage prs
-    , "tree" := mergeTree
-    , "parents" :=* (masterCommit : prCommits)
-    ]
-
-  -- create staging branch on new commit
-  createBranch
-    [ "ref" := "refs/heads/" <> stagingBranch
-    , "sha" := tryCommit
-    ]
-
-  -- delete temp branch
-  deleteBranch tempBranchName
+createMergeBranch prs = createCIBranch prs tempBranchName stagingBranch stagingMessage
   where
     tempBranchName = "temp-" <> stagingBranch
+    stagingMessage = toStagingMessage prs
 
 -- | Get the pull requests currently in staging.
 getStagingPRs :: (MonadReader BotEnv m, MonadQuery m) => m [PullRequestId]
@@ -337,8 +296,8 @@ extractBranchConfig branch =
     configFile = ".lymerge.yaml"
 
 -- | Get the commit hash for the given pull request.
-getPullRequest :: (MonadReader BotEnv m, MonadQuery m) => Int -> m Text
-getPullRequest _number = do
+getPRCommit :: (MonadReader BotEnv m, MonadQuery m) => Int -> m Text
+getPRCommit _number = do
   (_repoOwner, _repoName) <- asks getRepo
   result <- runQuery PullRequest.query PullRequest.Args{..}
   let pr = [PullRequest.get| result.repository.pullRequest! > pr |]
