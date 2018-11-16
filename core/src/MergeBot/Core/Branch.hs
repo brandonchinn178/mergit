@@ -8,7 +8,6 @@ Defines functions to query and manage branches utilized by the merge bot.
 -}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -27,11 +26,10 @@ module MergeBot.Core.Branch
   ) where
 
 import Control.Monad ((<=<))
-import Control.Monad.Catch (MonadCatch)
 import Control.Monad.Extra (mapMaybeM)
-import Control.Monad.Reader (MonadReader, asks)
+import Control.Monad.Reader (asks)
 import Data.Aeson (Object)
-import Data.GraphQL (MonadQuery, runQuery)
+import Data.GraphQL (runQuery)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Maybe (fromJust, fromMaybe)
@@ -54,7 +52,6 @@ import MergeBot.Core.Data
 import MergeBot.Core.GitHub
     ( GitHubData
     , KeyValue(..)
-    , MonadGitHub(..)
     , PaginatedResult(..)
     , createBranch
     , createCommit
@@ -66,7 +63,7 @@ import MergeBot.Core.GitHub
 import qualified MergeBot.Core.GraphQL.Branch as Branch
 import qualified MergeBot.Core.GraphQL.Branches as Branches
 import qualified MergeBot.Core.GraphQL.PullRequest as PullRequest
-import MergeBot.Core.Monad (BotEnv, getRepo)
+import MergeBot.Core.Monad (MonadGraphQL, MonadREST, getRepo)
 
 {- Branch labels and messages -}
 
@@ -101,18 +98,18 @@ fromStagingMessage = map (read . tail . Text.unpack) . tail . Text.words
 {- Branch operations -}
 
 -- | Get the given branch.
-getBranch :: (MonadReader BotEnv m, MonadQuery m) => Text -> m Object
+getBranch :: MonadGraphQL m => Text -> m Object
 getBranch = fmap fromJust . getBranch'
 
 -- | Get the given branch.
-getBranch' :: (MonadReader BotEnv m, MonadQuery m) => Text -> m (Maybe Object)
+getBranch' :: MonadGraphQL m => Text -> m (Maybe Object)
 getBranch' name = do
   (_repoOwner, _repoName) <- asks getRepo
   result <- runQuery Branch.query Branch.Args{_name = Text.unpack name, ..}
   return [Branch.get| result.repository.ref.target > branch |]
 
 -- | Get all branches managed by the merge bot and the CI status of each.
-getBranchStatuses :: (MonadReader BotEnv m, MonadQuery m)
+getBranchStatuses :: MonadGraphQL m
   => [PullRequestId] -> m (Map PullRequestId BotStatus)
 getBranchStatuses mergeQueue = do
   (_repoOwner, _repoName) <- asks getRepo
@@ -159,11 +156,11 @@ getBranchStatuses mergeQueue = do
       in map fromContext contexts
 
 -- | Get the CI statuses required to pass for the given branch.
-getRequiredStatuses :: (MonadReader BotEnv m, MonadQuery m) => Text -> m [Text]
+getRequiredStatuses :: MonadGraphQL m => Text -> m [Text]
 getRequiredStatuses = fmap (maybe [] requiredStatuses . extractBranchConfig) . getBranch
 
 -- | Get the CI status for the given branch.
-getCIStatus :: (MonadReader BotEnv m, MonadQuery m) => Text -> m (Maybe CIStatus)
+getCIStatus :: MonadGraphQL m => Text -> m (Maybe CIStatus)
 getCIStatus name = do
   (_repoOwner, _repoName) <- asks getRepo
   result <- runQuery Branch.query Branch.Args{_name = Text.unpack name, ..}
@@ -180,15 +177,15 @@ getCIStatus name = do
   return $ getStatus <$> ref
 
 -- | Get the CI status for the trying branch for the given PR.
-getTryStatus :: (MonadReader BotEnv m, MonadQuery m) => PullRequestId -> m (Maybe CIStatus)
+getTryStatus :: MonadGraphQL m => PullRequestId -> m (Maybe CIStatus)
 getTryStatus = getCIStatus . toTryBranch
 
 -- | Get the CI status for the staging branch.
-getStagingStatus :: (MonadReader BotEnv m, MonadQuery m) => m (Maybe CIStatus)
+getStagingStatus :: MonadGraphQL m => m (Maybe CIStatus)
 getStagingStatus = getCIStatus stagingBranch
 
 -- | Create a CI branch by merging the given PRs on top of master.
-createCIBranch :: (MonadCatch m, MonadGitHub m, MonadReader BotEnv m, MonadQuery m)
+createCIBranch :: (MonadGraphQL m, MonadREST m)
   => [PullRequestId] -> Text -> Text -> Text -> m ()
 createCIBranch prs tempBranchName ciBranchName commitMessage = do
   -- delete temp/ci branches if they exist
@@ -241,7 +238,7 @@ createCIBranch prs tempBranchName ciBranchName commitMessage = do
   deleteBranch tempBranchName
 
 -- | Create a trying branch for the given PR.
-createTryBranch :: (MonadCatch m, MonadGitHub m, MonadReader BotEnv m, MonadQuery m)
+createTryBranch :: (MonadGraphQL m, MonadREST m)
   => PullRequestId -> m ()
 createTryBranch prNum = createCIBranch [prNum] tempBranchName tryBranch tryMessage
   where
@@ -250,11 +247,11 @@ createTryBranch prNum = createCIBranch [prNum] tempBranchName tryBranch tryMessa
     tryMessage = toTryMessage prNum
 
 -- | Delete the trying branch for the given PR.
-deleteTryBranch :: (MonadCatch m, MonadGitHub m) => PullRequestId -> m ()
+deleteTryBranch :: MonadREST m => PullRequestId -> m ()
 deleteTryBranch = deleteBranch . toTryBranch
 
 -- | Create a merge branch for the given PRs.
-createMergeBranch :: (MonadCatch m, MonadGitHub m, MonadReader BotEnv m, MonadQuery m)
+createMergeBranch :: (MonadGraphQL m, MonadREST m)
   => [PullRequestId] -> m ()
 createMergeBranch prs = createCIBranch prs tempBranchName stagingBranch stagingMessage
   where
@@ -262,14 +259,14 @@ createMergeBranch prs = createCIBranch prs tempBranchName stagingBranch stagingM
     stagingMessage = toStagingMessage prs
 
 -- | Get the pull requests currently in staging.
-getStagingPRs :: (MonadReader BotEnv m, MonadQuery m) => m [PullRequestId]
+getStagingPRs :: MonadGraphQL m => m [PullRequestId]
 getStagingPRs = getBranch' stagingBranch >>= \case
   Nothing -> return []
   Just branch -> return $ fromStagingMessage [Branch.get| @branch.message! |]
 
 -- | Merge the staging branch into master. Return Nothing if the merge fails and the list of PRs
 -- merged otherwise.
-mergeStaging :: (MonadCatch m, MonadGitHub m, MonadReader BotEnv m, MonadQuery m)
+mergeStaging :: (MonadGraphQL m, MonadREST m)
   => m (Maybe [PullRequestId])
 mergeStaging = do
   branch <- getBranch stagingBranch
@@ -296,7 +293,7 @@ extractBranchConfig branch =
     configFile = ".lymerge.yaml"
 
 -- | Get the commit hash for the given pull request.
-getPRCommit :: (MonadReader BotEnv m, MonadQuery m) => Int -> m Text
+getPRCommit :: MonadGraphQL m => Int -> m Text
 getPRCommit _number = do
   (_repoOwner, _repoName) <- asks getRepo
   result <- runQuery PullRequest.query PullRequest.Args{..}

@@ -6,11 +6,14 @@ Portability :  portable
 
 Definitions for querying the GitHub REST API.
 -}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module MergeBot.Core.GitHub.REST
   ( MonadGitHub(..)
+  , MonadREST
   , Endpoint
   , EndpointVals
   , GitHubData
@@ -33,6 +36,8 @@ import Data.Text (Text)
 import qualified Data.Text as Text
 import Network.HTTP.Client
 import Network.HTTP.Types
+
+type MonadREST m = (MonadCatch m, MonadGitHub m)
 
 -- | A type class for monads that can query the GitHub REST API.
 class MonadIO m => MonadGitHub m where
