@@ -6,6 +6,8 @@ Portability :  portable
 
 Defines the monad used for the core functions of the merge bot.
 -}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -15,6 +17,9 @@ module MergeBot.Core.Monad
   , runBot
   , BotEnv(..)
   , getRepo
+  -- * Helpers
+  , MonadREST
+  , MonadGraphQL
   ) where
 
 import Control.Monad.Catch (MonadCatch(..), MonadThrow(..))
@@ -27,8 +32,10 @@ import Network.HTTP.Client (Manager, newManager)
 import Network.HTTP.Client.TLS (tlsManagerSettings)
 
 import MergeBot.Core.Config (BotConfig(..))
-import MergeBot.Core.GitHub (graphqlSettings)
+import MergeBot.Core.GitHub (MonadGitHub, MonadREST, graphqlSettings)
 import MergeBot.Core.GitHub.REST (KeyValue(..), MonadGitHub(..), githubAPI)
+
+type MonadGraphQL m = (MonadReader BotEnv m, MonadQuery m)
 
 data BotEnv = BotEnv
   { repoOwner :: String

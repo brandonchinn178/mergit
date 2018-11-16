@@ -7,7 +7,6 @@ Portability :  portable
 Defines functions to query and manage pull requests.
 -}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -19,9 +18,9 @@ module MergeBot.Core.PullRequest
   , getBranch
   ) where
 
-import Control.Monad.Reader (MonadReader, asks)
+import Control.Monad.Reader (asks)
 import Data.Aeson (Object)
-import Data.GraphQL (MonadQuery, runQuery)
+import Data.GraphQL (runQuery)
 import qualified Data.Map.Strict as Map
 import Data.Maybe (isJust, isNothing)
 import Data.Text (Text)
@@ -43,10 +42,10 @@ import qualified MergeBot.Core.GraphQL.PullRequestReview as PullRequestReview
 import MergeBot.Core.GraphQL.PullRequestReviewState (PullRequestReviewState(..))
 import qualified MergeBot.Core.GraphQL.PullRequests as PullRequests
 import MergeBot.Core.GraphQL.Scalars (parseUTCTime)
-import MergeBot.Core.Monad (BotEnv, getRepo)
+import MergeBot.Core.Monad (MonadGraphQL, getRepo)
 
 -- | Get all open pull requests.
-getPullRequests :: (MonadReader BotEnv m, MonadQuery m) =>
+getPullRequests :: MonadGraphQL m =>
   (PullRequestId -> BotStatus) -> m [PullRequest]
 getPullRequests getStatus = do
   (_repoOwner, _repoName) <- asks getRepo
@@ -71,14 +70,14 @@ getPullRequests getStatus = do
       }
 
 -- | Get the GraphQL result for a single pull request.
-getPullRequest :: (MonadReader BotEnv m, MonadQuery m) => PullRequestId -> m Object
+getPullRequest :: MonadGraphQL m => PullRequestId -> m Object
 getPullRequest prNum = do
   (_repoOwner, _repoName) <- asks getRepo
   result <- runQuery PullRequest.query PullRequest.Args{_number=prNum, ..}
   return [PullRequest.get| result.repository.pullRequest! > pr |]
 
 -- | Get a simple pull request.
-getPullRequestSimple :: (MonadReader BotEnv m, MonadQuery m)
+getPullRequestSimple :: MonadGraphQL m
   => PullRequestId -> m PullRequestSimple
 getPullRequestSimple prNum = do
   pr <- getPullRequest prNum
@@ -88,14 +87,14 @@ getPullRequestSimple prNum = do
     }
 
 -- | Get the branch name for the pull request.
-getBranch :: (MonadReader BotEnv m, MonadQuery m)
+getBranch :: MonadGraphQL m
   => PullRequestId -> m Text
 getBranch prNum = do
   pr <- getPullRequest prNum
   return [PullRequest.get| @pr.headRefName |]
 
 -- | Get a detailed pull request.
-getPullRequestDetail :: (MonadReader BotEnv m, MonadQuery m)
+getPullRequestDetail :: MonadGraphQL m
   => PullRequestId
   -> Maybe TryRun
   -> Maybe [PullRequestId]
@@ -132,7 +131,7 @@ getPullRequestDetail prNum tryRun maybeQueue maybeStaging = do
     }
 
 -- | Get the reviews for the given pull request.
-getReviews :: (MonadReader BotEnv m, MonadQuery m) => PullRequestId -> m [PullRequestReviewState]
+getReviews :: MonadGraphQL m => PullRequestId -> m [PullRequestReviewState]
 getReviews prNum = do
   (_repoOwner, _repoName) <- asks getRepo
   fmap resolveReviews $ queryAll $ \_after -> do

@@ -26,7 +26,6 @@ module MergeBot.Core.GitHub
   ) where
 
 import Control.Monad (void)
-import Control.Monad.Catch (MonadCatch)
 import qualified Data.ByteString.Char8 as ByteString
 import Data.Either (isRight)
 import Data.GraphQL (QuerySettings(..), defaultQuerySettings)
@@ -76,19 +75,19 @@ queryAll doQuery = queryAll' Nothing
 -- | Create a branch.
 --
 -- https://developer.github.com/v3/git/refs/#create-a-reference
-createBranch :: MonadGitHub m => GitHubData -> m ()
+createBranch :: MonadREST m => GitHubData -> m ()
 createBranch = void . queryGitHub POST "/repos/:owner/:repo/git/refs" []
 
 -- | Create a commit, returning the SHA of the created commit.
 --
 -- https://developer.github.com/v3/git/commits/#create-a-commit
-createCommit :: MonadGitHub m => GitHubData -> m Text
+createCommit :: MonadREST m => GitHubData -> m Text
 createCommit = fmap (.: "sha") . queryGitHub POST "/repos/:owner/:repo/git/commits" []
 
 -- | Delete the given branch, ignoring the error if the branch doesn't exist.
 --
 -- https://developer.github.com/v3/git/refs/#delete-a-reference
-deleteBranch :: (MonadCatch m, MonadGitHub m) => Text -> m ()
+deleteBranch :: MonadREST m => Text -> m ()
 deleteBranch branch = void $ handleStatus status422 $
   queryGitHub DELETE "/repos/:owner/:repo/git/refs/:ref" ["ref" := "heads/" <> branch] []
 
@@ -96,12 +95,12 @@ deleteBranch branch = void $ handleStatus status422 $
 -- TODO: handle merge conflicts
 --
 -- https://developer.github.com/v3/repos/merging/#perform-a-merge
-mergeBranches :: MonadGitHub m => GitHubData -> m ()
+mergeBranches :: MonadREST m => GitHubData -> m ()
 mergeBranches = void . queryGitHub POST "/repos/:owner/:repo/merges" []
 
 -- | Set the given branch to the given commit. Returns false if update is not a fast-forward.
 --
 -- https://developer.github.com/v3/git/refs/#update-a-reference
-updateBranch :: (MonadCatch m, MonadGitHub m) => Text -> GitHubData -> m Bool
+updateBranch :: MonadREST m => Text -> GitHubData -> m Bool
 updateBranch branch = fmap isRight . handleStatus status422 .
   queryGitHub PATCH "/repos/:owner/:repo/git/refs/:ref" ["ref" := "heads/" <> branch]
