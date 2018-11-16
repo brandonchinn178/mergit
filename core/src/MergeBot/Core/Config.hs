@@ -6,17 +6,15 @@ Portability :  portable
 
 Defines the data type representing the configuration for the merge bot.
 -}
-{-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module MergeBot.Core.Config
   ( BotConfig(..)
   , BranchConfig(..)
   ) where
 
-import Data.Aeson (FromJSON)
+import Data.Aeson (FromJSON(..), withObject, (.:))
 import Data.Text (Text)
-import GHC.Generics (Generic)
 
 -- | Merge bot configuration.
 data BotConfig = BotConfig
@@ -28,4 +26,9 @@ data BotConfig = BotConfig
 -- | In-repo configuration.
 data BranchConfig = BranchConfig
   { requiredStatuses :: [Text]
-  } deriving (Generic,FromJSON)
+  }
+
+instance FromJSON BranchConfig where
+  parseJSON = withObject "BranchConfig" $ \o ->
+    BranchConfig
+      <$> o .: "statuses"

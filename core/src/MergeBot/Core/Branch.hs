@@ -122,7 +122,7 @@ getBranchStatuses mergeQueue = do
     [] -> return []
     [branch] -> do
       staging <- getBranch stagingBranch
-      config <- fromMaybe (error "Staging branch does not have .lymerge.yaml") . extractBranchConfig <$> getBranch stagingBranch
+      config <- maybe (fail "Staging branch does not have .lymerge.yaml") return $ extractBranchConfig staging
       let prIds = fromStagingMessage [Branch.get| @branch staging.message! |]
           ciStatus = toCIStatus config $ getContexts branch
           status = if isPending ciStatus || isSuccess ciStatus
