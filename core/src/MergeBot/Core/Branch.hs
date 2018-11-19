@@ -192,8 +192,6 @@ createCIBranch prs tempBranchName ciBranchName commitMessage = do
   let masterCommit = [Branch.get| @branch master.oid |]
       masterTree = [Branch.get| @branch master.tree!.oid |]
 
-  -- TODO: check that either master or PR branch has a config
-
   -- get PR commit hash
   prCommits <- mapM getPRCommit prs
 
@@ -216,21 +214,26 @@ createCIBranch prs tempBranchName ciBranchName commitMessage = do
   tempBranch <- getBranch tempBranchName
   let mergeTree = [Branch.get| @branch tempBranch.tree!.oid |]
 
-  -- create a new commit off master
-  ciCommit <- createCommit
-    [ "message" := commitMessage
-    , "tree" := mergeTree
-    , "parents" :=* (masterCommit : prCommits)
-    ]
+  case extractBranchConfig tempBranch of
+    Nothing -> do
+      deleteBranch tempBranchName
+      fail "Missing or invalid .lymerge.yaml file"
+    Just _ -> do
+      -- create a new commit off master
+      ciCommit <- createCommit
+        [ "message" := commitMessage
+        , "tree" := mergeTree
+        , "parents" :=* (masterCommit : prCommits)
+        ]
 
-  -- create try branch on new commit
-  createBranch
-    [ "ref" := "refs/heads/" <> ciBranchName
-    , "sha" := ciCommit
-    ]
+      -- create try branch on new commit
+      createBranch
+        [ "ref" := "refs/heads/" <> ciBranchName
+        , "sha" := ciCommit
+        ]
 
-  -- delete temp branch
-  deleteBranch tempBranchName
+      -- delete temp branch
+      deleteBranch tempBranchName
 
 -- | Create a trying branch for the given PR.
 createTryBranch :: (MonadGraphQL m, MonadREST m)
