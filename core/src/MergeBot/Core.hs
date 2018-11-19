@@ -49,15 +49,17 @@ getPullRequest state prNum = do
   let maybeQueue = case Set.toList $ getMergeQueue base state of
         [] -> Nothing
         queue -> Just queue
-  staging <- getStagingPRs
+  staging <- getStagingPRs base
   maybeStaging <- if prNum `elem` staging
-    then fmap (staging,) <$> getStagingStatus
+    then fmap (staging,) <$> getStagingStatus base
     else return Nothing
   getPullRequestDetail prNum prTryRun maybeQueue maybeStaging
 
 -- | Start a try job for the given pull request.
 tryPullRequest :: (MonadGraphQL m, MonadREST m) => PullRequestId -> m ()
-tryPullRequest = createTryBranch
+tryPullRequest prNum = do
+  base <- getBaseBranch prNum
+  createTryBranch base prNum
 
 -- | Queue the given pull request.
 queuePullRequest :: MonadGraphQL m => PullRequestId -> BotState -> m BotState
@@ -74,14 +76,14 @@ unqueuePullRequest prNum state = do
 -- | Start a merge job for the given base branch.
 startMergeJob :: (MonadGraphQL m, MonadREST m) => Text -> BotState -> m BotState
 startMergeJob base state = do
-  createMergeBranch $ Set.toList $ getMergeQueue base state
+  createMergeBranch base $ Set.toList $ getMergeQueue base state
   return $ clearMergeQueue base state
 
 -- | Merge pull requests after a successful merge job.
-runMerge :: (MonadGraphQL m, MonadREST m) => m ()
-runMerge = do
+runMerge :: (MonadGraphQL m, MonadREST m) => Text -> m ()
+runMerge base = do
   (_repoOwner, _repoName) <- asks getRepo
-  mergeStaging >>= \case
+  mergeStaging base >>= \case
     -- TODO: handle master being different than when staging started
     Nothing -> fail "Update was not a fast-forward"
     Just prs -> forM_ prs $ \prNum -> do

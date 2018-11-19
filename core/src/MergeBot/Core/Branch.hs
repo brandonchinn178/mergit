@@ -28,6 +28,7 @@ import Control.Monad ((<=<))
 import Control.Monad.Extra (mapMaybeM)
 import Control.Monad.Reader (asks)
 import Data.Aeson (Object)
+import Data.Functor ((<&>))
 import Data.GraphQL (runQuery)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
@@ -82,9 +83,13 @@ fromTryBranch = readMaybe . Text.unpack <=< Text.stripPrefix "trying-"
 toTryMessage :: PullRequestId -> Text
 toTryMessage prNum = Text.unwords ["Try", toId prNum]
 
--- | Get the name of the staging branch.
-stagingBranch :: Text
-stagingBranch = "staging"
+-- | Get the name of the staging branch for the given base branch.
+toStagingBranch :: Text -> Text
+toStagingBranch = ("staging-" <>)
+
+-- | Check if the given branch is a staging branch.
+isStagingBranch :: Text -> Bool
+isStagingBranch = ("staging-" `Text.isPrefixOf`)
 
 -- | Get the message for the staging branch.
 toStagingMessage :: [PullRequestId] -> Text
@@ -113,22 +118,12 @@ getBranchStatuses :: MonadGraphQL m
 getBranchStatuses mergeQueue = do
   (_repoOwner, _repoName) <- asks getRepo
   branches <- queryAll $ \_after -> queryBranches Branches.Args{..}
-  let isStaging branch = [Branches.get| @branch.name |] == stagingBranch
-  stagingPRs <- case filter isStaging branches of
-    [] -> return []
-    [branch] -> do
-      staging <- getBranch stagingBranch
-      config <- maybe (fail "Staging branch does not have .lymerge.yaml") return $ extractBranchConfig staging
-      let prIds = fromStagingMessage [Branch.get| @branch staging.message! |]
-          ciStatus = toCIStatus config $ getContexts branch
-          status = if isPending ciStatus || isSuccess ciStatus
-            then MergeRunning else MergeFailed
-      return $ map (, Merging status) prIds
-    _ -> fail "Found multiple branches named staging?"
+
   tryingPRs <- mapMaybeM parseTrying branches
-  return $ Map.fromList $ concat [tryingPRs, queuedPRs, stagingPRs]
+  let queuedPRs = map (, MergeQueue) mergeQueue
+  stagingPRs <- mapMaybeM parseStaging branches
+  return $ Map.fromList $ tryingPRs ++ queuedPRs ++ concat stagingPRs
   where
-    queuedPRs = map (, MergeQueue) mergeQueue
     queryBranches args = do
       result <- runQuery Branches.query args
       let info = [Branches.get| result.repository.refs! > info |]
@@ -137,15 +132,30 @@ getBranchStatuses mergeQueue = do
         , hasNext    = [Branches.get| @info.pageInfo.hasNextPage |]
         , nextCursor = [Branches.get| @info.pageInfo.endCursor |]
         }
-    parseTrying branch = do
+    parseTrying branch =
+      case fromTryBranch [Branches.get| @branch.name |] of
+        Just prNum -> do
+          ciStatus <- getBranchStatus branch
+          let status
+                | isPending ciStatus = TryRunning
+                | isSuccess ciStatus = TrySuccess
+                | otherwise = TryFailed
+          return $ Just (prNum, Trying status)
+        Nothing -> return Nothing
+    parseStaging branch =
+      if isStagingBranch [Branches.get| @branch.name |]
+        then do
+          ciStatus <- getBranchStatus branch
+          let prIds = fromStagingMessage [Branches.get| @branch.target.message! |]
+              status = if isPending ciStatus || isSuccess ciStatus
+                then MergeRunning else MergeFailed
+          return $ Just $ map (, Merging status) prIds
+        else return Nothing
+    getBranchStatus branch = do
       let name = [Branches.get| @branch.name |]
-      config <- fromMaybe (error "Trying branch does not have .lymerge.yaml") . extractBranchConfig <$> getBranch name
-      let ciStatus = toCIStatus config $ getContexts branch
-          status
-            | isPending ciStatus = TryRunning
-            | isSuccess ciStatus = TrySuccess
-            | otherwise = TryFailed
-      return $ (, Trying status) <$> fromTryBranch name
+          invalid = fail $ "Branch does not have valid .lymerge.yaml: " ++ Text.unpack name
+      config <- maybe invalid return . extractBranchConfig =<< getBranch name
+      return $ toCIStatus config $ getContexts branch
     getContexts branch =
       let contexts = fromMaybe [] [Branches.get| @branch.target.status.contexts[] > context |]
           fromContext context =
@@ -175,31 +185,31 @@ getCIStatus name = do
 getTryStatus :: MonadGraphQL m => PullRequestId -> m (Maybe CIStatus)
 getTryStatus = getCIStatus . toTryBranch
 
--- | Get the CI status for the staging branch.
-getStagingStatus :: MonadGraphQL m => m (Maybe CIStatus)
-getStagingStatus = getCIStatus stagingBranch
+-- | Get the CI status for the staging branch for the given base branch.
+getStagingStatus :: MonadGraphQL m => Text -> m (Maybe CIStatus)
+getStagingStatus = getCIStatus . toStagingBranch
 
--- | Create a CI branch by merging the given PRs on top of master.
+-- | Create a CI branch by merging the given PRs on top of the given base branch.
 createCIBranch :: (MonadGraphQL m, MonadREST m)
-  => [PullRequestId] -> Text -> Text -> Text -> m ()
-createCIBranch prs tempBranchName ciBranchName commitMessage = do
+  => Text -> [PullRequestId] -> Text -> Text -> Text -> m ()
+createCIBranch baseRef prs tempBranchName ciBranchName commitMessage = do
   -- delete temp/ci branches if they exist
   deleteBranch tempBranchName
   deleteBranch ciBranchName
 
   -- get base branch
-  master <- getBranch "master"
-  let masterCommit = [Branch.get| @branch master.oid |]
-      masterTree = [Branch.get| @branch master.tree!.oid |]
+  base <- getBranch baseRef
+  let baseCommit = [Branch.get| @branch base.oid |]
+      baseTree = [Branch.get| @branch base.tree!.oid |]
 
   -- get PR commit hash
   prCommits <- mapM getPRCommit prs
 
-  -- create a new temp commit off master
+  -- create a new temp commit off base
   tempCommit <- createCommit
     [ "message" := "[ci skip] temp"
-    , "tree" := masterTree
-    , "parents" :=* [masterCommit]
+    , "tree" := baseTree
+    , "parents" :=* [baseCommit]
     ]
 
   -- create temp branch on new commit
@@ -219,11 +229,11 @@ createCIBranch prs tempBranchName ciBranchName commitMessage = do
       deleteBranch tempBranchName
       fail "Missing or invalid .lymerge.yaml file"
     Just _ -> do
-      -- create a new commit off master
+      -- create a new commit off the base branch
       ciCommit <- createCommit
         [ "message" := commitMessage
         , "tree" := mergeTree
-        , "parents" :=* (masterCommit : prCommits)
+        , "parents" :=* (baseCommit : prCommits)
         ]
 
       -- create try branch on new commit
@@ -236,12 +246,11 @@ createCIBranch prs tempBranchName ciBranchName commitMessage = do
       deleteBranch tempBranchName
 
 -- | Create a trying branch for the given PR.
-createTryBranch :: (MonadGraphQL m, MonadREST m)
-  => PullRequestId -> m ()
-createTryBranch prNum = createCIBranch [prNum] tempBranchName tryBranch tryMessage
+createTryBranch :: (MonadGraphQL m, MonadREST m) => Text -> PullRequestId -> m ()
+createTryBranch base prNum = createCIBranch base [prNum] tempBranchName tryBranch tryMessage
   where
-    tempBranchName = "temp-" <> tryBranch
     tryBranch = toTryBranch prNum
+    tempBranchName = "temp-" <> tryBranch
     tryMessage = toTryMessage prNum
 
 -- | Delete the trying branch for the given PR.
@@ -249,32 +258,33 @@ deleteTryBranch :: MonadREST m => PullRequestId -> m ()
 deleteTryBranch = deleteBranch . toTryBranch
 
 -- | Create a merge branch for the given PRs.
-createMergeBranch :: (MonadGraphQL m, MonadREST m)
-  => [PullRequestId] -> m ()
-createMergeBranch prs = createCIBranch prs tempBranchName stagingBranch stagingMessage
+createMergeBranch :: (MonadGraphQL m, MonadREST m) => Text -> [PullRequestId] -> m ()
+createMergeBranch base prs = createCIBranch base prs tempBranchName stagingBranch stagingMessage
   where
+    stagingBranch = toStagingBranch base
     tempBranchName = "temp-" <> stagingBranch
     stagingMessage = toStagingMessage prs
 
--- | Get the pull requests currently in staging.
-getStagingPRs :: MonadGraphQL m => m [PullRequestId]
-getStagingPRs = getBranch' stagingBranch >>= \case
-  Nothing -> return []
-  Just branch -> return $ fromStagingMessage [Branch.get| @branch.message! |]
+-- | Get the pull requests currently in staging for the given base branch.
+getStagingPRs :: MonadGraphQL m => Text -> m [PullRequestId]
+getStagingPRs base = getBranch' (toStagingBranch base) <&> \case
+  Nothing -> []
+  Just branch -> fromStagingMessage [Branch.get| @branch.message! |]
 
--- | Merge the staging branch into master. Return Nothing if the merge fails and the list of PRs
--- merged otherwise.
-mergeStaging :: (MonadGraphQL m, MonadREST m)
-  => m (Maybe [PullRequestId])
-mergeStaging = do
+-- | Merge the staging branch into the base branch. Return Nothing if the merge fails and the list
+-- of PRs merged otherwise.
+mergeStaging :: (MonadGraphQL m, MonadREST m) => Text -> m (Maybe [PullRequestId])
+mergeStaging base = do
   branch <- getBranch stagingBranch
   let commit = [Branch.get| @branch.oid |]
-  success <- updateBranch "master" ["sha" := commit]
+  success <- updateBranch base ["sha" := commit]
   if success
     then do
       deleteBranch stagingBranch
       return $ Just $ fromStagingMessage [Branch.get| @branch.message! |]
     else return Nothing
+  where
+    stagingBranch = toStagingBranch base
 
 {- Helpers -}
 

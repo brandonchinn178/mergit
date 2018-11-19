@@ -26,7 +26,7 @@ data BotConfig = BotConfig
 -- | In-repo configuration.
 data BranchConfig = BranchConfig
   { requiredStatuses :: [Text]
-  }
+  } deriving (Show)
 
 instance FromJSON BranchConfig where
   parseJSON = withObject "BranchConfig" $ \o ->
