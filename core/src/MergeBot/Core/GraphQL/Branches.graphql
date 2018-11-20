@@ -9,6 +9,7 @@ query Branches($repoOwner: String!, $repoName: String!, $after: String) {
         name
         target {
           ... on Commit {
+            message
             status {
               contexts {
                 context

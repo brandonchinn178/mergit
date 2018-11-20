@@ -26,6 +26,7 @@ import Control.Monad.Reader (asks)
 import Data.Map.Strict ((!?))
 import Data.Maybe (fromMaybe)
 import qualified Data.Set as Set
+import Data.Text (Text)
 
 import MergeBot.Core.Branch
 import MergeBot.Core.Data
@@ -37,49 +38,52 @@ import MergeBot.Core.State
 -- | List all open pull requests.
 listPullRequests :: MonadGraphQL m => BotState -> m [PullRequest]
 listPullRequests state = do
-  branchStatuses <- getBranchStatuses $ Set.toList $ getMergeQueue state
+  branchStatuses <- getBranchStatuses $ Set.toList $ getQueued state
   getPullRequests $ fromMaybe None . (branchStatuses !?)
 
 -- | Return a single pull request.
 getPullRequest :: MonadGraphQL m => BotState -> PullRequestId -> m PullRequestDetail
 getPullRequest state prNum = do
+  base <- getBaseBranch prNum
   prTryRun <- fmap TryRun <$> getTryStatus prNum
-  staging <- getStagingPRs
+  let maybeQueue = case Set.toList $ getMergeQueue base state of
+        [] -> Nothing
+        queue -> Just queue
+  staging <- getStagingPRs base
   maybeStaging <- if prNum `elem` staging
-    then fmap (staging,) <$> getStagingStatus
+    then fmap (staging,) <$> getStagingStatus base
     else return Nothing
   getPullRequestDetail prNum prTryRun maybeQueue maybeStaging
-  where
-    queue = getMergeQueue state
-    maybeQueue = if prNum `Set.member` queue
-      then Just $ Set.toList queue
-      else Nothing
 
 -- | Start a try job for the given pull request.
 tryPullRequest :: (MonadGraphQL m, MonadREST m) => PullRequestId -> m ()
-tryPullRequest = createTryBranch
+tryPullRequest prNum = do
+  base <- getBaseBranch prNum
+  createTryBranch base prNum
 
 -- | Queue the given pull request.
-queuePullRequest :: PullRequestId -> BotState -> BotState
-queuePullRequest = insertMergeQueue
+queuePullRequest :: MonadGraphQL m => PullRequestId -> BotState -> m BotState
+queuePullRequest prNum state = do
+  base <- getBaseBranch prNum
+  return $ insertMergeQueue prNum base state
 
 -- | Unqueue the given pull request.
-unqueuePullRequest :: PullRequestId -> BotState -> BotState
-unqueuePullRequest = removeMergeQueue
+unqueuePullRequest :: MonadGraphQL m => PullRequestId -> BotState -> m BotState
+unqueuePullRequest prNum state = do
+  base <- getBaseBranch prNum
+  return $ removeMergeQueue prNum base state
 
--- | Start a merge job.
-startMergeJob :: (MonadGraphQL m, MonadREST m) => BotState -> m BotState
-startMergeJob state = do
-  createMergeBranch $ Set.toList queue
-  return $ clearMergeQueue state
-  where
-    queue = getMergeQueue state
+-- | Start a merge job for the given base branch.
+startMergeJob :: (MonadGraphQL m, MonadREST m) => Text -> BotState -> m BotState
+startMergeJob base state = do
+  createMergeBranch base $ Set.toList $ getMergeQueue base state
+  return $ clearMergeQueue base state
 
 -- | Merge pull requests after a successful merge job.
-runMerge :: (MonadGraphQL m, MonadREST m) => m ()
-runMerge = do
+runMerge :: (MonadGraphQL m, MonadREST m) => Text -> m ()
+runMerge base = do
   (_repoOwner, _repoName) <- asks getRepo
-  mergeStaging >>= \case
+  mergeStaging base >>= \case
     -- TODO: handle master being different than when staging started
     Nothing -> fail "Update was not a fast-forward"
     Just prs -> forM_ prs $ \prNum -> do

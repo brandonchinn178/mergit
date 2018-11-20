@@ -41,7 +41,7 @@ data PullRequestDetail = PullRequestDetail
   , url        :: !Text
   , body       :: !HTML
   , commit     :: !Text
-  , base       :: !Text
+  , baseRef    :: !Text
   , approved   :: !Bool
   , tryRun     :: !(Maybe TryRun)
   , mergeQueue :: !(Maybe [PullRequestSimple]) -- ^ includes self

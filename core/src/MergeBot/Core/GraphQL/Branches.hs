@@ -62,7 +62,8 @@ schema = SchemaObject
               [ ("name", SchemaText)
               , ( "target"
                 , SchemaObject
-                  [ ( "status"
+                  [ ("message", SchemaMaybe SchemaText)
+                  , ( "status"
                     , SchemaMaybe $ SchemaObject
                       [ ( "contexts"
                         , SchemaList $ SchemaObject

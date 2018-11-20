@@ -6,24 +6,30 @@ Portability :  portable
 
 Defines the data type representing the internal state of the merge bot.
 -}
-{-# LANGUAGE RecordWildCards #-}
 
 module MergeBot.Core.State
   ( MergeQueue
   , BotState
   , newBotState
+  , getQueued
   , getMergeQueue
   , clearMergeQueue
   , insertMergeQueue
   , removeMergeQueue
   ) where
 
+import Data.Foldable (fold)
+import Data.Map.Strict (Map)
+import qualified Data.Map.Strict as Map
+import Data.Maybe (fromMaybe)
 import Data.Set (Set)
 import qualified Data.Set as Set
+import Data.Text (Text)
 
 import MergeBot.Core.Data (PullRequestId)
 
-type MergeQueue = Set PullRequestId
+-- | The merge queue consists of PRs to merge for the given base branch.
+type MergeQueue = Map Text (Set PullRequestId)
 
 -- | The state of the merge bot.
 --
@@ -35,16 +41,28 @@ data BotState = BotState
   } deriving (Show)
 
 newBotState :: BotState
-newBotState = BotState Set.empty
+newBotState = BotState Map.empty
 
-getMergeQueue :: BotState -> MergeQueue
-getMergeQueue = mergeQueue
+-- | Get all queued pull requests.
+getQueued :: BotState -> Set PullRequestId
+getQueued = fold . mergeQueue
 
-clearMergeQueue :: BotState -> BotState
-clearMergeQueue state = state{mergeQueue = Set.empty}
+-- | Get the merge queue for the given base branch.
+getMergeQueue :: Text -> BotState -> Set PullRequestId
+getMergeQueue base = fromMaybe Set.empty . Map.lookup base . mergeQueue
 
-insertMergeQueue :: PullRequestId -> BotState -> BotState
-insertMergeQueue pr state@BotState{..} = state{mergeQueue = Set.insert pr mergeQueue}
+clearMergeQueue :: Text -> BotState -> BotState
+clearMergeQueue base = mapMergeQueue $ Map.delete base
 
-removeMergeQueue :: PullRequestId -> BotState -> BotState
-removeMergeQueue pr state@BotState{..} = state{mergeQueue = Set.delete pr mergeQueue}
+insertMergeQueue :: PullRequestId -> Text -> BotState -> BotState
+insertMergeQueue pr base = mapMergeQueue $ Map.alter (Just . insertPR) base
+  where
+    insertPR = maybe (Set.singleton pr) (Set.insert pr)
+
+removeMergeQueue :: PullRequestId -> Text -> BotState -> BotState
+removeMergeQueue pr base = mapMergeQueue $ Map.adjust (Set.delete pr) base
+
+{- Helpers -}
+
+mapMergeQueue :: (MergeQueue -> MergeQueue) -> BotState -> BotState
+mapMergeQueue f state = state { mergeQueue = f $ mergeQueue state }

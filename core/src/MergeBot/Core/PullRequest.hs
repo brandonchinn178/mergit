@@ -7,7 +7,6 @@ Portability :  portable
 Defines functions to query and manage pull requests.
 -}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE RecordWildCards #-}
 
@@ -16,6 +15,7 @@ module MergeBot.Core.PullRequest
   , getPullRequestDetail
   , getPullRequestSimple
   , getBranch
+  , getBaseBranch
   ) where
 
 import Control.Monad.Reader (asks)
@@ -87,11 +87,16 @@ getPullRequestSimple prNum = do
     }
 
 -- | Get the branch name for the pull request.
-getBranch :: MonadGraphQL m
-  => PullRequestId -> m Text
+getBranch :: MonadGraphQL m => PullRequestId -> m Text
 getBranch prNum = do
   pr <- getPullRequest prNum
   return [PullRequest.get| @pr.headRefName |]
+
+-- | Get the base branch name for the pull request.
+getBaseBranch :: MonadGraphQL m => PullRequestId -> m Text
+getBaseBranch prNum = do
+  pr <- getPullRequest prNum
+  return [PullRequest.get| @pr.baseRefName |]
 
 -- | Get a detailed pull request.
 getPullRequestDetail :: MonadGraphQL m
@@ -104,7 +109,7 @@ getPullRequestDetail prNum tryRun maybeQueue maybeStaging = do
   (_repoOwner, _repoName) <- asks getRepo
 
   pr <- getPullRequest prNum
-  let base = [PullRequest.get| @pr.baseRefName |]
+  let baseRef = [PullRequest.get| @pr.baseRefName |]
 
   reviews <- getReviews prNum
   mergeQueue <- traverse (mapM getPullRequestSimple) maybeQueue
@@ -115,7 +120,7 @@ getPullRequestDetail prNum tryRun maybeQueue maybeStaging = do
       return $ Just MergeRun{..}
   let approved = not (null reviews) && all (== APPROVED) reviews
       canTry = isNothing mergeRun && maybe True (not . isPending . tryStatus) tryRun
-      canQueue = isNothing mergeQueue && isNothing mergeRun && base == "master"
+      canQueue = isNothing mergeQueue && isNothing mergeRun
       canUnqueue = isJust mergeQueue
 
   return PullRequestDetail
