@@ -54,4 +54,4 @@ readGraphQLFile fp = do
   query <- runIO $ do
     file <- parseRelFile fp
     readFile (fromAbsFile $ parent here </> file)
-  [| Query $ Text.pack $(lift query) |]
+  [| UnsafeQuery $ Text.pack $(lift query) |]

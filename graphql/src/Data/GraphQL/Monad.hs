@@ -148,7 +148,7 @@ runQueryT QuerySettings{..} query = do
 -- | Run the given query within a QueryT.
 execQueryFor :: (MonadIO m, HasArgs r)
   => (Value -> r) -> Query r -> QueryArgs r -> QueryT m (GraphQLResult r)
-execQueryFor fromValue (Query query) args = do
+execQueryFor fromValue (UnsafeQuery query) args = do
   state <- ask
   decodeResponse =<< case state of
     QueryState{..} ->

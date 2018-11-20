@@ -14,5 +14,5 @@ module Data.GraphQL.Query.Internal (Query(..)) where
 import Data.Text (Text)
 
 -- | A GraphQL Query that is validated at compile-time.
-data Query r = Query Text
+data Query r = UnsafeQuery Text
   deriving (Show)

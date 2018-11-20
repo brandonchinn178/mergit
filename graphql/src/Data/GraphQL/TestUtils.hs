@@ -35,4 +35,4 @@ mockWith dispatcher = Just $ \query args ->
 
 -- | A helper to match 'Text' with 'Query'.
 matches :: Query r -> Text -> Bool
-matches (Query query) = (query ==)
+matches (UnsafeQuery query) = (query ==)
