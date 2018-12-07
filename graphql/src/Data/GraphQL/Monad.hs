@@ -6,14 +6,15 @@ Portability :  portable
 
 Definitions for monads that can run GraphQL queries.
 -}
-{-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE InstanceSigs #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilyDependencies #-}
 
 module Data.GraphQL.Monad
   ( IsQueryable(..)
@@ -23,7 +24,7 @@ module Data.GraphQL.Monad
   , QuerySettings(..)
   , defaultQuerySettings
   , runQueryT
-  , execQueryFor
+  , object
   -- * Re-exports
   , MonadIO
   ) where
@@ -33,7 +34,10 @@ import Control.Monad.Except (MonadError)
 import Control.Monad.IO.Class (MonadIO(..))
 import Control.Monad.Reader (MonadReader, ReaderT, ask, runReaderT)
 import Control.Monad.Trans.Class (MonadTrans)
-import Data.Aeson (Object, Value(..), eitherDecode, encode, object, (.=))
+import Data.Aeson ((.=))
+import qualified Data.Aeson as Aeson
+import qualified Data.Aeson.Types as Aeson
+import qualified Data.HashMap.Strict as HashMap
 import Data.Maybe (fromJust)
 import Data.Text (Text)
 import Network.HTTP.Client
@@ -50,24 +54,36 @@ import Network.HTTP.Client.TLS (tlsManagerSettings)
 import Network.HTTP.Types (hContentType)
 
 import Data.GraphQL.Error (GraphQLError, GraphQLException(..))
-import Data.GraphQL.Query (HasArgs(..))
 import Data.GraphQL.Query.Internal (Query(..))
 import Data.GraphQL.Result (GraphQLResult, getErrors, getResult)
+import Data.GraphQL.Schema (Object(..))
+
+-- | A helper for converting pairs into an Object.
+object :: [Aeson.Pair] -> Aeson.Object
+object = HashMap.fromList
 
 -- | A type class for queryable results.
-class HasArgs r => IsQueryable r where
-  execQuery :: MonadIO m => Query r -> QueryArgs r -> QueryT m (GraphQLResult r)
+class IsQueryable result where
+  type QueryArgs result = args | args -> result
+  type ResultSchema result = schema | schema -> result
+  fromArgs :: QueryArgs result -> Aeson.Object
 
 -- | A type class for monads that can run queries.
 class MonadIO m => MonadQuery m where
-  runQuerySafe :: IsQueryable r => Query r -> QueryArgs r -> m (GraphQLResult r)
+  runQuerySafe
+    :: forall schema result
+     . (IsQueryable result, schema ~ ResultSchema result)
+    => Query schema -> QueryArgs result -> m (GraphQLResult (Object schema))
 
 -- | Runs the given query and returns the result, erroring if the query returned errors.
-runQuery :: (MonadQuery m, IsQueryable r) => Query r -> QueryArgs r -> m r
+runQuery
+  :: forall m result schema
+   . (MonadQuery m, IsQueryable result, schema ~ ResultSchema result)
+  => Query schema -> QueryArgs result -> m (Object schema)
 runQuery query args = do
-  result <- runQuerySafe query args
+  result <- runQuerySafe @_ @schema query args
   case getErrors result of
-    [] -> return $ fromJust $ getResult result
+    [] -> return $ fromJust $ getResult @(Object schema) result
     errors -> liftIO $ throwIO $ GraphQLException errors
 
 -- | The monad transformer type that should be used to run GraphQL queries.
@@ -98,7 +114,31 @@ newtype QueryT m a = QueryT { unQueryT :: ReaderT QueryState m a }
     )
 
 instance MonadIO m => MonadQuery (QueryT m) where
-  runQuerySafe = execQuery
+  runQuerySafe
+    :: forall schema result
+     . (IsQueryable result, schema ~ ResultSchema result)
+    => Query schema -> QueryArgs result -> QueryT m (GraphQLResult (Object schema))
+  runQuerySafe (UnsafeQuery query) args = do
+    state <- ask
+    decodeResponse =<< case state of
+      QueryState{..} ->
+        let request = baseReq { requestBody = body }
+        in liftIO $ responseBody <$> httpLbs request manager
+      QueryMockState f ->
+        return $ Aeson.encode $ Aeson.object
+          [ "errors" .= ([] :: [GraphQLError])
+          , "data" .= Just (f query args')
+          ]
+    where
+      args' = fromArgs args
+      body = RequestBodyLBS $ Aeson.encode $ Aeson.object
+        [ "query" .= query
+        , "variables" .= args'
+        ]
+      decodeResponse = either fail (traverse fromValue) . Aeson.eitherDecode
+      fromValue = \case
+        Aeson.Object o -> return $ UnsafeObject @schema o
+        v -> fail $ "Could not decode GraphQL response: " ++ show v
 
 -- | The settings for running QueryT.
 data QuerySettings = QuerySettings
@@ -106,7 +146,7 @@ data QuerySettings = QuerySettings
     -- ^ Uses TLS by default
   , url             :: String
   , modifyReq       :: Request -> Request
-  , mockResponse    :: Maybe (Text -> Object -> Value)
+  , mockResponse    :: Maybe (Text -> Aeson.Object -> Aeson.Value)
     -- ^ Instead of querying an API, use the given function to mock the response
   }
 
@@ -125,7 +165,7 @@ data QueryState
       { manager :: Manager
       , baseReq :: Request
       }
-  | QueryMockState (Text -> Object -> Value)
+  | QueryMockState (Text -> Aeson.Object -> Aeson.Value)
 
 -- | Run a QueryT stack.
 runQueryT :: MonadIO m => QuerySettings -> QueryT m a -> m a
@@ -144,24 +184,3 @@ runQueryT QuerySettings{..} query = do
       { method = "POST"
       , requestHeaders = (hContentType, "application/json") : requestHeaders req
       }
-
--- | Run the given query within a QueryT.
-execQueryFor :: (MonadIO m, HasArgs r)
-  => (Value -> r) -> Query r -> QueryArgs r -> QueryT m (GraphQLResult r)
-execQueryFor fromValue (UnsafeQuery query) args = do
-  state <- ask
-  decodeResponse =<< case state of
-    QueryState{..} ->
-      let request = baseReq { requestBody = body }
-      in liftIO $ responseBody <$> httpLbs request manager
-    QueryMockState f ->
-      return $ encode $ object
-        [ "errors" .= ([] :: [GraphQLError])
-        , "data" .= Just (f query $ fromArgs args)
-        ]
-  where
-    body = RequestBodyLBS $ encode $ object
-      [ "query" .= query
-      , "variables" .= fromArgs args
-      ]
-    decodeResponse = either fail (return . fmap fromValue) . eitherDecode
