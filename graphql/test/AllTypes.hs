@@ -1,54 +1,84 @@
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module AllTypes where
 
-import Data.Aeson (decodeFileStrict)
-import qualified Data.Maybe as Maybe
-import Language.Haskell.TH (runIO)
-import Language.Haskell.TH.Syntax (lift)
+import qualified Data.Text as Text
 
 import Data.GraphQL
+import Data.GraphQL.Schema.Internal (Object(..))
+import Util (getMockedResult)
+
+{- Greeting enum -}
 
 data Greeting = HELLO | GOODBYE
   deriving (Show)
 
 instance GraphQLEnum Greeting where
-  getEnum _ t = case fromText t of
+  getEnum s = case Text.unpack s of
     "HELLO" -> HELLO
     "GOODBYE" -> GOODBYE
-    s -> error $ "Invalid Greeting: " ++ s
+    _ -> error $ "Bad Greeting: " ++ Text.unpack s
 
-newtype Result = UnsafeResult Value
+type instance ToEnum "Greeting" = Greeting
 
-schema :: Schema
-schema = SchemaObject
-  [ ("bool", SchemaBool)
-  , ("int", SchemaInt)
-  , ("int2", SchemaInt)
-  , ("double", SchemaDouble)
-  , ("text", SchemaText)
-  , ("scalar", SchemaScalar)
-  , ("enum", SchemaEnum (Proxy :: Proxy Greeting))
-  , ("maybeObject", SchemaMaybe $ SchemaObject [("text", SchemaText)])
-  , ("maybeObjectNull", SchemaMaybe $ SchemaObject [("text", SchemaText)])
-  , ("maybeList", SchemaMaybe $ SchemaList $ SchemaObject [("text", SchemaText)])
-  , ("maybeListNull", SchemaMaybe $ SchemaList $ SchemaObject [("text", SchemaText)])
-  , ("list", SchemaList $ SchemaObject
-      [ ("type", SchemaText)
-      , ("maybeBool", SchemaMaybe SchemaBool)
-      , ("maybeInt", SchemaMaybe SchemaInt)
-      , ("maybeNull", SchemaMaybe SchemaBool)
-      ]
-    )
-  , ("nonexistent", SchemaMaybe SchemaText)
-  ]
+instance FromSchema Greeting where
+  type ToSchema Greeting = 'SchemaEnum "Greeting"
+  parseValue = parseValueEnum
 
-get :: QuasiQuoter
-get = getterFor 'UnsafeResult schema
+{- Coordinate scalar -}
 
-result :: Result
-result = $(do
-  obj <- runIO $ decodeFileStrict "test/all_types.json"
-  [| UnsafeResult $(lift $ Maybe.fromJust (obj :: Maybe Value)) |]
-  )
+newtype Coordinate = Coordinate (Int, Int)
+  deriving (Show)
+
+instance GraphQLScalar Coordinate where
+  getScalar s = case map (read . Text.unpack) $ Text.splitOn "," s of
+    [x, y] -> Coordinate (x, y)
+    _ -> error $ "Bad Coordinate: " ++ Text.unpack s
+
+type instance ToScalar "Coordinate" = Coordinate
+
+instance FromSchema Coordinate where
+  type ToSchema Coordinate = 'SchemaScalar "Coordinate"
+  parseValue = parseValueScalar
+
+{- AllTypes result -}
+
+type Schema = 'SchemaObject
+  '[ '("bool", 'SchemaBool)
+   , '("int", 'SchemaInt)
+   , '("int2", 'SchemaInt)
+   , '("double", 'SchemaDouble)
+   , '("text", 'SchemaText)
+   , '("scalar", 'SchemaScalar "Coordinate")
+   , '("enum", 'SchemaEnum "Greeting")
+   , '("maybeObject", 'SchemaMaybe ('SchemaObject
+        '[ '("text", 'SchemaText)
+         ]
+      ))
+   , '("maybeObjectNull", 'SchemaMaybe ('SchemaObject
+        '[ '("text", 'SchemaText)
+         ]
+      ))
+   , '("maybeList", 'SchemaMaybe ('SchemaList ('SchemaObject
+        '[ '("text", 'SchemaText)
+         ]
+      )))
+   , '("maybeListNull", 'SchemaMaybe ('SchemaList ('SchemaObject
+        '[ '("text", 'SchemaText)
+         ]
+      )))
+   , '("list", 'SchemaList ('SchemaObject
+        '[ '("type", 'SchemaText)
+         , '("maybeBool", 'SchemaMaybe 'SchemaBool)
+         , '("maybeInt", 'SchemaMaybe 'SchemaInt)
+         , '("maybeNull", 'SchemaMaybe 'SchemaBool)
+         ]
+      ))
+   , '("nonexistent", 'SchemaMaybe 'SchemaText)
+   ]
+
+result :: Object Schema
+result = $(getMockedResult "test/all_types.json")

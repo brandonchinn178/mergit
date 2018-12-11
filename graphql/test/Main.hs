@@ -1,30 +1,31 @@
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
 
-import Control.Exception (try)
 import qualified Data.ByteString.Lazy.Char8 as ByteString
 import qualified Data.Text as Text
-import GHC.Exception (ErrorCall(..))
-import Language.Haskell.TH (runIO, runQ)
 import Test.Tasty (TestTree, defaultMain, testGroup)
 import Test.Tasty.Golden (goldenVsString)
 
-import Data.GraphQL (Schema(..))
-import Data.GraphQL.Result.Getter.Internal (generateGetter')
+import Data.GraphQL (Object, get)
 
 import qualified AllTypes
 import qualified Nested
 
+allTypesResult :: Object AllTypes.Schema
+allTypesResult = AllTypes.result
+
+nestedResult :: Object Nested.Schema
+nestedResult = Nested.result
+
 main :: IO ()
 main = defaultMain $ testGroup "graphql-client"
   [ testValidGetters
-  , testKeepSchemaAllTypes
-  , testKeepSchemaNested
-  , testKeepSchemaNamespaced
-  , testInvalidGetters
+  , testFromObjectAllTypes
+  , testFromObjectNested
+  , testFromObjectNamespaced
   ]
 
 goldens' :: String -> IO String -> TestTree
@@ -37,88 +38,59 @@ goldens name = goldens' name . pure . show
 
 testValidGetters :: TestTree
 testValidGetters = testGroup "Test valid getters"
-  [ goldens "bool"                     [AllTypes.get| result.bool                 |]
-  , goldens "int"                      [AllTypes.get| result.int                  |]
-  , goldens "int_int2"                 [AllTypes.get| result.[int,int2]           |]
-  , goldens "double"                   [AllTypes.get| result.double               |]
-  , goldens "bool_int_double"          [AllTypes.get| result.(bool,int,double)    |]
-  , goldens "text"                     [AllTypes.get| result.text                 |]
-  , goldens "scalar"                   [AllTypes.get| result.scalar               |]
-  , goldens "enum"                     [AllTypes.get| result.enum                 |]
-  , goldens "maybeObj"                 [AllTypes.get| result.maybeObject          |]
-  , goldens "maybeObj_bang"            [AllTypes.get| result.maybeObject!         |]
-  , goldens "maybeObj_text"            [AllTypes.get| result.maybeObject.text     |]
-  , goldens "maybeObj_bang_text"       [AllTypes.get| result.maybeObject!.text    |]
-  , goldens "maybeObjNull"             [AllTypes.get| result.maybeObjectNull      |]
-  , goldens "maybeObjNull_text"        [AllTypes.get| result.maybeObjectNull.text |]
-  , goldens "maybeList"                [AllTypes.get| result.maybeList            |]
-  , goldens "maybeList_bang"           [AllTypes.get| result.maybeList!           |]
-  , goldens "maybeList_bang_list"      [AllTypes.get| result.maybeList![]         |]
-  , goldens "maybeList_bang_list_text" [AllTypes.get| result.maybeList![].text    |]
-  , goldens "maybeList_list"           [AllTypes.get| result.maybeList[]          |]
-  , goldens "maybeList_list_text"      [AllTypes.get| result.maybeList[].text     |]
-  , goldens "maybeListNull"            [AllTypes.get| result.maybeListNull        |]
-  , goldens "maybeListNull_list"       [AllTypes.get| result.maybeListNull[]      |]
-  , goldens "maybeListNull_list_text"  [AllTypes.get| result.maybeListNull[].text |]
-  , goldens "list"                     [AllTypes.get| result.list                 |]
-  , goldens "list_explicit"            [AllTypes.get| result.list[]               |]
-  , goldens "list_type"                [AllTypes.get| result.list[].type          |]
-  , goldens "list_maybeBool"           [AllTypes.get| result.list[].maybeBool     |]
-  , goldens "list_maybeInt"            [AllTypes.get| result.list[].maybeInt      |]
-  , goldens "nonexistent"              [AllTypes.get| result.nonexistent          |]
+  [ goldens "bool"                     [get| allTypesResult.bool                  |]
+  , goldens "lambda_bool"             ([get| .bool |] allTypesResult)
+  , goldens "int"                      [get| allTypesResult.int                   |]
+  , goldens "int_int2"                 [get| allTypesResult.[int,int2]            |]
+  , goldens "double"                   [get| allTypesResult.double                |]
+  , goldens "bool_int_double"          [get| allTypesResult.(bool,int,double)     |]
+  , goldens "text"                     [get| allTypesResult.text                  |]
+  , goldens "scalar"                   [get| allTypesResult.scalar                |]
+  , goldens "enum"                     [get| allTypesResult.enum                  |]
+  , goldens "maybeObj"                 [get| allTypesResult.maybeObject           |]
+  , goldens "maybeObj_bang"            [get| allTypesResult.maybeObject!          |]
+  , goldens "maybeObj_text"            [get| allTypesResult.maybeObject?.text     |]
+  , goldens "maybeObj_bang_text"       [get| allTypesResult.maybeObject!.text     |]
+  , goldens "maybeObjNull"             [get| allTypesResult.maybeObjectNull       |]
+  , goldens "maybeObjNull_text"        [get| allTypesResult.maybeObjectNull?.text |]
+  , goldens "maybeList"                [get| allTypesResult.maybeList             |]
+  , goldens "maybeList_bang"           [get| allTypesResult.maybeList!            |]
+  , goldens "maybeList_bang_list"      [get| allTypesResult.maybeList![]          |]
+  , goldens "maybeList_bang_list_text" [get| allTypesResult.maybeList![].text     |]
+  , goldens "maybeList_list"           [get| allTypesResult.maybeList?[]          |]
+  , goldens "maybeList_list_text"      [get| allTypesResult.maybeList?[].text     |]
+  , goldens "maybeListNull"            [get| allTypesResult.maybeListNull         |]
+  , goldens "maybeListNull_list"       [get| allTypesResult.maybeListNull?[]      |]
+  , goldens "maybeListNull_list_text"  [get| allTypesResult.maybeListNull?[].text |]
+  , goldens "list"                     [get| allTypesResult.list                  |]
+  , goldens "list_explicit"            [get| allTypesResult.list[]                |]
+  , goldens "list_type"                [get| allTypesResult.list[].type           |]
+  , goldens "list_maybeBool"           [get| allTypesResult.list[].maybeBool      |]
+  , goldens "list_maybeInt"            [get| allTypesResult.list[].maybeInt       |]
+  , goldens "nonexistent"              [get| allTypesResult.nonexistent           |]
   ]
-  where
-    result = AllTypes.result
 
-testKeepSchemaAllTypes :: TestTree
-testKeepSchemaAllTypes = goldens "keep_schema_all_types" $ map fromObj list
+testFromObjectAllTypes :: TestTree
+testFromObjectAllTypes =
+  goldens "from_object_all_types" $ map fromObj [get| allTypesResult.list |]
   where
-    result = AllTypes.result
-    list = [AllTypes.get| result.list[] > o |]
-    fromObj o = case [AllTypes.get| @o.type |] of
-      "bool" -> show [AllTypes.get| @o.maybeBool! |]
-      "int"  -> show [AllTypes.get| @o.maybeInt!  |]
-      "null" -> show [AllTypes.get| @o.maybeNull  |]
+    fromObj o = case [get| o.type |] of
+      "bool" -> show [get| o.maybeBool! |]
+      "int"  -> show [get| o.maybeInt!  |]
+      "null" -> show [get| o.maybeNull  |]
       _ -> error "unreachable"
 
-testKeepSchemaNested :: TestTree
-testKeepSchemaNested = goldens "keep_schema_nested" $ map fromObj list
+testFromObjectNested :: TestTree
+testFromObjectNested = goldens "from_object_nested" $ map fromObj [get| nestedResult.list |]
   where
-    result = Nested.result
-    list = [Nested.get| result.list[] > o |]
-    fromObj obj = case [Nested.get| @o obj.a > field |] of
-      Just field -> [Nested.get| @field.b |]
-      Nothing    -> [Nested.get| @o obj.b |]
+    fromObj obj = case [get| obj.a |] of
+      Just field -> [get| field.b |]
+      Nothing    -> [get| obj.b |]
 
--- | Kept schemas can have the same name for different Results. Here, two schemas are stored with
--- the name "o", but one is stored for AllTypes and the other is stored for Nested.
-testKeepSchemaNamespaced :: TestTree
-testKeepSchemaNamespaced = goldens "keep_schema_namespaced" $
-  map fromAllTypes allTypesList ++ map fromNested nestedList
+testFromObjectNamespaced :: TestTree
+testFromObjectNamespaced = goldens "from_object_namespaced" $
+  map fromAllTypes [get| allTypesResult.list |]
+  ++ map fromNested [get| nestedResult.list |]
   where
-    allTypes = AllTypes.result
-    nested = Nested.result
-    allTypesList = [AllTypes.get| allTypes.list[] > o |]
-    nestedList = [Nested.get| nested.list[] > o |]
-    fromAllTypes o = Text.unpack [AllTypes.get| @o.type |]
-    fromNested o = show [Nested.get| @o.b |]
-
-testInvalidGetters :: TestTree
-testInvalidGetters = testGroup "Test invalid getters"
-  [ badGoldens "unstored_schema" "@asdf.foo.bar"
-  , badGoldens "reference_stored" "node.a"
-  , badGoldens "store_duplicate" "result.maybeObject > node"
-  , badGoldens "store_not_object" "result.bool > bool"
-  , badGoldens "invalid_key" "result.foo"
-  , badGoldens "invalid_type_key" "result.bool.foo"
-  , badGoldens "invalid_bang" "result.bool!"
-  , badGoldens "invalid_list" "result.maybeObject[]"
-  ]
-  where
-    badGoldens name input = goldens' name $
-      try (runQ $ generateGetter input) >>= \case
-        Right _ -> fail "Invalid getter incorrectly parsed the input"
-        Left (ErrorCall msg) -> return msg
-    generateGetter = generateGetter' getQ putQ 'AllTypes.UnsafeResult AllTypes.schema
-    getQ = pure $ Just [("AllTypes.UnsafeResult$node", SchemaObject [("a", SchemaText)])]
-    putQ = runIO . print
+    fromAllTypes o = Text.unpack [get| o.type |]
+    fromNested o = show [get| o.b |]
