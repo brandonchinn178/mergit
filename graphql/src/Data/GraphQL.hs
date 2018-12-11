@@ -13,3 +13,4 @@ import Data.GraphQL.Monad as X
 import Data.GraphQL.Query as X
 import Data.GraphQL.Result as X
 import Data.GraphQL.Schema as X
+import Data.GraphQL.TH as X
