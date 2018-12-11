@@ -5,3 +5,6 @@ packages:
   - graphql
   - graphql/example
   - server
+
+extra-deps:
+  - first-class-families-0.3.0.1

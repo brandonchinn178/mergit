@@ -8,6 +8,7 @@ dependencies:
   - aeson
   - base
   - extra
+  - first-class-families
   - http-client
   - http-client-tls
   - http-types
