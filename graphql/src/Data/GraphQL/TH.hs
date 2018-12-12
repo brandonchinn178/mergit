@@ -117,11 +117,16 @@ generateGetterExp GetterExp{..} =
           lamE [varP val] (tupE $ applyValToOps val inner)
         GetterBang -> [| $(next) . fromJust |]
         GetterMapMaybe -> [| ($(next) <$?>) |]
-        GetterMapList -> [| ($(next) `map`) |]
+        GetterMapList -> [| ($(next) <$:>) |]
     applyValToOps val ops = map ((`appE` varE val) . mkGetter) ops
 
+-- | fmap specialized to Maybe
 (<$?>) :: (a -> b) -> Maybe a -> Maybe b
 (<$?>) = (<$>)
+
+-- | fmap specialized to [a]
+(<$:>) :: (a -> b) -> [a] -> [b]
+(<$:>) = (<$>)
 
 -- | Defines a QuasiQuoter to generate a getter function and type alias for a given expression.
 --
