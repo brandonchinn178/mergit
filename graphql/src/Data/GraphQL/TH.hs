@@ -12,6 +12,13 @@ checked at compile-time to exist in the object.
 
 To make it easier to extract deeply nested keys, this module defines QuasiQuoters that generate the
 corresponding 'Data.GraphQL.Schema.getKey' expressions.
+
+In addition to the QuasiQuotes extension, the following extensions will need to be enabled to
+use these QuasiQuoters:
+
+* DataKinds
+* FlexibleContexts
+* TypeFamilies
 -}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -19,12 +26,11 @@ corresponding 'Data.GraphQL.Schema.getKey' expressions.
 
 module Data.GraphQL.TH
   ( get
-  , getter
+  , unwrap
   ) where
 
 import Control.Monad ((>=>))
-import Data.List (uncons)
-import Data.Maybe (fromJust, fromMaybe)
+import Data.Maybe (fromJust)
 import Data.Text (Text)
 import Language.Haskell.TH
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
@@ -62,17 +68,15 @@ import Data.GraphQL.TH.Parse
 --     * @SchemaEnum name@ returns a value of the type associated with the given name
 --     * @SchemaMaybe schema@ returns a 'Maybe' value wrapping the value returned by the inner schema
 --     * @SchemaList schema@ returns a list of values, whose type is determined by the inner schema
---     * @SchemaObject fields@ returns a 'Data.GraphQL.Schema.Object'
+--     * @SchemaObject fields@ returns an 'Data.GraphQL.Schema.Object'
 --
--- * @x.y@ is only valid if @x@ is a @SchemaObject@ or a @SchemaMaybe SchemaObject@. Returns the value
---   of the key @y@ in the (potentially wrapped) 'Object'.
+-- * @x.y@ is only valid if @x@ is a @SchemaObject@. Returns the value of the key @y@ in the 'Object'.
 --
--- * @x.[y,z]@ is only valid if @x@ is a @SchemaObject@ or a @SchemaMaybe SchemaObject@, and if @y@ and
---   @z@ have the same schema. Returns the value of the keys @y@ and @z@ in the (potentially wrapped)
---   'Object' as a list.
+-- * @x.[y,z.a]@ is only valid if @x@ is a @SchemaObject@, and if @y@ and @z.a@ have the same schema.
+--   Returns the value of the operations @y@ and @z.a@ in the 'Object' as a list.
 --
--- * @x.(y,z)@ is only valid if @x@ is a @SchemaObject@ or a @SchemaMaybe SchemaObject@. Returns the
---   value of the keys @y@ and @z@ in the (potentially wrapped) 'Object' as a tuple.
+-- * @x.(y,z.a)@ is only valid if @x@ is a @SchemaObject@. Returns the value of the operations @y@
+--   and @z.a@ in the 'Object' as a tuple.
 --
 -- * @x!@ is only valid if @x@ is a @SchemaMaybe@. Unwraps the value of @x@ from a 'Just' value and
 --   errors (at runtime!) if @x@ is 'Nothing'.
@@ -109,12 +113,12 @@ generateGetterExp GetterExp{..} =
         GetterKey key ->
           let getKey' = appTypeE [|getKey|] (litT $ strTyLit key)
           in [| $(next) . $(getKey') |]
-        GetterKeyList inner -> do
+        GetterList elems -> do
           val <- newName "v"
-          lamE [varP val] (listE $ applyValToOps val inner)
-        GetterKeyTuple inner -> do
+          lamE [varP val] (listE $ applyValToOps val elems)
+        GetterTuple elems -> do
           val <- newName "v"
-          lamE [varP val] (tupE $ applyValToOps val inner)
+          lamE [varP val] (tupE $ applyValToOps val elems)
         GetterBang -> [| $(next) . fromJust |]
         GetterMapMaybe -> [| ($(next) <$?>) |]
         GetterMapList -> [| ($(next) <$:>) |]
@@ -128,68 +132,103 @@ generateGetterExp GetterExp{..} =
 (<$:>) :: (a -> b) -> [a] -> [b]
 (<$:>) = (<$>)
 
--- | Defines a QuasiQuoter to generate a getter function and type alias for a given expression.
+-- | Defines a QuasiQuoter to extract a schema within the given schema.
 --
 -- For example, the following code
 --
--- > type MySchema = 'SchemaObject '[ '("foo", 'SchemaObject '[ '("bar", 'SchemaText) ]) ]
+-- > type MySchema = 'SchemaObject
+-- >   '[ '("foo", 'SchemaList ('SchemaObject
+-- >        '[ '("bar", 'SchemaText)
+-- >         ]
+-- >       ))
+-- >    ]
 -- >
--- > [getter| MySchema > foo > MyFoo |]
+-- > type MyFoo = [unwrap| MySchema.foo[] |]
 --
--- generates a type @MyFoo@ and a function @getMyFoo@. @getMyFoo@ is defined to be @[get| .foo |]@
--- (if it were called on an 'Object' with the schema @MySchema@) and @MyFoo@ is the resulting type
--- of @getMyFoo@; in this case, @Object ('SchemaObject '[ '("bar", 'SchemaInt) ])@.
+-- defines @MyFoo@ to be @'SchemaObject '[ '("bar", 'SchemaText) ]@. If the schema is imported
+-- qualified, you can use parentheses to distinguish:
 --
--- > parseBar :: Foo -> [Text]
+-- > type MyFoo = [unwrap| (MyModule.Schema).foo[] |]
+--
+-- You can then use the type alias as usual:
+--
+-- > parseBar :: Object MyFoo -> [Text]
 -- > parseBar = Text.splitOn "," . [get| .bar |]
-getter :: QuasiQuoter
-getter = QuasiQuoter
-  { quoteExp = error "Cannot use `getter` for Exp"
-  , quoteDec = parse getterDecs >=> generateGetterDecs
-  , quoteType = error "Cannot use `getter` for Type"
-  , quotePat = error "Cannot use `getter` for Pat"
+-- >
+-- > foo = map parseBar [get| result.foo[] |]
+--
+-- The available operations mostly correspond to 'get', except the operations are on the schema
+-- itself instead of the values:
+--
+-- * @x@ returns the type of @x@ with the given schema:
+--
+--     * @SchemaBool@ returns a 'Bool'
+--     * @SchemaInt@ returns an 'Int'
+--     * @SchemaDouble@ returns a 'Double'
+--     * @SchemaText@ returns a 'Text.Text'
+--     * @SchemaScalar name@ returns a value of the type associated with the given name
+--     * @SchemaEnum name@ returns a value of the type associated with the given name
+--     * @SchemaMaybe schema@ returns a 'Maybe' value wrapping the value returned by the inner schema
+--     * @SchemaList schema@ returns a list of values, whose type is determined by the inner schema
+--     * @SchemaObject fields@ returns an 'Data.GraphQL.Schema.Object'
+--
+-- * @x.y@ is only valid if @x@ is a @SchemaObject@. Returns the type of the key @y@ in the 'Object'.
+--
+-- * @x.[y,z.a]@ is only valid if @x@ is a @SchemaObject@, and if @y@ and @z.a@ have the same schema.
+--   Returns the type of the operations @y@ and @z.a@ in the 'Object' as a list.
+--
+-- * @x.(y,z.a)@ is only valid if @x@ is a @SchemaObject@. Returns the type of the operations @y@
+--   and @z.a@ in the 'Object' as a tuple.
+--
+-- * @x!@ is only valid if @x@ is a @SchemaMaybe a@. Returns @a@, the type wrapped in the 'Maybe'.
+--
+-- * @x[]@ is only valid if @x@ is a @SchemaList a@. Returns @a@, the type contained in the list.
+--
+-- * @x?@ is the same as @x!@.
+unwrap :: QuasiQuoter
+unwrap = QuasiQuoter
+  { quoteExp = error "Cannot use `unwrap` for Exp"
+  , quoteDec = error "Cannot use `unwrap` for Dec"
+  , quoteType = parse unwrapSchema >=> generateUnwrapSchema
+  , quotePat = error "Cannot use `unwrap` for Pat"
   }
 
-generateGetterDecs :: GetterDecs -> DecsQ
-generateGetterDecs GetterDecs{..} = do
-  getterFuncName <- newName $ "get" ++ endSchema
-  endSchemaName <- newName endSchema
+generateUnwrapSchema :: UnwrapSchema -> TypeQ
+generateUnwrapSchema UnwrapSchema{..} = do
   startSchemaName <- maybe (fail $ "Unknown schema: " ++ startSchema) return =<< lookupTypeName startSchema
-  startSchema' <- reify startSchemaName >>= \case
+  startSchemaType <- reify startSchemaName >>= \case
     TyConI (TySynD _ _ ty) -> return ty
-    info -> fail $ "Unknown type to generate getter function for: " ++ show info
-  let getterType = tySynD endSchemaName [] $ fromSchemaType $ fromOps startSchema' getterOps
-      getterBody = generateGetterExp $ GetterExp Nothing getterOps
-      getterFunc = funD getterFuncName [clause [] (normalB getterBody) []]
-  sequence [getterType, getterFunc]
+    info -> fail $ "Unknown type to unwrap: " ++ show info
+  getType startSchemaType getterOps
   where
     unSig = \case
       SigT ty _ -> ty
       ty -> ty
-    fromOps = foldl getType
-    getType schema op = case unSig schema of
+    getType schema [] = fromSchemaType schema
+    getType schema (op:ops) = case unSig schema of
       AppT (PromotedT ty) inner ->
         case op of
           GetterKey key | ty == 'SchemaObject ->
-            fromMaybe (error $ "Key '" ++ key ++ "' does not exist in schema: " ++ show schema)
-            $ lookup key $ getObjectSchema inner
-          GetterKey key -> error $ "Cannot get key '" ++ key ++ "' in schema: " ++ show schema
-          GetterKeyList elems | ty == 'SchemaObject ->
-            let (elemType, rest) = fromJust $ uncons $ map (fromOps schema) elems
-            in if all (== elemType) rest
-              then elemType -- return the wrapped type
-              else error $ "List contains different types with schema: " ++ show schema
-          GetterKeyList _ -> error $ "Cannot get keys in schema: " ++ show schema
-          GetterKeyTuple elems | ty == 'SchemaObject ->
-            foldl (\acc ops -> AppT acc $ fromOps schema ops) (TupleT $ length elems) elems
-          GetterKeyTuple _ -> error $ "Cannot get keys in schema: " ++ show schema
-          GetterBang | ty == 'SchemaMaybe -> inner
-          GetterBang -> error $ "Cannot use `!` operator on schema: " ++ show schema
-          GetterMapMaybe | ty == 'SchemaMaybe -> inner -- return the wrapped type
-          GetterMapMaybe -> error $ "Cannot use `?` operator on schema: " ++ show schema
-          GetterMapList | ty == 'SchemaList -> inner -- return the wrapped type
-          GetterMapList -> error $ "Cannot use `[]` operator on schema: " ++ show schema
-      _ -> error $ unlines ["Cannot get type:", show schema, show op]
+            case lookup key (getObjectSchema inner) of
+              Just schema' -> getType schema' ops
+              Nothing -> fail $ "Key '" ++ key ++ "' does not exist in schema: " ++ show schema
+          GetterKey key -> fail $ "Cannot get key '" ++ key ++ "' in schema: " ++ show schema
+          GetterList elems | ty == 'SchemaObject -> do
+            (elem':rest) <- mapM (getType schema) elems
+            if all (== elem') rest
+              then getType elem' ops
+              else fail $ "List contains different types with schema: " ++ show schema
+          GetterList _ -> fail $ "Cannot get keys in schema: " ++ show schema
+          GetterTuple elems | ty == 'SchemaObject ->
+            foldl appT (tupleT $ length elems) $ map (getType schema) elems
+          GetterTuple _ -> fail $ "Cannot get keys in schema: " ++ show schema
+          GetterBang | ty == 'SchemaMaybe -> getType inner ops
+          GetterBang -> fail $ "Cannot use `!` operator on schema: " ++ show schema
+          GetterMapMaybe | ty == 'SchemaMaybe -> getType inner ops
+          GetterMapMaybe -> fail $ "Cannot use `?` operator on schema: " ++ show schema
+          GetterMapList | ty == 'SchemaList -> getType inner ops
+          GetterMapList -> fail $ "Cannot use `[]` operator on schema: " ++ show schema
+      _ -> fail $ unlines ["Cannot get type:", show schema, show op]
     getObjectSchema schema = case unSig schema of
       AppT (AppT PromotedConsT t1) t2 ->
         case unSig t1 of
@@ -211,4 +250,4 @@ generateGetterDecs GetterDecs{..} = do
         | ty == 'SchemaText -> [t| Text |]
       AppT t1 t2 -> appT (fromSchemaType t1) (fromSchemaType t2)
       TupleT _ -> pure schema
-      _ -> error $ "Could not convert schema: " ++ show schema
+      _ -> fail $ "Could not convert schema: " ++ show schema

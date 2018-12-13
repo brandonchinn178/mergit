@@ -5,11 +5,12 @@
 {-# LANGUAGE TypeFamilies #-}
 
 import qualified Data.ByteString.Lazy.Char8 as ByteString
+import Data.Maybe (fromMaybe)
 import qualified Data.Text as Text
 import Test.Tasty (TestTree, defaultMain, testGroup)
 import Test.Tasty.Golden (goldenVsString)
 
-import Data.GraphQL (Object, get)
+import Data.GraphQL (Object, get, unwrap)
 
 import qualified AllTypes
 import qualified Nested
@@ -22,10 +23,11 @@ nestedResult = Nested.result
 
 main :: IO ()
 main = defaultMain $ testGroup "graphql-client"
-  [ testValidGetters
+  [ testGetterExp
   , testFromObjectAllTypes
   , testFromObjectNested
   , testFromObjectNamespaced
+  , testUnwrapSchema
   ]
 
 goldens' :: String -> IO String -> TestTree
@@ -36,8 +38,8 @@ goldens' name = goldenVsString name fp . fmap ByteString.pack
 goldens :: Show s => String -> s -> TestTree
 goldens name = goldens' name . pure . show
 
-testValidGetters :: TestTree
-testValidGetters = testGroup "Test valid getters"
+testGetterExp :: TestTree
+testGetterExp = testGroup "Test getter expressions"
   [ goldens "bool"                     [get| allTypesResult.bool                  |]
   , goldens "lambda_bool"             ([get| .bool |] allTypesResult)
   , goldens "int"                      [get| allTypesResult.int                   |]
@@ -94,3 +96,17 @@ testFromObjectNamespaced = goldens "from_object_namespaced" $
   where
     fromAllTypes o = Text.unpack [get| o.type |]
     fromNested o = show [get| o.b |]
+
+type NestedObject = [unwrap| (Nested.Schema).list[] |]
+
+parseNestedObject :: NestedObject -> Int
+parseNestedObject obj = fromMaybe [get| obj.b |] [get| obj.a?.b |]
+
+nestedList :: [NestedObject]
+nestedList = [get| (Nested.result).list[] |]
+
+testUnwrapSchema :: TestTree
+testUnwrapSchema = testGroup "Test unwrapping schemas"
+  [ goldens "unwrap_schema_nested_list" nestedList
+  , goldens "unwrap_schema_nested_object" $ map parseNestedObject nestedList
+  ]
