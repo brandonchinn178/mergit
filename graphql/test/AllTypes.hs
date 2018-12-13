@@ -1,10 +1,12 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 
 module AllTypes where
 
+import Data.Aeson (Value(..))
 import qualified Data.Text as Text
 
 import Data.GraphQL
@@ -34,9 +36,11 @@ newtype Coordinate = Coordinate (Int, Int)
   deriving (Show)
 
 instance GraphQLScalar Coordinate where
-  getScalar s = case map (read . Text.unpack) $ Text.splitOn "," s of
-    [x, y] -> Coordinate (x, y)
-    _ -> error $ "Bad Coordinate: " ++ Text.unpack s
+  getScalar = \case
+    String s -> case map (read . Text.unpack) $ Text.splitOn "," s of
+      [x, y] -> Coordinate (x, y)
+      _ -> error $ "Bad Coordinate: " ++ Text.unpack s
+    v -> error $ "Invalid Coordinate: " ++ show v
 
 type instance ToScalar "Coordinate" = Coordinate
 

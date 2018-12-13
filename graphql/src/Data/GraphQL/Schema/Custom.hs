@@ -39,11 +39,9 @@ parseValueEnum = \case
   _ -> Nothing
 
 class GraphQLScalar e where
-  getScalar :: Text -> e
+  getScalar :: Value -> e
 
 type family ToScalar (s :: Symbol) :: Type
 
 parseValueScalar :: forall e. GraphQLScalar e => Maybe Value -> Maybe e
-parseValueScalar = \case
-  Just (String t) -> Just $ getScalar @e t
-  _ -> Nothing
+parseValueScalar = fmap (getScalar @e)
