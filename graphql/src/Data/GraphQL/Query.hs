@@ -13,11 +13,8 @@ Definitions needed by GraphQL queries.
 module Data.GraphQL.Query
   ( Query
   , readGraphQLFile
-  -- * Re-exports
-  , (.=)
   ) where
 
-import Data.Aeson ((.=))
 import qualified Data.Text as Text
 import Language.Haskell.TH (ExpQ, Loc(..), location, runIO)
 import Language.Haskell.TH.Syntax (lift)

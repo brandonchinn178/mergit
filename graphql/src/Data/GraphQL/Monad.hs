@@ -26,7 +26,6 @@ module Data.GraphQL.Monad
   , QuerySettings(..)
   , defaultQuerySettings
   , runQueryT
-  , object
   -- * Re-exports
   , MonadIO
   ) where
@@ -38,8 +37,6 @@ import Control.Monad.Reader (MonadReader, ReaderT, ask, runReaderT)
 import Control.Monad.Trans.Class (MonadTrans)
 import Data.Aeson ((.=))
 import qualified Data.Aeson as Aeson
-import qualified Data.Aeson.Types as Aeson
-import qualified Data.HashMap.Strict as HashMap
 import Data.Kind (Type)
 import Data.Maybe (fromJust)
 import Data.Text (Text)
@@ -61,10 +58,6 @@ import Data.GraphQL.Query.Internal (Query(..))
 import Data.GraphQL.Result (GraphQLResult, getErrors, getResult)
 import Data.GraphQL.Schema (SchemaType)
 import Data.GraphQL.Schema.Internal (Object(..))
-
--- | A helper for converting pairs into an Object.
-object :: [Aeson.Pair] -> Aeson.Object
-object = HashMap.fromList
 
 -- | A type class for queryable results.
 class IsQueryable result where

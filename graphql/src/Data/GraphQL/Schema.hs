@@ -42,7 +42,6 @@ import qualified Data.HashMap.Lazy as HashMap
 import Data.Kind (Constraint)
 import Data.Maybe (fromMaybe)
 import Data.Proxy (Proxy(..))
-import Data.Scientific (Scientific, floatingOrInteger)
 import qualified Data.Text as Text
 import Data.Typeable (Typeable, typeRep, typeRepArgs, typeRepTyCon)
 import qualified Data.Vector as Vector
@@ -50,6 +49,7 @@ import Fcf (type (<=<), type (=<<), Eval, Find, FromMaybe, Fst, Snd, TyEq)
 import GHC.TypeLits
     (ErrorMessage(..), KnownSymbol, Symbol, TypeError, symbolVal)
 
+import Data.GraphQL.Aeson (toDouble, toInt)
 import Data.GraphQL.Schema.Custom
 import Data.GraphQL.Schema.Internal
 
@@ -72,19 +72,16 @@ instance FromSchema Bool where
     Just (Aeson.Bool b) -> Just b
     _ -> Nothing
 
-floatingOrInteger' :: Scientific -> Either Double Int
-floatingOrInteger' = floatingOrInteger
-
 instance FromSchema Int where
   type ToSchema Int = 'SchemaInt
   parseValue = \case
-    Just (Aeson.Number n) | Right i <- floatingOrInteger' n -> Just i
+    Just (Aeson.Number n) | Just i <- toInt n -> Just i
     _ -> Nothing
 
 instance FromSchema Double where
   type ToSchema Double = 'SchemaDouble
   parseValue = \case
-    Just (Aeson.Number n) | Left i <- floatingOrInteger' n -> Just i
+    Just (Aeson.Number n) | Just d <- toDouble n -> Just d
     _ -> Nothing
 
 instance FromSchema Text.Text where
