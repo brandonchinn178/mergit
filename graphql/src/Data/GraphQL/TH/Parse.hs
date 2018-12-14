@@ -6,7 +6,9 @@ Portability :  portable
 
 Definitions for parsing input text in QuasiQuoters.
 -}
+{-# LANGUAGE DeriveLift #-}
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 
@@ -16,6 +18,7 @@ import Control.Monad (void)
 import Data.Functor (($>))
 import Data.List (intercalate)
 import Data.Void (Void)
+import Language.Haskell.TH.Syntax (Lift)
 import Text.Megaparsec
 import Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer as L
@@ -34,19 +37,30 @@ data GetterOperation
   | GetterBang
   | GetterMapList
   | GetterMapMaybe
-  deriving (Show)
+  deriving (Show,Lift)
 
-getterOp :: Parser GetterOperation
-getterOp = choice
+parseGetterOp :: Parser GetterOperation
+parseGetterOp = choice
   [ lexeme "!" $> GetterBang
   , lexeme "[]" $> GetterMapList
   , lexeme "?" $> GetterMapMaybe
   , optional (lexeme ".") *> choice
       [ GetterKey <$> identifier lowerChar
-      , fmap GetterList $ between (lexeme "[") (lexeme "]") $ some getterOp `sepBy1` lexeme ","
-      , fmap GetterTuple $ between (lexeme "(") (lexeme ")") $ some getterOp `sepBy1` lexeme ","
+      , fmap GetterList $ between (lexeme "[") (lexeme "]") $ some parseGetterOp `sepBy1` lexeme ","
+      , fmap GetterTuple $ between (lexeme "(") (lexeme ")") $ some parseGetterOp `sepBy1` lexeme ","
       ]
   ]
+
+showGetterOps :: GetterOps -> String
+showGetterOps = concatMap showGetterOp
+  where
+    showGetterOp = \case
+      GetterKey key -> '.':key
+      GetterList elems -> ".[" ++ intercalate "," (map showGetterOps elems) ++ "]"
+      GetterTuple elems -> ".(" ++ intercalate "," (map showGetterOps elems) ++ ")"
+      GetterBang -> "!"
+      GetterMapList -> "[]"
+      GetterMapMaybe -> "?"
 
 identifier :: Parser Char -> Parser String
 identifier start = (:) <$> start <*> many (alphaNumChar <|> char '\'')
@@ -76,7 +90,7 @@ getterExp :: Parser GetterExp
 getterExp = do
   space
   start <- optional $ namespacedIdentifier lowerChar
-  getterOps <- many getterOp
+  getterOps <- many parseGetterOp
   space
   void eof
   return GetterExp{..}
@@ -92,7 +106,7 @@ unwrapSchema :: Parser UnwrapSchema
 unwrapSchema = do
   space
   startSchema <- namespacedIdentifier upperChar
-  getterOps <- many getterOp
+  getterOps <- many parseGetterOp
   space
   void eof
   return UnwrapSchema{..}

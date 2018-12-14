@@ -30,10 +30,11 @@ module Data.GraphQL.TH
   ) where
 
 import Control.Monad ((>=>))
-import Data.Maybe (fromJust)
+import qualified Data.Maybe as Maybe
 import Data.Text (Text)
 import Language.Haskell.TH
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
+import Language.Haskell.TH.Syntax (lift)
 
 import Data.GraphQL.Schema (Object, SchemaGraph(..), ToEnum, ToScalar, getKey)
 import Data.GraphQL.TH.Parse
@@ -105,10 +106,11 @@ generateGetterExp GetterExp{..} =
       lamE [varP arg] (apply arg)
     Just arg -> apply $ mkName arg
   where
-    apply = appE (mkGetter getterOps) . varE
-    mkGetter [] = [| id |]
-    mkGetter (op:ops) =
-      let next = mkGetter ops
+    apply = appE (mkGetter [] getterOps) . varE
+    mkGetter _ [] = [| id |]
+    mkGetter history (op:ops) =
+      let next = mkGetter (op : history) ops
+          applyValToOps val = map ((`appE` varE val) . mkGetter history)
       in case op of
         GetterKey key ->
           let getKey' = appTypeE [|getKey|] (litT $ strTyLit key)
@@ -119,10 +121,19 @@ generateGetterExp GetterExp{..} =
         GetterTuple elems -> do
           val <- newName "v"
           lamE [varP val] (tupE $ applyValToOps val elems)
-        GetterBang -> [| $(next) . fromJust |]
+        GetterBang -> [| $(next) . fromJust $(lift start) $(lift $ reverse history) |]
         GetterMapMaybe -> [| ($(next) <$?>) |]
         GetterMapList -> [| ($(next) <$:>) |]
-    applyValToOps val ops = map ((`appE` varE val) . mkGetter) ops
+
+-- | fromJust with helpful error message
+fromJust :: Maybe String -> GetterOps -> Maybe a -> a
+fromJust start ops =
+  if null start' && null ops
+    then fromJust' ""
+    else fromJust' $ ": " ++ start' ++ showGetterOps ops
+  where
+    start' = Maybe.fromMaybe "" start
+    fromJust' = Maybe.fromMaybe . error . ("Called 'fromJust on null expression" ++)
 
 -- | fmap specialized to Maybe
 (<$?>) :: (a -> b) -> Maybe a -> Maybe b
