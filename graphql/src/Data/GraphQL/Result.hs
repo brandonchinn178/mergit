@@ -15,8 +15,6 @@ module Data.GraphQL.Result
   ( GraphQLResult
   , getErrors
   , getResult
-  -- * Re-exports
-  , Value
   ) where
 
 import Data.Aeson (FromJSON(..), Value, withObject, (.!=), (.:?))
