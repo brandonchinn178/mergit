@@ -29,7 +29,7 @@ import Data.Kind (Type)
 import Data.Text (Text)
 import GHC.TypeLits (Symbol)
 
-class GraphQLEnum e where
+class Enum e => GraphQLEnum e where
   getEnum :: Text -> e
 
 type family ToEnum (s :: Symbol) :: Type

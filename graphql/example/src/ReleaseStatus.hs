@@ -11,7 +11,7 @@ data ReleaseStatus
   | PROMOTION
   | BOOTLEG
   | PSEUDORELEASE
-  deriving (Show,Eq)
+  deriving (Show,Eq,Enum)
 
 instance GraphQLEnum ReleaseStatus where
   getEnum s = case Text.unpack s of

@@ -16,7 +16,7 @@ import Util (getMockedResult)
 {- Greeting enum -}
 
 data Greeting = HELLO | GOODBYE
-  deriving (Show)
+  deriving (Show,Enum)
 
 instance GraphQLEnum Greeting where
   getEnum s = case Text.unpack s of

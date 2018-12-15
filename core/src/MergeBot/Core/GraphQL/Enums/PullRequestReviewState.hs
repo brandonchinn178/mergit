@@ -22,7 +22,7 @@ data PullRequestReviewState
   | APPROVED
   | CHANGES_REQUESTED
   | DISMISSED
-  deriving (Show,Eq)
+  deriving (Show,Eq,Enum)
 
 instance GraphQLEnum PullRequestReviewState where
   getEnum s = case Text.unpack s of
