@@ -6,7 +6,7 @@ Portability :  portable
 
 Defines the Branch graphql query.
 -}
-{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -16,8 +16,7 @@ module MergeBot.Core.GraphQL.Branch where
 {- TODO: THIS FILE SHOULD BE GENERATED -}
 
 import Data.GraphQL
-
-import MergeBot.Core.GraphQL.StatusState (StatusState)
+import Data.GraphQL.Aeson
 
 data Args = Args
   { _repoOwner :: String
@@ -25,63 +24,50 @@ data Args = Args
   , _name      :: String
   } deriving (Show)
 
-newtype Result = UnsafeResult Value
-  deriving (Show)
+data Result
 
-instance HasArgs Result where
+instance IsQueryable Result where
   type QueryArgs Result = Args
+  type ResultSchema Result = Schema
   fromArgs args = object
     [ "repoOwner" .= _repoOwner args
     , "repoName"  .= _repoName args
     , "name"      .= _name args
     ]
 
-instance IsQueryable Result where
-  execQuery = execQueryFor UnsafeResult
-
-query :: Query Result
+query :: Query Schema
 query = $(readGraphQLFile "Branch.graphql") -- TODO: when generated, will actually be file contents
 
-get :: QuasiQuoter
-get = getterFor 'UnsafeResult schema
-
-schema :: Schema
-schema = SchemaObject
-  [ ( "repository"
-    , SchemaObject
-      [ ( "ref"
-        , SchemaMaybe $ SchemaObject
-          [ ( "target"
-            , SchemaObject
-              [ ("oid", SchemaScalar)
-              , ("message", SchemaMaybe SchemaText)
-              , ( "tree"
-                , SchemaMaybe $ SchemaObject
-                  [ ("oid", SchemaScalar)
-                  , ("entries", SchemaMaybe $ SchemaList $ SchemaObject
-                      [ ("name", SchemaText)
-                      , ("object", SchemaMaybe $ SchemaObject
-                          [ ("text", SchemaMaybe SchemaText)
-                          ]
-                        )
-                      ]
-                    )
-                  ]
-                )
-              , ( "status"
-                , SchemaMaybe $ SchemaObject
-                  [ ( "contexts"
-                    , SchemaList $ SchemaObject
-                      [ ("context", SchemaText)
-                      , ("state", SchemaEnum (Proxy :: Proxy StatusState))
-                      ]
-                    )
-                  ]
-                )
-              ]
-            )
-          ]
-        )
-      ]
-    )
-  ]
+type Schema = 'SchemaObject
+  '[ '( "repository", 'SchemaObject
+        '[ '( "ref", 'SchemaMaybe ('SchemaObject
+              '[ '( "target", 'SchemaObject
+                    '[ '( "oid", 'SchemaScalar "GitObjectID" )
+                     , '( "message", 'SchemaMaybe 'SchemaText )
+                     , '( "tree", 'SchemaMaybe ('SchemaObject
+                          '[ '( "oid", 'SchemaScalar "GitObjectID" )
+                           , '( "entries", 'SchemaMaybe ('SchemaList ('SchemaObject
+                                '[ '( "name", 'SchemaText )
+                                 , '( "object", 'SchemaMaybe ('SchemaObject
+                                     '[ '("text", 'SchemaMaybe 'SchemaText)
+                                      ]
+                                    ))
+                                 ]
+                             )))
+                           ]
+                        ))
+                     , '( "status", 'SchemaMaybe ('SchemaObject
+                          '[ '( "contexts", 'SchemaList ('SchemaObject
+                                '[ '("context", 'SchemaText)
+                                 , '("state", 'SchemaEnum "StatusState")
+                                 ]
+                              ))
+                           ]
+                        ))
+                     ]
+                  )
+               ]
+            ))
+         ]
+      )
+   ]

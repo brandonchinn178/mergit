@@ -15,16 +15,13 @@ import Data.Text (Text)
 
 import MergeBot.Core.Config (BranchConfig(..))
 import MergeBot.Core.Data (CIStatus(..), JobStatus(..))
-import MergeBot.Core.GraphQL.StatusState (StatusState(..))
+import MergeBot.Core.GraphQL.Enums.StatusState (StatusState(..))
 
 -- | Convert the given status into a CIStatus.
 toCIStatus :: BranchConfig -> [(Text, StatusState)] -> CIStatus
-toCIStatus BranchConfig{..} statuses = CIStatus $ map fromStatus requiredStatuses
+toCIStatus BranchConfig{..} statuses = CIStatus $ zip requiredStatuses $ map fromStatus requiredStatuses
   where
-    fromStatus requiredStatus =
-      ( requiredStatus
-      , maybe CIWaiting fromStatusState $ lookup requiredStatus statuses
-      )
+    fromStatus = maybe CIWaiting fromStatusState . (`lookup` statuses)
     fromStatusState = \case
       EXPECTED -> CIWaiting
       ERROR -> CIFailed
