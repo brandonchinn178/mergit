@@ -7,27 +7,19 @@ Portability :  portable
 Defines the DateTime scalar
 -}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE TypeFamilies #-}
 
 module MergeBot.Core.GraphQL.Scalars.DateTime where
 
 import Data.GraphQL
-import Data.GraphQL.Aeson (Value(..))
-import qualified Data.Text as Text
+import Data.GraphQL.Aeson (FromJSON)
 import Data.Time (UTCTime)
-import Data.Time.ISO8601 (parseISO8601)
 
 newtype DateTime = DateTime { unDateTime :: UTCTime }
-  deriving (Show)
+  deriving (Show,FromJSON)
 
-instance GraphQLScalar DateTime where
-  getScalar = \case
-    String s ->
-      let time = Text.unpack s
-          invalid = error $ "Invalid DateTime: " ++ time
-      in maybe invalid DateTime $ parseISO8601 time
-    v -> error $ "Invalid DateTime: " ++ show v
+instance GraphQLScalar DateTime
 
 type instance ToScalar "DateTime" = DateTime
 

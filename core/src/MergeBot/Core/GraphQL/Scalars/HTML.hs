@@ -7,22 +7,19 @@ Portability :  portable
 Defines the HTML scalar
 -}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE TypeFamilies #-}
 
 module MergeBot.Core.GraphQL.Scalars.HTML where
 
 import Data.GraphQL
-import Data.GraphQL.Aeson (Value(..))
+import Data.GraphQL.Aeson (FromJSON)
 import Data.Text (Text)
 
 newtype HTML = HTML { unHTML :: Text }
-  deriving (Show)
+  deriving (Show,FromJSON)
 
-instance GraphQLScalar HTML where
-  getScalar = \case
-    String s -> HTML s
-    v -> error $ "Invalid HTML: " ++ show v
+instance GraphQLScalar HTML
 
 type instance ToScalar "HTML" = HTML
 

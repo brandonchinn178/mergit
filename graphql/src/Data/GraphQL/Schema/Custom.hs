@@ -18,12 +18,13 @@ module Data.GraphQL.Schema.Custom
   ( GraphQLEnum(..)
   , ToEnum
   , parseValueEnum
-  , GraphQLScalar(..)
+  , GraphQLScalar
   , ToScalar
   , parseValueScalar
   ) where
 
-import Data.Aeson (Value(String))
+import Data.Aeson (FromJSON(..), Value(String))
+import Data.Aeson.Types (parseMaybe)
 import Data.Kind (Type)
 import Data.Text (Text)
 import GHC.TypeLits (Symbol)
@@ -38,10 +39,9 @@ parseValueEnum = \case
   Just (String t) -> Just $ getEnum @e t
   _ -> Nothing
 
-class GraphQLScalar e where
-  getScalar :: Value -> e
+class FromJSON s => GraphQLScalar s where
 
 type family ToScalar (s :: Symbol) :: Type
 
-parseValueScalar :: forall e. GraphQLScalar e => Maybe Value -> Maybe e
-parseValueScalar = fmap (getScalar @e)
+parseValueScalar :: FromJSON e => Maybe Value -> Maybe e
+parseValueScalar = (>>= parseMaybe parseJSON)

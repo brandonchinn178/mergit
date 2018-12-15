@@ -18,6 +18,7 @@ module Data.GraphQL.Aeson
   , Value(..)
   , Object
   , (.=)
+  , FromJSON(..)
   ) where
 
 import Control.Monad ((<=<))

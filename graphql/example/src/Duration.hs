@@ -1,21 +1,18 @@
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE TypeFamilies #-}
 
 module Duration where
 
+import Data.Aeson (FromJSON)
 import Data.GraphQL
-import Data.GraphQL.Aeson (Value(..), toInt)
 import Text.Printf (printf)
 
 -- | Duration in milliseconds.
 newtype Duration = Duration Int
-  deriving (Show)
+  deriving (Show,FromJSON)
 
-instance GraphQLScalar Duration where
-  getScalar = \case
-    Number n | Just i <- toInt n -> Duration i
-    v -> error $ "Invalid Duration: " ++ show v
+instance GraphQLScalar Duration
 
 type instance ToScalar "Duration" = Duration
 

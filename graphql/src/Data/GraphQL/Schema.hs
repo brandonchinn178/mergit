@@ -31,7 +31,7 @@ module Data.GraphQL.Schema
   , GraphQLEnum(..)
   , ToEnum
   , parseValueEnum
-  , GraphQLScalar(..)
+  , GraphQLScalar
   , ToScalar
   , parseValueScalar
   , getKey

@@ -7,22 +7,19 @@ Portability :  portable
 Defines the GitObjectID scalar
 -}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE TypeFamilies #-}
 
 module MergeBot.Core.GraphQL.Scalars.GitObjectID where
 
 import Data.GraphQL
-import Data.GraphQL.Aeson (Value(..))
+import Data.GraphQL.Aeson (FromJSON)
 import Data.Text (Text)
 
 newtype GitObjectID = GitObjectID { unOID :: Text }
-  deriving (Show)
+  deriving (Show,FromJSON)
 
-instance GraphQLScalar GitObjectID where
-  getScalar = \case
-    String s -> GitObjectID s
-    v -> error $ "Invalid GitObjectID: " ++ show v
+instance GraphQLScalar GitObjectID
 
 type instance ToScalar "GitObjectID" = GitObjectID
 

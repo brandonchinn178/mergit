@@ -7,22 +7,19 @@ Portability :  portable
 Defines the URI scalar
 -}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE TypeFamilies #-}
 
 module MergeBot.Core.GraphQL.Scalars.URI where
 
 import Data.GraphQL
-import Data.GraphQL.Aeson (Value(..))
+import Data.GraphQL.Aeson (FromJSON)
 import Data.Text (Text)
 
 newtype URI = URI { unURI :: Text }
-  deriving (Show)
+  deriving (Show,FromJSON)
 
-instance GraphQLScalar URI where
-  getScalar = \case
-    String s -> URI s
-    v -> error $ "Invalid URI: " ++ show v
+instance GraphQLScalar URI
 
 type instance ToScalar "URI" = URI
 

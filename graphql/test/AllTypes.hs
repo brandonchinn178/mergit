@@ -6,7 +6,7 @@
 
 module AllTypes where
 
-import Data.Aeson (Value(..))
+import Data.Aeson (FromJSON(..), withText)
 import qualified Data.Text as Text
 
 import Data.GraphQL
@@ -35,12 +35,13 @@ instance FromSchema Greeting where
 newtype Coordinate = Coordinate (Int, Int)
   deriving (Show)
 
-instance GraphQLScalar Coordinate where
-  getScalar = \case
-    String s -> case map (read . Text.unpack) $ Text.splitOn "," s of
-      [x, y] -> Coordinate (x, y)
-      _ -> error $ "Bad Coordinate: " ++ Text.unpack s
-    v -> error $ "Invalid Coordinate: " ++ show v
+instance FromJSON Coordinate where
+  parseJSON = withText "Coordinate" $ \s ->
+    case map (read . Text.unpack) $ Text.splitOn "," s of
+      [x, y] -> return $ Coordinate (x, y)
+      _ -> fail $ "Bad Coordinate: " ++ Text.unpack s
+
+instance GraphQLScalar Coordinate
 
 type instance ToScalar "Coordinate" = Coordinate
 
