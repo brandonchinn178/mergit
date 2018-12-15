@@ -1,15 +1,18 @@
 {-|
-Module      :  MergeBot.Core.GraphQL.PullRequestReviewState
+Module      :  MergeBot.Core.GraphQL.Enums.PullRequestReviewState
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
 Portability :  portable
 
 Defines the PullRequestReviewState enum.
 -}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE TypeFamilies #-}
 
-module MergeBot.Core.GraphQL.PullRequestReviewState where
+module MergeBot.Core.GraphQL.Enums.PullRequestReviewState where
 
 import Data.GraphQL
+import qualified Data.Text as Text
 
 {- TODO: THIS FILE SHOULD BE GENERATED -}
 
@@ -22,10 +25,16 @@ data PullRequestReviewState
   deriving (Show,Eq,Enum)
 
 instance GraphQLEnum PullRequestReviewState where
-  getEnum _ t = case fromText t of
+  getEnum s = case Text.unpack s of
     "PENDING" -> PENDING
     "COMMENTED" -> COMMENTED
     "APPROVED" -> APPROVED
     "CHANGES_REQUESTED" -> CHANGES_REQUESTED
     "DISMISSED" -> DISMISSED
-    s -> error $ "Invalid PullRequestReviewState: " ++ s
+    _ -> error $ "Bad PullRequestReviewState: " ++ Text.unpack s
+
+type instance ToEnum "PullRequestReviewState" = PullRequestReviewState
+
+instance FromSchema PullRequestReviewState where
+  type ToSchema PullRequestReviewState = 'SchemaEnum "PullRequestReviewState"
+  parseValue = parseValueEnum

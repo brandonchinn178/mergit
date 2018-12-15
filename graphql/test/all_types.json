@@ -4,7 +4,7 @@
     "int2": 2,
     "double": 2.5,
     "text": "asdf",
-    "scalar": "2018-08-03T21:51:32Z",
+    "scalar": "12,34",
     "enum": "HELLO",
     "maybeObject": {
         "text": "foo"

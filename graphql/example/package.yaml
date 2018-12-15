@@ -5,8 +5,8 @@ name: graphql-example
 version: 0.1.0
 
 dependencies:
+  - aeson
   - base
-  - containers
   - graphql-client
   - text
 

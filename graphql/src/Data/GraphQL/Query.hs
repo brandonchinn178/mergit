@@ -12,16 +12,9 @@ Definitions needed by GraphQL queries.
 
 module Data.GraphQL.Query
   ( Query
-  , HasArgs(..)
   , readGraphQLFile
-  , object
-  -- * Re-exports
-  , (.=)
   ) where
 
-import Data.Aeson (Object, (.=))
-import Data.Aeson.Types (Pair)
-import qualified Data.HashMap.Strict as HashMap
 import qualified Data.Text as Text
 import Language.Haskell.TH (ExpQ, Loc(..), location, runIO)
 import Language.Haskell.TH.Syntax (lift)
@@ -29,15 +22,6 @@ import Path (fromAbsFile, parent, parseAbsFile, parseRelFile, (</>))
 import Path.IO (getCurrentDir)
 
 import Data.GraphQL.Query.Internal
-
--- | An alias for HashMap.fromList.
-object :: [Pair] -> Object
-object = HashMap.fromList
-
--- | A type class for GraphQL queries with arguments.
-class HasArgs r where
-  type QueryArgs r = a | a -> r
-  fromArgs :: QueryArgs r -> Object
 
 -- | A temporary function to read a graphql file and output it as a Query.
 --

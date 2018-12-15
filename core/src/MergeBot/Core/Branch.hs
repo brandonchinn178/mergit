@@ -6,12 +6,14 @@ Portability :  portable
 
 Defines functions to query and manage branches utilized by the merge bot.
 -}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module MergeBot.Core.Branch
   ( getBranchStatuses
@@ -27,9 +29,8 @@ module MergeBot.Core.Branch
 import Control.Monad ((<=<))
 import Control.Monad.Extra (mapMaybeM)
 import Control.Monad.Reader (asks)
-import Data.Aeson (Object)
 import Data.Functor ((<&>))
-import Data.GraphQL (runQuery)
+import Data.GraphQL (get, runQuery, unwrap)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Maybe (fromJust, fromMaybe)
@@ -63,6 +64,7 @@ import MergeBot.Core.GitHub
 import qualified MergeBot.Core.GraphQL.Branch as Branch
 import qualified MergeBot.Core.GraphQL.Branches as Branches
 import qualified MergeBot.Core.GraphQL.PullRequest as PullRequest
+import MergeBot.Core.GraphQL.Scalars.GitObjectID (GitObjectID(..))
 import MergeBot.Core.Monad (MonadGraphQL, MonadREST, getRepo)
 
 {- Branch labels and messages -}
@@ -101,16 +103,18 @@ fromStagingMessage = map (read . tail . Text.unpack) . tail . Text.words
 
 {- Branch operations -}
 
+type Branch = [unwrap| (Branch.Schema).repository.ref!.target |]
+
 -- | Get the given branch.
-getBranch :: MonadGraphQL m => Text -> m Object
+getBranch :: MonadGraphQL m => Text -> m Branch
 getBranch = fmap fromJust . getBranch'
 
 -- | Get the given branch.
-getBranch' :: MonadGraphQL m => Text -> m (Maybe Object)
+getBranch' :: MonadGraphQL m => Text -> m (Maybe Branch)
 getBranch' name = do
   (_repoOwner, _repoName) <- asks getRepo
-  result <- runQuery Branch.query Branch.Args{_name = Text.unpack name, ..}
-  return [Branch.get| result.repository.ref.target > branch |]
+  [get| .repository.ref?.target |] <$>
+    runQuery Branch.query Branch.Args{_name = Text.unpack name, ..}
 
 -- | Get all branches managed by the merge bot and the CI status of each.
 getBranchStatuses :: MonadGraphQL m
@@ -125,15 +129,14 @@ getBranchStatuses mergeQueue = do
   return $ Map.fromList $ tryingPRs ++ queuedPRs ++ concat stagingPRs
   where
     queryBranches args = do
-      result <- runQuery Branches.query args
-      let info = [Branches.get| result.repository.refs! > info |]
+      info <- [get| .repository.refs! |] <$> runQuery Branches.query args
       return PaginatedResult
-        { chunk      = [Branches.get| @info.nodes![]! > branch |]
-        , hasNext    = [Branches.get| @info.pageInfo.hasNextPage |]
-        , nextCursor = [Branches.get| @info.pageInfo.endCursor |]
+        { chunk      = [get| info.nodes![]! |]
+        , hasNext    = [get| info.pageInfo.hasNextPage |]
+        , nextCursor = [get| info.pageInfo.endCursor |]
         }
     parseTrying branch =
-      case fromTryBranch [Branches.get| @branch.name |] of
+      case fromTryBranch [get| branch.name |] of
         Just prNum -> do
           ciStatus <- getBranchStatus branch
           let status
@@ -143,43 +146,34 @@ getBranchStatuses mergeQueue = do
           return $ Just (prNum, Trying status)
         Nothing -> return Nothing
     parseStaging branch =
-      if isStagingBranch [Branches.get| @branch.name |]
+      if isStagingBranch [get| branch.name |]
         then do
           ciStatus <- getBranchStatus branch
-          let prIds = fromStagingMessage [Branches.get| @branch.target.message! |]
+          let prIds = fromStagingMessage [get| branch.target.message! |]
               status = if isPending ciStatus || isSuccess ciStatus
                 then MergeRunning else MergeFailed
           return $ Just $ map (, Merging status) prIds
         else return Nothing
     getBranchStatus branch = do
-      let name = [Branches.get| @branch.name |]
+      let name = [get| branch.name |]
           invalid = fail $ "Branch does not have valid .lymerge.yaml: " ++ Text.unpack name
       config <- maybe invalid return . extractBranchConfig =<< getBranch name
       return $ toCIStatus config $ getContexts branch
     getContexts branch =
-      let contexts = fromMaybe [] [Branches.get| @branch.target.status.contexts[] > context |]
-          fromContext context =
-            ( [Branches.get| @context.context |]
-            , [Branches.get| @context.state |]
-            )
-      in map fromContext contexts
+      let contexts = fromMaybe [] [get| branch.target.status?.contexts[] |]
+      in map [get| .(context, state) |] contexts
 
 -- | Get the CI status for the given branch.
 getCIStatus :: MonadGraphQL m => Text -> m (Maybe CIStatus)
 getCIStatus name = do
   (_repoOwner, _repoName) <- asks getRepo
-  result <- runQuery Branch.query Branch.Args{_name = Text.unpack name, ..}
-  let ref = [Branch.get| result.repository.ref.target > branch |]
-      getStatus branch = case extractBranchConfig branch of
+  let getStatus branch = case extractBranchConfig branch of
         Nothing -> error $ "Branch does not have .lymerge.yaml: " ++ Text.unpack name
         Just config -> toCIStatus config $
-          let contexts = [Branch.get| @branch.status!.contexts[] > context |]
-              fromContext context =
-                ( [Branch.get| @context.context |]
-                , [Branch.get| @context.state |]
-                )
-          in map fromContext contexts
-  return $ getStatus <$> ref
+          let contexts = [get| branch.status!.contexts[] |]
+          in map [get| .(context, state) |] contexts
+  fmap getStatus . [get| .repository.ref?.target |] <$>
+    runQuery Branch.query Branch.Args{_name = Text.unpack name, ..}
 
 -- | Get the CI status for the trying branch for the given PR.
 getTryStatus :: MonadGraphQL m => PullRequestId -> m (Maybe CIStatus)
@@ -199,8 +193,7 @@ createCIBranch baseRef prs tempBranchName ciBranchName commitMessage = do
 
   -- get base branch
   base <- getBranch baseRef
-  let baseCommit = [Branch.get| @branch base.oid |]
-      baseTree = [Branch.get| @branch base.tree!.oid |]
+  let baseCommit = unOID [get| base.oid |]
 
   -- get PR commit hash
   prCommits <- mapM getPRCommit prs
@@ -208,7 +201,7 @@ createCIBranch baseRef prs tempBranchName ciBranchName commitMessage = do
   -- create a new temp commit off base
   tempCommit <- createCommit
     [ "message" := "[ci skip] temp"
-    , "tree" := baseTree
+    , "tree" := unOID [get| base.tree!.oid |]
     , "parents" :=* [baseCommit]
     ]
 
@@ -222,7 +215,6 @@ createCIBranch baseRef prs tempBranchName ciBranchName commitMessage = do
   -- TODO: handle merge conflict
   mapM_ (mergeBranches . makeMerge tempBranchName) prCommits
   tempBranch <- getBranch tempBranchName
-  let mergeTree = [Branch.get| @branch tempBranch.tree!.oid |]
 
   case extractBranchConfig tempBranch of
     Nothing -> do
@@ -232,7 +224,7 @@ createCIBranch baseRef prs tempBranchName ciBranchName commitMessage = do
       -- create a new commit off the base branch
       ciCommit <- createCommit
         [ "message" := commitMessage
-        , "tree" := mergeTree
+        , "tree" := unOID [get| tempBranch.tree!.oid |]
         , "parents" :=* (baseCommit : prCommits)
         ]
 
@@ -269,19 +261,18 @@ createMergeBranch base prs = createCIBranch base prs tempBranchName stagingBranc
 getStagingPRs :: MonadGraphQL m => Text -> m [PullRequestId]
 getStagingPRs base = getBranch' (toStagingBranch base) <&> \case
   Nothing -> []
-  Just branch -> fromStagingMessage [Branch.get| @branch.message! |]
+  Just branch -> fromStagingMessage [get| branch.message! |]
 
 -- | Merge the staging branch into the base branch. Return Nothing if the merge fails and the list
 -- of PRs merged otherwise.
 mergeStaging :: (MonadGraphQL m, MonadREST m) => Text -> m (Maybe [PullRequestId])
 mergeStaging base = do
   branch <- getBranch stagingBranch
-  let commit = [Branch.get| @branch.oid |]
-  success <- updateBranch base ["sha" := commit]
+  success <- updateBranch base ["sha" := unOID [get| branch.oid |]]
   if success
     then do
       deleteBranch stagingBranch
-      return $ Just $ fromStagingMessage [Branch.get| @branch.message! |]
+      return $ Just $ fromStagingMessage [get| branch.message! |]
     else return Nothing
   where
     stagingBranch = toStagingBranch base
@@ -289,25 +280,22 @@ mergeStaging base = do
 {- Helpers -}
 
 -- | Get the configuration file for the given branch.
-extractBranchConfig :: Object -> Maybe BranchConfig
+extractBranchConfig :: Branch -> Maybe BranchConfig
 extractBranchConfig branch =
-  case filter isConfig entries of
+  case filter ((== configFile) . [get| .name |]) entries of
     [] -> Nothing
-    [entry] -> decodeThrow $ Text.encodeUtf8 [Branch.get| @entry.object!.text! |]
+    [entry] -> decodeThrow $ Text.encodeUtf8 [get| entry.object!.text! |]
     _ -> error "Multiple .lymerge.yaml files found?"
   where
-    entries = [Branch.get| @branch.tree!.entries![] > entry |]
-    isConfig entry = [Branch.get| @entry.name |] == configFile
+    entries = [get| branch.tree!.entries![] |]
     configFile = ".lymerge.yaml"
 
 -- | Get the commit hash for the given pull request.
 getPRCommit :: MonadGraphQL m => Int -> m Text
-getPRCommit _number = do
+getPRCommit prNum = do
   (_repoOwner, _repoName) <- asks getRepo
-  result <- runQuery PullRequest.query PullRequest.Args{..}
-  let pr = [PullRequest.get| result.repository.pullRequest! > pr |]
-      commit = [PullRequest.get| @pr.headRefOid |]
-  return commit
+  unOID . [get| .repository.pullRequest!.headRefOid |] <$>
+    runQuery PullRequest.query PullRequest.Args{_number=prNum, ..}
 
 -- | Make a merge request payload for the given branch and commit hash.
 makeMerge :: Text -> Text -> GitHubData

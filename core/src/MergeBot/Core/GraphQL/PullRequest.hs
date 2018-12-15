@@ -6,7 +6,7 @@ Portability :  portable
 
 Defines the PullRequest graphql query.
 -}
-{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -16,6 +16,7 @@ module MergeBot.Core.GraphQL.PullRequest where
 {- TODO: THIS FILE SHOULD BE GENERATED -}
 
 import Data.GraphQL
+import Data.GraphQL.Aeson
 
 data Args = Args
   { _repoOwner :: String
@@ -23,48 +24,38 @@ data Args = Args
   , _number    :: Int
   } deriving (Show)
 
-newtype Result = UnsafeResult Value
-  deriving (Show)
+data Result
 
-instance HasArgs Result where
+instance IsQueryable Result where
   type QueryArgs Result = Args
+  type ResultSchema Result = Schema
   fromArgs args = object
     [ "repoOwner" .= _repoOwner args
     , "repoName"  .= _repoName args
     , "number"    .= _number args
     ]
 
-instance IsQueryable Result where
-  execQuery = execQueryFor UnsafeResult
-
-query :: Query Result
+query :: Query Schema
 query = $(readGraphQLFile "PullRequest.graphql") -- TODO: when generated, will actually be file contents
 
-get :: QuasiQuoter
-get = getterFor 'UnsafeResult schema
-
-schema :: Schema
-schema = SchemaObject
-  [ ( "repository"
-    , SchemaObject
-      [ ( "pullRequest"
-        , SchemaMaybe $ SchemaObject
-          [ ("number", SchemaInt)
-          , ("title", SchemaText)
-          , ( "author"
-            , SchemaMaybe $ SchemaObject
-              [ ("login", SchemaText)
-              ]
-            )
-          , ("createdAt", SchemaScalar)
-          , ("updatedAt", SchemaScalar)
-          , ("url", SchemaScalar)
-          , ("bodyHTML", SchemaScalar)
-          , ("headRefOid", SchemaScalar)
-          , ("headRefName", SchemaText)
-          , ("baseRefName", SchemaText)
-          ]
-        )
-      ]
-    )
-  ]
+type Schema = 'SchemaObject
+  '[ '( "repository", 'SchemaObject
+        '[ '( "pullRequest", 'SchemaMaybe ('SchemaObject
+              '[ '( "number", 'SchemaInt )
+               , '( "title", 'SchemaText )
+               , '( "author", 'SchemaMaybe ('SchemaObject
+                    '[ '("login", 'SchemaText)
+                     ]
+                  ))
+               , '( "createdAt", 'SchemaScalar "DateTime" )
+               , '( "updatedAt", 'SchemaScalar "DateTime" )
+               , '( "url", 'SchemaScalar "URI" )
+               , '( "bodyHTML", 'SchemaScalar "HTML" )
+               , '( "headRefOid", 'SchemaScalar "GitObjectID" )
+               , '( "headRefName", 'SchemaText )
+               , '( "baseRefName", 'SchemaText )
+               ]
+            ))
+         ]
+      )
+   ]

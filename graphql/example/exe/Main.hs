@@ -1,9 +1,10 @@
-import qualified Data.Map.Strict as Map
-import Example (getContinents, runApp)
+import Data.Maybe (fromMaybe, listToMaybe)
+import System.Environment (getArgs)
+
+import Example
 
 main :: IO ()
-main = mapM_ printContinent . Map.toList =<< runApp getContinents
-  where
-    printContinent (continent, countries) = do
-      putStrLn $ "Continent: " ++ show continent
-      print countries
+main = do
+  song <- fromMaybe "Smells Like Teen Spirit" . listToMaybe <$> getArgs
+  results <- runApp (searchForSong song)
+  mapM_ (putStrLn . showRecording) results

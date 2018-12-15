@@ -6,7 +6,7 @@ Portability :  portable
 
 Defines the PullRequestReview graphql query.
 -}
-{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -16,8 +16,7 @@ module MergeBot.Core.GraphQL.PullRequestReview where
 {- TODO: THIS FILE SHOULD BE GENERATED -}
 
 import Data.GraphQL
-
-import MergeBot.Core.GraphQL.PullRequestReviewState (PullRequestReviewState)
+import Data.GraphQL.Aeson
 
 data Args = Args
   { _repoOwner :: String
@@ -26,11 +25,11 @@ data Args = Args
   , _after     :: Maybe String
   } deriving (Show)
 
-newtype Result = UnsafeResult Value
-  deriving (Show)
+data Result
 
-instance HasArgs Result where
+instance IsQueryable Result where
   type QueryArgs Result = Args
+  type ResultSchema Result = Schema
   fromArgs args = object
     [ "repoOwner" .= _repoOwner args
     , "repoName"  .= _repoName args
@@ -38,43 +37,30 @@ instance HasArgs Result where
     , "after"     .= _after args
     ]
 
-instance IsQueryable Result where
-  execQuery = execQueryFor UnsafeResult
-
-query :: Query Result
+query :: Query Schema
 query = $(readGraphQLFile "PullRequestReview.graphql") -- TODO: when generated, will actually be file contents
 
-get :: QuasiQuoter
-get = getterFor 'UnsafeResult schema
-
-schema :: Schema
-schema = SchemaObject
-  [ ( "repository"
-    , SchemaObject
-      [ ( "pullRequest"
-        , SchemaMaybe $ SchemaObject
-          [ ( "reviews"
-            , SchemaMaybe $ SchemaObject
-              [ ( "pageInfo"
-                , SchemaObject
-                  [ ("hasNextPage", SchemaBool)
-                  , ("endCursor", SchemaMaybe SchemaText)
-                  ]
-                )
-              , ( "nodes"
-                , SchemaMaybe $ SchemaList $ SchemaMaybe $ SchemaObject
-                  [ ( "author"
-                    , SchemaMaybe $ SchemaObject
-                      [ ("login", SchemaText)
-                      ]
-                    )
-                  , ("state", SchemaEnum (Proxy :: Proxy PullRequestReviewState))
-                  ]
-                )
-              ]
-            )
-          ]
-        )
-      ]
-    )
-  ]
+type Schema = 'SchemaObject
+  '[ '( "repository", 'SchemaObject
+        '[ '( "pullRequest", 'SchemaMaybe ('SchemaObject
+              '[ '( "reviews", 'SchemaMaybe ('SchemaObject
+                    '[ '( "pageInfo", 'SchemaObject
+                          '[ '("hasNextPage", 'SchemaBool)
+                           , '("endCursor", 'SchemaMaybe 'SchemaText)
+                           ]
+                        )
+                     , '( "nodes", 'SchemaMaybe ('SchemaList ('SchemaMaybe ('SchemaObject
+                          '[ '( "author", 'SchemaMaybe ('SchemaObject
+                                '[ '("login", 'SchemaText)
+                                 ]
+                              ))
+                           , '( "state", 'SchemaEnum "PullRequestReviewState" )
+                           ]
+                        ))))
+                     ]
+                  ))
+               ]
+            ))
+         ]
+      )
+   ]

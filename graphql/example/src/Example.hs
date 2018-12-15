@@ -1,17 +1,22 @@
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeInType #-}
 
 module Example where
 
-import Control.Monad.IO.Class (MonadIO)
+import Data.Bool (bool)
 import Data.GraphQL
-import Data.Map.Strict (Map)
-import qualified Data.Map.Strict as Map
-import Data.Text (Text)
+import Data.Maybe (fromMaybe)
+import Data.Monoid ((<>))
+import qualified Data.Text as Text
 
-import qualified Countries
+import Date (showDate)
+import Duration (showDuration)
+import qualified Recordings
+import ReleaseStatus (ReleaseStatus(..))
 
 newtype App a = App { unApp :: QueryT IO a }
   deriving (Functor,Applicative,Monad,MonadIO,MonadQuery)
@@ -20,43 +25,44 @@ runApp :: App a -> IO a
 runApp = runQueryT querySettings . unApp
   where
     querySettings = defaultQuerySettings
-      { url = "https://countries.trevorblades.com/"
+      { url = "https://graphbrainz.herokuapp.com/"
       }
 
-data Continent
-  = Europe
-  | Asia
-  | Africa
-  | Antarctica
-  | NorthAmerica
-  | SouthAmerica
-  | Oceania
-  deriving (Show,Eq,Ord)
+type Song = [unwrap| (Recordings.Schema).search!.recordings!.nodes![]! |]
 
-fromCode :: Text -> Continent
-fromCode = \case
-  "EU" -> Europe
-  "AS" -> Asia
-  "AF" -> Africa
-  "AN" -> Antarctica
-  "NA" -> NorthAmerica
-  "SA" -> SouthAmerica
-  "OC" -> Oceania
-  code -> error $ "Invalid code: " ++ show code
+searchForSong :: String -> App [Song]
+searchForSong song =
+  [get| .search!.recordings!.nodes![]! |] <$>
+    runQuery Recordings.query Recordings.Args
+      { Recordings._query = song
+      , Recordings._first = Just 5
+      }
 
-getCountries :: App [Text]
-getCountries = do
-  result <- runQuery Countries.query Countries.Args
-  return [Countries.get| result.countries[].name |]
-
-getContinents :: App (Map Continent [Text])
-getContinents = do
-  result <- runQuery Countries.query Countries.Args
-  let countries = [Countries.get| result.countries[] > country |]
-      fromCountry country =
-        ( fromCode [Countries.get| @country.continent.code |]
-        , [Countries.get| @country.name |]
-        )
-  return . Map.fromListWith (++) . map (listSnd . fromCountry) $ countries
+showRecording :: Song -> String
+showRecording song = Text.unpack $ Text.unlines $ map Text.unwords
+  [ ["=====", title, parens $ Text.intercalate ", " artists, "====="]
+  , ["Has video recording?", yesno $ fromMaybe False [get| song.video |]]
+  , ["Length of song:", maybe "--" (Text.pack . showDuration) [get| song.length |]]
+  , ["Rating:", maybe "--" fromRating mRating]
+  , ["Releases:"]
+  ] ++ map (("* " <>) . showRelease) [get| song.releases!.nodes![]! |]
   where
-    listSnd (a, b) = (a, [b])
+    title = [get| song.title! |]
+    artists = [get| song.artists!.nodes![]!.name! |]
+    (voteCount, mRating) = [get| song.rating!.(voteCount, value) |]
+    fromRating rating = Text.unwords
+      [ showT rating
+      , parens $ Text.unwords ["out of", showT voteCount]
+      ]
+    showRelease release =
+      if [get| release.status |] == Just OFFICIAL
+        then Text.unwords
+          [ [get| release.title! |]
+          , maybe "--" (parens . Text.pack . showDate) [get| release.date |]
+          ]
+        else "[UNOFFICIAL]"
+
+    parens s = "(" <> s <> ")"
+    yesno = bool "No" "Yes"
+    showT :: Show a => a -> Text.Text
+    showT = Text.pack . show
