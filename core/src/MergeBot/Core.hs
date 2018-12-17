@@ -95,8 +95,7 @@ startMergeJob base state = do
 
 -- | Merge pull requests after a successful merge job.
 runMerge :: (MonadGraphQL m, MonadREST m) => Text -> m ()
-runMerge base = do
-  (_repoOwner, _repoName) <- asks getRepo
+runMerge base =
   mergeStaging base >>= \case
     -- TODO: handle master being different than when staging started
     Nothing -> fail "Update was not a fast-forward"
