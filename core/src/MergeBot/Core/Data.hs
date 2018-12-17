@@ -21,6 +21,14 @@ type PullRequestId = Int
 
 type HTML = Text
 
+-- | Information about the current session.
+data SessionInfo = SessionInfo
+  { repoOwner :: !Text
+  , repoName  :: !Text
+  , userName  :: !Text
+  , userPhoto :: !Text
+  } deriving (Show,Generic,ToJSON)
+
 -- | A pull request as displayed in the pull request list.
 data PullRequest = PullRequest
   { number  :: !PullRequestId

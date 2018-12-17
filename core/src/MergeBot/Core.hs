@@ -9,10 +9,12 @@ Defines the core functionality of the merge bot.
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TupleSections #-}
 
 module MergeBot.Core
-  ( listPullRequests
+  ( getSessionInfo
+  , listPullRequests
   , getPullRequest
   , tryPullRequest
   , queuePullRequest
@@ -27,6 +29,7 @@ import Data.Map.Strict ((!?))
 import Data.Maybe (fromMaybe)
 import qualified Data.Set as Set
 import Data.Text (Text)
+import qualified Data.Text as Text
 
 import MergeBot.Core.Branch
 import MergeBot.Core.Data
@@ -34,6 +37,17 @@ import MergeBot.Core.GitHub
 import MergeBot.Core.Monad
 import MergeBot.Core.PullRequest
 import MergeBot.Core.State
+
+-- | Get information about the current session.
+getSessionInfo :: Monad m => BotAppT m SessionInfo
+getSessionInfo = do
+  (repoOwner', repoName') <- asks getRepo
+  let repoOwner = Text.pack repoOwner'
+      repoName = Text.pack repoName'
+  -- TODO: add info about user
+  let userName = "test-username"
+      userPhoto = "test.png"
+  return SessionInfo{..}
 
 -- | List all open pull requests.
 listPullRequests :: MonadGraphQL m => BotState -> m [PullRequest]
@@ -81,8 +95,7 @@ startMergeJob base state = do
 
 -- | Merge pull requests after a successful merge job.
 runMerge :: (MonadGraphQL m, MonadREST m) => Text -> m ()
-runMerge base = do
-  (_repoOwner, _repoName) <- asks getRepo
+runMerge base =
   mergeStaging base >>= \case
     -- TODO: handle master being different than when staging started
     Nothing -> fail "Update was not a fast-forward"
