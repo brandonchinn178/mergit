@@ -29,5 +29,7 @@ tests:
     source-dirs:  test
     main:         Main.hs
     dependencies:
+      - bytestring
       - merge-bot-core
       - tasty
+      - tasty-golden
