@@ -23,3 +23,11 @@ dependencies:
 
 library:
   source-dirs: src
+
+tests:
+  merge-bot-core-test:
+    source-dirs:  test
+    main:         Main.hs
+    dependencies:
+      - merge-bot-core
+      - tasty
