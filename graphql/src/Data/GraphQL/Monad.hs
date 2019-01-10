@@ -41,7 +41,6 @@ import Data.Aeson ((.=))
 import qualified Data.Aeson as Aeson
 import Data.Kind (Type)
 import Data.Maybe (fromJust)
-import Data.Text (Text)
 import Network.HTTP.Client
     ( Manager
     , ManagerSettings
@@ -60,6 +59,7 @@ import Data.GraphQL.Query.Internal (Query(..))
 import Data.GraphQL.Result (GraphQLResult, getErrors, getResult)
 import Data.GraphQL.Schema (SchemaType)
 import Data.GraphQL.Schema.Internal (Object(..))
+import Data.GraphQL.TestUtils (MockedEndpoints)
 
 -- | A type class for queryable results.
 class IsQueryable result where
@@ -145,7 +145,7 @@ data QuerySettings = QuerySettings
     -- ^ Uses TLS by default
   , url             :: String
   , modifyReq       :: Request -> Request
-  , mockResponse    :: Maybe (Text -> Aeson.Object -> Aeson.Value)
+  , mockResponse    :: Maybe MockedEndpoints
     -- ^ Instead of querying an API, use the given function to mock the response
   }
 
@@ -164,7 +164,7 @@ data QueryState
       { manager :: Manager
       , baseReq :: Request
       }
-  | QueryMockState (Text -> Aeson.Object -> Aeson.Value)
+  | QueryMockState MockedEndpoints
 
 -- | Run a QueryT stack.
 runQueryT :: MonadIO m => QuerySettings -> QueryT api m a -> m a

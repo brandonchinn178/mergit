@@ -10,7 +10,8 @@ Defines test utilities for testing GraphQL queries.
 {-# LANGUAGE PolyKinds #-}
 
 module Data.GraphQL.TestUtils
-  ( mockWith
+  ( MockedEndpoints
+  , mockWith
   , matches
   ) where
 
@@ -18,6 +19,8 @@ import Data.Aeson (Object, Value)
 import Data.Text (Text)
 
 import Data.GraphQL.Query.Internal (Query(..))
+
+type MockedEndpoints = Text -> Object -> Value
 
 -- | A helper to set for 'mockResponse' in 'QuerySettings'.
 --
