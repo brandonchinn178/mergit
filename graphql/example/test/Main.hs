@@ -19,13 +19,11 @@ data MockData = MockData
   }
 
 runMockApp :: MockData -> App a -> IO a
-runMockApp MockData{..} = runQueryT querySettings . unApp
+runMockApp mocked = runQueryT (mockedQuerySettings $ withMock mocked) . unApp
   where
-    querySettings = defaultQuerySettings
-      { mockResponse = mockWith
-          [ (matches Recordings.query, mockRecordings . fromJust . fromObject "query")
-          ]
-      }
+    withMock MockData{..} =
+      [ (matches Recordings.query, mockRecordings . fromJust . fromObject "query")
+      ]
 
 goldens :: Show a => String -> IO a -> TestTree
 goldens name = goldenVsString name fp . fmap (ByteString.pack . show)

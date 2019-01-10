@@ -27,6 +27,7 @@ module Data.GraphQL.Monad
   , QueryT
   , QuerySettings(..)
   , defaultQuerySettings
+  , mockedQuerySettings
   , runQueryT
   -- * Re-exports
   , MonadIO
@@ -157,6 +158,10 @@ defaultQuerySettings = QuerySettings
   , modifyReq = id
   , mockResponse = Nothing
   }
+
+-- | Query settings for mocking endpoints.
+mockedQuerySettings :: MockedEndpoints -> QuerySettings
+mockedQuerySettings mocked = defaultQuerySettings { mockResponse = Just mocked }
 
 -- | The state for running QueryT.
 data QueryState
