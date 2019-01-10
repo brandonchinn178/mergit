@@ -16,7 +16,7 @@ Defines the monad used for the core functions of the merge bot.
 {-# LANGUAGE TypeSynonymInstances #-}
 
 module MergeBot.Core.Monad
-  ( BotAppT
+  ( BotAppT(..)
   , runBot
   , BotEnv(..)
   , getRepo

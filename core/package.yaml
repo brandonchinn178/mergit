@@ -29,6 +29,8 @@ tests:
     source-dirs:  test
     main:         Main.hs
     dependencies:
+      - aeson
+      - aeson-qq
       - bytestring
       - merge-bot-core
       - tasty
