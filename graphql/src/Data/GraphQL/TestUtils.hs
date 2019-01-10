@@ -6,6 +6,8 @@ Portability :  portable
 
 Defines test utilities for testing GraphQL queries.
 -}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE PolyKinds #-}
 
 module Data.GraphQL.TestUtils
   ( mockWith
@@ -34,5 +36,5 @@ mockWith dispatcher = Just $ \query args ->
     _ -> error $ "No query matches: " ++ show query
 
 -- | A helper to match 'Text' with 'Query'.
-matches :: Query api r -> Text -> Bool
+matches :: Query (api :: k) r -> Text -> Bool
 matches (UnsafeQuery query) = (query ==)

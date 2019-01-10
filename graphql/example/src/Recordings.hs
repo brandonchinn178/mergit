@@ -9,6 +9,8 @@ module Recordings where
 import Data.GraphQL
 import Data.GraphQL.Aeson (object, (.=))
 
+import GraphQL.API (API)
+
 data Args = Args
   { _query :: String
   , _first :: Maybe Int
@@ -24,7 +26,7 @@ instance IsQueryable Result where
     , "first" .= _first
     ]
 
-query :: Query Schema
+query :: Query API Schema
 query = $(readGraphQLFile "Recordings.graphql")
 
 type Schema = 'SchemaObject
