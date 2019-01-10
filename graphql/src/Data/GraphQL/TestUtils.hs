@@ -34,5 +34,5 @@ mockWith dispatcher = Just $ \query args ->
     _ -> error $ "No query matches: " ++ show query
 
 -- | A helper to match 'Text' with 'Query'.
-matches :: Query r -> Text -> Bool
+matches :: Query api r -> Text -> Bool
 matches (UnsafeQuery query) = (query ==)

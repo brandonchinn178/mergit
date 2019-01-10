@@ -19,5 +19,5 @@ import Data.Text (Text)
 import Data.GraphQL.Schema (SchemaType)
 
 -- | A GraphQL Query that is validated at compile-time.
-data Query (schema :: SchemaType) = UnsafeQuery Text
+data Query api (schema :: SchemaType) = UnsafeQuery Text
   deriving (Show)
