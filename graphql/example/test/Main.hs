@@ -11,12 +11,22 @@ goldens name = goldenVsString name fp . fmap (ByteString.pack . show)
   where
     fp = "test/goldens/" ++ name ++ ".golden"
 
+allRecordings :: [Recording]
+allRecordings =
+  [ Recording "All Star"
+  , Recording "Gangnam Style"
+  , Recording "Gangnam Style (Remix)"
+  ]
+
 main :: IO ()
 main = defaultMain $ testGroup "graphql-example-test"
   [ goldens "searchForSong_AllStar" $ runMockApp (searchForSong "All Star") mockData
-      { mockRecordings = [Recording "All Star"]
+      { mockRecordings = allRecordings
       }
   , goldens "searchForSong_GangnamStyle" $ runMockApp (searchForSong "Gangnam Style") mockData
-      { mockRecordings = [Recording "Gangnam Style"]
+      { mockRecordings = allRecordings
+      }
+  , goldens "searchForSong_GangnamStyle_Missing" $ runMockApp (searchForSong "Gangnam Style") mockData
+      { mockRecordings = [Recording "All Star"]
       }
   ]
