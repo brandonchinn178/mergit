@@ -56,11 +56,11 @@ import Network.HTTP.Client.TLS (tlsManagerSettings)
 import Network.HTTP.Types (hContentType)
 
 import Data.GraphQL.Error (GraphQLError, GraphQLException(..))
-import Data.GraphQL.Query (Query, fromQuery)
+import Data.GraphQL.Query (Query, fromQuery, queryName)
 import Data.GraphQL.Result (GraphQLResult, getErrors, getResult)
 import Data.GraphQL.Schema (SchemaType)
 import Data.GraphQL.Schema.Internal (Object(..))
-import Data.GraphQL.TestUtils (MockedEndpoints)
+import Data.GraphQL.TestUtils (MockedEndpoints, MocksApi(..), lookupMock)
 
 -- | A type class for queryable results.
 class IsQueryable result where
@@ -102,14 +102,14 @@ runQuery query args = do
 --           }
 --       }
 -- @
-newtype QueryT api m a = QueryT { unQueryT :: ReaderT QueryState m a }
+newtype QueryT api m a = QueryT { unQueryT :: ReaderT (QueryState api) m a }
   deriving
     ( Functor
     , Applicative
     , Monad
     , MonadError e
     , MonadIO
-    , MonadReader QueryState
+    , MonadReader (QueryState api)
     , MonadTrans
     )
 
@@ -124,11 +124,14 @@ instance MonadIO m => MonadQuery api (QueryT api m) where
       QueryState{..} ->
         let request = baseReq { requestBody = body }
         in liftIO $ responseBody <$> httpLbs request manager
-      QueryMockState f ->
-        return $ Aeson.encode $ Aeson.object
-          [ "errors" .= ([] :: [GraphQLError])
-          , "data" .= Just (f (fromQuery query) args')
-          ]
+      QueryMockState endpoints ->
+        case lookupMock query args' endpoints of
+          Nothing -> fail $ "Endpoint missing mocked data: " ++ queryName query
+          Just mockData ->
+            return $ Aeson.encode $ Aeson.object
+              [ "errors" .= ([] :: [GraphQLError])
+              , "data" .= Just mockData
+              ]
     where
       args' = fromArgs args
       body = RequestBodyLBS $ Aeson.encode $ Aeson.object
@@ -141,17 +144,17 @@ instance MonadIO m => MonadQuery api (QueryT api m) where
         v -> fail $ "Could not decode GraphQL response: " ++ show v
 
 -- | The settings for running QueryT.
-data QuerySettings = QuerySettings
+data QuerySettings api = QuerySettings
   { managerSettings :: ManagerSettings
     -- ^ Uses TLS by default
   , url             :: String
   , modifyReq       :: Request -> Request
-  , mockResponse    :: Maybe MockedEndpoints
+  , mockResponse    :: Maybe (MockedEndpoints api)
     -- ^ Instead of querying an API, use the given function to mock the response
   }
 
 -- | Default query settings.
-defaultQuerySettings :: QuerySettings
+defaultQuerySettings :: QuerySettings api
 defaultQuerySettings = QuerySettings
   { managerSettings = tlsManagerSettings
   , url = error "No URL is provided"
@@ -160,19 +163,19 @@ defaultQuerySettings = QuerySettings
   }
 
 -- | Query settings for mocking endpoints.
-mockedQuerySettings :: MockedEndpoints -> QuerySettings
-mockedQuerySettings mocked = defaultQuerySettings { mockResponse = Just mocked }
+mockedQuerySettings :: MocksApi api mock => mock -> QuerySettings api
+mockedQuerySettings mock = defaultQuerySettings { mockResponse = Just $ mockWith mock }
 
 -- | The state for running QueryT.
-data QueryState
+data QueryState api
   = QueryState
       { manager :: Manager
       , baseReq :: Request
       }
-  | QueryMockState MockedEndpoints
+  | QueryMockState (MockedEndpoints api)
 
 -- | Run a QueryT stack.
-runQueryT :: MonadIO m => QuerySettings -> QueryT api m a -> m a
+runQueryT :: MonadIO m => QuerySettings api -> QueryT api m a -> m a
 runQueryT QuerySettings{..} query = do
   state <- case mockResponse of
     Nothing -> liftIO $ do
