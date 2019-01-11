@@ -2,7 +2,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE TypeFamilies #-}
 
-module Duration where
+module Example.Duration where
 
 import Data.Aeson (FromJSON)
 import Data.GraphQL

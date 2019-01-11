@@ -37,11 +37,12 @@ import Network.HTTP.Client (requestHeaders)
 import Network.HTTP.Types (StdMethod(..), hAuthorization, hUserAgent, status422)
 
 import MergeBot.Core.GitHub.REST
+import MergeBot.Core.GraphQL.API (API)
 
 {- GraphQL API -}
 
 -- | Settings to query GitHub's GraphQL endpoint
-graphqlSettings :: String -> QuerySettings
+graphqlSettings :: String -> QuerySettings API
 graphqlSettings token = defaultQuerySettings
   { url = "https://api.github.com/graphql"
   , modifyReq = \req -> req

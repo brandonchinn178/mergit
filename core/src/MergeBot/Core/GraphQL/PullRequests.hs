@@ -18,6 +18,8 @@ module MergeBot.Core.GraphQL.PullRequests where
 import Data.GraphQL
 import Data.GraphQL.Aeson
 
+import MergeBot.Core.GraphQL.API (API)
+
 data Args = Args
   { _repoOwner :: String
   , _repoName  :: String
@@ -35,7 +37,7 @@ instance IsQueryable Result where
     , "after"     .= _after args
     ]
 
-query :: Query Schema
+query :: Query API Schema
 query = $(readGraphQLFile "PullRequests.graphql") -- TODO: when generated, will actually be file contents
 
 type Schema = 'SchemaObject

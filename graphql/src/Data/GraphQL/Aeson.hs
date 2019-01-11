@@ -10,6 +10,7 @@ Helpers for working with the Aeson library.
 module Data.GraphQL.Aeson
   ( object
   , fromObject
+  , fromObject'
   , fromScientific
   , fromScientific'
   , toInt
@@ -25,6 +26,7 @@ import Control.Monad ((<=<))
 import Data.Aeson hiding (object)
 import Data.Aeson.Types (Pair)
 import qualified Data.HashMap.Lazy as HashMap
+import Data.Maybe (fromJust)
 import Data.Scientific (Scientific, floatingOrInteger)
 import Data.Text (Text)
 
@@ -40,6 +42,10 @@ fromObject key = resultToMaybe . fromJSON <=< HashMap.lookup key
   where
     resultToMaybe (Error _) = Nothing
     resultToMaybe (Success a) = Just a
+
+-- | 'fromObject', but errors if the key doesn't exist.
+fromObject' :: FromJSON a => Text -> Object -> a
+fromObject' key = fromJust . fromObject key
 
 -- | An alias for 'floatingOrInteger'.
 fromScientific :: (RealFloat r, Integral i) => Scientific -> Either r i

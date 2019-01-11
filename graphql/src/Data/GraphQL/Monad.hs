@@ -7,9 +7,11 @@ Portability :  portable
 Definitions for monads that can run GraphQL queries.
 -}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -25,6 +27,7 @@ module Data.GraphQL.Monad
   , QueryT
   , QuerySettings(..)
   , defaultQuerySettings
+  , mockedQuerySettings
   , runQueryT
   -- * Re-exports
   , MonadIO
@@ -39,7 +42,6 @@ import Data.Aeson ((.=))
 import qualified Data.Aeson as Aeson
 import Data.Kind (Type)
 import Data.Maybe (fromJust)
-import Data.Text (Text)
 import Network.HTTP.Client
     ( Manager
     , ManagerSettings
@@ -54,10 +56,11 @@ import Network.HTTP.Client.TLS (tlsManagerSettings)
 import Network.HTTP.Types (hContentType)
 
 import Data.GraphQL.Error (GraphQLError, GraphQLException(..))
-import Data.GraphQL.Query.Internal (Query(..))
+import Data.GraphQL.Query (Query, fromQuery, queryName)
 import Data.GraphQL.Result (GraphQLResult, getErrors, getResult)
 import Data.GraphQL.Schema (SchemaType)
 import Data.GraphQL.Schema.Internal (Object(..))
+import Data.GraphQL.TestUtils (MockedEndpoints, MocksApi(..), lookupMock)
 
 -- | A type class for queryable results.
 class IsQueryable result where
@@ -66,19 +69,19 @@ class IsQueryable result where
   fromArgs :: QueryArgs result -> Aeson.Object
 
 -- | A type class for monads that can run queries.
-class MonadIO m => MonadQuery m where
+class MonadIO m => MonadQuery api m where
   runQuerySafe
     :: forall (schema :: SchemaType) (result :: Type)
      . (IsQueryable result, schema ~ ResultSchema result)
-    => Query schema -> QueryArgs result -> m (GraphQLResult (Object schema))
+    => Query api schema -> QueryArgs result -> m (GraphQLResult (Object schema))
 
 -- | Runs the given query and returns the result, erroring if the query returned errors.
 runQuery
-  :: forall m (schema :: SchemaType) (result :: Type)
-   . (MonadQuery m, IsQueryable result, schema ~ ResultSchema result)
-  => Query schema -> QueryArgs result -> m (Object schema)
+  :: forall api m (schema :: SchemaType) (result :: Type)
+   . (MonadQuery api m, IsQueryable result, schema ~ ResultSchema result)
+  => Query api schema -> QueryArgs result -> m (Object schema)
 runQuery query args = do
-  result <- runQuerySafe @_ @schema query args
+  result <- runQuerySafe @api @m @schema query args
   case getErrors result of
     [] -> return $ fromJust $ getResult @(Object schema) result
     errors -> liftIO $ throwIO $ GraphQLException errors
@@ -99,37 +102,40 @@ runQuery query args = do
 --           }
 --       }
 -- @
-newtype QueryT m a = QueryT { unQueryT :: ReaderT QueryState m a }
+newtype QueryT api m a = QueryT { unQueryT :: ReaderT (QueryState api) m a }
   deriving
     ( Functor
     , Applicative
     , Monad
     , MonadError e
     , MonadIO
-    , MonadReader QueryState
+    , MonadReader (QueryState api)
     , MonadTrans
     )
 
-instance MonadIO m => MonadQuery (QueryT m) where
+instance MonadIO m => MonadQuery api (QueryT api m) where
   runQuerySafe
     :: forall (schema :: SchemaType) (result :: Type)
      . (IsQueryable result, schema ~ ResultSchema result)
-    => Query schema -> QueryArgs result -> QueryT m (GraphQLResult (Object schema))
-  runQuerySafe (UnsafeQuery query) args = do
+    => Query api schema -> QueryArgs result -> QueryT api m (GraphQLResult (Object schema))
+  runQuerySafe query args = do
     state <- ask
     decodeResponse =<< case state of
       QueryState{..} ->
         let request = baseReq { requestBody = body }
         in liftIO $ responseBody <$> httpLbs request manager
-      QueryMockState f ->
-        return $ Aeson.encode $ Aeson.object
-          [ "errors" .= ([] :: [GraphQLError])
-          , "data" .= Just (f query args')
-          ]
+      QueryMockState endpoints ->
+        case lookupMock query args' endpoints of
+          Nothing -> fail $ "Endpoint missing mocked data: " ++ queryName query
+          Just mockData ->
+            return $ Aeson.encode $ Aeson.object
+              [ "errors" .= ([] :: [GraphQLError])
+              , "data" .= Just mockData
+              ]
     where
       args' = fromArgs args
       body = RequestBodyLBS $ Aeson.encode $ Aeson.object
-        [ "query" .= query
+        [ "query" .= fromQuery query
         , "variables" .= args'
         ]
       decodeResponse = either fail (traverse fromValue) . Aeson.eitherDecode
@@ -138,17 +144,17 @@ instance MonadIO m => MonadQuery (QueryT m) where
         v -> fail $ "Could not decode GraphQL response: " ++ show v
 
 -- | The settings for running QueryT.
-data QuerySettings = QuerySettings
+data QuerySettings api = QuerySettings
   { managerSettings :: ManagerSettings
     -- ^ Uses TLS by default
   , url             :: String
   , modifyReq       :: Request -> Request
-  , mockResponse    :: Maybe (Text -> Aeson.Object -> Aeson.Value)
+  , mockResponse    :: Maybe (MockedEndpoints api)
     -- ^ Instead of querying an API, use the given function to mock the response
   }
 
 -- | Default query settings.
-defaultQuerySettings :: QuerySettings
+defaultQuerySettings :: QuerySettings api
 defaultQuerySettings = QuerySettings
   { managerSettings = tlsManagerSettings
   , url = error "No URL is provided"
@@ -156,16 +162,20 @@ defaultQuerySettings = QuerySettings
   , mockResponse = Nothing
   }
 
+-- | Query settings for mocking endpoints.
+mockedQuerySettings :: MocksApi api mock => mock -> QuerySettings api
+mockedQuerySettings mock = defaultQuerySettings { mockResponse = Just $ mockWith mock }
+
 -- | The state for running QueryT.
-data QueryState
+data QueryState api
   = QueryState
       { manager :: Manager
       , baseReq :: Request
       }
-  | QueryMockState (Text -> Aeson.Object -> Aeson.Value)
+  | QueryMockState (MockedEndpoints api)
 
 -- | Run a QueryT stack.
-runQueryT :: MonadIO m => QuerySettings -> QueryT m a -> m a
+runQueryT :: MonadIO m => QuerySettings api -> QueryT api m a -> m a
 runQueryT QuerySettings{..} query = do
   state <- case mockResponse of
     Nothing -> liftIO $ do

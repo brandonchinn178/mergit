@@ -4,10 +4,12 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 
-module Recordings where
+module Example.GraphQL.Recordings where
 
 import Data.GraphQL
 import Data.GraphQL.Aeson (object, (.=))
+
+import Example.GraphQL.API (API)
 
 data Args = Args
   { _query :: String
@@ -24,7 +26,7 @@ instance IsQueryable Result where
     , "first" .= _first
     ]
 
-query :: Query Schema
+query :: Query API Schema
 query = $(readGraphQLFile "Recordings.graphql")
 
 type Schema = 'SchemaObject

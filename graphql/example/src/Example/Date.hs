@@ -3,7 +3,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeFamilies #-}
 
-module Date where
+module Example.Date where
 
 import Data.Aeson (FromJSON(..), withText)
 import Data.GraphQL

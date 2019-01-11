@@ -1,5 +1,7 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -13,13 +15,14 @@ import Data.Maybe (fromMaybe)
 import Data.Monoid ((<>))
 import qualified Data.Text as Text
 
-import Date (showDate)
-import Duration (showDuration)
-import qualified Recordings
-import ReleaseStatus (ReleaseStatus(..))
+import Example.Date (showDate)
+import Example.Duration (showDuration)
+import Example.GraphQL.API (API)
+import Example.GraphQL.Enums.ReleaseStatus (ReleaseStatus(..))
+import qualified Example.GraphQL.Recordings as Recordings
 
-newtype App a = App { unApp :: QueryT IO a }
-  deriving (Functor,Applicative,Monad,MonadIO,MonadQuery)
+newtype App a = App { unApp :: QueryT API IO a }
+  deriving (Functor,Applicative,Monad,MonadIO,MonadQuery API)
 
 runApp :: App a -> IO a
 runApp = runQueryT querySettings . unApp
@@ -30,7 +33,7 @@ runApp = runQueryT querySettings . unApp
 
 type Song = [unwrap| (Recordings.Schema).search!.recordings!.nodes![]! |]
 
-searchForSong :: String -> App [Song]
+searchForSong :: MonadQuery API m => String -> m [Song]
 searchForSong song =
   [get| .search!.recordings!.nodes![]! |] <$>
     runQuery Recordings.query Recordings.Args

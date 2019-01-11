@@ -8,9 +8,12 @@ Defines the monad used for the core functions of the merge bot.
 -}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TypeSynonymInstances #-}
 
 module MergeBot.Core.Monad
   ( BotAppT
@@ -34,8 +37,9 @@ import Network.HTTP.Client.TLS (tlsManagerSettings)
 import MergeBot.Core.Config (BotConfig(..))
 import MergeBot.Core.GitHub (MonadGitHub, MonadREST, graphqlSettings)
 import MergeBot.Core.GitHub.REST (KeyValue(..), MonadGitHub(..), githubAPI)
+import MergeBot.Core.GraphQL.API (API)
 
-type MonadGraphQL m = (MonadReader BotEnv m, MonadQuery m)
+type MonadGraphQL m = (MonadReader BotEnv m, MonadQuery API m)
 
 data BotEnv = BotEnv
   { repoOwner :: String
@@ -48,7 +52,7 @@ data BotEnv = BotEnv
 getRepo :: BotEnv -> (String, String)
 getRepo BotEnv{..} = (repoOwner, repoName)
 
-newtype BotAppT m a = BotAppT { unBotApp :: ReaderT BotEnv (QueryT m) a }
+newtype BotAppT m a = BotAppT { unBotApp :: ReaderT BotEnv (QueryT API m) a }
   deriving
     ( Functor
     , Applicative
@@ -70,7 +74,7 @@ instance (MonadIO m, MonadCatch m) => MonadCatch (BotAppT m) where
     BotAppT . lift . lift $
       catch (runBotWith env m) (runBotWith env . f)
 
-instance MonadIO m => MonadQuery (BotAppT m) where
+instance MonadIO m => MonadQuery API (BotAppT m) where
   runQuerySafe query = BotAppT . lift . runQuerySafe query
 
 instance MonadIO m => MonadGitHub (BotAppT m) where

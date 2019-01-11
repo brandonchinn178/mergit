@@ -18,6 +18,8 @@ module MergeBot.Core.GraphQL.Branch where
 import Data.GraphQL
 import Data.GraphQL.Aeson
 
+import MergeBot.Core.GraphQL.API (API)
+
 data Args = Args
   { _repoOwner :: String
   , _repoName  :: String
@@ -35,7 +37,7 @@ instance IsQueryable Result where
     , "name"      .= _name args
     ]
 
-query :: Query Schema
+query :: Query API Schema
 query = $(readGraphQLFile "Branch.graphql") -- TODO: when generated, will actually be file contents
 
 type Schema = 'SchemaObject
