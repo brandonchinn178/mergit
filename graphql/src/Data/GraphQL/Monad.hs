@@ -56,7 +56,7 @@ import Network.HTTP.Client.TLS (tlsManagerSettings)
 import Network.HTTP.Types (hContentType)
 
 import Data.GraphQL.Error (GraphQLError, GraphQLException(..))
-import Data.GraphQL.Query.Internal (Query(..))
+import Data.GraphQL.Query (Query, fromQuery)
 import Data.GraphQL.Result (GraphQLResult, getErrors, getResult)
 import Data.GraphQL.Schema (SchemaType)
 import Data.GraphQL.Schema.Internal (Object(..))
@@ -118,7 +118,7 @@ instance MonadIO m => MonadQuery api (QueryT api m) where
     :: forall (schema :: SchemaType) (result :: Type)
      . (IsQueryable result, schema ~ ResultSchema result)
     => Query api schema -> QueryArgs result -> QueryT api m (GraphQLResult (Object schema))
-  runQuerySafe (UnsafeQuery query) args = do
+  runQuerySafe query args = do
     state <- ask
     decodeResponse =<< case state of
       QueryState{..} ->
@@ -127,12 +127,12 @@ instance MonadIO m => MonadQuery api (QueryT api m) where
       QueryMockState f ->
         return $ Aeson.encode $ Aeson.object
           [ "errors" .= ([] :: [GraphQLError])
-          , "data" .= Just (f query args')
+          , "data" .= Just (f (fromQuery query) args')
           ]
     where
       args' = fromArgs args
       body = RequestBodyLBS $ Aeson.encode $ Aeson.object
-        [ "query" .= query
+        [ "query" .= fromQuery query
         , "variables" .= args'
         ]
       decodeResponse = either fail (traverse fromValue) . Aeson.eitherDecode
