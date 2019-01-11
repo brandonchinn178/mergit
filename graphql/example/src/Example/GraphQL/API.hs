@@ -1,5 +1,5 @@
 {-# LANGUAGE DataKinds #-}
 
-module GraphQL.API where
+module Example.GraphQL.API where
 
 type API = "graphbrainz"

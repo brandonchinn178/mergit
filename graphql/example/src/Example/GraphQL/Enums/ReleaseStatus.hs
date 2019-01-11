@@ -1,7 +1,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeFamilies #-}
 
-module ReleaseStatus where
+module Example.GraphQL.Enums.ReleaseStatus where
 
 import Data.GraphQL
 import qualified Data.Text as Text

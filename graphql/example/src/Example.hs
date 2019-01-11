@@ -15,11 +15,11 @@ import Data.Maybe (fromMaybe)
 import Data.Monoid ((<>))
 import qualified Data.Text as Text
 
-import Date (showDate)
-import Duration (showDuration)
-import GraphQL.API (API)
-import qualified Recordings
-import ReleaseStatus (ReleaseStatus(..))
+import Example.Date (showDate)
+import Example.Duration (showDuration)
+import Example.GraphQL.API (API)
+import Example.GraphQL.Enums.ReleaseStatus (ReleaseStatus(..))
+import qualified Example.GraphQL.Recordings as Recordings
 
 newtype App a = App { unApp :: QueryT API IO a }
   deriving (Functor,Applicative,Monad,MonadIO,MonadQuery API)

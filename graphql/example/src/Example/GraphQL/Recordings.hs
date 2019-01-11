@@ -4,12 +4,12 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 
-module Recordings where
+module Example.GraphQL.Recordings where
 
 import Data.GraphQL
 import Data.GraphQL.Aeson (object, (.=))
 
-import GraphQL.API (API)
+import Example.GraphQL.API (API)
 
 data Args = Args
   { _query :: String
