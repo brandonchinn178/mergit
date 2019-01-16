@@ -43,7 +43,7 @@ import Data.Kind (Constraint)
 import Data.Maybe (fromMaybe)
 import Data.Proxy (Proxy(..))
 import qualified Data.Text as Text
-import Data.Typeable (Typeable, typeRep, typeRepArgs, typeRepTyCon)
+import Data.Typeable (Typeable)
 import qualified Data.Vector as Vector
 import Fcf (type (<=<), type (=<<), Eval, Find, FromMaybe, Fst, Snd, TyEq)
 import GHC.TypeLits
@@ -166,16 +166,5 @@ getKey (UnsafeObject object) = fromMaybe invalidParse $ parseValue @result value
     endSchema = prettyShow @endSchema
     invalidParse = error $ concat $ case value of
       Just _ -> ["Key missing from Object: ", key]
-      Nothing -> ["Could not cast `", show value, "` at key '", key, "' with schema: ", endSchema]
-
-{- Helpers -}
-
--- | Pretty print the given type.
-prettyShow :: forall a. Typeable a => String
-prettyShow = go $ typeRep (Proxy @a)
-  where
-    go ty =
-      let con = show $ typeRepTyCon ty
-          args = map (wrap . go) $ typeRepArgs ty
-      in unwords $ con : args
-    wrap s = "(" ++ s ++ ")"
+      Nothing ->
+        ["Could not cast `", show value, "` at key '", key, "' to match schema: ", endSchema]
