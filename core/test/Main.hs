@@ -15,6 +15,7 @@ main :: IO ()
 main = defaultMain $ testGroup "merge-bot-core-test"
   [ goldens "get_session_info" $ runBot testConfig getSessionInfo
   , getBranchStatusesTests
+  , getTryStatusTests
   ]
 
 getBranchStatusesTests :: TestTree
@@ -88,4 +89,27 @@ getBranchStatusesTests = testGroup "MergeBot.Core.Branch.getBranchStatuses"
       , commitMessage = toStagingMessage prs
       , mergeConfig = Just $ BranchConfig ["test1"]
       , contexts = [("test1", StatusState.PENDING)]
+      }
+
+getTryStatusTests :: TestTree
+getTryStatusTests = testGroup "MergeBot.Core.Branch.getTryStatus"
+  [ testTryStatus "empty" []
+  , testTryStatus "test1_expected" [("test1", StatusState.EXPECTED)]
+  , testTryStatus "test1_error" [("test1", StatusState.ERROR)]
+  , testTryStatus "test1_failure" [("test1", StatusState.FAILURE)]
+  , testTryStatus "test1_pending" [("test1", StatusState.PENDING)]
+  , testTryStatus "test1_success" [("test1", StatusState.SUCCESS)]
+  , testTryStatus "all_success" [("test1", StatusState.SUCCESS), ("test2", StatusState.SUCCESS)]
+  , testTryStatus "test2_failure" [("test1", StatusState.SUCCESS), ("test2", StatusState.FAILURE)]
+  ]
+  where
+    testTryStatus name contexts' = goldens ("get_try_status_" ++ name) $
+      runTestApp (Branch.getTryStatus 1) mockData
+      { mockBranches =
+        [ baseBranch
+          { branchName = toTryBranch 1
+          , mergeConfig = Just $ BranchConfig ["test1", "test2"]
+          , contexts = contexts'
+          }
+        ]
       }
