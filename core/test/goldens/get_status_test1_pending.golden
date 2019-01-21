@@ -1,0 +1,1 @@
+Just (CIStatus [("test1",CIRunning),("test2",CIWaiting)])
