@@ -8,6 +8,7 @@ module MergeBot.Core.Test.Data where
 
 import Data.GraphQL.Aeson (fromObject')
 import Data.GraphQL.TestUtils (MocksApi(..), mock)
+import qualified Data.Text as Text
 
 import MergeBot.Core.GraphQL.API (API)
 import qualified MergeBot.Core.GraphQL.Branch as Branch
@@ -32,5 +33,5 @@ instance MocksApi API MockData where
     ]
     where
       getBranch branches name = case filter ((== name) . branchName) branches of
-        [] -> error $ "No branch named: " ++ name
+        [] -> error $ "No branch named: " ++ Text.unpack name
         branch:_ -> encodeBranch branch

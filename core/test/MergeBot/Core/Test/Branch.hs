@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE RecordWildCards #-}
 
@@ -5,6 +6,7 @@ module MergeBot.Core.Test.Branch where
 
 import Data.Aeson (ToJSON(..), Value, encode)
 import Data.Aeson.QQ (aesonQQ)
+import Data.Text (Text)
 import qualified Data.Text.Lazy.Encoding as Text
 
 import MergeBot.Core.Config (BranchConfig(..))
@@ -13,9 +15,9 @@ import MergeBot.Core.GraphQL.Enums.StatusState (StatusState(..))
 import MergeBot.Core.Test.Utils (paginated)
 
 data Branch = Branch
-  { branchName    :: String
-  , commitHash    :: String
-  , commitMessage :: String
+  { branchName    :: Text
+  , commitHash    :: Text
+  , commitMessage :: Text
   , mergeConfig   :: Maybe BranchConfig
   , contexts      :: [(String, StatusState)]
   } deriving (Show)
