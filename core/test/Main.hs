@@ -19,68 +19,68 @@ main = defaultMain $ testGroup "merge-bot-core-test"
 
 getBranchStatusesTests :: TestTree
 getBranchStatusesTests = testGroup "MergeBot.Core.Branch.getBranchStatuses"
-  [ testBranchStatuses "branch_statuses_try" [] [tryBranch]
-  , testBranchStatuses "branch_statuses_try_config" []
+  [ testBranchStatuses "try" [] [tryBranch]
+  , testBranchStatuses "try_config" []
       [ tryBranch
           { mergeConfig = Just $ BranchConfig ["test1"]
           }
       ]
-  , testBranchStatuses "branch_statuses_try_no_config" []
+  , testBranchStatuses "try_no_config" []
       [ tryBranch
           { contexts = [("test1", StatusState.SUCCESS)]
           }
       ]
-  , testBranchStatuses "branch_statuses_try_config_other" []
+  , testBranchStatuses "try_config_other" []
       [ tryBranch
           { mergeConfig = Just $ BranchConfig ["test1"]
           , contexts = [("other", StatusState.SUCCESS)]
           }
       ]
-  , testBranchStatuses "branch_statuses_try_config_pending" []
+  , testBranchStatuses "try_config_pending" []
       [ tryBranch
           { mergeConfig = Just $ BranchConfig ["test1"]
           , contexts = [("test1", StatusState.PENDING)]
           }
       ]
-  , testBranchStatuses "branch_statuses_try_config_failure" []
+  , testBranchStatuses "try_config_failure" []
       [ tryBranch
           { mergeConfig = Just $ BranchConfig ["test1"]
           , contexts = [("test1", StatusState.FAILURE)]
           }
       ]
-  , testBranchStatuses "branch_statuses_try_config_success" []
+  , testBranchStatuses "try_config_success" []
       [ tryBranch
           { mergeConfig = Just $ BranchConfig ["test1"]
           , contexts = [("test1", StatusState.SUCCESS)]
           }
       ]
-  , testBranchStatuses "branch_statuses_queue" [1] [tryBranch]
-  , testBranchStatuses "branch_statuses_queue_try" [1]
+  , testBranchStatuses "queue" [1] [tryBranch]
+  , testBranchStatuses "queue_try" [1]
       [ tryBranch
           { mergeConfig = Just $ BranchConfig ["test1"]
           , contexts = [("test1", StatusState.PENDING)]
           }
       ]
-  , testBranchStatuses "branch_statuses_staging" []
+  , testBranchStatuses "staging" []
       [ stagingBranch [2, 3]
       ]
-  , testBranchStatuses "branch_statuses_staging_failed" []
+  , testBranchStatuses "staging_failed" []
       [ (stagingBranch [2, 3])
           { contexts = [("test1", StatusState.FAILURE)]
           }
       ]
-  , testBranchStatuses "branch_statuses_staging_queue" [1]
+  , testBranchStatuses "staging_queue" [1]
       [ tryBranch
       , stagingBranch [2, 3]
       ]
-  , testBranchStatuses "branch_statuses_staging_queue_try" [4]
+  , testBranchStatuses "staging_queue_try" [4]
       [ tryBranch
       , stagingBranch [2, 3]
       , baseBranch { branchName = toTryBranch 4 }
       ]
   ]
   where
-    testBranchStatuses name queue branches = goldens name $
+    testBranchStatuses name queue branches = goldens ("branch_statuses_" ++ name) $
       runTestApp (Branch.getBranchStatuses queue) mockData { mockBranches = branches }
     tryBranch = baseBranch { branchName = toTryBranch 1 }
     stagingBranch prs = baseBranch
