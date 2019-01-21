@@ -2,6 +2,7 @@
 
 module Branch where
 
+import Data.Text (Text)
 import Test.Tasty
 
 import qualified MergeBot.Core.Branch as Branch
@@ -15,6 +16,7 @@ tests :: TestTree
 tests = testGroup "Branch"
   [ getBranchStatusesTests
   , getTryStatusTests
+  , getStagingStatusTests
   ]
 
 getBranchStatusesTests :: TestTree
@@ -91,7 +93,15 @@ getBranchStatusesTests = testGroup "getBranchStatuses"
       }
 
 getTryStatusTests :: TestTree
-getTryStatusTests = testGroup "getTryStatus"
+getTryStatusTests =
+  getStatusTests "getTryStatus" (Branch.getTryStatus 1) (toTryBranch 1)
+
+getStagingStatusTests :: TestTree
+getStagingStatusTests =
+  getStatusTests "getStagingStatus" (Branch.getStagingStatus "master") (toStagingBranch "master")
+
+getStatusTests :: Show a => String -> TestApp a -> Text -> TestTree
+getStatusTests groupName action branchName' = testGroup groupName
   [ testTryStatus "empty" []
   , testTryStatus "test1_expected" [("test1", StatusState.EXPECTED)]
   , testTryStatus "test1_error" [("test1", StatusState.ERROR)]
@@ -102,11 +112,11 @@ getTryStatusTests = testGroup "getTryStatus"
   , testTryStatus "test2_failure" [("test1", StatusState.SUCCESS), ("test2", StatusState.FAILURE)]
   ]
   where
-    testTryStatus name contexts' = goldens ("get_try_status_" ++ name) $
-      runTestApp (Branch.getTryStatus 1) mockData
+    testTryStatus name contexts' = goldens ("get_status_" ++ name) $
+      runTestApp action mockData
       { mockBranches =
         [ baseBranch
-          { branchName = toTryBranch 1
+          { branchName = branchName'
           , mergeConfig = Just $ BranchConfig ["test1", "test2"]
           , contexts = contexts'
           }
