@@ -78,14 +78,14 @@ getBranchStatusesTests = testGroup "getBranchStatuses"
   , testBranchStatuses "staging_queue_try" [4]
       [ tryBranch
       , stagingBranch [2, 3]
-      , baseBranch { branchName = toTryBranch 4 }
+      , mockBranch { branchName = toTryBranch 4 }
       ]
   ]
   where
     testBranchStatuses name queue branches = goldens ("branch_statuses_" ++ name) $
-      runTestApp (Branch.getBranchStatuses queue) mockData { mockBranches = branches }
-    tryBranch = baseBranch { branchName = toTryBranch 1 }
-    stagingBranch prs = baseBranch
+      runTestApp (Branch.getBranchStatuses queue) initialState { mockBranches = branches }
+    tryBranch = mockBranch { branchName = toTryBranch 1 }
+    stagingBranch prs = mockBranch
       { branchName = toStagingBranch "master"
       , commitMessage = toStagingMessage prs
       , mergeConfig = Just $ BranchConfig ["test1"]
@@ -113,12 +113,12 @@ getStatusTests groupName action branchName' = testGroup groupName
   ]
   where
     testTryStatus name contexts' = goldens ("get_status_" ++ name) $
-      runTestApp action mockData
-      { mockBranches =
-        [ baseBranch
-          { branchName = branchName'
-          , mergeConfig = Just $ BranchConfig ["test1", "test2"]
-          , contexts = contexts'
-          }
-        ]
-      }
+      runTestApp action initialState
+        { mockBranches =
+          [ mockBranch
+            { branchName = branchName'
+            , mergeConfig = Just $ BranchConfig ["test1", "test2"]
+            , contexts = contexts'
+            }
+          ]
+        }

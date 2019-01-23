@@ -20,16 +20,16 @@ import Data.GraphQL.TestUtils (mockWith)
 
 import MergeBot.Core.GraphQL.API (API)
 import MergeBot.Core.Monad (BotEnv(..))
-import MergeBot.Core.Test.Data (MockData)
+import MergeBot.Core.Test.Mock
 
 -- | The monad to run tests
-newtype TestApp a = TestApp { unTestApp :: StateT MockData (QueryT API IO) a }
+newtype TestApp a = TestApp { unTestApp :: StateT MockState (QueryT API IO) a }
   deriving
     ( Functor
     , Applicative
     , Monad
     , MonadIO
-    , MonadState MockData
+    , MonadState MockState
     )
 
 instance MonadReader BotEnv TestApp where
@@ -46,7 +46,9 @@ instance MonadQuery API TestApp where
 
 runTestApp :: TestApp a -> MockData -> IO a
 runTestApp app mockData =
-  runQueryT (mockedQuerySettings mockData)
-  . (`evalStateT` mockData)
+  runQueryT (mockedQuerySettings mockState)
+  . (`evalStateT` mockState)
   . unTestApp
   $ app
+  where
+    mockState = toMockState mockData
