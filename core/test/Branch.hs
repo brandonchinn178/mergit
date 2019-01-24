@@ -17,6 +17,7 @@ tests = testGroup "Branch"
   [ getBranchStatusesTests
   , getTryStatusTests
   , getStagingStatusTests
+  , createTryBranchTests
   ]
 
 getBranchStatusesTests :: TestTree
@@ -122,3 +123,19 @@ getStatusTests groupName action branchName' = testGroup groupName
             }
           ]
         }
+
+createTryBranchTests :: TestTree
+createTryBranchTests = testGroup "createTryBranch"
+  [ testCreateTry "with_base" initialState
+    { mockBranches =
+      [ mockBranch { branchName = "master", mergeConfig = Just $ BranchConfig ["test1"] }
+      , mockBranch { branchName = "test" }
+      ]
+    , mockPRs =
+      [ mockPR { number = 1 }
+      ]
+    }
+  ]
+  where
+    testCreateTry name state = goldens ("create_try_" ++ name) $
+      runTestApp' (Branch.createTryBranch "master" 1) state
