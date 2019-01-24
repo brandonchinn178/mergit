@@ -21,6 +21,7 @@ module MergeBot.Core.GitHub.REST
   , githubAPI
   , handleStatus
   , (.:)
+  , kvToValue
   ) where
 
 import Control.Monad.Catch (MonadCatch, handleJust)

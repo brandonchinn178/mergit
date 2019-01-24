@@ -8,10 +8,16 @@ module MergeBot.Core.Test.Mock
   , initialState
   , mockBranch
   , toMockState
+  , createBranch
+  , createCommit
+  , deleteBranch
+  , mergeBranches
+  , updateBranch
   ) where
 
 import Data.Aeson (encode)
 import qualified Data.Map.Strict as Map
+import qualified Data.Set as Set
 import Data.Text (Text)
 import qualified Data.Text as Text
 import qualified Data.Text.Lazy as TextL
@@ -59,7 +65,7 @@ initialState = MockData
 -- GitHub state.
 toMockState :: MockData -> MockState
 toMockState MockData{..} = MockState
-  { ghCommits = map getCommit info
+  { ghCommits = Set.fromList $ map getCommit info
   , ghBranches = Map.fromList $ map getBranch info
   , ghTrees = Map.fromList $ map getTree info
   }
@@ -68,8 +74,8 @@ toMockState MockData{..} = MockState
     -- list of (branch, commitSHA, treeSHA, treeEntries)
     info = zipWith3 getInfo mockBranches (hashes "commit") (hashes "tree")
     getInfo branch commitSHA treeSHA =
-      let mkEntry = GHTreeEntry ".lymerge.yaml" . TextL.toStrict . Text.decodeUtf8 . encode
-          entries = maybe [] ((:[]) . mkEntry) $ mergeConfig branch
+      let toYAML = TextL.toStrict . Text.decodeUtf8 . encode
+          entries = maybe Map.empty (Map.singleton ".lymerge.yaml" . toYAML) $ mergeConfig branch
       in (branch, commitSHA, treeSHA, entries)
     getCommit (MockBranch{..}, commitHash, commitTree, _) = GHCommit{ commitContexts = contexts, .. }
     getBranch (branch, commitSHA, _, _) = (branchName branch, commitSHA)

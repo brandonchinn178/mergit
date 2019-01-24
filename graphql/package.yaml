@@ -8,6 +8,7 @@ dependencies:
   - aeson
   - base
   - bytestring
+  - exceptions
   - extra
   - first-class-families
   - http-client

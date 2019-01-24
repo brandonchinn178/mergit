@@ -265,7 +265,7 @@ getPRCommit prNum = do
 -- | Make a merge request payload for the given branch and commit hash.
 makeMerge :: Text -> Text -> GitHubData
 makeMerge branch commit =
-  [ "base" := "refs/heads/" <> branch
+  [ "base" := branch
   , "head" := commit
   , "message" := "[ci skip] merge into temp"
   ]

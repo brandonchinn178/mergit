@@ -6,6 +6,7 @@
 
 module MergeBot.Core.Test.Monad where
 
+import Control.Monad.Catch (MonadCatch, MonadThrow)
 import Control.Monad.IO.Class (MonadIO)
 import Control.Monad.Reader (MonadReader(..))
 import Control.Monad.State.Lazy (MonadState, StateT, evalStateT, gets)
@@ -16,8 +17,12 @@ import Data.GraphQL
     , runQuerySafeMocked
     , runQueryT
     )
+import Data.GraphQL.Aeson (FromJSON)
 import Data.GraphQL.TestUtils (mockWith)
+import Data.Text (Text)
+import Network.HTTP.Types (StdMethod(..))
 
+import MergeBot.Core.GitHub.REST (MonadGitHub(..), kvToValue, (.:))
 import MergeBot.Core.GraphQL.API (API)
 import MergeBot.Core.Monad (BotEnv(..))
 import MergeBot.Core.Test.Mock
@@ -28,8 +33,10 @@ newtype TestApp a = TestApp { unTestApp :: StateT MockState (QueryT API IO) a }
     ( Functor
     , Applicative
     , Monad
+    , MonadCatch
     , MonadIO
     , MonadState MockState
+    , MonadThrow
     )
 
 instance MonadReader BotEnv TestApp where
@@ -43,6 +50,25 @@ instance MonadReader BotEnv TestApp where
 
 instance MonadQuery API TestApp where
   runQuerySafe query args = runQuerySafeMocked query args =<< gets mockWith
+
+instance MonadGitHub TestApp where
+  queryGitHub method endpoint endpointVals ghData = case (endpoint, method) of
+    ("/repos/:owner/:repo/git/refs", POST) ->
+      createBranch (ghData' "ref") (ghData' "sha")
+    ("/repos/:owner/:repo/git/commits", POST) ->
+      createCommit (ghData' "message") (ghData' "tree") (ghData' "parents")
+    ("/repos/:owner/:repo/git/refs/:ref", DELETE) ->
+      deleteBranch (endpointVals' "ref")
+    ("/repos/:owner/:repo/merges", POST) ->
+      mergeBranches (ghData' "base") (ghData' "head") (ghData' "message")
+    ("/repos/:owner/:repo/git/refs/:ref", PATCH) ->
+      updateBranch (endpointVals' "ref") (ghData' "sha")
+    _ -> fail $ "Unhandled REST endpoint: " ++ show (endpoint, method)
+    where
+      endpointVals' :: FromJSON a => Text -> a
+      endpointVals' = (kvToValue endpointVals .:)
+      ghData' :: FromJSON a => Text -> a
+      ghData' = (kvToValue ghData .:)
 
 runTestApp :: TestApp a -> MockData -> IO a
 runTestApp app mockData =

@@ -22,7 +22,7 @@ data StatusState
   | FAILURE
   | PENDING
   | SUCCESS
-  deriving (Show,Eq,Enum)
+  deriving (Show,Eq,Ord,Enum)
 
 instance GraphQLEnum StatusState where
   getEnum s = case Text.unpack s of
