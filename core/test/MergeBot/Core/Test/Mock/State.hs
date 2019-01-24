@@ -9,6 +9,8 @@
 module MergeBot.Core.Test.Mock.State
   ( MockState(..)
   , GHCommit(..)
+  , GHPullRequest(..)
+  , BranchName
   , createBranch
   , createCommit
   , deleteBranch
@@ -44,6 +46,7 @@ import MergeBot.Core.GraphQL.API (API)
 import qualified MergeBot.Core.GraphQL.Branch as Branch
 import qualified MergeBot.Core.GraphQL.Branches as Branches
 import MergeBot.Core.GraphQL.Enums.StatusState (StatusState(..))
+import qualified MergeBot.Core.GraphQL.PullRequest as PullRequest
 import MergeBot.Core.Test.Utils (paginated)
 
 {- GitHub state -}
@@ -55,14 +58,16 @@ import MergeBot.Core.Test.Utils (paginated)
 --  * all (`Map.member` ghTrees) $ map commitTree ghCommits
 data MockState = MockState
   { ghCommits  :: Set GHCommit
-  , ghBranches :: Map Text SHA -- ^ mapping of branch name to commit hash
+  , ghBranches :: Map BranchName SHA
   , ghTrees    :: Map SHA GHTree
+  , ghPRs      :: Set GHPullRequest
   } deriving (Show)
 
 instance MocksApi API MockState where
   mockWith state =
     [ (mock Branch.query, getBranch state . fromObject' "name")
     , (mock Branches.query, getBranches state . fromObject' "after")
+    , (mock PullRequest.query, getPR state . fromObject' "number")
     ]
 
 {- REST endpoints -}
@@ -192,6 +197,7 @@ ghThrow state extra message = throwM $ HttpExceptionRequest req content
 {- GitHub types -}
 
 type SHA = Text
+type BranchName = Text
 
 data GHCommit = GHCommit
   { commitHash     :: SHA
@@ -201,6 +207,18 @@ data GHCommit = GHCommit
   } deriving (Show,Eq,Ord)
 
 type GHTree = Map FilePath Text
+
+data GHPullRequest = GHPullRequest
+  { prNum        :: Int
+  , prTitle      :: Text
+  , prAuthor     :: Text
+  , prCreated    :: Text
+  , prUpdated    :: Text
+  , prBody       :: Text
+  , prCommitHash :: SHA
+  , prBranch     :: BranchName
+  , prBaseBranch :: BranchName
+  } deriving (Show,Eq,Ord)
 
 {- JSON encoding -}
 
@@ -242,6 +260,22 @@ getBranches state after =
         }
       |]
     PaginatedResult{..} = paginated (Map.keys $ ghBranches state) after
+
+-- | Get the result of a 'PullRequest' query.
+getPR :: MockState -> Int -> Value
+getPR MockState{..} num =
+  [aesonQQ|
+    {
+      "repository": {
+        "pullRequest": #{encodePR pr}
+      }
+    }
+  |]
+  where
+    pr = case Set.toList $ Set.filter ((== num) . prNum) ghPRs of
+      [] -> error $ "PR not found: " ++ show num
+      [pr'] -> pr'
+      _ -> error $ "Multiple PRs found: " ++ show num
 
 encodeBranch :: MockState -> Text -> Value
 encodeBranch MockState{..} name = encodeCommit commit treeEntries
@@ -290,3 +324,24 @@ encodeCommit GHCommit{..} entries =
           }
         }
       |]
+
+encodePR :: GHPullRequest -> Value
+encodePR GHPullRequest{..} =
+  [aesonQQ|
+    {
+      "number": #{prNum},
+      "title": #{prTitle},
+      "author": {
+        "login": #{prAuthor}
+      },
+      "createdAt": #{prCreated},
+      "updatedAt": #{prUpdated},
+      "url": #{prUrl},
+      "bodyHTML": #{prBody},
+      "headRefOid": #{prCommitHash},
+      "headRefName": #{prBranch},
+      "baseRefName": #{prBaseBranch}
+    }
+  |]
+  where
+    prUrl = "https://github.com/owner/repo/pull/" ++ show prNum

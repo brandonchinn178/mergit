@@ -4,9 +4,11 @@
 module MergeBot.Core.Test.Mock
   ( MockData(..)
   , MockBranch(..)
+  , MockPullRequest(..)
   , MockState
   , initialState
   , mockBranch
+  , mockPR
   , toMockState
   , createBranch
   , createCommit
@@ -17,6 +19,7 @@ module MergeBot.Core.Test.Mock
 
 import Data.Aeson (encode)
 import qualified Data.Map.Strict as Map
+import Data.Maybe (fromMaybe)
 import qualified Data.Set as Set
 import Data.Text (Text)
 import qualified Data.Text as Text
@@ -29,7 +32,7 @@ import MergeBot.Core.Test.Mock.State
 
 -- | Branches to seed initial GitHub state.
 data MockBranch = MockBranch
-  { branchName    :: Text
+  { branchName    :: BranchName
   , commitMessage :: Text
   , mergeConfig   :: Maybe BranchConfig
   , contexts      :: [(Text, StatusState)]
@@ -47,9 +50,37 @@ mockBranch = MockBranch
   , contexts = []
   }
 
+data MockPullRequest = MockPullRequest
+  { number     :: Int
+  , title      :: Text
+  , author     :: Text
+  , createdAt  :: Text
+  , updatedAt  :: Text
+  , body       :: Text
+  , branch     :: BranchName
+  , baseBranch :: BranchName
+  } deriving (Show)
+
+-- | A default 'MockPullRequest' to make it easy to only define specific fields.
+--
+-- Usage:
+-- > mockPR { prNum = 1 }
+mockPR :: MockPullRequest
+mockPR = MockPullRequest
+  { number = 1
+  , title = "Test PR"
+  , author = "alice"
+  , createdAt = "2000-01-01T00:00:00Z"
+  , updatedAt = "2000-01-01T00:00:00Z"
+  , body = "This PR is very important"
+  , branch = "test"
+  , baseBranch = "master"
+  }
+
 -- | Interface for tests to seed initial GitHub state with mock data.
 data MockData = MockData
   { mockBranches :: [MockBranch]
+  , mockPRs      :: [MockPullRequest]
   } deriving (Show)
 
 -- | Mock data to seed the initial state.
@@ -59,18 +90,31 @@ data MockData = MockData
 initialState :: MockData
 initialState = MockData
   { mockBranches = []
+  , mockPRs = []
   }
 
 -- | Helper to convert the front-end interface for seeding state into the back-end representation of
 -- GitHub state.
 toMockState :: MockData -> MockState
-toMockState MockData{..} = MockState
-  { ghCommits = Set.fromList $ map getCommit info
-  , ghBranches = Map.fromList $ map getBranch info
-  , ghTrees = Map.fromList $ map getTree info
-  }
+toMockState MockData{..} = MockState{..}
   where
     hashes name = map (Text.pack . (name ++) . show) ([1..] :: [Int])
+    ghCommits = Set.fromList $ map getCommit info
+    ghBranches = Map.fromList $ map getBranch info
+    ghTrees = Map.fromList $ map getTree info
+    ghPRs = Set.fromList $ flip map mockPRs $ \MockPullRequest{..} -> GHPullRequest
+      { prNum = number
+      , prTitle = title
+      , prAuthor = author
+      , prCreated = createdAt
+      , prUpdated = updatedAt
+      , prBody = body
+      , prCommitHash = fromMaybe
+          (error $ "Non-existent branch for PR: " ++ show (number, branch))
+          $ Map.lookup branch ghBranches
+      , prBranch = branch
+      , prBaseBranch = baseBranch
+      }
     -- list of (branch, commitSHA, treeSHA, treeEntries)
     info = zipWith3 getInfo mockBranches (hashes "commit") (hashes "tree")
     getInfo branch commitSHA treeSHA =
