@@ -37,15 +37,15 @@ class MocksApi api mock where
   mockWith :: mock -> MockedEndpoints api
 
 -- | Lookup the given query in the given endpoints and apply the arguments to get the mocked result.
-lookupMock :: Query api r -> Object -> MockedEndpoints api -> Maybe Value
+lookupMock :: Query api args schema -> Object -> MockedEndpoints api -> Maybe Value
 lookupMock query args = fmap (($ args) . snd) . listToMaybe . filter (matches query . fst)
   where
-    matches :: Query api r -> Query' api -> Bool
+    matches :: Query api args schema -> Query' api -> Bool
     matches q1 (Query' q2) = fromQuery q1 == fromQuery q2
 
--- | A 'Query' that has forgotten the Haskell result type.
-data Query' api = forall r. Query' (Query api r)
+-- | A 'Query' that has forgotten its arguments and schema.
+data Query' api = forall args schema. Query' (Query api args schema)
 
 -- | A helper to build a list of 'Query' values that don't care about the result type anymore.
-mock :: Query api r -> Query' api
+mock :: Query api args schema -> Query' api
 mock = Query'

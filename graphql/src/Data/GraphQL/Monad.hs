@@ -21,8 +21,7 @@ Definitions for monads that can run GraphQL queries.
 {-# LANGUAGE TypeInType #-}
 
 module Data.GraphQL.Monad
-  ( IsQueryable(..)
-  , MonadQuery(..)
+  ( MonadQuery(..)
   , runQuery
   , QueryT
   , QuerySettings(..)
@@ -40,7 +39,6 @@ import Control.Monad.Reader (MonadReader, ReaderT, ask, runReaderT)
 import Control.Monad.Trans.Class (MonadTrans)
 import Data.Aeson ((.=))
 import qualified Data.Aeson as Aeson
-import Data.Kind (Type)
 import Data.Maybe (fromJust)
 import Network.HTTP.Client
     ( Manager
@@ -56,32 +54,26 @@ import Network.HTTP.Client.TLS (tlsManagerSettings)
 import Network.HTTP.Types (hContentType)
 
 import Data.GraphQL.Error (GraphQLError, GraphQLException(..))
-import Data.GraphQL.Query (Query, fromQuery, queryName)
+import Data.GraphQL.Query (GraphQLArgs(..), Query, fromQuery, queryName)
 import Data.GraphQL.Result (GraphQLResult, getErrors, getResult)
 import Data.GraphQL.Schema (SchemaType)
 import Data.GraphQL.Schema.Internal (Object(..))
 import Data.GraphQL.TestUtils (MockedEndpoints, MocksApi(..), lookupMock)
 
--- | A type class for queryable results.
-class IsQueryable result where
-  type QueryArgs result = args | args -> result
-  type ResultSchema result = (schema :: SchemaType) | schema -> result
-  fromArgs :: QueryArgs result -> Aeson.Object
-
 -- | A type class for monads that can run queries.
 class MonadIO m => MonadQuery api m where
   runQuerySafe
-    :: forall (schema :: SchemaType) (result :: Type)
-     . (IsQueryable result, schema ~ ResultSchema result)
-    => Query api schema -> QueryArgs result -> m (GraphQLResult (Object schema))
+    :: forall args (schema :: SchemaType)
+     . GraphQLArgs args
+    => Query api args schema -> args -> m (GraphQLResult (Object schema))
 
 -- | Runs the given query and returns the result, erroring if the query returned errors.
 runQuery
-  :: forall api m (schema :: SchemaType) (result :: Type)
-   . (MonadQuery api m, IsQueryable result, schema ~ ResultSchema result)
-  => Query api schema -> QueryArgs result -> m (Object schema)
+  :: forall api m args (schema :: SchemaType)
+   . (MonadQuery api m, GraphQLArgs args)
+  => Query api args schema -> args -> m (Object schema)
 runQuery query args = do
-  result <- runQuerySafe @api @m @schema query args
+  result <- runQuerySafe @api query args
   case getErrors result of
     [] -> return $ fromJust $ getResult @(Object schema) result
     errors -> liftIO $ throwIO $ GraphQLException errors
@@ -115,9 +107,9 @@ newtype QueryT api m a = QueryT { unQueryT :: ReaderT (QueryState api) m a }
 
 instance MonadIO m => MonadQuery api (QueryT api m) where
   runQuerySafe
-    :: forall (schema :: SchemaType) (result :: Type)
-     . (IsQueryable result, schema ~ ResultSchema result)
-    => Query api schema -> QueryArgs result -> QueryT api m (GraphQLResult (Object schema))
+    :: forall args (schema :: SchemaType)
+     . GraphQLArgs args
+    => Query api args schema -> args -> QueryT api m (GraphQLResult (Object schema))
   runQuerySafe query args = do
     state <- ask
     decodeResponse =<< case state of
