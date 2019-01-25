@@ -13,6 +13,7 @@ import qualified MergeBot.Core.Branch as Branch
 import MergeBot.Core.Branch.Internal
     (toStagingBranch, toStagingMessage, toTryBranch)
 import MergeBot.Core.Config (BranchConfig(..))
+import MergeBot.Core.Data (PullRequestId)
 import qualified MergeBot.Core.GraphQL.Enums.StatusState as StatusState
 import MergeBot.Core.Test
 
@@ -25,6 +26,7 @@ tests = testGroup "Branch"
   , deleteTryBranchTests
   , createStagingBranchTests
   , getStagingPRsTests
+  , mergeStagingTests
   ]
 
 getBranchStatusesTests :: TestTree
@@ -200,6 +202,18 @@ getStagingPRsTests = testProperty "getStagingPRs" $
         fmap (=== prNums) $ flip runTestApp state $ do
           Branch.createStagingBranch base prNums
           Branch.getStagingPRs base
+
+mergeStagingTests :: TestTree
+mergeStagingTests = testGroup "mergeStaging"
+  [ goldens "merge_staging_base" $
+      runTestApp' (createAndMerge "master" [1]) $ addMaster initialState
+        { mockBranches = [ emptyBranch ]
+        , mockPRs = [ mockPR ]
+        }
+  ]
+  where
+    createAndMerge :: Text -> [PullRequestId] -> TestApp (Maybe [PullRequestId])
+    createAndMerge base prs = Branch.createStagingBranch base prs >> Branch.mergeStaging base
 
 {- helpers -}
 
