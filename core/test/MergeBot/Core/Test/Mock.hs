@@ -99,7 +99,9 @@ initialState = MockData
 toMockState :: MockData -> MockState
 toMockState MockData{..} = MockState{..}
   where
-    hashes name = map (Text.pack . (name ++) . show) ([1..] :: [Int])
+    numBranches = length mockBranches
+    hashes offset = map (Text.pack . show) [offset * numBranches .. (offset + 1) * numBranches - 1]
+    nextHash = 2 * numBranches
     ghCommits = Set.fromList $ map getCommit info
     ghBranches = Map.fromList $ map getBranch info
     ghTrees = Map.fromList $ map getTree info
@@ -117,7 +119,7 @@ toMockState MockData{..} = MockState{..}
       , prBaseBranch = baseBranch
       }
     -- list of (branch, commitSHA, treeSHA, treeEntries)
-    info = zipWith3 getInfo mockBranches (hashes "commit") (hashes "tree")
+    info = zipWith3 getInfo mockBranches (hashes 0) (hashes 1)
     getInfo branch commitSHA treeSHA =
       let toYAML = TextL.toStrict . Text.decodeUtf8 . encode
           entries = maybe Map.empty (Map.singleton ".lymerge.yaml" . toYAML) $ mergeConfig branch

@@ -59,7 +59,8 @@ import MergeBot.Core.Test.Utils (paginated)
 --  * all (`elem` map commitHash ghCommits) ghBranches
 --  * all (`Map.member` ghTrees) $ map commitTree ghCommits
 data MockState = MockState
-  { ghCommits  :: Set GHCommit
+  { nextHash   :: Int
+  , ghCommits  :: Set GHCommit
   , ghBranches :: Map BranchName SHA
   , ghTrees    :: Map SHA GHTree
   , ghPRs      :: Set GHPullRequest
@@ -114,17 +115,16 @@ createBranch branchRef commitSHA = do
 createCommit :: (MonadThrow m, MonadState MockState m) => Text -> SHA -> [SHA] -> m Value
 createCommit commitMessage commitTree parents = do
   state@MockState{..} <- get
+  let commitHash = Text.pack $ show nextHash
 
   unless (commitTree `Map.member` ghTrees) $
     ghThrow state commitTree "Tree SHA does not exist"
   when (any (isCommit commitHash) ghCommits) $
     fail $ "Creating commit with existing SHA: " ++ show (commitHash, state)
 
-  put state{ ghCommits = Set.insert GHCommit{..} ghCommits }
+  put state{ nextHash = nextHash + 1, ghCommits = Set.insert GHCommit{..} ghCommits }
   return [aesonQQ| { "sha": #{commitHash} } |]
   where
-    commitHash = Text.intercalate "-"
-      ["new-commit", commitMessage, commitTree, Text.intercalate "+" parents]
     commitParents = Just parents
     commitContexts = []
 
@@ -159,8 +159,8 @@ mergeBranches base commitHead commitMessage = do
   tree1 <- getTree baseCommitSHA
   tree2 <- getTree commitHead
 
-  let commitHash = Text.intercalate "-" ["merge-commit", base, commitHead]
-      commitTree = Text.intercalate "-" ["merge-tree", base, commitHead]
+  let commitHash = Text.pack . show $ nextHash
+      commitTree = Text.pack . show $ nextHash + 1
       commitParents = Just [baseCommitSHA, commitHead]
       commitContexts = []
       treeEntries = doMerge tree1 tree2
@@ -171,7 +171,8 @@ mergeBranches base commitHead commitMessage = do
     fail $ "Creating tree with existing SHA: " ++ show (commitHash, state)
 
   put state
-    { ghCommits = Set.insert GHCommit{..} ghCommits
+    { nextHash = nextHash + 2
+    , ghCommits = Set.insert GHCommit{..} ghCommits
     , ghTrees = Map.insert commitTree treeEntries ghTrees
     }
   return Null
