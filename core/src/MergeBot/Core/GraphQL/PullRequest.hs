@@ -15,10 +15,13 @@ module MergeBot.Core.GraphQL.PullRequest where
 
 {- TODO: THIS FILE SHOULD BE GENERATED -}
 
-import Data.GraphQL
+import Data.GraphQL hiding (Query)
+import qualified Data.GraphQL as GraphQL
 import Data.GraphQL.Aeson
 
 import MergeBot.Core.GraphQL.API (API)
+
+type Query = GraphQL.Query API Args Schema
 
 data Args = Args
   { _repoOwner :: String
@@ -26,18 +29,14 @@ data Args = Args
   , _number    :: Int
   } deriving (Show)
 
-data Result
-
-instance IsQueryable Result where
-  type QueryArgs Result = Args
-  type ResultSchema Result = Schema
+instance GraphQLArgs Args where
   fromArgs args = object
     [ "repoOwner" .= _repoOwner args
     , "repoName"  .= _repoName args
     , "number"    .= _number args
     ]
 
-query :: Query API Schema
+query :: Query
 query = $(readGraphQLFile "PullRequest.graphql") -- TODO: when generated, will actually be file contents
 
 type Schema = 'SchemaObject
