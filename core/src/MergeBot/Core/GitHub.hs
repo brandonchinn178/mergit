@@ -34,7 +34,7 @@ import Data.Monoid ((<>))
 import Data.Text (Text)
 import qualified Data.Text as Text
 import Network.HTTP.Client (requestHeaders)
-import Network.HTTP.Types (StdMethod(..), hAuthorization, hUserAgent, status422)
+import Network.HTTP.Types (StdMethod(..), hAuthorization, hUserAgent)
 
 import MergeBot.Core.GitHub.REST
 import MergeBot.Core.GraphQL.API (API)
@@ -89,7 +89,7 @@ createCommit = fmap (.: "sha") . queryGitHub POST "/repos/:owner/:repo/git/commi
 --
 -- https://developer.github.com/v3/git/refs/#delete-a-reference
 deleteBranch :: MonadREST m => Text -> m ()
-deleteBranch branch = void $ handleStatus status422 $
+deleteBranch branch = void $ githubTry $
   queryGitHub DELETE "/repos/:owner/:repo/git/refs/:ref" ["ref" := "heads/" <> branch] []
 
 -- | Merge two branches, returning the merge commit information.
@@ -103,5 +103,5 @@ mergeBranches = void . queryGitHub POST "/repos/:owner/:repo/merges" []
 --
 -- https://developer.github.com/v3/git/refs/#update-a-reference
 updateBranch :: MonadREST m => Text -> GitHubData -> m Bool
-updateBranch branch = fmap isRight . handleStatus status422 .
+updateBranch branch = fmap isRight . githubTry .
   queryGitHub PATCH "/repos/:owner/:repo/git/refs/:ref" ["ref" := "heads/" <> branch]

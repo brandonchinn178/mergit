@@ -19,7 +19,7 @@ module MergeBot.Core.GitHub.REST
   , GitHubData
   , KeyValue(..)
   , githubAPI
-  , handleStatus
+  , githubTry
   , (.:)
   , kvToValue
   ) where
@@ -27,7 +27,15 @@ module MergeBot.Core.GitHub.REST
 import Control.Monad.Catch (MonadCatch, handleJust)
 import Control.Monad.IO.Class (MonadIO(..))
 import Data.Aeson
-    (FromJSON, ToJSON(..), Value(..), eitherDecode, encode, object, withObject)
+    ( FromJSON
+    , ToJSON(..)
+    , Value(..)
+    , decode
+    , eitherDecode
+    , encode
+    , object
+    , withObject
+    )
 import Data.Aeson.Types (parseEither, parseField)
 import qualified Data.ByteString.Char8 as ByteString
 import qualified Data.ByteString.Lazy as ByteStringL
@@ -98,14 +106,15 @@ populateEndpoint endpoint values = Text.intercalate "/" . map populate . Text.sp
 
 {- HTTP exception handling -}
 
--- | Handle the given status code, returning Left if the error was given and Right if not, and
--- the response body for each.
-handleStatus :: MonadCatch m => Status -> m a -> m (Either Value a)
-handleStatus status = handleJust statusException (fmap Left . decodeFromStrict) . fmap Right
+-- | Handle any exceptions thrown by the GitHub REST API.
+--
+-- Assuming that all client errors will be error 422, since we should always be sending valid JSON.
+-- https://developer.github.com/v3/#client-errors
+githubTry :: MonadCatch m => m a -> m (Either Value a)
+githubTry = handleJust statusException (return . Left) . fmap Right
   where
-    decodeFromStrict = either fail return . eitherDecode . ByteStringL.fromStrict
     statusException (HttpExceptionRequest _ (StatusCodeException r body))
-      | responseStatus r == status = Just body
+      | responseStatus r == status422 = decode $ ByteStringL.fromStrict body
     statusException _ = Nothing
 
 {- Aeson helpers -}
