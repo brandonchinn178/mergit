@@ -11,6 +11,7 @@ module MergeBot.Core.Test.Mock.State
   , GHCommit(..)
   , GHPullRequest(..)
   , BranchName
+  , prettyState
   , createBranch
   , createCommit
   , deleteBranch
@@ -26,6 +27,7 @@ import Data.Aeson.QQ (aesonQQ)
 import qualified Data.ByteString.Lazy as ByteStringL
 import Data.GraphQL.Aeson (Value(..), fromObject')
 import Data.GraphQL.TestUtils (MocksApi(..), mock)
+import Data.List (intercalate)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Maybe (fromMaybe)
@@ -63,6 +65,27 @@ data MockState = MockState
   , ghPRs      :: Set GHPullRequest
   } deriving (Show)
 
+prettyState :: MockState -> String
+prettyState MockState{..} = concat
+  [ "====== MockState ======\n"
+  , title "Commits"
+  , bullets $ map show $ Set.toList ghCommits
+  , title "Branches"
+  , bullets $ map printBranch $ Map.toList ghBranches
+  , title "Trees"
+  , bullets $ map printTree $ Map.toList $ Map.map (map printTreeEntry . Map.toList) ghTrees
+  , title "Pull Requests"
+  , bullets $ map show $ Set.toList ghPRs
+  , "\n=======================\n"
+  ]
+  where
+    title s = "\n" ++ s ++ ":\n"
+    bullets :: [String] -> String
+    bullets = unlines . map ("* " ++)
+    printBranch (name, commit) = Text.unpack $ Text.unwords [name, "->", commit]
+    printTree (tree, entries) = Text.unpack tree ++ " ->\n" ++ intercalate "\n" (map ("  " ++) entries)
+    printTreeEntry (fp, contents) = unwords [fp, "|", Text.unpack contents]
+
 instance MocksApi API MockState where
   mockWith state =
     [ (mock Branch.query, getBranch state . fromObject' "name")
@@ -88,7 +111,7 @@ createBranch branchRef commitSHA = do
   put state{ ghBranches = Map.insert branchName commitSHA ghBranches }
   return Null
 
-createCommit :: (MonadThrow m, MonadState MockState m) => Text -> SHA -> [Text] -> m Value
+createCommit :: (MonadThrow m, MonadState MockState m) => Text -> SHA -> [SHA] -> m Value
 createCommit commitMessage commitTree parents = do
   state@MockState{..} <- get
 
@@ -102,6 +125,7 @@ createCommit commitMessage commitTree parents = do
   where
     commitHash = Text.intercalate "-"
       ["new-commit", commitMessage, commitTree, Text.intercalate "+" parents]
+    commitParents = Just parents
     commitContexts = []
 
 deleteBranch :: (MonadThrow m, MonadState MockState m) => Text -> m Value
@@ -127,14 +151,17 @@ mergeBranches base commitHead commitMessage = do
           Just entries -> return entries
         _ -> fail $ "Multiple commits with same SHA: " ++ show (commitHead, state)
 
-  tree1 <- case base' `Map.lookup` ghBranches of
-    Nothing -> ghThrow state base' "Base does not exist"
-    Just baseCommitSHA -> getTree baseCommitSHA
+  baseCommitSHA <- maybe
+    (ghThrow state base' "Base does not exist")
+    return
+    $ Map.lookup base' ghBranches
 
+  tree1 <- getTree baseCommitSHA
   tree2 <- getTree commitHead
 
   let commitHash = Text.intercalate "-" ["merge-commit", base, commitHead]
       commitTree = Text.intercalate "-" ["merge-tree", base, commitHead]
+      commitParents = Just [baseCommitSHA, commitHead]
       commitContexts = []
       treeEntries = doMerge tree1 tree2
 
@@ -201,6 +228,7 @@ type BranchName = Text
 
 data GHCommit = GHCommit
   { commitHash     :: SHA
+  , commitParents  :: Maybe [SHA]
   , commitMessage  :: Text
   , commitTree     :: SHA
   , commitContexts :: [(Text, StatusState)]

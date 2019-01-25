@@ -137,5 +137,5 @@ createTryBranchTests = testGroup "createTryBranch"
     }
   ]
   where
-    testCreateTry name state = goldens ("create_try_" ++ name) $
+    testCreateTry name state = goldens' ("create_try_" ++ name) $
       runTestApp' (Branch.createTryBranch "master" 1) state

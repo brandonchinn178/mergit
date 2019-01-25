@@ -10,6 +10,7 @@ module MergeBot.Core.Test.Mock
   , mockBranch
   , mockPR
   , toMockState
+  , prettyState
   , createBranch
   , createCommit
   , deleteBranch
@@ -121,6 +122,10 @@ toMockState MockData{..} = MockState{..}
       let toYAML = TextL.toStrict . Text.decodeUtf8 . encode
           entries = maybe Map.empty (Map.singleton ".lymerge.yaml" . toYAML) $ mergeConfig branch
       in (branch, commitSHA, treeSHA, entries)
-    getCommit (MockBranch{..}, commitHash, commitTree, _) = GHCommit{ commitContexts = contexts, .. }
+    getCommit (MockBranch{..}, commitHash, commitTree, _) = GHCommit
+      { commitParents = Nothing
+      , commitContexts = contexts
+      , ..
+      }
     getBranch (branch, commitSHA, _, _) = (branchName branch, commitSHA)
     getTree (_, _, treeSHA, entries) = (treeSHA, entries)
