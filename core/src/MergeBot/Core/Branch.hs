@@ -21,18 +21,20 @@ module MergeBot.Core.Branch
   , getStagingStatus
   , createTryBranch
   , deleteTryBranch
-  , createMergeBranch
+  , createStagingBranch
   , getStagingPRs
   , mergeStaging
   ) where
 
+import Control.Monad (forM, when)
+import Control.Monad.Catch (MonadMask, finally)
 import Control.Monad.Extra (mapMaybeM)
 import Control.Monad.Reader (asks)
 import Data.Functor ((<&>))
 import Data.GraphQL (get, runQuery, unwrap)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
-import Data.Maybe (fromJust, fromMaybe)
+import Data.Maybe (fromJust, fromMaybe, isNothing)
 import Data.Monoid ((<>))
 import Data.Text (Text)
 import qualified Data.Text as Text
@@ -50,8 +52,7 @@ import MergeBot.Core.Data
     , TryStatus(..)
     )
 import MergeBot.Core.GitHub
-    ( GitHubData
-    , KeyValue(..)
+    ( KeyValue(..)
     , PaginatedResult(..)
     , createBranch
     , createCommit
@@ -149,7 +150,7 @@ getStagingStatus :: MonadGraphQL m => Text -> m (Maybe CIStatus)
 getStagingStatus = getCIStatus . toStagingBranch
 
 -- | Create a CI branch by merging the given PRs on top of the given base branch.
-createCIBranch :: (MonadGraphQL m, MonadREST m)
+createCIBranch :: (MonadGraphQL m, MonadREST m, MonadMask m)
   => Text -> [PullRequestId] -> Text -> Text -> Text -> m ()
 createCIBranch baseRef prs tempBranchName ciBranchName commitMessage = do
   -- delete temp/ci branches if they exist
@@ -161,7 +162,10 @@ createCIBranch baseRef prs tempBranchName ciBranchName commitMessage = do
   let baseCommit = unOID [get| base.oid |]
 
   -- get PR commit hash
-  prCommits <- mapM getPRCommit prs
+  prCommits <- forM prs $ \prNum -> do
+    (_repoOwner, _repoName) <- asks getRepo
+    unOID . [get| .repository.pullRequest!.headRefOid |] <$>
+      runQuery PullRequest.query PullRequest.Args{_number=prNum, ..}
 
   -- create a new temp commit off base
   tempCommit <- createCommit
@@ -176,34 +180,36 @@ createCIBranch baseRef prs tempBranchName ciBranchName commitMessage = do
     , "sha" := tempCommit
     ]
 
-  -- merge prs into temp branch and get the final git tree
-  -- TODO: handle merge conflict
-  mapM_ (mergeBranches . makeMerge tempBranchName) prCommits
-  tempBranch <- getBranch tempBranchName
+  (`finally` deleteBranch tempBranchName) $ do
+    -- merge prs into temp branch and get the final git tree
+    -- TODO: handle merge conflict
+    mapM_ (mergeBranches . makeMerge tempBranchName) prCommits
+    tempBranch <- getBranch tempBranchName
 
-  case extractBranchConfig tempBranch of
-    Nothing -> do
-      deleteBranch tempBranchName
+    when (isNothing $ extractBranchConfig tempBranch) $
       fail "Missing or invalid .lymerge.yaml file"
-    Just _ -> do
-      -- create a new commit off the base branch
-      ciCommit <- createCommit
-        [ "message" := commitMessage
-        , "tree" := unOID [get| tempBranch.tree!.oid |]
-        , "parents" :=* (baseCommit : prCommits)
-        ]
 
-      -- create try branch on new commit
-      createBranch
-        [ "ref" := "refs/heads/" <> ciBranchName
-        , "sha" := ciCommit
-        ]
+    -- create a new commit off the base branch
+    ciCommit <- createCommit
+      [ "message" := commitMessage
+      , "tree" := unOID [get| tempBranch.tree!.oid |]
+      , "parents" :=* (baseCommit : prCommits)
+      ]
 
-      -- delete temp branch
-      deleteBranch tempBranchName
+    -- create try branch on new commit
+    createBranch
+      [ "ref" := "refs/heads/" <> ciBranchName
+      , "sha" := ciCommit
+      ]
+  where
+    makeMerge branch commit =
+      [ "base" := branch
+      , "head" := commit
+      , "message" := "[ci skip] merge into temp"
+      ]
 
 -- | Create a trying branch for the given PR.
-createTryBranch :: (MonadGraphQL m, MonadREST m) => Text -> PullRequestId -> m ()
+createTryBranch :: (MonadGraphQL m, MonadREST m, MonadMask m) => Text -> PullRequestId -> m ()
 createTryBranch base prNum = createCIBranch base [prNum] tempBranchName tryBranch tryMessage
   where
     tryBranch = toTryBranch prNum
@@ -214,9 +220,9 @@ createTryBranch base prNum = createCIBranch base [prNum] tempBranchName tryBranc
 deleteTryBranch :: MonadREST m => PullRequestId -> m ()
 deleteTryBranch = deleteBranch . toTryBranch
 
--- | Create a merge branch for the given PRs.
-createMergeBranch :: (MonadGraphQL m, MonadREST m) => Text -> [PullRequestId] -> m ()
-createMergeBranch base prs = createCIBranch base prs tempBranchName stagingBranch stagingMessage
+-- | Create a staging branch for the given PRs.
+createStagingBranch :: (MonadGraphQL m, MonadREST m, MonadMask m) => Text -> [PullRequestId] -> m ()
+createStagingBranch base prs = createCIBranch base prs tempBranchName stagingBranch stagingMessage
   where
     stagingBranch = toStagingBranch base
     tempBranchName = "temp-" <> stagingBranch
@@ -254,18 +260,3 @@ extractBranchConfig branch =
   where
     entries = [get| branch.tree!.entries![] |]
     configFile = ".lymerge.yaml"
-
--- | Get the commit hash for the given pull request.
-getPRCommit :: MonadGraphQL m => Int -> m Text
-getPRCommit prNum = do
-  (_repoOwner, _repoName) <- asks getRepo
-  unOID . [get| .repository.pullRequest!.headRefOid |] <$>
-    runQuery PullRequest.query PullRequest.Args{_number=prNum, ..}
-
--- | Make a merge request payload for the given branch and commit hash.
-makeMerge :: Text -> Text -> GitHubData
-makeMerge branch commit =
-  [ "base" := "refs/heads/" <> branch
-  , "head" := commit
-  , "message" := "[ci skip] merge into temp"
-  ]

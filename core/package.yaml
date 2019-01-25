@@ -33,5 +33,7 @@ tests:
       - aeson-qq
       - bytestring
       - merge-bot-core
+      - QuickCheck
       - tasty
       - tasty-golden
+      - tasty-quickcheck

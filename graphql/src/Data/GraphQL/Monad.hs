@@ -23,6 +23,7 @@ Definitions for monads that can run GraphQL queries.
 module Data.GraphQL.Monad
   ( MonadQuery(..)
   , runQuery
+  , runQuerySafeMocked
   , QueryT
   , QuerySettings(..)
   , defaultQuerySettings
@@ -33,12 +34,14 @@ module Data.GraphQL.Monad
   ) where
 
 import Control.Exception (throwIO)
+import Control.Monad.Catch (MonadCatch, MonadMask, MonadThrow)
 import Control.Monad.Except (MonadError)
 import Control.Monad.IO.Class (MonadIO(..))
 import Control.Monad.Reader (MonadReader, ReaderT, ask, runReaderT)
 import Control.Monad.Trans.Class (MonadTrans)
 import Data.Aeson ((.=))
 import qualified Data.Aeson as Aeson
+import Data.ByteString.Lazy (ByteString)
 import Data.Maybe (fromJust)
 import Network.HTTP.Client
     ( Manager
@@ -73,7 +76,7 @@ runQuery
    . (MonadQuery api m, GraphQLArgs args)
   => Query api args schema -> args -> m (Object schema)
 runQuery query args = do
-  result <- runQuerySafe @api query args
+  result <- runQuerySafe query args
   case getErrors result of
     [] -> return $ fromJust $ getResult @(Object schema) result
     errors -> liftIO $ throwIO $ GraphQLException errors
@@ -99,41 +102,51 @@ newtype QueryT api m a = QueryT { unQueryT :: ReaderT (QueryState api) m a }
     ( Functor
     , Applicative
     , Monad
+    , MonadCatch
     , MonadError e
     , MonadIO
+    , MonadMask
     , MonadReader (QueryState api)
+    , MonadThrow
     , MonadTrans
     )
 
 instance MonadIO m => MonadQuery api (QueryT api m) where
-  runQuerySafe
-    :: forall args (schema :: SchemaType)
-     . GraphQLArgs args
-    => Query api args schema -> args -> QueryT api m (GraphQLResult (Object schema))
-  runQuerySafe query args = do
-    state <- ask
-    decodeResponse =<< case state of
-      QueryState{..} ->
-        let request = baseReq { requestBody = body }
-        in liftIO $ responseBody <$> httpLbs request manager
-      QueryMockState endpoints ->
-        case lookupMock query args' endpoints of
-          Nothing -> fail $ "Endpoint missing mocked data: " ++ queryName query
-          Just mockData ->
-            return $ Aeson.encode $ Aeson.object
-              [ "errors" .= ([] :: [GraphQLError])
-              , "data" .= Just mockData
-              ]
-    where
-      args' = fromArgs args
-      body = RequestBodyLBS $ Aeson.encode $ Aeson.object
-        [ "query" .= fromQuery query
-        , "variables" .= args'
+  runQuerySafe query args = ask >>= \case
+    QueryState{..} ->
+      let request = baseReq
+            { requestBody = RequestBodyLBS $ Aeson.encode $ Aeson.object
+                [ "query" .= fromQuery query
+                , "variables" .= fromArgs args
+                ]
+            }
+      in liftIO $ decodeResponse . responseBody =<< httpLbs request manager
+    QueryMockState endpoints -> runQuerySafeMocked query args endpoints
+
+-- | An implementation for mocked GraphQL endpoints using MockedEndpoints and MocksApi.
+runQuerySafeMocked
+  :: forall api m args (schema :: SchemaType)
+   . (Monad m, GraphQLArgs args)
+  => Query api args schema -> args -> MockedEndpoints api -> m (GraphQLResult (Object schema))
+runQuerySafeMocked query args endpoints =
+  decodeResponse =<< case lookupMock query (fromArgs args) endpoints of
+    Nothing -> fail $ "Endpoint missing mocked data: " ++ queryName query
+    Just mockData ->
+      return $ Aeson.encode $ Aeson.object
+        [ "errors" .= ([] :: [GraphQLError])
+        , "data" .= Just mockData
         ]
-      decodeResponse = either fail (traverse fromValue) . Aeson.eitherDecode
-      fromValue = \case
-        Aeson.Object o -> return $ UnsafeObject @schema o
-        v -> fail $ "Could not decode GraphQL response: " ++ show v
+
+-- | Decode a GraphQL response.
+decodeResponse
+  :: forall m (schema :: SchemaType)
+   . Monad m
+  => ByteString -> m (GraphQLResult (Object schema))
+decodeResponse = either fail (traverse fromValue) . Aeson.eitherDecode
+  where
+    fromValue = \case
+      Aeson.Object o -> return $ UnsafeObject @schema o
+      v -> fail $ "Could not decode GraphQL response: " ++ show v
 
 -- | The settings for running QueryT.
 data QuerySettings api = QuerySettings

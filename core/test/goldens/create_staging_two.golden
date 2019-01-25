@@ -1,0 +1,36 @@
+Result: ()
+
+====== MockState ======
+
+Commits:
+* GHCommit {commitHash = "0", commitParents = Nothing, commitMessage = "Some fix", commitTree = "3", commitContexts = []}
+* GHCommit {commitHash = "1", commitParents = Nothing, commitMessage = "Some fix", commitTree = "4", commitContexts = []}
+* GHCommit {commitHash = "11", commitParents = Just ["0","1","2"], commitMessage = "Merge #1 #2", commitTree = "10", commitContexts = []}
+* GHCommit {commitHash = "2", commitParents = Nothing, commitMessage = "Some fix", commitTree = "5", commitContexts = []}
+* GHCommit {commitHash = "6", commitParents = Just ["0"], commitMessage = "[ci skip] temp", commitTree = "3", commitContexts = []}
+* GHCommit {commitHash = "7", commitParents = Just ["6","1"], commitMessage = "[ci skip] merge into temp", commitTree = "8", commitContexts = []}
+* GHCommit {commitHash = "9", commitParents = Just ["7","2"], commitMessage = "[ci skip] merge into temp", commitTree = "10", commitContexts = []}
+
+Branches:
+* master -> 0
+* staging-master -> 11
+* test1 -> 1
+* test2 -> 2
+
+Trees:
+* 10 ->
+  .lymerge.yaml | {"statuses":["test1"]}
+* 3 ->
+  .lymerge.yaml | {"statuses":["test1"]}
+* 4 ->
+
+* 5 ->
+
+* 8 ->
+  .lymerge.yaml | {"statuses":["test1"]}
+
+Pull Requests:
+* GHPullRequest {prNum = 1, prTitle = "Test PR", prAuthor = "alice", prCreated = "2000-01-01T00:00:00Z", prUpdated = "2000-01-01T00:00:00Z", prBody = "This PR is very important", prCommitHash = "1", prBranch = "test1", prBaseBranch = "master"}
+* GHPullRequest {prNum = 2, prTitle = "Test PR", prAuthor = "alice", prCreated = "2000-01-01T00:00:00Z", prUpdated = "2000-01-01T00:00:00Z", prBody = "This PR is very important", prCommitHash = "2", prBranch = "test2", prBaseBranch = "master"}
+
+=======================
