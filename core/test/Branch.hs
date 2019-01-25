@@ -1,9 +1,13 @@
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Branch where
 
 import Data.Text (Text)
+import qualified Data.Text as Text
+import Test.QuickCheck (arbitrary, forAll, ioProperty, (===))
 import Test.Tasty
+import Test.Tasty.QuickCheck (testProperty)
 
 import qualified MergeBot.Core.Branch as Branch
 import MergeBot.Core.Branch.Internal
@@ -18,6 +22,9 @@ tests = testGroup "Branch"
   , getTryStatusTests
   , getStagingStatusTests
   , createTryBranchTests
+  , deleteTryBranchTests
+  , createStagingBranchTests
+  , getStagingPRsTests
   ]
 
 getBranchStatusesTests :: TestTree
@@ -128,8 +135,7 @@ createTryBranchTests :: TestTree
 createTryBranchTests = testGroup "createTryBranch"
   [ testCreateTry "with_base" initialState
     { mockBranches =
-      [ mockBranch { branchName = "master", mergeConfig = Just $ BranchConfig ["test1"] }
-      , mockBranch { branchName = "test" }
+      [ mockBranch { branchName = "test" }
       ]
     , mockPRs =
       [ mockPR { number = 1 }
@@ -138,4 +144,71 @@ createTryBranchTests = testGroup "createTryBranch"
   ]
   where
     testCreateTry name state = goldens' ("create_try_" ++ name) $
-      runTestApp' (Branch.createTryBranch "master" 1) state
+      runTestApp' (Branch.createTryBranch "master" 1) $ addMaster state
+
+deleteTryBranchTests :: TestTree
+deleteTryBranchTests = testGroup "deleteTryBranch"
+  [ testDeleteTry "no_try" initialState
+  , testDeleteTry "with_try" initialState
+    { mockBranches =
+      [ mockBranch { branchName = toTryBranch 1 }
+      ]
+    }
+  ]
+  where
+    testDeleteTry name state = goldens' ("delete_try_" ++ name) $
+      runTestApp' (Branch.deleteTryBranch 1) $ addMaster state
+
+createStagingBranchTests :: TestTree
+createStagingBranchTests = testGroup "createStagingBranch"
+  [ testCreateStaging "single" [1] initialState
+    { mockBranches =
+      [ emptyBranch { branchName = "test1" }
+      ]
+    , mockPRs =
+      [ mockPR { number = 1, branch = "test1" }
+      ]
+    }
+  , testCreateStaging "two" [1,2] initialState
+    { mockBranches =
+      [ emptyBranch { branchName = "test1" }
+      , emptyBranch { branchName = "test2" }
+      ]
+    , mockPRs =
+      [ mockPR { number = 1, branch = "test1" }
+      , mockPR { number = 2, branch = "test2" }
+      ]
+    }
+  ]
+  where
+    testCreateStaging name prs state = goldens' ("create_staging_" ++ name) $
+      runTestApp' (Branch.createStagingBranch "master" prs) $ addMaster state
+
+getStagingPRsTests :: TestTree
+getStagingPRsTests = testProperty "getStagingPRs" $
+  forAll (Text.pack <$> arbitrary) $ \base ->
+    forAll arbitrary $ \prNums ->
+      let baseBranch = mockBranch
+            { branchName = base, mergeConfig = Just $ BranchConfig ["test1"] }
+          prInfo = map (\num -> (num, Text.pack $ "branch-" ++ show num)) prNums
+          prBranches = map (\(_, name) -> emptyBranch { branchName = name }) prInfo
+          state = initialState
+            { mockBranches = baseBranch : prBranches
+            , mockPRs = map (\(number, branch) -> mockPR { number, branch }) prInfo
+            }
+      in ioProperty $
+        fmap (=== prNums) $ flip runTestApp state $ do
+          Branch.createStagingBranch base prNums
+          Branch.getStagingPRs base
+
+{- helpers -}
+
+addMaster :: MockData -> MockData
+addMaster state = state
+  { mockBranches = masterBranch : mockBranches state
+  }
+  where
+    masterBranch = mockBranch { branchName = "master", mergeConfig = Just $ BranchConfig ["test1"] }
+
+emptyBranch :: MockBranch
+emptyBranch = mockBranch { mergeConfig = Nothing }

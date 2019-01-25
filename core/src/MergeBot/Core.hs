@@ -91,7 +91,7 @@ unqueuePullRequest prNum state = do
 -- | Start a merge job for the given base branch.
 startMergeJob :: (MonadGraphQL m, MonadREST m, MonadMask m) => Text -> BotState -> m BotState
 startMergeJob base state = do
-  createMergeBranch base $ Set.toList $ getMergeQueue base state
+  createStagingBranch base $ Set.toList $ getMergeQueue base state
   return $ clearMergeQueue base state
 
 -- | Merge pull requests after a successful merge job.

@@ -1,0 +1,15 @@
+====== MockState ======
+
+Commits:
+* GHCommit {commitHash = "0", commitParents = Nothing, commitMessage = "Some fix", commitTree = "1", commitContexts = []}
+
+Branches:
+* master -> 0
+
+Trees:
+* 1 ->
+  .lymerge.yaml | {"statuses":["test1"]}
+
+Pull Requests:
+
+=======================

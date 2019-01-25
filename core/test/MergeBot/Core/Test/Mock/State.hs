@@ -172,6 +172,7 @@ mergeBranches base commitHead commitMessage = do
 
   put state
     { nextHash = nextHash + 2
+    , ghBranches = Map.adjust (const commitHash) base' ghBranches
     , ghCommits = Set.insert GHCommit{..} ghCommits
     , ghTrees = Map.insert commitTree treeEntries ghTrees
     }
