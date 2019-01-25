@@ -24,6 +24,7 @@ module MergeBot.Core
   ) where
 
 import Control.Monad (forM_)
+import Control.Monad.Catch (MonadMask)
 import Control.Monad.Reader (asks)
 import Data.Map.Strict ((!?))
 import Data.Maybe (fromMaybe)
@@ -70,7 +71,7 @@ getPullRequest state prNum = do
   getPullRequestDetail prNum prTryRun maybeQueue maybeStaging
 
 -- | Start a try job for the given pull request.
-tryPullRequest :: (MonadGraphQL m, MonadREST m) => PullRequestId -> m ()
+tryPullRequest :: (MonadGraphQL m, MonadREST m, MonadMask m) => PullRequestId -> m ()
 tryPullRequest prNum = do
   base <- getBaseBranch prNum
   createTryBranch base prNum
@@ -88,7 +89,7 @@ unqueuePullRequest prNum state = do
   return $ removeMergeQueue prNum base state
 
 -- | Start a merge job for the given base branch.
-startMergeJob :: (MonadGraphQL m, MonadREST m) => Text -> BotState -> m BotState
+startMergeJob :: (MonadGraphQL m, MonadREST m, MonadMask m) => Text -> BotState -> m BotState
 startMergeJob base state = do
   createMergeBranch base $ Set.toList $ getMergeQueue base state
   return $ clearMergeQueue base state

@@ -25,7 +25,7 @@ module MergeBot.Core.Monad
   , MonadGraphQL
   ) where
 
-import Control.Monad.Catch (MonadCatch(..), MonadThrow(..))
+import Control.Monad.Catch (MonadCatch, MonadMask, MonadThrow)
 import Control.Monad.Except (MonadError)
 import Control.Monad.IO.Class (MonadIO(..))
 import Control.Monad.Reader (MonadReader, ReaderT, ask, runReaderT)
@@ -57,22 +57,16 @@ newtype BotAppT m a = BotAppT { unBotApp :: ReaderT BotEnv (QueryT API m) a }
     ( Functor
     , Applicative
     , Monad
+    , MonadCatch
     , MonadError e
     , MonadIO
+    , MonadMask
     , MonadReader BotEnv
+    , MonadThrow
     )
 
 instance MonadTrans BotAppT where
   lift = BotAppT . lift . lift
-
-instance MonadThrow m => MonadThrow (BotAppT m) where
-  throwM = BotAppT . lift . lift . throwM
-
-instance (MonadIO m, MonadCatch m) => MonadCatch (BotAppT m) where
-  catch m f = do
-    env <- ask
-    BotAppT . lift . lift $
-      catch (runBotWith env m) (runBotWith env . f)
 
 instance MonadIO m => MonadQuery API (BotAppT m) where
   runQuerySafe query = BotAppT . lift . runQuerySafe query

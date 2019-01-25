@@ -8,7 +8,7 @@
 module MergeBot.Core.Test.Monad where
 
 import Control.Exception (try)
-import Control.Monad.Catch (MonadCatch, MonadThrow)
+import Control.Monad.Catch (MonadCatch, MonadMask, MonadThrow)
 import Control.Monad.IO.Class (MonadIO)
 import Control.Monad.Reader (MonadReader(..))
 import Control.Monad.State.Lazy (MonadState, StateT, evalStateT, get, gets)
@@ -38,6 +38,7 @@ newtype TestApp a = TestApp { unTestApp :: StateT MockState (QueryT API IO) a }
     , Monad
     , MonadCatch
     , MonadIO
+    , MonadMask
     , MonadState MockState
     , MonadThrow
     )
