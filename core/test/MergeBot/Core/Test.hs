@@ -1,7 +1,6 @@
 module MergeBot.Core.Test
   ( testConfig
   , goldens
-  , goldens'
   , module X
   ) where
 
@@ -22,9 +21,6 @@ testConfig = BotConfig
   }
 
 goldens :: Show a => String -> IO a -> TestTree
-goldens name = goldens' name . fmap show
-
-goldens' :: String -> IO String -> TestTree
-goldens' name = goldenVsString name fp . fmap ByteString.pack
+goldens name = goldenVsString name fp . fmap (ByteString.pack . show)
   where
     fp = "test/goldens/" ++ name ++ ".golden"

@@ -143,7 +143,7 @@ createTryBranchTests = testGroup "createTryBranch"
     }
   ]
   where
-    testCreateTry name state = goldens' ("create_try_" ++ name) $
+    testCreateTry name state = goldens ("create_try_" ++ name) $
       runTestApp' (Branch.createTryBranch "master" 1) $ addMaster state
 
 deleteTryBranchTests :: TestTree
@@ -156,7 +156,7 @@ deleteTryBranchTests = testGroup "deleteTryBranch"
     }
   ]
   where
-    testDeleteTry name state = goldens' ("delete_try_" ++ name) $
+    testDeleteTry name state = goldens ("delete_try_" ++ name) $
       runTestApp' (Branch.deleteTryBranch 1) $ addMaster state
 
 createStagingBranchTests :: TestTree
@@ -181,7 +181,7 @@ createStagingBranchTests = testGroup "createStagingBranch"
     }
   ]
   where
-    testCreateStaging name prs state = goldens' ("create_staging_" ++ name) $
+    testCreateStaging name prs state = goldens ("create_staging_" ++ name) $
       runTestApp' (Branch.createStagingBranch "master" prs) $ addMaster state
 
 getStagingPRsTests :: TestTree

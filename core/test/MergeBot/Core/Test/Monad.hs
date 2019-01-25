@@ -2,12 +2,10 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 
 module MergeBot.Core.Test.Monad where
 
-import Control.Exception (try)
 import Control.Monad.Catch (MonadCatch, MonadMask, MonadThrow)
 import Control.Monad.IO.Class (MonadIO)
 import Control.Monad.Reader (MonadReader(..))
@@ -22,7 +20,6 @@ import Data.GraphQL
 import Data.GraphQL.Aeson (FromJSON)
 import Data.GraphQL.TestUtils (mockWith)
 import Data.Text (Text)
-import Network.HTTP.Client (HttpException)
 import Network.HTTP.Types (StdMethod(..))
 
 import MergeBot.Core.GitHub.REST (MonadGitHub(..), kvToValue, (.:))
@@ -83,6 +80,14 @@ runTestApp app mockData =
   where
     mockState = toMockState mockData
 
--- | Run the given action and then return either a server error or the final state at the end.
-runTestApp' :: TestApp a -> MockData -> IO String
-runTestApp' app = fmap (either show prettyState) . try @HttpException . runTestApp (app >> get)
+newtype Result a = Result (a, MockState)
+
+instance Show a => Show (Result a) where
+  show (Result (result, state)) = "Result: " ++ show result ++ "\n\n" ++ prettyState state
+
+-- | Run the given action and then return the result and the state.
+runTestApp' :: TestApp a -> MockData -> IO (Result a)
+runTestApp' app = runTestApp $ do
+  result <- app
+  state <- get
+  return $ Result (result, state)
