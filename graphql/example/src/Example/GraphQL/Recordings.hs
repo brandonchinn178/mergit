@@ -6,27 +6,26 @@
 
 module Example.GraphQL.Recordings where
 
-import Data.GraphQL
+import Data.GraphQL hiding (Query)
+import qualified Data.GraphQL as GraphQL
 import Data.GraphQL.Aeson (object, (.=))
 
 import Example.GraphQL.API (API)
+
+type Query = GraphQL.Query API Args Schema
 
 data Args = Args
   { _query :: String
   , _first :: Maybe Int
   } deriving (Show)
 
-data Result
-
-instance IsQueryable Result where
-  type QueryArgs Result = Args
-  type ResultSchema Result = Schema
-  fromArgs Args{..} = object
-    [ "query" .= _query
-    , "first" .= _first
+instance GraphQLArgs Args where
+  fromArgs args = object
+    [ "query" .= _query args
+    , "first" .= _first args
     ]
 
-query :: Query API Schema
+query :: Query
 query = $(readGraphQLFile "Recordings.graphql")
 
 type Schema = 'SchemaObject
