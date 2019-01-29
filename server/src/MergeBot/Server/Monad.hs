@@ -7,27 +7,34 @@ Portability :  portable
 Defines the monads used in the MergeBot API.
 -}
 {-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TypeSynonymInstances #-}
 
 module MergeBot.Server.Monad
   ( MergeBotEnv(..)
   , initEnv
   , MergeBotServer
   , MergeBotHandler
+  , getBotState
+  , getBotState'
   , runMergeBotHandler
   ) where
 
-import Control.Concurrent.MVar (MVar, newMVar)
+import Control.Concurrent.MVar (MVar, newMVar, readMVar)
 import Control.Monad.Except (MonadError(..))
-import Control.Monad.IO.Class (MonadIO)
-import Control.Monad.Reader (MonadReader, ReaderT, runReaderT)
+import Control.Monad.IO.Class (MonadIO(..))
+import Control.Monad.Reader (MonadReader(..), ReaderT, asks, runReaderT)
+import Control.Monad.Trans (lift)
+import Data.GraphQL (MonadQuery(..))
 import Servant
 import System.Environment (getEnv)
 
 import MergeBot.Core.Config (BotConfig(..))
-import MergeBot.Core.Monad (BotAppT, runBot)
+import qualified MergeBot.Core.GraphQL.API as Core
+import MergeBot.Core.Monad (BotAppT, BotEnv, runBot)
 import MergeBot.Core.State (BotState, newBotState)
 
 -- | The environment shared by all API endpoints.
@@ -58,8 +65,21 @@ newtype MergeBotHandler a = MergeBotHandler
     , Monad
     , MonadError ServantErr
     , MonadIO
-    , MonadReader MergeBotEnv
     )
+
+instance MonadReader BotEnv MergeBotHandler where
+  ask = MergeBotHandler . lift $ ask
+  local f (MergeBotHandler m) =
+    MergeBotHandler . lift . local f . runReaderT m =<< MergeBotHandler ask
+
+instance MonadQuery Core.API MergeBotHandler where
+  runQuerySafe query = MergeBotHandler . lift . runQuerySafe query
+
+getBotState :: MergeBotHandler (MVar BotState)
+getBotState = MergeBotHandler $ asks botState
+
+getBotState' :: MergeBotHandler BotState
+getBotState' = MergeBotHandler $ liftIO . readMVar =<< asks botState
 
 -- | Run a MergeBotHandler with the given environment.
 runMergeBotHandler :: MergeBotEnv -> MergeBotHandler a -> Handler a

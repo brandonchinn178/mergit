@@ -8,6 +8,7 @@ Defines the core functionality of the merge bot.
 -}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TupleSections #-}
@@ -25,7 +26,7 @@ module MergeBot.Core
 
 import Control.Monad (forM_)
 import Control.Monad.Catch (MonadMask)
-import Control.Monad.Reader (asks)
+import Control.Monad.Reader (MonadReader, asks)
 import Data.Map.Strict ((!?))
 import Data.Maybe (fromMaybe)
 import qualified Data.Set as Set
@@ -40,7 +41,7 @@ import MergeBot.Core.PullRequest
 import MergeBot.Core.State
 
 -- | Get information about the current session.
-getSessionInfo :: Monad m => BotAppT m SessionInfo
+getSessionInfo :: MonadReader BotEnv m => m SessionInfo
 getSessionInfo = do
   (repoOwner', repoName') <- asks getRepo
   let repoOwner = Text.pack repoOwner'
