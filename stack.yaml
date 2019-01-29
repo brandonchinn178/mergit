@@ -1,10 +1,7 @@
-resolver: lts-12.2
+resolver: lts-13.5
 
 packages:
   - core
   - graphql
   - graphql/example
   - server
-
-extra-deps:
-  - first-class-families-0.3.0.1

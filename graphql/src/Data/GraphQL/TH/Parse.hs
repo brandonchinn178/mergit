@@ -26,7 +26,7 @@ import qualified Text.Megaparsec.Char.Lexer as L
 type Parser = Parsec Void String
 
 parse :: Monad m => Parser a -> String -> m a
-parse parser s = either (fail . parseErrorPretty) return $ runParser parser s s
+parse parser s = either (fail . errorBundlePretty) return $ runParser parser s s
 
 type GetterOps = [GetterOperation]
 
