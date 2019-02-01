@@ -24,6 +24,7 @@ module MergeBot.Server.Monad
   ) where
 
 import Control.Concurrent.MVar (MVar, newMVar, readMVar)
+import Control.Monad.Catch (MonadCatch, MonadMask, MonadThrow)
 import Control.Monad.Except (MonadError(..))
 import Control.Monad.IO.Class (MonadIO(..))
 import Control.Monad.Reader (MonadReader(..), ReaderT, asks, runReaderT)
@@ -33,6 +34,7 @@ import Servant
 import System.Environment (getEnv)
 
 import MergeBot.Core.Config (BotConfig(..))
+import MergeBot.Core.GitHub (MonadGitHub(..))
 import qualified MergeBot.Core.GraphQL.API as Core
 import MergeBot.Core.Monad (BotAppT, BotEnv, runBot)
 import MergeBot.Core.State (BotState, newBotState)
@@ -63,8 +65,11 @@ newtype MergeBotHandler a = MergeBotHandler
     ( Functor
     , Applicative
     , Monad
+    , MonadCatch
     , MonadError ServantErr
     , MonadIO
+    , MonadMask
+    , MonadThrow
     )
 
 instance MonadReader BotEnv MergeBotHandler where
@@ -74,6 +79,9 @@ instance MonadReader BotEnv MergeBotHandler where
 
 instance MonadQuery Core.API MergeBotHandler where
   runQuerySafe query = MergeBotHandler . lift . runQuerySafe query
+
+instance MonadGitHub MergeBotHandler where
+  queryGitHub method endpoint endpointVals = MergeBotHandler . lift . queryGitHub method endpoint endpointVals
 
 getBotState :: MergeBotHandler (MVar BotState)
 getBotState = MergeBotHandler $ asks botState

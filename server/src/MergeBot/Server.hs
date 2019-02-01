@@ -60,7 +60,7 @@ getPullRequest :: PullRequestId -> MergeBotHandler PullRequestDetail
 getPullRequest prNum = flip Core.getPullRequest prNum =<< getBotState'
 
 tryPullRequest :: PullRequestId -> MergeBotHandler ()
-tryPullRequest = undefined
+tryPullRequest = Core.tryPullRequest
 
 queuePullRequest :: PullRequestId -> MergeBotHandler ()
 queuePullRequest = undefined
