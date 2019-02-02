@@ -11,7 +11,9 @@ Defines the monads used in the MergeBot API.
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module MergeBot.Server.Monad
   ( MergeBotEnv(..)
@@ -24,11 +26,13 @@ module MergeBot.Server.Monad
   ) where
 
 import Control.Concurrent.MVar (MVar, newMVar, readMVar)
+import Control.Monad.Base (MonadBase)
 import Control.Monad.Catch (MonadCatch, MonadMask, MonadThrow)
 import Control.Monad.Except (MonadError(..))
 import Control.Monad.IO.Class (MonadIO(..))
 import Control.Monad.Reader (MonadReader(..), ReaderT, asks, runReaderT)
 import Control.Monad.Trans (lift)
+import Control.Monad.Trans.Control (MonadBaseControl(..))
 import Data.GraphQL (MonadQuery(..))
 import Servant
 import System.Environment (getEnv)
@@ -65,12 +69,18 @@ newtype MergeBotHandler a = MergeBotHandler
     ( Functor
     , Applicative
     , Monad
+    , MonadBase IO
     , MonadCatch
     , MonadError ServantErr
     , MonadIO
     , MonadMask
     , MonadThrow
     )
+
+instance MonadBaseControl IO MergeBotHandler where
+  type StM MergeBotHandler a = StM Handler a
+  liftBaseWith f = MergeBotHandler $ liftBaseWith $ \runInBase -> f (runInBase . getHandler)
+  restoreM = MergeBotHandler . restoreM
 
 instance MonadReader BotEnv MergeBotHandler where
   ask = MergeBotHandler . lift $ ask

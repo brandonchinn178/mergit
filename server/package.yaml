@@ -10,9 +10,11 @@ dependencies:
 - exceptions
 - graphql-client
 - merge-bot-core
+- monad-control
 - mtl
 - servant-server
 - transformers
+- transformers-base
 
 library:
   source-dirs: src

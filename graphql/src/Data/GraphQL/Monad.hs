@@ -7,6 +7,7 @@ Portability :  portable
 Definitions for monads that can run GraphQL queries.
 -}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE InstanceSigs #-}
@@ -19,6 +20,7 @@ Definitions for monads that can run GraphQL queries.
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilyDependencies #-}
 {-# LANGUAGE TypeInType #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Data.GraphQL.Monad
   ( MonadQuery(..)
@@ -34,11 +36,21 @@ module Data.GraphQL.Monad
   ) where
 
 import Control.Exception (throwIO)
+import Control.Monad.Base (MonadBase(..), liftBaseDefault)
 import Control.Monad.Catch (MonadCatch, MonadMask, MonadThrow)
 import Control.Monad.Except (MonadError)
 import Control.Monad.IO.Class (MonadIO(..))
 import Control.Monad.Reader (MonadReader, ReaderT, ask, runReaderT)
 import Control.Monad.Trans.Class (MonadTrans)
+import Control.Monad.Trans.Control
+    ( ComposeSt
+    , MonadBaseControl(..)
+    , MonadTransControl(..)
+    , defaultLiftBaseWith
+    , defaultLiftWith
+    , defaultRestoreM
+    , defaultRestoreT
+    )
 import Data.Aeson ((.=))
 import qualified Data.Aeson as Aeson
 import Data.ByteString.Lazy (ByteString)
@@ -110,6 +122,19 @@ newtype QueryT api m a = QueryT { unQueryT :: ReaderT (QueryState api) m a }
     , MonadThrow
     , MonadTrans
     )
+
+instance MonadBase IO m => MonadBase IO (QueryT api m) where
+  liftBase = liftBaseDefault
+
+instance MonadTransControl (QueryT api) where
+  type StT (QueryT api) a = StT (ReaderT (QueryState api)) a
+  liftWith = defaultLiftWith QueryT unQueryT
+  restoreT = defaultRestoreT QueryT
+
+instance MonadBaseControl IO m => MonadBaseControl IO (QueryT api m) where
+  type StM (QueryT api m) a = ComposeSt (QueryT api) m a
+  liftBaseWith = defaultLiftBaseWith
+  restoreM = defaultRestoreM
 
 instance MonadIO m => MonadQuery api (QueryT api m) where
   runQuerySafe query args = ask >>= \case
