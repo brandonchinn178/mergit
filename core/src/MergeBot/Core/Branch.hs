@@ -142,10 +142,14 @@ getCIStatus name = do
     runQuery Branch.query Branch.Args{_name = Text.unpack name, ..}
 
 -- | Get the CI status for the trying branch for the given PR.
+--
+-- Nothing if the branch doesn't exist.
 getTryStatus :: MonadGraphQL m => PullRequestId -> m (Maybe CIStatus)
 getTryStatus = getCIStatus . toTryBranch
 
 -- | Get the CI status for the staging branch for the given base branch.
+--
+-- Nothing if the branch doesn't exist.
 getStagingStatus :: MonadGraphQL m => Text -> m (Maybe CIStatus)
 getStagingStatus = getCIStatus . toStagingBranch
 
