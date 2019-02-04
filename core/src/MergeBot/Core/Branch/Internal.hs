@@ -37,9 +37,9 @@ toTryMessage prNum = Text.unwords ["Try", toId prNum]
 toStagingBranch :: Text -> Text
 toStagingBranch = ("staging-" <>)
 
--- | Check if the given branch is a staging branch.
-isStagingBranch :: Text -> Bool
-isStagingBranch = ("staging-" `Text.isPrefixOf`)
+-- | Get the base branch for the given staging branch.
+fromStagingBranch :: Text -> Maybe Text
+fromStagingBranch = Text.stripPrefix "staging-"
 
 -- | Get the message for the staging branch.
 toStagingMessage :: [PullRequestId] -> Text
