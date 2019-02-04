@@ -7,11 +7,14 @@ version: 0.1.0
 dependencies:
 - aeson
 - base
+- exceptions
 - graphql-client
 - merge-bot-core
+- monad-control
 - mtl
 - servant-server
 - transformers
+- transformers-base
 
 library:
   source-dirs: src

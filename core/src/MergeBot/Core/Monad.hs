@@ -13,7 +13,9 @@ Defines the monad used for the core functions of the merge bot.
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module MergeBot.Core.Monad
   ( BotAppT(..)
@@ -25,11 +27,21 @@ module MergeBot.Core.Monad
   , MonadGraphQL
   ) where
 
+import Control.Monad.Base (MonadBase(..), liftBaseDefault)
 import Control.Monad.Catch (MonadCatch, MonadMask, MonadThrow)
 import Control.Monad.Except (MonadError)
 import Control.Monad.IO.Class (MonadIO(..))
 import Control.Monad.Reader (MonadReader, ReaderT, ask, runReaderT)
 import Control.Monad.Trans.Class (MonadTrans(..))
+import Control.Monad.Trans.Control
+    ( ComposeSt
+    , MonadBaseControl(..)
+    , MonadTransControl(..)
+    , defaultLiftBaseWith
+    , defaultLiftWith2
+    , defaultRestoreM
+    , defaultRestoreT2
+    )
 import Data.GraphQL (MonadQuery(..), QueryT, runQueryT)
 import Network.HTTP.Client (Manager, newManager)
 import Network.HTTP.Client.TLS (tlsManagerSettings)
@@ -67,6 +79,19 @@ newtype BotAppT m a = BotAppT { unBotApp :: ReaderT BotEnv (QueryT API m) a }
 
 instance MonadTrans BotAppT where
   lift = BotAppT . lift . lift
+
+instance MonadBase IO m => MonadBase IO (BotAppT m) where
+  liftBase = liftBaseDefault
+
+instance MonadTransControl BotAppT where
+  type StT BotAppT a = StT (ReaderT BotEnv) (StT (QueryT API) a)
+  liftWith = defaultLiftWith2 BotAppT unBotApp
+  restoreT = defaultRestoreT2 BotAppT
+
+instance MonadBaseControl IO m => MonadBaseControl IO (BotAppT m) where
+  type StM (BotAppT m) a = ComposeSt BotAppT m a
+  liftBaseWith = defaultLiftBaseWith
+  restoreM = defaultRestoreM
 
 instance MonadIO m => MonadQuery API (BotAppT m) where
   runQuerySafe query = BotAppT . lift . runQuerySafe query

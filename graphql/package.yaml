@@ -15,6 +15,7 @@ dependencies:
   - http-client-tls
   - http-types
   - megaparsec
+  - monad-control
   - mtl
   - path
   - path-io
@@ -23,6 +24,7 @@ dependencies:
   - text
   - th-utilities
   - transformers
+  - transformers-base
   - unordered-containers
   - vector
 
