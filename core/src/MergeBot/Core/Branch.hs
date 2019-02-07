@@ -16,7 +16,8 @@ Defines functions to query and manage branches utilized by the merge bot.
 {-# LANGUAGE TypeFamilies #-}
 
 module MergeBot.Core.Branch
-  ( getBranchStatuses
+  ( getStagingBranches
+  , getBranchStatuses
   , getTryStatus
   , getStagingStatus
   , createTryBranch
@@ -34,7 +35,7 @@ import Data.Functor ((<&>))
 import Data.GraphQL (get, runQuery, unwrap)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
-import Data.Maybe (fromJust, fromMaybe, isNothing)
+import Data.Maybe (fromJust, fromMaybe, isJust, isNothing, mapMaybe)
 import Data.Monoid ((<>))
 import Data.Text (Text)
 import qualified Data.Text as Text
@@ -82,6 +83,21 @@ getBranch' name = do
   [get| .repository.ref?.target |] <$>
     runQuery Branch.query Branch.Args{_name = Text.unpack name, ..}
 
+-- | Get the name of the base branch for all staging branches.
+getStagingBranches :: MonadGraphQL m => m [Text]
+getStagingBranches = do
+  (_repoOwner, _repoName) <- asks getRepo
+  fmap (mapMaybe (fromStagingBranch . [get| .name |])) $
+    queryAll $ \_after -> queryBranches Branches.Args{..}
+  where
+    queryBranches args = do
+      info <- [get| .repository.refs! |] <$> runQuery Branches.query args
+      return PaginatedResult
+        { chunk      = [get| info.nodes![]! |]
+        , hasNext    = [get| info.pageInfo.hasNextPage |]
+        , nextCursor = [get| info.pageInfo.endCursor |]
+        }
+
 -- | Get all branches managed by the merge bot and the CI status of each.
 getBranchStatuses :: MonadGraphQL m
   => [PullRequestId] -> m (Map PullRequestId BotStatus)
@@ -112,7 +128,7 @@ getBranchStatuses mergeQueue = do
           return $ Just (prNum, Trying status)
         Nothing -> return Nothing
     parseStaging branch =
-      if isStagingBranch [get| branch.name |]
+      if isJust $ fromStagingBranch [get| branch.name |]
         then do
           ciStatus <- getBranchStatus branch
           let prIds = fromStagingMessage [get| branch.target.message! |]
@@ -142,10 +158,14 @@ getCIStatus name = do
     runQuery Branch.query Branch.Args{_name = Text.unpack name, ..}
 
 -- | Get the CI status for the trying branch for the given PR.
+--
+-- Nothing if the branch doesn't exist.
 getTryStatus :: MonadGraphQL m => PullRequestId -> m (Maybe CIStatus)
 getTryStatus = getCIStatus . toTryBranch
 
 -- | Get the CI status for the staging branch for the given base branch.
+--
+-- Nothing if the branch doesn't exist.
 getStagingStatus :: MonadGraphQL m => Text -> m (Maybe CIStatus)
 getStagingStatus = getCIStatus . toStagingBranch
 
