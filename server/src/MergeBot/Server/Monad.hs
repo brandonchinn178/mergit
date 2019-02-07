@@ -9,8 +9,10 @@ Defines the monads used in the MergeBot API.
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -23,9 +25,11 @@ module MergeBot.Server.Monad
   , getBotState
   , getBotState'
   , runMergeBotHandler
+  , updateBotState_
+  , updateBotState
   ) where
 
-import Control.Concurrent.MVar (MVar, newMVar, readMVar)
+import Control.Concurrent.MVar (MVar, modifyMVar, newMVar, readMVar)
 import Control.Monad.Base (MonadBase)
 import Control.Monad.Catch (MonadCatch, MonadMask, MonadThrow)
 import Control.Monad.Except (MonadError(..))
@@ -102,3 +106,22 @@ getBotState' = MergeBotHandler $ asks botState
 -- | Run a MergeBotHandler with the given environment.
 runMergeBotHandler :: MergeBotEnv -> MergeBotHandler a -> Handler a
 runMergeBotHandler env = runBot (botConfig env) . (`runReaderT` env) . getHandler
+
+{- State helpers -}
+
+updateBotState_ :: (BotState -> MergeBotHandler BotState) -> MergeBotHandler ()
+updateBotState_ f = updateBotState (fmap (, ()) . f)
+
+updateBotState :: (BotState -> MergeBotHandler (BotState, a)) -> MergeBotHandler a
+updateBotState runWithState = do
+  stateMVar <- getBotState'
+
+  result <- liftBaseWith $ \runInBase ->
+    modifyMVar stateMVar $ \state ->
+      fmap (fromResult state) $ runInBase $ runWithState state
+
+  restoreM result
+  where
+    fromResult state1 = \case
+      Right (state2, a) -> (state2, Right a)
+      Left err          -> (state1, Left err)

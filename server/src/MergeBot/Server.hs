@@ -7,21 +7,16 @@ Portability :  portable
 Defines the backend server running a REST API.
 -}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
 
 module MergeBot.Server (initApp) where
 
-import Control.Concurrent.MVar (modifyMVar)
-import Control.Monad.Trans.Control (liftBaseWith, restoreM)
 import Servant
 
 import qualified MergeBot.Core as Core
 import MergeBot.Core.Data
     (PullRequest, PullRequestDetail, PullRequestId, SessionInfo)
-import MergeBot.Core.State (BotState)
 import MergeBot.Server.Monad
 
 type MergeBotApi =
@@ -72,22 +67,3 @@ queuePullRequest = updateBotState_ . Core.queuePullRequest
 
 unqueuePullRequest :: PullRequestId -> MergeBotHandler ()
 unqueuePullRequest = updateBotState_ . Core.unqueuePullRequest
-
-{- Helpers -}
-
-updateBotState_ :: (BotState -> MergeBotHandler BotState) -> MergeBotHandler ()
-updateBotState_ f = updateBotState (fmap (, ()) . f)
-
-updateBotState :: (BotState -> MergeBotHandler (BotState, a)) -> MergeBotHandler a
-updateBotState runWithState = do
-  stateMVar <- getBotState'
-
-  result <- liftBaseWith $ \runInBase ->
-    modifyMVar stateMVar $ \state ->
-      fmap (fromResult state) $ runInBase $ runWithState state
-
-  restoreM result
-  where
-    fromResult state1 = \case
-      Right (state2, a) -> (state2, Right a)
-      Left err          -> (state1, Left err)
