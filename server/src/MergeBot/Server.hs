@@ -59,25 +59,28 @@ getSessionInfo :: MergeBotHandler SessionInfo
 getSessionInfo = Core.getSessionInfo
 
 listPullRequests :: MergeBotHandler [PullRequest]
-listPullRequests = Core.listPullRequests =<< getBotState'
+listPullRequests = Core.listPullRequests =<< getBotState
 
 getPullRequest :: PullRequestId -> MergeBotHandler PullRequestDetail
-getPullRequest prNum = flip Core.getPullRequest prNum =<< getBotState'
+getPullRequest prNum = flip Core.getPullRequest prNum =<< getBotState
 
 tryPullRequest :: PullRequestId -> MergeBotHandler ()
 tryPullRequest = Core.tryPullRequest
 
 queuePullRequest :: PullRequestId -> MergeBotHandler ()
-queuePullRequest = updateState' . Core.queuePullRequest
+queuePullRequest = updateBotState_ . Core.queuePullRequest
 
 unqueuePullRequest :: PullRequestId -> MergeBotHandler ()
-unqueuePullRequest = updateState' . Core.unqueuePullRequest
+unqueuePullRequest = updateBotState_ . Core.unqueuePullRequest
 
 {- Helpers -}
 
-updateState :: (BotState -> MergeBotHandler (BotState, a)) -> MergeBotHandler a
-updateState runWithState = do
-  stateMVar <- getBotState
+updateBotState_ :: (BotState -> MergeBotHandler BotState) -> MergeBotHandler ()
+updateBotState_ f = updateBotState (fmap (, ()) . f)
+
+updateBotState :: (BotState -> MergeBotHandler (BotState, a)) -> MergeBotHandler a
+updateBotState runWithState = do
+  stateMVar <- getBotState'
 
   result <- liftBaseWith $ \runInBase ->
     modifyMVar stateMVar $ \state ->
@@ -88,6 +91,3 @@ updateState runWithState = do
     fromResult state1 = \case
       Right (state2, a) -> (state2, Right a)
       Left err          -> (state1, Left err)
-
-updateState' :: (BotState -> MergeBotHandler BotState) -> MergeBotHandler ()
-updateState' f = updateState (fmap (, ()) . f)

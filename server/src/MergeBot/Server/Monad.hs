@@ -93,11 +93,11 @@ instance MonadQuery Core.API MergeBotHandler where
 instance MonadGitHub MergeBotHandler where
   queryGitHub method endpoint endpointVals = MergeBotHandler . lift . queryGitHub method endpoint endpointVals
 
-getBotState :: MergeBotHandler (MVar BotState)
-getBotState = MergeBotHandler $ asks botState
+getBotState :: MergeBotHandler BotState
+getBotState = MergeBotHandler $ liftIO . readMVar =<< asks botState
 
-getBotState' :: MergeBotHandler BotState
-getBotState' = MergeBotHandler $ liftIO . readMVar =<< asks botState
+getBotState' :: MergeBotHandler (MVar BotState)
+getBotState' = MergeBotHandler $ asks botState
 
 -- | Run a MergeBotHandler with the given environment.
 runMergeBotHandler :: MergeBotEnv -> MergeBotHandler a -> Handler a
