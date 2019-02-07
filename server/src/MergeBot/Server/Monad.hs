@@ -23,7 +23,6 @@ module MergeBot.Server.Monad
   , MergeBotServer
   , MergeBotHandler
   , getBotState
-  , getBotState'
   , runMergeBotHandler
   , updateBotState_
   , updateBotState
@@ -86,6 +85,8 @@ instance MonadBaseControl IO MergeBotHandler where
   liftBaseWith f = MergeBotHandler $ liftBaseWith $ \runInBase -> f (runInBase . getHandler)
   restoreM = MergeBotHandler . restoreM
 
+-- Needs to be `MonadReader BotEnv` because MergeBot.Core functions require `BotEnv` to be the
+-- reader value. Reading `MergeBotEnv` should happen manually; see `getBotState'`.
 instance MonadReader BotEnv MergeBotHandler where
   ask = MergeBotHandler . lift $ ask
   local f (MergeBotHandler m) =
@@ -97,17 +98,17 @@ instance MonadQuery Core.API MergeBotHandler where
 instance MonadGitHub MergeBotHandler where
   queryGitHub method endpoint endpointVals = MergeBotHandler . lift . queryGitHub method endpoint endpointVals
 
-getBotState :: MergeBotHandler BotState
-getBotState = MergeBotHandler $ liftIO . readMVar =<< asks botState
-
-getBotState' :: MergeBotHandler (MVar BotState)
-getBotState' = MergeBotHandler $ asks botState
-
 -- | Run a MergeBotHandler with the given environment.
 runMergeBotHandler :: MergeBotEnv -> MergeBotHandler a -> Handler a
 runMergeBotHandler env = runBot (botConfig env) . (`runReaderT` env) . getHandler
 
 {- State helpers -}
+
+getBotState :: MergeBotHandler BotState
+getBotState = liftIO . readMVar =<< getBotState'
+
+getBotState' :: MergeBotHandler (MVar BotState)
+getBotState' = MergeBotHandler $ asks botState
 
 updateBotState_ :: (BotState -> MergeBotHandler BotState) -> MergeBotHandler ()
 updateBotState_ f = updateBotState (fmap (, ()) . f)
