@@ -22,6 +22,8 @@ module MergeBot.Core
   , unqueuePullRequest
   , startMergeJob
   , runMerge
+  , getBaseBranch
+  , isMergeRunning
   ) where
 
 import Control.Monad (forM_)
@@ -34,6 +36,7 @@ import Data.Text (Text)
 import qualified Data.Text as Text
 
 import MergeBot.Core.Branch
+import MergeBot.Core.CIStatus
 import MergeBot.Core.Data
 import MergeBot.Core.GitHub
 import MergeBot.Core.Monad
@@ -104,3 +107,7 @@ runMerge base =
     Just prs -> forM_ prs $ \prNum -> do
       deleteBranch =<< getBranch prNum
       deleteTryBranch prNum
+
+-- | Return True if the given base branch has a running merge job.
+isMergeRunning :: MonadGraphQL m => Text -> m Bool
+isMergeRunning = fmap (maybe False isPending) . getStagingStatus

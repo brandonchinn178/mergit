@@ -63,7 +63,14 @@ tryPullRequest :: PullRequestId -> MergeBotHandler ()
 tryPullRequest = Core.tryPullRequest
 
 queuePullRequest :: PullRequestId -> MergeBotHandler ()
-queuePullRequest = updateBotState_ . Core.queuePullRequest
+queuePullRequest pr =
+  updateBotState_ $ \state -> do
+    state' <- Core.queuePullRequest pr state
+    base <- Core.getBaseBranch pr
+    isMergeRunning <- Core.isMergeRunning base
+    if isMergeRunning
+      then Core.startMergeJob base state'
+      else return state'
 
 unqueuePullRequest :: PullRequestId -> MergeBotHandler ()
 unqueuePullRequest = updateBotState_ . Core.unqueuePullRequest
