@@ -1,7 +1,7 @@
 {-# LANGUAGE DataKinds #-}
 
 import Control.Concurrent (forkIO, threadDelay)
-import Control.Monad (forM_, void, when)
+import Control.Monad (forM_, forever, void, when)
 import Control.Monad.IO.Class (liftIO)
 import Data.Maybe (fromJust)
 import Network.Wai.Handler.Warp (run)
@@ -24,14 +24,11 @@ main = do
 pollCI :: IO ()
 pollCI = void $ forkIO $ do
   config <- botConfig <$> initEnv
-  runBot config go
+  runBot config $ forever $ action >> sleepTenMinutes
   where
-    tenMinutesInMicroSecs = 600000000
-    go = do
+    sleepTenMinutes = liftIO $ threadDelay 600000000
+    action = do
       baseBranches <- getStagingBranches
       forM_ baseBranches $ \baseBranch -> do
         ciStatus <- fromJust <$> getStagingStatus baseBranch
         when (isSuccess ciStatus) $ runMerge baseBranch
-
-      liftIO $ threadDelay tenMinutesInMicroSecs
-      go
