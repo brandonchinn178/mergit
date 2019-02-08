@@ -9,8 +9,10 @@ Defines the monads used in the MergeBot API.
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -21,11 +23,12 @@ module MergeBot.Server.Monad
   , MergeBotServer
   , MergeBotHandler
   , getBotState
-  , getBotState'
   , runMergeBotHandler
+  , updateBotState_
+  , updateBotState
   ) where
 
-import Control.Concurrent.MVar (MVar, newMVar, readMVar)
+import Control.Concurrent.MVar (MVar, modifyMVar, readMVar)
 import Control.Monad.Base (MonadBase)
 import Control.Monad.Catch (MonadCatch, MonadMask, MonadThrow)
 import Control.Monad.Except (MonadError(..))
@@ -41,7 +44,7 @@ import MergeBot.Core.Config (BotConfig(..))
 import MergeBot.Core.GitHub (MonadGitHub(..))
 import qualified MergeBot.Core.GraphQL.API as Core
 import MergeBot.Core.Monad (BotAppT, BotEnv, runBot)
-import MergeBot.Core.State (BotState, newBotState)
+import MergeBot.Core.State (BotState)
 
 -- | The environment shared by all API endpoints.
 data MergeBotEnv = MergeBotEnv
@@ -49,12 +52,11 @@ data MergeBotEnv = MergeBotEnv
   , botConfig :: BotConfig
   }
 
-initEnv :: IO MergeBotEnv
-initEnv = do
+initEnv :: MVar BotState -> IO MergeBotEnv
+initEnv botState = do
   cfgRepoOwner <- getEnv "BOT_REPO_OWNER"
   cfgRepoName <- getEnv "BOT_REPO_NAME"
   cfgToken <- getEnv "GITHUB_TOKEN"
-  botState <- newMVar newBotState
   let botConfig = BotConfig{..}
   return MergeBotEnv{..}
 
@@ -82,6 +84,8 @@ instance MonadBaseControl IO MergeBotHandler where
   liftBaseWith f = MergeBotHandler $ liftBaseWith $ \runInBase -> f (runInBase . getHandler)
   restoreM = MergeBotHandler . restoreM
 
+-- Needs to be `MonadReader BotEnv` because MergeBot.Core functions require `BotEnv` to be the
+-- reader value. Reading `MergeBotEnv` should happen manually; see `getBotState'`.
 instance MonadReader BotEnv MergeBotHandler where
   ask = MergeBotHandler . lift $ ask
   local f (MergeBotHandler m) =
@@ -93,12 +97,31 @@ instance MonadQuery Core.API MergeBotHandler where
 instance MonadGitHub MergeBotHandler where
   queryGitHub method endpoint endpointVals = MergeBotHandler . lift . queryGitHub method endpoint endpointVals
 
-getBotState :: MergeBotHandler (MVar BotState)
-getBotState = MergeBotHandler $ asks botState
-
-getBotState' :: MergeBotHandler BotState
-getBotState' = MergeBotHandler $ liftIO . readMVar =<< asks botState
-
 -- | Run a MergeBotHandler with the given environment.
 runMergeBotHandler :: MergeBotEnv -> MergeBotHandler a -> Handler a
 runMergeBotHandler env = runBot (botConfig env) . (`runReaderT` env) . getHandler
+
+{- State helpers -}
+
+getBotState :: MergeBotHandler BotState
+getBotState = liftIO . readMVar =<< getBotState'
+
+getBotState' :: MergeBotHandler (MVar BotState)
+getBotState' = MergeBotHandler $ asks botState
+
+updateBotState_ :: (BotState -> MergeBotHandler BotState) -> MergeBotHandler ()
+updateBotState_ f = updateBotState (fmap (, ()) . f)
+
+updateBotState :: (BotState -> MergeBotHandler (BotState, a)) -> MergeBotHandler a
+updateBotState runWithState = do
+  stateMVar <- getBotState'
+
+  result <- liftBaseWith $ \runInBase ->
+    modifyMVar stateMVar $ \state ->
+      fmap (fromResult state) $ runInBase $ runWithState state
+
+  restoreM result
+  where
+    fromResult state1 = \case
+      Right (state2, a) -> (state2, Right a)
+      Left err          -> (state1, Left err)

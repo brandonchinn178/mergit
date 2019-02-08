@@ -7,15 +7,12 @@ Portability :  portable
 Defines the backend server running a REST API.
 -}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
 
 module MergeBot.Server (initApp) where
 
-import Control.Concurrent.MVar (modifyMVar)
-import Control.Monad.Trans.Control (liftBaseWith, restoreM)
+import Control.Concurrent.MVar (MVar)
 import Servant
 
 import qualified MergeBot.Core as Core
@@ -37,8 +34,8 @@ type PullRequestRoutes =
     :<|> "dequeue" :> Post '[JSON] ()       -- /pulls/:pr/dequeue dequeues the given PR
     )
 
-initApp :: IO Application
-initApp = serve (Proxy @MergeBotApi) . server <$> initEnv
+initApp :: MVar BotState -> IO Application
+initApp state = serve (Proxy @MergeBotApi) . server <$> initEnv state
 
 server :: MergeBotEnv -> Server MergeBotApi
 server env = hoistServer (Proxy @MergeBotApi) (runMergeBotHandler env) routes
@@ -59,35 +56,23 @@ getSessionInfo :: MergeBotHandler SessionInfo
 getSessionInfo = Core.getSessionInfo
 
 listPullRequests :: MergeBotHandler [PullRequest]
-listPullRequests = Core.listPullRequests =<< getBotState'
+listPullRequests = Core.listPullRequests =<< getBotState
 
 getPullRequest :: PullRequestId -> MergeBotHandler PullRequestDetail
-getPullRequest prNum = flip Core.getPullRequest prNum =<< getBotState'
+getPullRequest prNum = flip Core.getPullRequest prNum =<< getBotState
 
 tryPullRequest :: PullRequestId -> MergeBotHandler ()
 tryPullRequest = Core.tryPullRequest
 
 queuePullRequest :: PullRequestId -> MergeBotHandler ()
-queuePullRequest = updateState' . Core.queuePullRequest
+queuePullRequest pr =
+  updateBotState_ $ \state -> do
+    state' <- Core.queuePullRequest pr state
+    base <- Core.getBaseBranch pr
+    isMergeRunning <- Core.isMergeRunning base
+    if isMergeRunning
+      then Core.startMergeJob base state'
+      else return state'
 
 unqueuePullRequest :: PullRequestId -> MergeBotHandler ()
-unqueuePullRequest = updateState' . Core.unqueuePullRequest
-
-{- Helpers -}
-
-updateState :: (BotState -> MergeBotHandler (BotState, a)) -> MergeBotHandler a
-updateState runWithState = do
-  stateMVar <- getBotState
-
-  result <- liftBaseWith $ \runInBase ->
-    modifyMVar stateMVar $ \state ->
-      fmap (fromResult state) $ runInBase $ runWithState state
-
-  restoreM result
-  where
-    fromResult state1 = \case
-      Right (state2, a) -> (state2, Right a)
-      Left err          -> (state1, Left err)
-
-updateState' :: (BotState -> MergeBotHandler BotState) -> MergeBotHandler ()
-updateState' f = updateState (fmap (, ()) . f)
+unqueuePullRequest = updateBotState_ . Core.unqueuePullRequest
