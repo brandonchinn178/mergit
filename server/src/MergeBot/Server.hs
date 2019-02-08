@@ -12,11 +12,13 @@ Defines the backend server running a REST API.
 
 module MergeBot.Server (initApp) where
 
+import Control.Concurrent.MVar (MVar)
 import Servant
 
 import qualified MergeBot.Core as Core
 import MergeBot.Core.Data
     (PullRequest, PullRequestDetail, PullRequestId, SessionInfo)
+import MergeBot.Core.State (BotState)
 import MergeBot.Server.Monad
 
 type MergeBotApi =
@@ -32,8 +34,8 @@ type PullRequestRoutes =
     :<|> "dequeue" :> Post '[JSON] ()       -- /pulls/:pr/dequeue dequeues the given PR
     )
 
-initApp :: IO Application
-initApp = serve (Proxy @MergeBotApi) . server <$> initEnv
+initApp :: MVar BotState -> IO Application
+initApp state = serve (Proxy @MergeBotApi) . server <$> initEnv state
 
 server :: MergeBotEnv -> Server MergeBotApi
 server env = hoistServer (Proxy @MergeBotApi) (runMergeBotHandler env) routes

@@ -28,7 +28,7 @@ module MergeBot.Server.Monad
   , updateBotState
   ) where
 
-import Control.Concurrent.MVar (MVar, modifyMVar, newMVar, readMVar)
+import Control.Concurrent.MVar (MVar, modifyMVar, readMVar)
 import Control.Monad.Base (MonadBase)
 import Control.Monad.Catch (MonadCatch, MonadMask, MonadThrow)
 import Control.Monad.Except (MonadError(..))
@@ -44,7 +44,7 @@ import MergeBot.Core.Config (BotConfig(..))
 import MergeBot.Core.GitHub (MonadGitHub(..))
 import qualified MergeBot.Core.GraphQL.API as Core
 import MergeBot.Core.Monad (BotAppT, BotEnv, runBot)
-import MergeBot.Core.State (BotState, newBotState)
+import MergeBot.Core.State (BotState)
 
 -- | The environment shared by all API endpoints.
 data MergeBotEnv = MergeBotEnv
@@ -52,12 +52,11 @@ data MergeBotEnv = MergeBotEnv
   , botConfig :: BotConfig
   }
 
-initEnv :: IO MergeBotEnv
-initEnv = do
+initEnv :: MVar BotState -> IO MergeBotEnv
+initEnv botState = do
   cfgRepoOwner <- getEnv "BOT_REPO_OWNER"
   cfgRepoName <- getEnv "BOT_REPO_NAME"
   cfgToken <- getEnv "GITHUB_TOKEN"
-  botState <- newMVar newBotState
   let botConfig = BotConfig{..}
   return MergeBotEnv{..}
 

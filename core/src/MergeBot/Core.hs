@@ -24,6 +24,7 @@ module MergeBot.Core
   , runMerge
   , getBaseBranch
   , isMergeRunning
+  , hasQueue
   ) where
 
 import Control.Monad (forM_)
@@ -111,3 +112,8 @@ runMerge base =
 -- | Return True if the given base branch has a running merge job.
 isMergeRunning :: MonadGraphQL m => Text -> m Bool
 isMergeRunning = fmap (maybe False isPending) . getStagingStatus
+
+-- | Return True if the given base branch has a queue.
+hasQueue :: Text -> BotState -> Bool
+hasQueue base = not . null . getMergeQueue base
+
