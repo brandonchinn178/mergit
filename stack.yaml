@@ -1,6 +1,7 @@
 resolver: lts-13.5
 
 packages:
+  - clients/web
   - core
   - graphql
   - graphql/example

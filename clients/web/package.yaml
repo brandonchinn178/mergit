@@ -1,0 +1,18 @@
+defaults:
+  local: ../../hpack.yaml
+
+name: merge-bot-client-web
+version: 0.1.0
+
+dependencies:
+  - base
+  - yesod
+
+library:
+  source-dirs: src
+
+executable:
+  source-dirs:  exe
+  main:         Main.hs
+  dependencies:
+  - merge-bot-client-web
