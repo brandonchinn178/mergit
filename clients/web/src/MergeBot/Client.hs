@@ -1,6 +1,9 @@
 {-# LANGUAGE RecordWildCards #-}
 
-module MergeBot.Client (appMain) where
+module MergeBot.Client
+  ( appMain
+  , initApp
+  ) where
 
 import Yesod
 import Yesod.Static (static)

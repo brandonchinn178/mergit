@@ -33,3 +33,12 @@ executable:
   main:         Main.hs
   dependencies:
   - merge-bot-client-web
+
+tests:
+  merge-bot-client-web-test:
+    source-dirs: test
+    main:        Spec.hs
+    dependencies:
+    - merge-bot-client-web
+    - hspec
+    - yesod-test
