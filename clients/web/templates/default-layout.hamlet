@@ -1,0 +1,10 @@
+<header>
+    <img src=@{StaticR leapyear_svg}> <!-- TODO: LeapYear logo -->
+    <h1>LeapYear Merge Bot
+    <div .user>
+        <img> <!-- TODO: User profile pic -->
+        <span>foo-user
+
+<h1>LeapYear/leapyear <!-- TODO: repo -->
+<div .contents>
+    ^{contents}

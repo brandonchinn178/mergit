@@ -1,19 +1,20 @@
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE QuasiQuotes #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE RecordWildCards #-}
 
-module MergeBot.Client where
+module MergeBot.Client (appMain) where
 
 import Yesod
+import Yesod.Static (static)
 
-data App = App
+import MergeBot.Client.App (App(..))
+import MergeBot.Client.Handlers ()
+import MergeBot.Client.Settings (AppSettings(..), appSettings)
 
-mkYesod "App" [parseRoutes|
-/ HomeR GET
-|]
+initApp :: IO App
+initApp = do
+  appStatic <- static $ appStaticDir appSettings
+  return App{..}
 
-instance Yesod App
-
-getHomeR :: Handler Html
-getHomeR = defaultLayout [whamlet|Hello world!|]
+appMain :: IO ()
+appMain = do
+  appInit appSettings
+  warp (appPort appSettings) =<< initApp

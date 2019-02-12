@@ -1,6 +1,4 @@
-import Yesod (warp)
-
-import MergeBot.Client (App(..))
+import MergeBot.Client (appMain)
 
 main :: IO ()
-main = warp 8080 App
+main = appMain
