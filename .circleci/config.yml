@@ -23,6 +23,7 @@ aliases:
         FILES=(
           stack.yaml
           hpack.yaml
+          clients/web/package.yaml
           core/package.yaml
           server/package.yaml
           graphql/package.yaml
@@ -97,6 +98,7 @@ jobs:
           root: .
           paths:
             - .stack-work
+            - clients/web/.stack-work
             - core/.stack-work
             - graphql/.stack-work
             - graphql/example/.stack-work

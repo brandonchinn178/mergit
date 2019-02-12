@@ -1,0 +1,44 @@
+defaults:
+  local: ../../hpack.yaml
+
+name: merge-bot-client-web
+version: 0.1.0
+
+flags:
+  prod:
+    description: Run a production build
+    manual: false
+    default: false
+
+dependencies:
+  - base
+  - bytestring
+  - data-default
+  - directory
+  - file-embed
+  - hjsmin
+  - shakespeare
+  - template-haskell
+  - yesod
+  - yesod-static
+
+library:
+  source-dirs: src
+  when:
+  - condition: '!flag(prod)'
+    cpp-options: -DDEVELOPMENT
+
+executable:
+  source-dirs:  exe
+  main:         Main.hs
+  dependencies:
+  - merge-bot-client-web
+
+tests:
+  merge-bot-client-web-test:
+    source-dirs: test
+    main:        Spec.hs
+    dependencies:
+    - merge-bot-client-web
+    - hspec
+    - yesod-test

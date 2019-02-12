@@ -1,0 +1,8 @@
+-- Syntax: https://www.yesodweb.com/book/routing-and-handlers
+
+/static StaticR Static appStatic
+
+/favicon.ico FaviconR GET
+/robots.txt RobotsR GET
+
+/ HomeR GET
