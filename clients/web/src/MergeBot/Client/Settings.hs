@@ -12,6 +12,8 @@ import Language.Haskell.TH (runIO)
 import Language.Haskell.TH.Syntax (lift)
 import System.Directory (getCurrentDirectory, setCurrentDirectory)
 
+import MergeBot.Client.Settings.Development (isDevelopment)
+
 data AppSettings = AppSettings
   { appPort            :: Int
   , appStaticDir       :: FilePath
@@ -23,14 +25,8 @@ appSettings :: AppSettings
 appSettings = AppSettings
   { appPort = 8080
   , appStaticDir = "static/"
-  , appReloadTemplates = appDevel
-  , appInit = when appDevel $ setCurrentDirectory topDir
+  , appReloadTemplates = isDevelopment
+  , appInit = when isDevelopment $ setCurrentDirectory topDir
   }
   where
-    appDevel =
-      #ifdef DEVELOPMENT
-        True
-      #else
-        False
-      #endif
     topDir = $(runIO getCurrentDirectory >>= lift)
