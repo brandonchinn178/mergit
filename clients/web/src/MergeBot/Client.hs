@@ -9,15 +9,18 @@ import Yesod
 import Yesod.Static (static)
 
 import MergeBot.Client.App (App(..))
+import MergeBot.Client.CommandLine (AppOptions(..), parseOptions)
 import MergeBot.Client.Handlers ()
-import MergeBot.Client.Settings (AppSettings(..), appSettings)
+import MergeBot.Client.Settings (AppSettings(..), appInit, loadAppSettings)
 
-initApp :: IO App
-initApp = do
+initApp :: AppSettings -> IO App
+initApp appSettings = do
   appStatic <- static $ appStaticDir appSettings
   return App{..}
 
 appMain :: IO ()
 appMain = do
-  appInit appSettings
-  warp (appPort appSettings) =<< initApp
+  AppOptions{..} <- parseOptions
+  appSettings <- loadAppSettings configFile
+  appInit
+  warp (appPort appSettings) =<< initApp appSettings

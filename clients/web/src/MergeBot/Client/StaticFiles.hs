@@ -4,7 +4,7 @@ module MergeBot.Client.StaticFiles where
 
 import Yesod.Static (staticFiles)
 
-import MergeBot.Client.Settings (AppSettings(..), appSettings)
+import MergeBot.Client.Settings (compileTimeStaticDir)
 
 -- This generates easy references to files in the static directory at compile time,
 -- giving you compile-time verification that referenced files exist.
@@ -18,4 +18,4 @@ import MergeBot.Client.Settings (AppSettings(..), appSettings)
 -- If the identifier is not available, you may use:
 --
 --     StaticFile ["js", "script.js"] []
-staticFiles (appStaticDir appSettings)
+staticFiles compileTimeStaticDir
