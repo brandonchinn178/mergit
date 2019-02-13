@@ -1,1 +1,15 @@
-<p>Hello world!
+<table>
+    <tr>
+        <th>Name
+        <th>Author
+        <th>Created
+        <th>Updated
+        <th>Status
+    $forall pr <- prs
+        <tr>
+            <!-- TODO: link to #{number pr} -->
+            <td><a href="#foo">#{title pr}
+            <td>#{author pr}
+            <td>#{show $ created pr}
+            <td>#{show $ updated pr}
+            <td>#{show $ status pr}

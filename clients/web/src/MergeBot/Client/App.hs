@@ -10,8 +10,15 @@ module MergeBot.Client.App where
 import Control.Monad.IO.Class (liftIO)
 import Data.Aeson (eitherDecode)
 import Data.ByteString (ByteString)
+import qualified Data.ByteString.Char8 as ByteString
 import Network.HTTP.Client
-    (Manager, Request(..), Response(..), httpLbs, parseUrlThrow)
+    ( Manager
+    , Request(..)
+    , Response(..)
+    , defaultRequest
+    , httpLbs
+    , setRequestCheckStatus
+    )
 import Network.HTTP.Types (StdMethod, renderStdMethod)
 import Text.Hamlet (hamletFile)
 import Text.Jasmine (minifym)
@@ -59,9 +66,9 @@ instance Yesod App where
 callAPI :: FromJSON a => StdMethod -> ByteString -> Handler a
 callAPI method path = do
   App{appSettings = AppSettings{..}, appManager} <- getYesod
-  baseRequest <- parseUrlThrow apiHost
-  let request = baseRequest
-        { port = apiPort
+  let request = setRequestCheckStatus $ defaultRequest
+        { host = ByteString.pack apiHost
+        , port = apiPort
         , method = renderStdMethod method
         , path = path
         }

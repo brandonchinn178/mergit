@@ -21,6 +21,7 @@ dependencies:
   - hjsmin
   - http-client
   - http-types
+  - merge-bot-core
   - optparse-applicative
   - shakespeare
   - template-haskell
