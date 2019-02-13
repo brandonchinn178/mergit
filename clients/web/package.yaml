@@ -19,6 +19,8 @@ dependencies:
   - file-embed
   - filepath
   - hjsmin
+  - http-client
+  - http-types
   - optparse-applicative
   - shakespeare
   - template-haskell

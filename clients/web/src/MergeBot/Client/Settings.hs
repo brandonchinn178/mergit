@@ -23,6 +23,8 @@ import MergeBot.Client.Settings.Development (isDevelopment)
 data AppSettings = AppSettings
   { appPort      :: Int
   , appStaticDir :: FilePath
+  , apiHost      :: String
+  , apiPort      :: Int
   } deriving (Show)
 
 instance FromJSON AppSettings where
@@ -30,6 +32,8 @@ instance FromJSON AppSettings where
     AppSettings
       <$> o .: "port"
       <*> o .: "static-dir"
+      <*> o .: "api-host"
+      <*> o .: "api-port"
 
 -- | Load settings from the given configuration file.
 loadAppSettings :: FilePath -> IO AppSettings

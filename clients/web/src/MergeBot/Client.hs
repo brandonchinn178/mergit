@@ -5,6 +5,7 @@ module MergeBot.Client
   , initApp
   ) where
 
+import Network.HTTP.Client (defaultManagerSettings, newManager)
 import Yesod
 import Yesod.Static (static)
 
@@ -16,6 +17,7 @@ import MergeBot.Client.Settings (AppSettings(..), appInit, loadAppSettings)
 initApp :: AppSettings -> IO App
 initApp appSettings = do
   appStatic <- static $ appStaticDir appSettings
+  appManager <- newManager defaultManagerSettings
   return App{..}
 
 appMain :: IO ()

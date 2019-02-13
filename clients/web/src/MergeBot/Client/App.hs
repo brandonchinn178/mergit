@@ -7,6 +7,12 @@
 
 module MergeBot.Client.App where
 
+import Control.Monad.IO.Class (liftIO)
+import Data.Aeson (eitherDecode)
+import Data.ByteString (ByteString)
+import Network.HTTP.Client
+    (Manager, Request(..), Response(..), httpLbs, parseUrlThrow)
+import Network.HTTP.Types (StdMethod, renderStdMethod)
 import Text.Hamlet (hamletFile)
 import Text.Jasmine (minifym)
 import Yesod
@@ -20,6 +26,7 @@ import MergeBot.Client.Utils (widgetFile)
 data App = App
   { appSettings :: AppSettings
   , appStatic   :: Static
+  , appManager  :: Manager
   }
 
 mkYesodData "App" $(parseRoutesFile "config/routes")
@@ -41,10 +48,21 @@ instance Yesod App where
   isAuthorized _ _ = return Authorized
 
   addStaticContent ext mime content = do
-    App{appSettings} <- getYesod
-    let staticDir = appStaticDir appSettings
-    addStaticContentExternal minifym genFileName staticDir mkRoute ext mime content
+    AppSettings{appStaticDir} <- appSettings <$> getYesod
+    addStaticContentExternal minifym genFileName appStaticDir mkRoute ext mime content
     where
       mkRoute pieces = StaticR $ StaticRoute pieces []
       -- Generate a unique filename based on the content itself
       genFileName lbs = "autogen-" ++ base64md5 lbs
+
+-- | Send API requests to the merge bot server.
+callAPI :: FromJSON a => StdMethod -> ByteString -> Handler a
+callAPI method path = do
+  App{appSettings = AppSettings{..}, appManager} <- getYesod
+  baseRequest <- parseUrlThrow apiHost
+  let request = baseRequest
+        { port = apiPort
+        , method = renderStdMethod method
+        , path = path
+        }
+  liftIO $ either fail return . eitherDecode . responseBody =<< httpLbs request appManager
