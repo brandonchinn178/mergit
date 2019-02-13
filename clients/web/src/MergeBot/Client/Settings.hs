@@ -12,9 +12,10 @@ module MergeBot.Client.Settings
 
 import Control.Monad (when)
 import Data.Aeson (FromJSON(..), withObject, (.:))
+import qualified Data.Text as Text
 import Data.Yaml (decodeFileThrow)
-import Language.Haskell.TH (runIO)
-import Language.Haskell.TH.Syntax (lift)
+import Language.Haskell.TH (Loc(..), runIO)
+import Language.Haskell.TH.Syntax (lift, qLocation)
 import System.Directory (getCurrentDirectory, setCurrentDirectory)
 import System.FilePath ((</>))
 
@@ -55,4 +56,12 @@ compileTimeStaticDir = topDir </> "static/"
 
 -- | The root of this Haskell project; i.e. the location of 'package.yaml' for this project.
 topDir :: FilePath
-topDir = $(runIO getCurrentDirectory >>= lift)
+topDir = $(do
+  path <- loc_filename <$> qLocation
+  let dropEnd i xs = take (length xs - i) xs
+  case Text.unpack . Text.intercalate "/" . dropEnd 4 . Text.splitOn "/" . Text.pack $ path of
+    -- stack build
+    "" -> lift =<< runIO getCurrentDirectory
+    -- stack ghci
+    path' -> lift path'
+  )
