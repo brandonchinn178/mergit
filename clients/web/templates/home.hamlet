@@ -12,4 +12,9 @@
             <td>#{author pr}
             <td>#{prettyTime $ created pr}
             <td>#{prettyTime $ updated pr}
-            <td>#{show $ status pr}
+            $with (label, mStatusSvg) <- renderBotStatus $ status pr
+                <td .status class=#{label}>
+                    $maybe statusSvg <- mStatusSvg
+                        #{statusSvg}
+                    $nothing
+                        --

@@ -11,7 +11,7 @@ import Network.HTTP.Types (StdMethod(..))
 import Yesod
 
 import MergeBot.Client.App (Handler, callAPI)
-import MergeBot.Client.Utils (mkPrettyTime, widgetFile)
+import MergeBot.Client.Utils (mkPrettyTime, renderBotStatus, widgetFile)
 import MergeBot.Core.Data (PullRequest(..))
 
 getHomeR :: Handler Html

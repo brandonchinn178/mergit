@@ -1,14 +1,21 @@
+{-# LANGUAGE LambdaCase #-}
+
 module MergeBot.Client.Utils
   ( widgetFile
   , mkPrettyTime
+  , renderBotStatus
   ) where
 
 import Data.Default (def)
 import Data.Time (UTCTime, diffUTCTime, getCurrentTime)
 import Language.Haskell.TH.Syntax (Exp, Q)
+import Yesod (Html)
 import Yesod.Default.Util (widgetFileNoReload, widgetFileReload)
 
 import MergeBot.Client.Settings (appReloadTemplates)
+import MergeBot.Client.StaticFiles.Icons
+    (buffer_svg, checkmark_svg, play_svg, times_svg)
+import MergeBot.Core.Data (BotStatus(..), MergeStatus(..), TryStatus(..))
 
 -- | Automatically loads Hamlet, Cassius, Lucius, and Julius files for the given name in the
 -- @templates/@ directory.
@@ -43,3 +50,14 @@ mkPrettyTime = prettyTime <$> getCurrentTime
       , (inf, "y")
       ]
     inf = round (read "Infinity" :: Double) :: Integer
+
+-- | Render the given BotStatus.
+renderBotStatus :: BotStatus -> (String, Maybe Html)
+renderBotStatus = \case
+  Merging MergeRunning -> ("merge-running", Just play_svg)
+  Merging MergeFailed -> ("merge-failed", Just times_svg)
+  MergeQueue -> ("merge-queue", Just buffer_svg)
+  Trying TrySuccess -> ("try-success", Just checkmark_svg)
+  Trying TryRunning -> ("try-running", Just play_svg)
+  Trying TryFailed -> ("try-failed", Just times_svg)
+  None -> ("none", Nothing)

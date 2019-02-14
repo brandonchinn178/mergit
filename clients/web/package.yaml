@@ -17,6 +17,7 @@ dependencies:
   - data-default
   - directory
   - file-embed
+  - filemanip
   - filepath
   - hjsmin
   - http-client
