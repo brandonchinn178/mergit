@@ -10,6 +10,6 @@
             <!-- TODO: link to #{number pr} -->
             <td><a href="#foo">#{title pr}
             <td>#{author pr}
-            <td>#{show $ created pr}
-            <td>#{show $ updated pr}
+            <td>#{prettyTime $ created pr}
+            <td>#{prettyTime $ updated pr}
             <td>#{show $ status pr}

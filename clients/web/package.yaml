@@ -26,6 +26,7 @@ dependencies:
   - shakespeare
   - template-haskell
   - text
+  - time
   - yaml
   - yesod
   - yesod-static
