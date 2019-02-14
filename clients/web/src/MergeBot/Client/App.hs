@@ -1,3 +1,4 @@
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -6,18 +7,33 @@
 
 module MergeBot.Client.App where
 
+import Control.Monad.IO.Class (liftIO)
+import Data.Aeson (eitherDecode)
+import Data.ByteString (ByteString)
+import qualified Data.ByteString.Char8 as ByteString
+import Network.HTTP.Client
+    ( Manager
+    , Request(..)
+    , Response(..)
+    , defaultRequest
+    , httpLbs
+    , setRequestCheckStatus
+    )
+import Network.HTTP.Types (StdMethod, renderStdMethod)
 import Text.Hamlet (hamletFile)
 import Text.Jasmine (minifym)
 import Yesod
 import Yesod.Default.Util (addStaticContentExternal)
 import Yesod.Static (Route(..), Static, base64md5)
 
-import MergeBot.Client.Settings (AppSettings(..), appSettings)
+import MergeBot.Client.Settings (AppSettings(..))
 import MergeBot.Client.StaticFiles (leapyear_svg)
 import MergeBot.Client.Utils (widgetFile)
 
 data App = App
-  { appStatic   :: Static
+  { appSettings :: AppSettings
+  , appStatic   :: Static
+  , appManager  :: Manager
   }
 
 mkYesodData "App" $(parseRoutesFile "config/routes")
@@ -38,10 +54,22 @@ instance Yesod App where
   isAuthorized RobotsR _ = return Authorized
   isAuthorized _ _ = return Authorized
 
-  addStaticContent ext mime content =
-    addStaticContentExternal minifym genFileName staticDir mkRoute ext mime content
+  addStaticContent ext mime content = do
+    AppSettings{appStaticDir} <- appSettings <$> getYesod
+    addStaticContentExternal minifym genFileName appStaticDir mkRoute ext mime content
     where
-      staticDir = appStaticDir appSettings
       mkRoute pieces = StaticR $ StaticRoute pieces []
       -- Generate a unique filename based on the content itself
       genFileName lbs = "autogen-" ++ base64md5 lbs
+
+-- | Send API requests to the merge bot server.
+callAPI :: FromJSON a => StdMethod -> ByteString -> Handler a
+callAPI method path = do
+  App{appSettings = AppSettings{..}, appManager} <- getYesod
+  let request = setRequestCheckStatus $ defaultRequest
+        { host = ByteString.pack apiHost
+        , port = apiPort
+        , method = renderStdMethod method
+        , path = path
+        }
+  liftIO $ either fail return . eitherDecode . responseBody =<< httpLbs request appManager

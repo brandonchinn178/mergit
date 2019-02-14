@@ -8,6 +8,7 @@ $doctype 5
     <meta name="description" content="A merge bot for LeapYear developers">
     <meta name="author" content="LeapYear">
     <meta name="viewport" content="width=device-width,initial-scale=1">
+    <link href="https://fonts.googleapis.com/css?family=Carrois+Gothic|Carrois+Gothic+SC|Roboto:400,700" rel="stylesheet">
     ^{pageHead}
   <body>
     ^{pageBody}

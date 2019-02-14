@@ -1,8 +1,12 @@
 -- Syntax: https://www.yesodweb.com/book/routing-and-handlers
 
-/static StaticR Static appStatic
+-- static files
+/static         StaticR     Static appStatic
 
-/favicon.ico FaviconR GET
-/robots.txt RobotsR GET
+-- web infrastructure
+/favicon.ico    FaviconR    GET
+/robots.txt     RobotsR     GET
 
-/ HomeR GET
+-- MergeBot routes
+/               HomeR       GET
+-- /pr/#Int        DetailR     GET

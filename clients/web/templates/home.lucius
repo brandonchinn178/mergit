@@ -1,1 +1,31 @@
-p { color: red; }
+@green: #1CAF22;
+@yellow: #E1E439;
+@red: #E32121;
+@blue: #0F5DD1;
+
+td.status {
+    text-align: center;
+    svg {
+        width: 20px;
+    }
+}
+
+/* https://github.com/yesodweb/shakespeare/issues/237 */
+
+.status.merge-running svg path {
+    fill: #{green};
+}
+
+.status.merge-queue svg path {
+    fill: #{yellow};
+}
+
+.status.merge-failed svg path {
+    fill: #{red};
+}
+
+.status.try-success, .status.try-running, .status.try-failed {
+    svg path {
+        fill: #{blue};
+    }
+}

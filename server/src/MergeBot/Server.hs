@@ -70,7 +70,7 @@ queuePullRequest pr =
     state' <- Core.queuePullRequest pr state
     base <- Core.getBaseBranch pr
     isMergeRunning <- Core.isMergeRunning base
-    if isMergeRunning
+    if not isMergeRunning
       then Core.startMergeJob base state'
       else return state'
 

@@ -11,14 +11,24 @@ flags:
     default: false
 
 dependencies:
+  - aeson
   - base
   - bytestring
   - data-default
   - directory
   - file-embed
+  - filemanip
+  - filepath
   - hjsmin
+  - http-client
+  - http-types
+  - merge-bot-core
+  - optparse-applicative
   - shakespeare
   - template-haskell
+  - text
+  - time
+  - yaml
   - yesod
   - yesod-static
 
