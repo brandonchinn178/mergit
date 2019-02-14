@@ -8,6 +8,6 @@
         <span>foo-user
 
 <!-- TODO: repo -->
-<h1>LeapYear/leapyear
+<h1 .repo>LeapYear/leapyear
 <div .contents>
     ^{contents}
