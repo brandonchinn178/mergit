@@ -4,9 +4,11 @@ module MergeBot.Client.Utils
   ( widgetFile
   , mkPrettyTime
   , renderBotStatus
+  , compareBotStatus
   ) where
 
 import Data.Default (def)
+import Data.Function (on)
 import Data.Time (UTCTime, diffUTCTime, getCurrentTime)
 import Language.Haskell.TH.Syntax (Exp, Q)
 import Yesod (Html)
@@ -61,3 +63,17 @@ renderBotStatus = \case
   Trying TryRunning -> ("try-running", Just play_svg)
   Trying TryFailed -> ("try-failed", Just times_svg)
   None -> ("none", Nothing)
+
+-- | Compare the two BotStatuses.
+compareBotStatus :: BotStatus -> BotStatus -> Ordering
+compareBotStatus = compare `on` fromBotStatus
+  where
+    fromBotStatus :: BotStatus -> Int
+    fromBotStatus = \case
+      Merging MergeRunning -> 0
+      MergeQueue -> 1
+      Merging MergeFailed -> 2
+      Trying TrySuccess -> 3
+      Trying TryRunning -> 4
+      Trying TryFailed -> 5
+      None -> 6
