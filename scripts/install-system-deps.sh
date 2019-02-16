@@ -15,6 +15,18 @@ function install_linux() {
     fi
 }
 
+function install_darwin() {
+    if is_command npm; then
+        if ! is_command smee; then
+            npm install -g smee-client
+        fi
+    else
+        echo "NPM is not installed" >&2
+        exit 1
+    fi
+}
+
 case "$(uname)" in
     (Linux) install_linux ;;
+    (Darwin) install_darwin ;;
 esac

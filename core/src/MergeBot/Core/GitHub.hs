@@ -18,6 +18,7 @@ module MergeBot.Core.GitHub
   -- * REST API
   , createBranch
   , createCommit
+  , createToken
   , deleteBranch
   , mergeBranches
   , updateBranch
@@ -84,6 +85,12 @@ createBranch = void . queryGitHub POST "/repos/:owner/:repo/git/refs" []
 -- https://developer.github.com/v3/git/commits/#create-a-commit
 createCommit :: MonadREST m => GitHubData -> m Text
 createCommit = fmap (.: "sha") . queryGitHub POST "/repos/:owner/:repo/git/commits" []
+
+-- | Create a new installation token.
+--
+-- https://developer.github.com/v3/apps/#create-a-new-installation-token
+createToken :: MonadREST m => Int -> m Text
+createToken = undefined
 
 -- | Delete the given branch, ignoring the error if the branch doesn't exist.
 --

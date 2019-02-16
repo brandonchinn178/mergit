@@ -75,7 +75,7 @@ githubAPI stdMethod endpoint vals ghData token manager = do
   response <- liftIO $ getResponse request
     { method = renderStdMethod stdMethod
     , requestHeaders =
-        (hAccept, "application/vnd.github.v3+json")
+        (hAccept, "application/vnd.github.machine-man-preview+json")
         : (hUserAgent, "LeapYear/merge-bot")
         : (hAuthorization, ByteString.pack $ "token " ++ token)
         : requestHeaders request

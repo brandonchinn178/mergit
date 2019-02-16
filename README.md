@@ -2,37 +2,19 @@
 
 ## Quickstart
 
-TODO
+1. `scripts/install-system-deps.sh`
+1. `stack build`
+1. `source .env`
+1. `stack exec merge-bot`
+1. Go to `smee.io` and start a new channel
+1. `smee --url https://smee.io/<token>`
+1. Run configuration steps pointed to `https://smee.io/<token>`
 
-## Features
+## Features and Design Spec
 
-* Add/remove from a merge queue
-    * Fails if a "do not merge" label is attached to the PR
-    * If review is not green, put in a holding queue and auto-queue when review is green
-    * Batch all PRs in the queue into a single job and bisect if job fails
-    * Automatically merges PR when CI passes
-        * Can customize merging algorithm (merge or squash/rebase)
-* Cancel merge job
-* Create/cancel try jobs
-    * Runs CI as if PR is in merge queue
-    * Fails if PR already in merge queue/job
-    * Cancels any currently running try jobs
-* View queues and status of jobs
+See the Feature home page [on Notion][feature-home-page]
 
-## Usage
-
-On the PR page in GitHub, add a comment with one of the following:
-
-| Comment           | Description                 |
-|-------------------|-----------------------------|
-| lybot q+ [opts]   | Add to the merge queue      |
-| lybot q-          | Remove from the merge queue |
-| lybot try         | Create try job              |
-| lybot cancel      | Cancel merge/try job        |
-
-Options take the format `{ name = value, name = value }`. Available options:
-
-* `type = merge|squash`: determine merging algorithm
+[feature-home-page]: https://www.notion.so/leapyear/Merge-Bot-4c28d412fa7b414fb02e5e3264507b44
 
 ## Configuration
 
