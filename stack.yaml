@@ -1,8 +1,9 @@
 resolver: lts-13.5
 
 packages:
-  - clients/web
+  # - clients/web
   - core
   - graphql
   - graphql/example
-  - server
+  # - server
+  - server2
