@@ -6,6 +6,7 @@ Portability :  portable
 
 Defines helpers for querying the GitHub API.
 -}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 
@@ -16,6 +17,7 @@ module MergeBot.Core.GitHub
   , PaginatedResult(..)
   , queryAll
   -- * REST API
+  , runSimpleREST
   , createBranch
   , createCommit
   , createToken
@@ -27,6 +29,9 @@ module MergeBot.Core.GitHub
   ) where
 
 import Control.Monad (void)
+import Control.Monad.Catch (MonadCatch, MonadThrow)
+import Control.Monad.IO.Class (MonadIO(..))
+import Control.Monad.Reader (MonadReader, ReaderT, asks, runReaderT)
 import qualified Data.ByteString.Char8 as ByteString
 import Data.Either (isRight)
 import Data.GraphQL (QuerySettings(..), defaultQuerySettings)
@@ -34,7 +39,8 @@ import Data.Maybe (fromJust)
 import Data.Monoid ((<>))
 import Data.Text (Text)
 import qualified Data.Text as Text
-import Network.HTTP.Client (requestHeaders)
+import Network.HTTP.Client (Manager, newManager, requestHeaders)
+import Network.HTTP.Client.TLS (tlsManagerSettings)
 import Network.HTTP.Types (StdMethod(..), hAuthorization, hUserAgent)
 
 import MergeBot.Core.GitHub.REST
@@ -73,6 +79,27 @@ queryAll doQuery = queryAll' Nothing
       return $ chunk ++ next
 
 {- REST API -}
+
+-- | A simple monad that can run REST calls.
+newtype SimpleREST a = SimpleREST (ReaderT (String, Manager) IO a)
+  deriving
+    ( Functor
+    , Applicative
+    , Monad
+    , MonadCatch
+    , MonadIO
+    , MonadReader (String, Manager)
+    , MonadThrow
+    )
+
+instance MonadGitHub SimpleREST where
+  getToken = asks fst
+  getManager = asks snd
+
+runSimpleREST :: String -> SimpleREST a -> IO a
+runSimpleREST token (SimpleREST action) = do
+  manager <- liftIO $ newManager tlsManagerSettings
+  runReaderT action (token, manager)
 
 -- | Create a branch.
 --
