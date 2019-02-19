@@ -95,7 +95,9 @@ instance MonadQuery Core.API MergeBotHandler where
   runQuerySafe query = MergeBotHandler . lift . runQuerySafe query
 
 instance MonadGitHub MergeBotHandler where
-  queryGitHub method endpoint endpointVals = MergeBotHandler . lift . queryGitHub method endpoint endpointVals
+  modifyVals = MergeBotHandler . lift . modifyVals
+  getToken = MergeBotHandler . lift $ getToken
+  getManager = MergeBotHandler . lift $ getManager
 
 -- | Run a MergeBotHandler with the given environment.
 runMergeBotHandler :: MergeBotEnv -> MergeBotHandler a -> Handler a
