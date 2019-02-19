@@ -9,20 +9,24 @@ Defines the merge bot server running as a GitHub App.
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TypeApplications #-}
 
 module MergeBot.Server (initApp) where
 
 import Control.Concurrent.MVar (MVar, newMVar)
 import Control.Lens (preview, (&), (.~), (?~))
+import Control.Monad.Except (runExceptT)
 import Control.Monad.Reader (ReaderT, runReaderT)
 import Crypto.JWT
     ( JWK
+    , JWTError
     , NumericDate(..)
     , bestJWSAlg
     , claimExp
     , claimIat
     , claimIss
     , emptyClaimsSet
+    , encodeCompact
     , fromRSA
     , newJWSHeader
     , signClaims
@@ -35,6 +39,7 @@ import Data.Aeson.Types (parse)
 import qualified Data.ByteString as ByteString
 import qualified Data.ByteString.Char8 as Char8
 import Data.ByteString.Lazy (ByteString)
+import qualified Data.ByteString.Lazy as ByteStringL
 import qualified Data.CaseInsensitive as CI
 import Data.Text (Text)
 import qualified Data.Text as Text
@@ -47,7 +52,7 @@ import Network.Wai
 import System.Environment (getEnv)
 import Text.Read (readMaybe)
 
-import MergeBot.Core.GitHub (createToken)
+import MergeBot.Core.GitHub (Token(..), createToken, runSimpleREST)
 import MergeBot.Core.State (BotState, newBotState)
 
 {- Types -}
@@ -130,14 +135,16 @@ handleRequest AppEnv{..} state request respond = do
   where
     checkSignature GitHubPayload{payloadBody} = undefined
     getToken GitHubPayload{installationId} = do
-      alg <- bestJWSAlg jwk
+      alg <- either (fail . show) return =<< runExceptT @JWTError (bestJWSAlg jwk)
       now <- getCurrentTime
       let claims = emptyClaimsSet
             & claimIat ?~ NumericDate now
             & claimExp ?~ NumericDate (addUTCTime (10 * 60) now)
             & claimIss .~ preview stringOrUri (show ghAppId)
-      jwt <- signClaims jwk (newJWSHeader ((), alg)) claims
-      runMonadRESTWithJWT jwt $ createToken installationId
+          jwsHeader = newJWSHeader ((), alg)
+      jwt <- either (fail . show) return =<< runExceptT @JWTError (signClaims jwk jwsHeader claims)
+      let token = BearerToken $ ByteStringL.toStrict $ encodeCompact jwt
+      runSimpleREST token $ createToken installationId
 
 handleEvent :: Handler Response
 handleEvent = undefined
