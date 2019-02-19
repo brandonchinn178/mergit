@@ -14,6 +14,7 @@ Definitions for querying the GitHub REST API.
 module MergeBot.Core.GitHub.REST
   ( MonadGitHub(..)
   , MonadREST
+  , Token(..)
   , Endpoint
   , EndpointVals
   , GitHubData
@@ -36,7 +37,7 @@ import Data.Aeson
     , withObject
     )
 import Data.Aeson.Types (parseEither, parseField)
-import qualified Data.ByteString.Char8 as ByteString
+import Data.ByteString (ByteString)
 import qualified Data.ByteString.Lazy as ByteStringL
 import Data.Maybe (fromMaybe)
 import Data.Ratio (denominator, numerator)
@@ -53,7 +54,7 @@ class MonadIO m => MonadGitHub m where
   modifyEndpointVals :: EndpointVals -> m EndpointVals
   modifyEndpointVals = return
 
-  getToken :: m String
+  getToken :: m Token
   getToken = error "No token specified"
 
   getManager :: m Manager
@@ -64,6 +65,12 @@ class MonadIO m => MonadGitHub m where
     token <- getToken
     manager <- getManager
     githubAPI stdMethod endpoint endpointVals ghData token manager
+
+-- | The token to use to authenticate with GitHub.
+data Token
+  = AccessToken ByteString -- ^ https://developer.github.com/v3/#authentication
+  | BearerToken ByteString -- ^ https://developer.github.com/apps/building-github-apps/authenticating-with-github-apps/#authenticating-as-a-github-app
+  deriving (Show)
 
 -- | The GitHub API endpoint with placeholders of the form ":abc" that can be replaced by
 -- passed-in values.
@@ -81,7 +88,7 @@ githubAPI :: MonadIO m
   -> Endpoint
   -> EndpointVals
   -> GitHubData
-  -> String
+  -> Token
   -> Manager
   -> m Value
 githubAPI stdMethod endpoint vals ghData token manager = do
@@ -90,7 +97,7 @@ githubAPI stdMethod endpoint vals ghData token manager = do
     , requestHeaders =
         (hAccept, "application/vnd.github.machine-man-preview+json")
         : (hUserAgent, "LeapYear/merge-bot")
-        : (hAuthorization, ByteString.pack $ "token " ++ token)
+        : (hAuthorization, token')
         : requestHeaders request
     , requestBody = RequestBodyLBS $ encode $ kvToValue ghData
     , checkResponse = throwErrorStatusCodes
@@ -101,6 +108,9 @@ githubAPI stdMethod endpoint vals ghData token manager = do
     else either fail return $ eitherDecode response
   where
     url' = Text.unpack $ "https://api.github.com" <> populateEndpoint endpoint vals
+    token' = case token of
+      AccessToken t -> "token " <> t
+      BearerToken t -> "bearer " <> t
     request = parseRequest_ url'
     getResponse = fmap responseBody . flip httpLbs manager
 
