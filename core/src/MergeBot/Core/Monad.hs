@@ -43,13 +43,14 @@ import Control.Monad.Trans.Control
     , defaultRestoreM
     , defaultRestoreT2
     )
+import qualified Data.ByteString.Char8 as Char8
 import Data.GraphQL (MonadQuery(..), QueryT, runQueryT)
 import Network.HTTP.Client (Manager, newManager)
 import Network.HTTP.Client.TLS (tlsManagerSettings)
 
 import MergeBot.Core.Config (BotConfig(..))
 import MergeBot.Core.GitHub (MonadGitHub, MonadREST, graphqlSettings)
-import MergeBot.Core.GitHub.REST (KeyValue(..), MonadGitHub(..))
+import MergeBot.Core.GitHub.REST (KeyValue(..), MonadGitHub(..), Token(..))
 import MergeBot.Core.GraphQL.API (API)
 
 type MonadGraphQL m = (MonadReader BotEnv m, MonadQuery API m)
@@ -104,7 +105,7 @@ instance MonadIO m => MonadGitHub (BotAppT m) where
       [ "owner" :=* repoOwner
       , "repo" :=* repoName
       ]
-  getToken = asks ghToken
+  getToken = asks (AccessToken . Char8.pack . ghToken)
   getManager = asks ghManager
 
 runBot :: MonadIO m => BotConfig -> BotAppT m a -> m a

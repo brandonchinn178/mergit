@@ -81,14 +81,14 @@ queryAll doQuery = queryAll' Nothing
 {- REST API -}
 
 -- | A simple monad that can run REST calls.
-newtype SimpleREST a = SimpleREST (ReaderT (String, Manager) IO a)
+newtype SimpleREST a = SimpleREST (ReaderT (Token, Manager) IO a)
   deriving
     ( Functor
     , Applicative
     , Monad
     , MonadCatch
     , MonadIO
-    , MonadReader (String, Manager)
+    , MonadReader (Token, Manager)
     , MonadThrow
     )
 
@@ -96,7 +96,7 @@ instance MonadGitHub SimpleREST where
   getToken = asks fst
   getManager = asks snd
 
-runSimpleREST :: String -> SimpleREST a -> IO a
+runSimpleREST :: Token -> SimpleREST a -> IO a
 runSimpleREST token (SimpleREST action) = do
   manager <- liftIO $ newManager tlsManagerSettings
   runReaderT action (token, manager)
