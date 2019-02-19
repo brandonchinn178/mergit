@@ -6,6 +6,7 @@ Portability :  portable
 
 Defines the merge bot server running as a GitHub App.
 -}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -33,9 +34,8 @@ import Crypto.JWT
     , stringOrUri
     )
 import Crypto.PubKey.RSA (PrivateKey)
-import Data.Aeson (Value(..), eitherDecode, parseJSON, withObject, (.:))
-import Data.Aeson.Parser.Internal (decodeWith, jsonEOF)
-import Data.Aeson.Types (parse)
+import Data.Aeson (Value(..), eitherDecode, withObject, (.:))
+import Data.Aeson.Types (parseEither)
 import qualified Data.ByteString as ByteString
 import qualified Data.ByteString.Char8 as Char8
 import Data.ByteString.Lazy (ByteString)
@@ -47,8 +47,9 @@ import qualified Data.Text.Encoding as Text
 import Data.Time (addUTCTime, getCurrentTime)
 import Data.X509 (PrivKey(..))
 import Data.X509.Memory (readKeyFileFromMemory)
+import Network.HTTP.Types (status200)
 import Network.Wai
-    (Application, Request, Response, lazyRequestBody, requestHeaders)
+    (Application, Request, Response, lazyRequestBody, requestHeaders, responseLBS)
 import System.Environment (getEnv)
 import Text.Read (readMaybe)
 
@@ -64,34 +65,47 @@ data AppEnv = AppEnv
   }
 
 data GitHubPayload = GitHubPayload
-  { ghEvent        :: Text
+  { ghEvent        :: GitHubEvent
   , ghSignature    :: Text -- TODO: Digest SHA1
-  , payloadBody    :: ByteString
   , installationId :: Int
-  , payloadData    :: Value -- TODO: better payload type
-  }
+  , payloadBody    :: ByteString
+  } deriving (Show)
 
-parsePayload :: Request -> IO GitHubPayload
+-- | TODO: parse out values in constructors instead of just 'Value'
+data GitHubEvent
+  = InstallRepo Value
+    -- ^ https://developer.github.com/v3/activity/events/types/#installationrepositoriesevent
+  deriving (Show)
+
+-- | Parse a payload based on the given request. Returns 'Left' if the request is for a
+-- GitHub event we don't care about.
+parsePayload :: Request -> IO (Either String GitHubPayload)
 parsePayload request = do
-  ghEvent <- getHeader "x-github-event"
-  sig <- getHeader "x-hub-signature"
-  ghSignature <- case Text.splitOn "=" sig of
-    ["sha1", sig'] -> return sig'
-    _ -> fail $ "Invalid signature: " ++ Text.unpack sig
   payloadBody <- lazyRequestBody request
-  (installationId, payloadData) <-
-    -- TODO: better debug message
-    maybe (fail $ "Invalid payload: " ++ show (request, payloadBody)) return
-      $ decodeWith jsonEOF (parse $ parsePayload' ghEvent) payloadBody
-  return GitHubPayload{..}
+  -- TODO: better logging
+  either fail return
+    $ eitherDecode payloadBody >>= parseEither (parsePayload' payloadBody)
   where
     getHeader name =
       maybe
         (fail $ "Header not found: " ++ Char8.unpack name)
         (return . Text.decodeUtf8)
         $ lookup (CI.mk name) $ requestHeaders request
-    parsePayload' event = withObject "GitHubPayload" $ \o ->
-      (,) <$> (o .: "installation" >>= (.: "id")) <*> parseJSON (Object o)
+    parsePayload' payloadBody = withObject "GitHubPayload" $ \o -> do
+      event <- getHeader "x-github-event"
+      sig <- getHeader "x-hub-signature"
+      ghSignature <- case Text.splitOn "=" sig of
+        ["sha1", sig'] -> return sig'
+        _ -> fail $ "Invalid signature: " ++ Text.unpack sig
+      installation <- o .: "installation"
+      installationId <- installation .: "id"
+
+      let mkPayload ghEvent = Right GitHubPayload{..}
+      case event of
+        "installation_repositories" -> mkPayload <$> parseInstallRepo o
+        -- TODO: other events
+        _ -> return $ Left $ Text.unpack event
+    parseInstallRepo o =  return $ InstallRepo $ Object o -- TODO
 
 {- Monad -}
 
@@ -127,13 +141,16 @@ loadKeyFile file = do
     _ -> fail $ "Not a valid RSA private key file: " ++ file
 
 handleRequest :: AppEnv -> MVar BotState -> Application
-handleRequest AppEnv{..} state request respond = do
-  payload <- parsePayload request
-  checkSignature payload
-  ghToken <- getToken payload
-  respond =<< runReaderT (getHandler handleEvent) AppState{..}
+handleRequest AppEnv{..} state request respond =
+  parsePayload request >>= \case
+    Right payload -> do
+      checkSignature payload
+      ghToken <- getToken payload
+      respond =<< runReaderT (getHandler handleEvent) AppState{..}
+    Left event -> respond $ responseLBS status200 [] $
+      ByteStringL.fromStrict $ Char8.pack $ "Ignoring event: " ++ event
   where
-    checkSignature GitHubPayload{payloadBody} = undefined
+    checkSignature GitHubPayload{payloadBody} = undefined >> return ()
     getToken GitHubPayload{installationId} = do
       alg <- either (fail . show) return =<< runExceptT @JWTError (bestJWSAlg jwk)
       now <- getCurrentTime

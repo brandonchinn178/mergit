@@ -10,6 +10,7 @@ dependencies:
 - bytestring
 - case-insensitive
 - cryptonite
+- http-types
 - jose
 - lens
 - merge-bot-core
