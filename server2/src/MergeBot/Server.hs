@@ -13,7 +13,21 @@ Defines the merge bot server running as a GitHub App.
 module MergeBot.Server (initApp) where
 
 import Control.Concurrent.MVar (MVar, newMVar)
+import Control.Lens (preview, (&), (.~), (?~))
 import Control.Monad.Reader (ReaderT, runReaderT)
+import Crypto.JWT
+    ( JWK
+    , NumericDate(..)
+    , bestJWSAlg
+    , claimExp
+    , claimIat
+    , claimIss
+    , emptyClaimsSet
+    , fromRSA
+    , newJWSHeader
+    , signClaims
+    , stringOrUri
+    )
 import Crypto.PubKey.RSA (PrivateKey)
 import Data.Aeson (Value(..), eitherDecode, parseJSON, withObject, (.:))
 import Data.Aeson.Parser.Internal (decodeWith, jsonEOF)
@@ -25,6 +39,7 @@ import qualified Data.CaseInsensitive as CI
 import Data.Text (Text)
 import qualified Data.Text as Text
 import qualified Data.Text.Encoding as Text
+import Data.Time (addUTCTime, getCurrentTime)
 import Data.X509 (PrivKey(..))
 import Data.X509.Memory (readKeyFileFromMemory)
 import Network.Wai
@@ -40,7 +55,7 @@ import MergeBot.Core.State (BotState, newBotState)
 data AppEnv = AppEnv
   { ghAppId         :: Int
   , ghWebhookSecret :: Text
-  , privateKey      :: PrivateKey
+  , jwk             :: JWK
   }
 
 data GitHubPayload = GitHubPayload
@@ -91,6 +106,7 @@ initApp = do
   ghAppId <- getEnv "GITHUB_APP_ID" >>= parseInt
   ghWebhookSecret <- Text.pack <$> getEnv "GITHUB_WEBHOOK_SECRET"
   privateKey <- getEnv "PRIVATE_KEY_FILE" >>= loadKeyFile
+  let jwk = fromRSA privateKey
 
   state <- newMVar newBotState -- TODO: this should go away
 
@@ -114,8 +130,13 @@ handleRequest AppEnv{..} state request respond = do
   where
     checkSignature GitHubPayload{payloadBody} = undefined
     getToken GitHubPayload{installationId} = do
-      let jwtPayload = undefined
-      jwt <- undefined
+      alg <- bestJWSAlg jwk
+      now <- getCurrentTime
+      let claims = emptyClaimsSet
+            & claimIat ?~ NumericDate now
+            & claimExp ?~ NumericDate (addUTCTime (10 * 60) now)
+            & claimIss .~ preview stringOrUri (show ghAppId)
+      jwt <- signClaims jwk (newJWSHeader ((), alg)) claims
       runMonadRESTWithJWT jwt $ createToken installationId
 
 handleEvent :: Handler Response

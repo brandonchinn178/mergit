@@ -10,9 +10,12 @@ dependencies:
 - bytestring
 - case-insensitive
 - cryptonite
+- jose
+- lens
 - merge-bot-core
 - mtl
 - text
+- time
 - wai
 - x509
 - x509-store
