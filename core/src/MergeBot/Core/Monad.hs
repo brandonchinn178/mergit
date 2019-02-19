@@ -11,6 +11,7 @@ Defines the monad used for the core functions of the merge bot.
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -31,7 +32,7 @@ import Control.Monad.Base (MonadBase(..), liftBaseDefault)
 import Control.Monad.Catch (MonadCatch, MonadMask, MonadThrow)
 import Control.Monad.Except (MonadError)
 import Control.Monad.IO.Class (MonadIO(..))
-import Control.Monad.Reader (MonadReader, ReaderT, ask, runReaderT)
+import Control.Monad.Reader (MonadReader, ReaderT, ask, asks, runReaderT)
 import Control.Monad.Trans.Class (MonadTrans(..))
 import Control.Monad.Trans.Control
     ( ComposeSt
@@ -48,7 +49,7 @@ import Network.HTTP.Client.TLS (tlsManagerSettings)
 
 import MergeBot.Core.Config (BotConfig(..))
 import MergeBot.Core.GitHub (MonadGitHub, MonadREST, graphqlSettings)
-import MergeBot.Core.GitHub.REST (KeyValue(..), MonadGitHub(..), githubAPI)
+import MergeBot.Core.GitHub.REST (KeyValue(..), MonadGitHub(..))
 import MergeBot.Core.GraphQL.API (API)
 
 type MonadGraphQL m = (MonadReader BotEnv m, MonadQuery API m)
@@ -97,10 +98,14 @@ instance MonadIO m => MonadQuery API (BotAppT m) where
   runQuerySafe query = BotAppT . lift . runQuerySafe query
 
 instance MonadIO m => MonadGitHub (BotAppT m) where
-  queryGitHub method endpoint vals ghData = do
-    BotEnv{..} <- ask
-    let vals' = vals ++ ["owner" :=* repoOwner, "repo" :=* repoName]
-    githubAPI method endpoint vals' ghData ghToken ghManager
+  modifyEndpointVals vals = do
+    BotEnv{repoOwner, repoName} <- ask
+    return $ vals ++
+      [ "owner" :=* repoOwner
+      , "repo" :=* repoName
+      ]
+  getToken = asks ghToken
+  getManager = asks ghManager
 
 runBot :: MonadIO m => BotConfig -> BotAppT m a -> m a
 runBot BotConfig{..} app = do

@@ -18,7 +18,6 @@ module MergeBot.Core.GitHub.REST
   , EndpointVals
   , GitHubData
   , KeyValue(..)
-  , githubAPI
   , githubTry
   , (.:)
   , kvToValue
@@ -50,7 +49,21 @@ type MonadREST m = (MonadCatch m, MonadGitHub m)
 
 -- | A type class for monads that can query the GitHub REST API.
 class MonadIO m => MonadGitHub m where
+  {-# MINIMAL getToken, getManager | queryGitHub #-}
+  modifyEndpointVals :: EndpointVals -> m EndpointVals
+  modifyEndpointVals = return
+
+  getToken :: m String
+  getToken = error "No token specified"
+
+  getManager :: m Manager
+  getManager = error "No manager specified"
+
   queryGitHub :: StdMethod -> Endpoint -> EndpointVals -> GitHubData -> m Value
+  queryGitHub stdMethod endpoint endpointVals ghData = do
+    token <- getToken
+    manager <- getManager
+    githubAPI stdMethod endpoint endpointVals ghData token manager
 
 -- | The GitHub API endpoint with placeholders of the form ":abc" that can be replaced by
 -- passed-in values.
