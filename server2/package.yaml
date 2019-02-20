@@ -13,6 +13,7 @@ dependencies:
 - http-types
 - jose
 - lens
+- memory
 - merge-bot-core
 - mtl
 - text
