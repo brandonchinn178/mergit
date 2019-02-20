@@ -16,8 +16,10 @@ module MergeBot.Server (initApp) where
 
 import Control.Concurrent.MVar (MVar, newMVar)
 import Control.Lens (preview, (&), (.~), (?~))
+import Control.Monad (unless)
 import Control.Monad.Except (runExceptT)
 import Control.Monad.Reader (ReaderT, runReaderT)
+import Crypto.Hash (Digest, SHA1, digestFromByteString)
 import Crypto.JWT
     ( JWK
     , JWTError
@@ -33,12 +35,15 @@ import Crypto.JWT
     , signClaims
     , stringOrUri
     )
+import Crypto.MAC.HMAC (HMAC(..), hmac)
 import Crypto.PubKey.RSA (PrivateKey)
 import Data.Aeson (Value(..), eitherDecode, withObject, (.:))
 import Data.Aeson.Types (parseEither)
+import Data.ByteArray (constEq)
+import Data.ByteArray.Encoding (Base(..), convertFromBase)
+import Data.ByteString (ByteString)
 import qualified Data.ByteString as ByteString
 import qualified Data.ByteString.Char8 as Char8
-import Data.ByteString.Lazy (ByteString)
 import qualified Data.ByteString.Lazy as ByteStringL
 import qualified Data.CaseInsensitive as CI
 import Data.Text (Text)
@@ -60,13 +65,13 @@ import MergeBot.Core.State (BotState, newBotState)
 
 data AppEnv = AppEnv
   { ghAppId         :: Int
-  , ghWebhookSecret :: Text
+  , ghWebhookSecret :: ByteString
   , jwk             :: JWK
   }
 
 data GitHubPayload = GitHubPayload
   { ghEvent        :: GitHubEvent
-  , ghSignature    :: Text -- TODO: Digest SHA1
+  , ghSignature    :: Digest SHA1
   , installationId :: Int
   , payloadBody    :: ByteString
   } deriving (Show)
@@ -81,10 +86,10 @@ data GitHubEvent
 -- GitHub event we don't care about.
 parsePayload :: Request -> IO (Either String GitHubPayload)
 parsePayload request = do
-  payloadBody <- lazyRequestBody request
+  body <- lazyRequestBody request
   -- TODO: better logging
   either fail return
-    $ eitherDecode payloadBody >>= parseEither (parsePayload' payloadBody)
+    $ eitherDecode body >>= parseEither (parsePayload' $ ByteStringL.toStrict body)
   where
     getHeader name =
       maybe
@@ -95,7 +100,10 @@ parsePayload request = do
       event <- getHeader "x-github-event"
       sig <- getHeader "x-hub-signature"
       ghSignature <- case Text.splitOn "=" sig of
-        ["sha1", sig'] -> return sig'
+        ["sha1", sig'] -> do
+          decoded <- either fail return $ convertFromBase Base16 $ Text.encodeUtf8 sig'
+          maybe (fail $ "Invalid SHA1 digest: " ++ Text.unpack sig') return
+            $ digestFromByteString (decoded :: ByteString)
         _ -> fail $ "Invalid signature: " ++ Text.unpack sig
       installation <- o .: "installation"
       installationId <- installation .: "id"
@@ -123,7 +131,7 @@ newtype Handler a = Handler
 initApp :: IO Application
 initApp = do
   ghAppId <- getEnv "GITHUB_APP_ID" >>= parseInt
-  ghWebhookSecret <- Text.pack <$> getEnv "GITHUB_WEBHOOK_SECRET"
+  ghWebhookSecret <- Char8.pack <$> getEnv "GITHUB_WEBHOOK_SECRET"
   privateKey <- getEnv "PRIVATE_KEY_FILE" >>= loadKeyFile
   let jwk = fromRSA privateKey
 
@@ -150,7 +158,9 @@ handleRequest AppEnv{..} state request respond =
     Left event -> respond $ responseLBS status200 [] $
       ByteStringL.fromStrict $ Char8.pack $ "Ignoring event: " ++ event
   where
-    checkSignature GitHubPayload{payloadBody} = undefined >> return ()
+    checkSignature GitHubPayload{..} =
+      let digest = hmacGetDigest @SHA1 $ hmac ghWebhookSecret payloadBody
+      in unless (constEq digest ghSignature) $ fail "Signature does not match payload"
     getToken GitHubPayload{installationId} = do
       alg <- either (fail . show) return =<< runExceptT @JWTError (bestJWSAlg jwk)
       now <- getCurrentTime
