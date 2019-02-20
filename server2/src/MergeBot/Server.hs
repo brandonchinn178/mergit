@@ -6,6 +6,7 @@ Portability :  portable
 
 Defines the merge bot server running as a GitHub App.
 -}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -18,7 +19,8 @@ import Control.Concurrent.MVar (MVar, newMVar)
 import Control.Lens (preview, (&), (.~), (?~))
 import Control.Monad (unless)
 import Control.Monad.Except (runExceptT)
-import Control.Monad.Reader (ReaderT, runReaderT)
+import Control.Monad.IO.Class (MonadIO)
+import Control.Monad.Reader (MonadReader, ReaderT, runReaderT)
 import Crypto.Hash (Digest, SHA1, digestFromByteString)
 import Crypto.JWT
     ( JWK
@@ -54,7 +56,7 @@ import Data.X509 (PrivKey(..))
 import Data.X509.Memory (readKeyFileFromMemory)
 import Network.HTTP.Types (status200)
 import Network.Wai
-    (Application, Request, Response, lazyRequestBody, requestHeaders, responseLBS)
+    (Application, Request, lazyRequestBody, requestHeaders, responseLBS)
 import System.Environment (getEnv)
 import Text.Read (readMaybe)
 
@@ -78,7 +80,9 @@ data GitHubPayload = GitHubPayload
 
 -- | TODO: parse out values in constructors instead of just 'Value'
 data GitHubEvent
-  = InstallRepo Value
+  = InstallApp Value
+    -- ^ https://developer.github.com/v3/activity/events/types/#installationevent
+  | InstallRepo Value
     -- ^ https://developer.github.com/v3/activity/events/types/#installationrepositoriesevent
   deriving (Show)
 
@@ -110,6 +114,7 @@ parsePayload request = do
 
       let mkPayload ghEvent = Right GitHubPayload{..}
       case event of
+        "installation" -> undefined -- TODO
         "installation_repositories" -> mkPayload <$> parseInstallRepo o
         -- TODO: other events
         _ -> return $ Left $ Text.unpack event
@@ -124,7 +129,7 @@ data AppState = AppState
 
 newtype Handler a = Handler
   { getHandler :: ReaderT AppState IO a
-  }
+  } deriving (Functor, Applicative, Monad, MonadIO, MonadReader AppState)
 
 {- App -}
 
@@ -149,14 +154,14 @@ loadKeyFile file = do
     _ -> fail $ "Not a valid RSA private key file: " ++ file
 
 handleRequest :: AppEnv -> MVar BotState -> Application
-handleRequest AppEnv{..} state request respond =
+handleRequest AppEnv{..} state request respond = do
   parsePayload request >>= \case
     Right payload -> do
       checkSignature payload
       ghToken <- getToken payload
-      respond =<< runReaderT (getHandler handleEvent) AppState{..}
-    Left event -> respond $ responseLBS status200 [] $
-      ByteStringL.fromStrict $ Char8.pack $ "Ignoring event: " ++ event
+      runReaderT (getHandler handleEvent) AppState{..}
+    Left event -> putStrLn $ "Ignoring event: " ++ event -- TODO: better logging
+  respond $ responseLBS status200 [] ""
   where
     checkSignature GitHubPayload{..} =
       let digest = hmacGetDigest @SHA1 $ hmac ghWebhookSecret payloadBody
@@ -173,5 +178,5 @@ handleRequest AppEnv{..} state request respond =
       let token = BearerToken $ ByteStringL.toStrict $ encodeCompact jwt
       runSimpleREST token $ createToken installationId
 
-handleEvent :: Handler Response
+handleEvent :: Handler ()
 handleEvent = undefined
