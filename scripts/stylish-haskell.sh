@@ -4,7 +4,7 @@
 # passed, overwrites the files with the styled output. Otherwise, errors if
 # differences are detected.
 
-set -eo pipefail
+set -o nounset -o pipefail
 
 builtin cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
@@ -19,7 +19,7 @@ done
 function get_files() {
     # don't stylish-haskell this file
     IGNORED=clients/web/src/MergeBot/Client/Settings/Development.hs
-    find . -name .stack-work -prune -o -path "${IGNORED}" -o -name "*.hs" -print
+    find . -name .stack-work -prune -o -path "${IGNORED}" -o -name "*.hs" -print0
 }
 
 function diff_no_fail() {
@@ -32,14 +32,26 @@ function check_file_empty() {
     fi
 }
 
+FILES=()
+while read -r -d $'\0'; do
+    FILES+=("${REPLY}")
+done < <(get_files)
+
+RUN_STYLISH=$(stack exec -- bash -c 'type -P stylish-haskell')
+
 if [[ "$STYLISH_APPLY" == 1 ]]; then
-    get_files | xargs stack exec -- stylish-haskell --inplace
+    "${RUN_STYLISH}" --inplace "${FILES[@]}"
 else
-    trap 'rm -rf .tmp' 0
-    get_files | while read FILE; do
-        mkdir -p ".tmp/$(dirname "$FILE")"
-        stack exec -- stylish-haskell "$FILE" | diff_no_fail --unified "$FILE" - > .tmp/"$FILE"
+    TMPFILE="$(mktemp)"
+    for FILE in "${FILES[@]}"; do
+        DIFF_OPTS=(
+            --label "${FILE}"
+            --label stylish-haskell
+            --unified
+        )
+        "${RUN_STYLISH}" "${FILE}" | diff_no_fail "${DIFF_OPTS[@]}" "${FILE}" - | tee -a "${TMPFILE}"
     done
-    find .tmp -type f | xargs cat | tee .tmp/diffs.txt
-    check_file_empty .tmp/diffs.txt
+    if ! check_file_empty "${TMPFILE}"; then
+        exit 1
+    fi
 fi
