@@ -17,9 +17,9 @@ module MergeBot.Server (initApp) where
 
 import Control.Concurrent.MVar (MVar, newMVar)
 import Control.Lens (preview, (&), (.~), (?~))
-import Control.Monad (unless)
+import Control.Monad (unless, (<=<))
 import Control.Monad.Except (runExceptT)
-import Control.Monad.IO.Class (MonadIO)
+import Control.Monad.IO.Class (MonadIO(..))
 import Control.Monad.Reader (MonadReader, ReaderT, runReaderT)
 import Crypto.Hash (Digest, SHA1, digestFromByteString)
 import Crypto.JWT
@@ -166,17 +166,18 @@ handleRequest AppEnv{..} state request respond = do
     checkSignature GitHubPayload{..} =
       let digest = hmacGetDigest @SHA1 $ hmac ghWebhookSecret payloadBody
       in unless (constEq digest ghSignature) $ fail "Signature does not match payload"
-    getToken GitHubPayload{installationId} = do
-      alg <- either (fail . show) return =<< runExceptT @JWTError (bestJWSAlg jwk)
-      now <- getCurrentTime
+    getToken GitHubPayload{installationId} = runJWT $ do
+      alg <- bestJWSAlg jwk
+      now <- liftIO getCurrentTime
       let claims = emptyClaimsSet
             & claimIat ?~ NumericDate now
             & claimExp ?~ NumericDate (addUTCTime (10 * 60) now)
             & claimIss .~ preview stringOrUri (show ghAppId)
           jwsHeader = newJWSHeader ((), alg)
-      jwt <- either (fail . show) return =<< runExceptT @JWTError (signClaims jwk jwsHeader claims)
+      jwt <- signClaims jwk jwsHeader claims
       let token = BearerToken $ ByteStringL.toStrict $ encodeCompact jwt
-      runSimpleREST token $ createToken installationId
+      liftIO $ runSimpleREST token $ createToken installationId
+    runJWT = either (fail . show) return <=< runExceptT @JWTError
 
 handleEvent :: Handler ()
 handleEvent = undefined
