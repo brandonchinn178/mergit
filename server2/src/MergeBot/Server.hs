@@ -6,11 +6,13 @@ Portability :  portable
 
 Defines the merge bot server running as a GitHub App.
 -}
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 
 module MergeBot.Server (initApp) where
@@ -39,8 +41,8 @@ import Crypto.JWT
     )
 import Crypto.MAC.HMAC (HMAC(..), hmac)
 import Crypto.PubKey.RSA (PrivateKey)
-import Data.Aeson (Value(..), eitherDecode, withObject, (.:))
-import Data.Aeson.Types (parseEither)
+import Data.Aeson (Object, Value(..), eitherDecode, withObject, (.:))
+import Data.Aeson.Types (Parser, parseEither)
 import Data.ByteArray (constEq)
 import Data.ByteArray.Encoding (Base(..), convertFromBase)
 import Data.ByteString (ByteString)
@@ -71,20 +73,34 @@ data AppEnv = AppEnv
   , jwk             :: JWK
   }
 
+{- Events -}
+
+class GitHubEvent e where
+  parseEvent :: Object -> Parser e
+  runEvent :: e -> Handler ()
+
 data GitHubPayload = GitHubPayload
-  { ghEvent        :: GitHubEvent
-  , ghSignature    :: Digest SHA1
+  { ghSignature    :: Digest SHA1
   , installationId :: Int
   , payloadBody    :: ByteString
-  } deriving (Show)
+  , eventHandler   :: Handler ()
+  }
 
 -- | TODO: parse out values in constructors instead of just 'Value'
-data GitHubEvent
-  = InstallApp Value
-    -- ^ https://developer.github.com/v3/activity/events/types/#installationevent
-  | InstallRepo Value
-    -- ^ https://developer.github.com/v3/activity/events/types/#installationrepositoriesevent
-  deriving (Show)
+-- https://developer.github.com/v3/activity/events/types/#installationevent
+data InstallApp = InstallApp Value
+
+instance GitHubEvent InstallApp where
+  parseEvent = return . InstallApp . Object
+  runEvent _ = fail "install app"
+
+-- | TODO: parse out values in constructors instead of just 'Value'
+-- https://developer.github.com/v3/activity/events/types/#installationrepositoriesevent
+data InstallRepo = InstallRepo Value
+
+instance GitHubEvent InstallRepo where
+  parseEvent = return . InstallRepo . Object
+  runEvent _ = fail "install repo"
 
 -- | Parse a payload based on the given request. Returns 'Left' if the request is for a
 -- GitHub event we don't care about.
@@ -112,13 +128,16 @@ parsePayload request = do
       installation <- o .: "installation"
       installationId <- installation .: "id"
 
-      let mkPayload ghEvent = Right GitHubPayload{..}
+      let mkPayload :: forall e. GitHubEvent e => Parser (Either String GitHubPayload)
+          mkPayload = do
+            ghEvent <- parseEvent @e o
+            let eventHandler = runEvent ghEvent
+            return $ Right GitHubPayload{..}
       case event of
-        "installation" -> undefined -- TODO
-        "installation_repositories" -> mkPayload <$> parseInstallRepo o
+        "installation" -> mkPayload @InstallApp
+        "installation_repositories" -> mkPayload @InstallRepo
         -- TODO: other events
         _ -> return $ Left $ Text.unpack event
-    parseInstallRepo o =  return $ InstallRepo $ Object o -- TODO
 
 {- Monad -}
 
@@ -156,17 +175,17 @@ loadKeyFile file = do
 handleRequest :: AppEnv -> MVar BotState -> Application
 handleRequest AppEnv{..} state request respond = do
   parsePayload request >>= \case
-    Right payload -> do
-      checkSignature payload
-      ghToken <- getToken payload
-      runReaderT (getHandler handleEvent) AppState{..}
+    Right GitHubPayload{..} -> do
+      checkSignature ghSignature payloadBody
+      ghToken <- getToken installationId
+      runReaderT (getHandler eventHandler) AppState{..}
     Left event -> putStrLn $ "Ignoring event: " ++ event -- TODO: better logging
   respond $ responseLBS status200 [] ""
   where
-    checkSignature GitHubPayload{..} =
-      let digest = hmacGetDigest @SHA1 $ hmac ghWebhookSecret payloadBody
-      in unless (constEq digest ghSignature) $ fail "Signature does not match payload"
-    getToken GitHubPayload{installationId} = runJWT $ do
+    checkSignature signature payload =
+      let digest = hmacGetDigest @SHA1 $ hmac ghWebhookSecret payload
+      in unless (constEq digest signature) $ fail "Signature does not match payload"
+    getToken installId = runJWT $ do
       alg <- bestJWSAlg jwk
       now <- liftIO getCurrentTime
       let claims = emptyClaimsSet
@@ -176,8 +195,5 @@ handleRequest AppEnv{..} state request respond = do
           jwsHeader = newJWSHeader ((), alg)
       jwt <- signClaims jwk jwsHeader claims
       let token = BearerToken $ ByteStringL.toStrict $ encodeCompact jwt
-      liftIO $ runSimpleREST token $ createToken installationId
+      liftIO $ runSimpleREST token $ createToken installId
     runJWT = either (fail . show) return <=< runExceptT @JWTError
-
-handleEvent :: Handler ()
-handleEvent = undefined
