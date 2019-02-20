@@ -11,16 +11,13 @@ dependencies:
 - case-insensitive
 - cryptonite
 - http-types
-- jose
-- lens
+- jwt
 - memory
 - merge-bot-core
 - mtl
 - text
 - time
 - wai
-- x509
-- x509-store
 
 library:
   source-dirs: src
