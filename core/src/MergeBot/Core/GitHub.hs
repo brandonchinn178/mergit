@@ -117,7 +117,9 @@ createCommit = fmap (.: "sha") . queryGitHub POST "/repos/:owner/:repo/git/commi
 --
 -- https://developer.github.com/v3/apps/#create-a-new-installation-token
 createToken :: MonadREST m => Int -> m Text
-createToken = undefined
+createToken installationId = (.: "token") <$>
+  queryGitHub POST "/app/installations/:installation_id/access_tokens"
+    ["installation_id" :=* installationId] []
 
 -- | Delete the given branch, ignoring the error if the branch doesn't exist.
 --
