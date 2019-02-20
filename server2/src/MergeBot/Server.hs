@@ -18,29 +18,11 @@ Defines the merge bot server running as a GitHub App.
 module MergeBot.Server (initApp) where
 
 import Control.Concurrent.MVar (MVar, newMVar)
-import Control.Lens (preview, (&), (.~), (?~))
-import Control.Monad (unless, (<=<))
-import Control.Monad.Except (runExceptT)
+import Control.Monad (unless)
 import Control.Monad.IO.Class (MonadIO(..))
 import Control.Monad.Reader (MonadReader, ReaderT, runReaderT)
 import Crypto.Hash (Digest, SHA1, digestFromByteString)
-import Crypto.JWT
-    ( JWK
-    , JWTError
-    , NumericDate(..)
-    , bestJWSAlg
-    , claimExp
-    , claimIat
-    , claimIss
-    , emptyClaimsSet
-    , encodeCompact
-    , fromRSA
-    , newJWSHeader
-    , signClaims
-    , stringOrUri
-    )
 import Crypto.MAC.HMAC (HMAC(..), hmac)
-import Crypto.PubKey.RSA (PrivateKey)
 import Data.Aeson (Object, Value(..), eitherDecode, withObject, (.:))
 import Data.Aeson.Types (Parser, parseEither)
 import Data.ByteArray (constEq)
@@ -53,14 +35,22 @@ import qualified Data.CaseInsensitive as CI
 import Data.Text (Text)
 import qualified Data.Text as Text
 import qualified Data.Text.Encoding as Text
-import Data.Time (addUTCTime, getCurrentTime)
-import Data.X509 (PrivKey(..))
-import Data.X509.Memory (readKeyFileFromMemory)
+import Data.Time (getCurrentTime)
+import Data.Time.Clock.POSIX (utcTimeToPOSIXSeconds)
 import Network.HTTP.Types (status200)
 import Network.Wai
     (Application, Request, lazyRequestBody, requestHeaders, responseLBS)
+import Prelude hiding (exp)
 import System.Environment (getEnv)
 import Text.Read (readMaybe)
+import Web.JWT
+    ( JWTClaimsSet(..)
+    , Signer(..)
+    , encodeSigned
+    , numericDate
+    , readRsaSecret
+    , stringOrURI
+    )
 
 import MergeBot.Core.GitHub (Token(..), createToken, runSimpleREST)
 import MergeBot.Core.State (BotState, newBotState)
@@ -70,7 +60,7 @@ import MergeBot.Core.State (BotState, newBotState)
 data AppEnv = AppEnv
   { ghAppId         :: Int
   , ghWebhookSecret :: ByteString
-  , jwk             :: JWK
+  , signer          :: Signer
   }
 
 {- Events -}
@@ -156,8 +146,7 @@ initApp :: IO Application
 initApp = do
   ghAppId <- getEnv "GITHUB_APP_ID" >>= parseInt
   ghWebhookSecret <- Char8.pack <$> getEnv "GITHUB_WEBHOOK_SECRET"
-  privateKey <- getEnv "PRIVATE_KEY_FILE" >>= loadKeyFile
-  let jwk = fromRSA privateKey
+  signer <- loadSigner =<< getEnv "PRIVATE_KEY_FILE"
 
   state <- newMVar newBotState -- TODO: this should go away
 
@@ -165,12 +154,11 @@ initApp = do
   where
     parseInt x = maybe (fail $ "Invalid int: " ++ x) return $ readMaybe x
 
-loadKeyFile :: FilePath -> IO PrivateKey
-loadKeyFile file = do
-  contents <- ByteString.readFile file
-  case readKeyFileFromMemory contents of
-    [PrivKeyRSA key] -> return key
-    _ -> fail $ "Not a valid RSA private key file: " ++ file
+loadSigner :: FilePath -> IO Signer
+loadSigner file = maybe badSigner return . readSigner =<< ByteString.readFile file
+  where
+    badSigner = fail $ "Not a valid RSA private key file: " ++ file
+    readSigner = fmap RSAPrivateKey . readRsaSecret
 
 handleRequest :: AppEnv -> MVar BotState -> Application
 handleRequest AppEnv{..} state request respond = do
@@ -185,15 +173,13 @@ handleRequest AppEnv{..} state request respond = do
     checkSignature signature payload =
       let digest = hmacGetDigest @SHA1 $ hmac ghWebhookSecret payload
       in unless (constEq digest signature) $ fail "Signature does not match payload"
-    getToken installId = runJWT $ do
-      alg <- bestJWSAlg jwk
-      now <- liftIO getCurrentTime
-      let claims = emptyClaimsSet
-            & claimIat ?~ NumericDate now
-            & claimExp ?~ NumericDate (addUTCTime (10 * 60) now)
-            & claimIss .~ preview stringOrUri (show ghAppId)
-          jwsHeader = newJWSHeader ((), alg)
-      jwt <- signClaims jwk jwsHeader claims
-      let token = BearerToken $ ByteStringL.toStrict $ encodeCompact jwt
-      liftIO $ runSimpleREST token $ createToken installId
-    runJWT = either (fail . show) return <=< runExceptT @JWTError
+    getToken installId = do
+      now <- getCurrentTime
+      let claims = mempty
+            { iat = numericDate $ utcTimeToPOSIXSeconds now
+            , exp = numericDate $ utcTimeToPOSIXSeconds now + (10 * 60)
+            , iss = stringOrURI $ Text.pack $ show ghAppId
+            }
+          jwt = encodeSigned signer claims
+          token = BearerToken $ Text.encodeUtf8 jwt
+      runSimpleREST token $ createToken installId
