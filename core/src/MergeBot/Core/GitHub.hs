@@ -25,7 +25,7 @@ module MergeBot.Core.GitHub
   , mergeBranches
   , updateBranch
   -- * Re-exports
-  , module MergeBot.Core.GitHub.REST
+  , module GitHub.REST
   ) where
 
 import Control.Monad (void)
@@ -39,11 +39,11 @@ import Data.Maybe (fromJust)
 import Data.Monoid ((<>))
 import Data.Text (Text)
 import qualified Data.Text as Text
+import GitHub.REST
 import Network.HTTP.Client (Manager, newManager, requestHeaders)
 import Network.HTTP.Client.TLS (tlsManagerSettings)
 import Network.HTTP.Types (StdMethod(..), hAuthorization, hUserAgent)
 
-import MergeBot.Core.GitHub.REST
 import MergeBot.Core.GraphQL.API (API)
 
 {- GraphQL API -}

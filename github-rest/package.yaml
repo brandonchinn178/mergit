@@ -1,0 +1,17 @@
+defaults:
+  local: ../hpack.yaml
+
+name: github-rest
+version: 0.1.0
+
+dependencies:
+- aeson
+- base
+- bytestring
+- exceptions
+- http-client
+- http-types
+- text
+
+library:
+  source-dirs: src

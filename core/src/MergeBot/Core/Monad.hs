@@ -49,8 +49,8 @@ import Network.HTTP.Client (Manager, newManager)
 import Network.HTTP.Client.TLS (tlsManagerSettings)
 
 import MergeBot.Core.Config (BotConfig(..))
-import MergeBot.Core.GitHub (MonadGitHub, MonadREST, graphqlSettings)
-import MergeBot.Core.GitHub.REST (KeyValue(..), MonadGitHub(..), Token(..))
+import MergeBot.Core.GitHub
+    (KeyValue(..), MonadGitHub(..), MonadREST, Token(..), graphqlSettings)
 import MergeBot.Core.GraphQL.API (API)
 
 type MonadGraphQL m = (MonadReader BotEnv m, MonadQuery API m)

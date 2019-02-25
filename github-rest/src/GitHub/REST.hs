@@ -1,5 +1,5 @@
 {-|
-Module      :  MergeBot.Core.GitHub.REST
+Module      :  GitHub.REST
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
 Portability :  portable
@@ -11,7 +11,7 @@ Definitions for querying the GitHub REST API.
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module MergeBot.Core.GitHub.REST
+module GitHub.REST
   ( MonadGitHub(..)
   , MonadREST
   , Token(..)
