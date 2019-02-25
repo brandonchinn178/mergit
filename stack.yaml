@@ -2,6 +2,7 @@ resolver: lts-13.5
 
 packages:
   - core
+  - github-rest
   - graphql
   - graphql/example
 

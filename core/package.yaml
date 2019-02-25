@@ -11,6 +11,7 @@ dependencies:
   - containers
   - exceptions
   - extra
+  - github-rest
   - graphql-client
   - http-client
   - http-client-tls
