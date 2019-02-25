@@ -64,7 +64,8 @@ class MonadIO m => MonadGitHub m where
   queryGitHub stdMethod endpoint endpointVals ghData = do
     token <- getToken
     manager <- getManager
-    githubAPI stdMethod endpoint endpointVals ghData token manager
+    endpointVals' <- modifyEndpointVals endpointVals
+    githubAPI stdMethod endpoint endpointVals' ghData token manager
 
 -- | The token to use to authenticate with GitHub.
 data Token
