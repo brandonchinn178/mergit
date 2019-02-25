@@ -23,10 +23,7 @@ aliases:
         FILES=(
           stack.yaml
           hpack.yaml
-          # clients/web/package.yaml
           core/package.yaml
-          # server/package.yaml
-          server2/package.yaml
           graphql/package.yaml
           graphql/example/package.yaml
           scripts/install-stack-deps.sh
@@ -99,12 +96,9 @@ jobs:
           root: .
           paths:
             - .stack-work
-            # - clients/web/.stack-work
             - core/.stack-work
             - graphql/.stack-work
             - graphql/example/.stack-work
-            # - server/.stack-work
-            - server2/.stack-work
 
   lint:
     <<: *docker-linux

@@ -1,4 +1,0 @@
-port: 8080
-static-dir: static/
-api-host: localhost
-api-port: 3000
