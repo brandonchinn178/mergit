@@ -32,6 +32,7 @@ import Control.Monad.IO.Class (MonadIO(..))
 import Data.Aeson
     (FromJSON, Value(..), decode, eitherDecode, encode, object, withObject)
 import Data.Aeson.Types (parseEither, parseField)
+import Data.ByteString (ByteString)
 import qualified Data.ByteString.Lazy as ByteStringL
 import Data.Text (Text)
 import qualified Data.Text as Text
@@ -81,7 +82,7 @@ import GitHub.REST.KeyValue
 -- >   , ghData = []
 -- >   }
 class MonadIO m => MonadGitHubREST m where
-  {-# MINIMAL getToken, getManager | queryGitHub #-}
+  {-# MINIMAL getToken, getManager, getUserAgent | queryGitHub #-}
 
   getToken :: m Token
   getToken = error "No token specified"
@@ -89,16 +90,21 @@ class MonadIO m => MonadGitHubREST m where
   getManager :: m Manager
   getManager = error "No manager specified"
 
+  -- | https://developer.github.com/v3/#user-agent-required
+  getUserAgent :: m ByteString
+  getUserAgent = error "No user agent specified"
+
   queryGitHub :: GHEndpoint -> m Value
   queryGitHub ghEndpoint = do
     manager <- getManager
     token <- getToken
+    userAgent <- getUserAgent
 
     response <- liftIO $ getResponse manager request
       { method = renderMethod ghEndpoint
       , requestHeaders =
           (hAccept, "application/vnd.github.machine-man-preview+json")
-          : (hUserAgent, "LeapYear/merge-bot")
+          : (hUserAgent, userAgent)
           : (hAuthorization, fromToken token)
           : requestHeaders request
       , requestBody = RequestBodyLBS $ encode $ kvToValue $ ghData ghEndpoint

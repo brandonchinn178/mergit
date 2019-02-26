@@ -83,6 +83,7 @@ newtype SimpleREST a = SimpleREST (ReaderT (Token, Manager) IO a)
 instance MonadGitHubREST SimpleREST where
   getToken = asks fst
   getManager = asks snd
+  getUserAgent = error "no user agent" -- TODO
 
 runSimpleREST :: Token -> SimpleREST a -> IO a
 runSimpleREST token (SimpleREST action) = do
