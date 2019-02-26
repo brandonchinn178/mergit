@@ -8,6 +8,7 @@ Defines helpers for querying the GitHub API.
 -}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 
@@ -92,39 +93,65 @@ runSimpleREST token (SimpleREST action) = do
 --
 -- https://developer.github.com/v3/git/refs/#create-a-reference
 createBranch :: MonadBotApp m => GitHubData -> m ()
-createBranch = void . queryGitHub' POST "/repos/:owner/:repo/git/refs" []
+createBranch ghData = void $ queryGitHub' GHEndpoint
+  { method = POST
+  , endpoint = "/repos/:owner/:repo/git/refs"
+  , endpointVals = []
+  , ghData
+  }
 
 -- | Create a commit, returning the SHA of the created commit.
 --
 -- https://developer.github.com/v3/git/commits/#create-a-commit
 createCommit :: MonadBotApp m => GitHubData -> m Text
-createCommit = fmap (.: "sha") . queryGitHub' POST "/repos/:owner/:repo/git/commits" []
+createCommit ghData = (.: "sha") <$> queryGitHub' GHEndpoint
+  { method = POST
+  , endpoint = "/repos/:owner/:repo/git/commits"
+  , endpointVals = []
+  , ghData
+  }
 
 -- | Create a new installation token.
 --
 -- https://developer.github.com/v3/apps/#create-a-new-installation-token
 createToken :: MonadBotApp m => Int -> m Text
-createToken installationId = (.: "token") <$>
-  queryGitHub' POST "/app/installations/:installation_id/access_tokens"
-    ["installation_id" := installationId] []
+createToken installationId = (.: "token") <$> queryGitHub' GHEndpoint
+  { method = POST
+  , endpoint = "/app/installations/:installation_id/access_tokens"
+  , endpointVals = ["installation_id" := installationId]
+  , ghData = []
+  }
 
 -- | Delete the given branch, ignoring the error if the branch doesn't exist.
 --
 -- https://developer.github.com/v3/git/refs/#delete-a-reference
 deleteBranch :: MonadBotApp m => Text -> m ()
-deleteBranch branch = void $ githubTry $
-  queryGitHub' DELETE "/repos/:owner/:repo/git/refs/:ref" ["ref" := "heads/" <> branch] []
+deleteBranch branch = void $ githubTry $ queryGitHub' GHEndpoint
+  { method = DELETE
+  , endpoint = "/repos/:owner/:repo/git/refs/:ref"
+  , endpointVals = ["ref" := "heads/" <> branch]
+  , ghData = []
+  }
 
 -- | Merge two branches, returning the merge commit information.
 -- TODO: handle merge conflicts
 --
 -- https://developer.github.com/v3/repos/merging/#perform-a-merge
 mergeBranches :: MonadBotApp m => GitHubData -> m ()
-mergeBranches = void . queryGitHub' POST "/repos/:owner/:repo/merges" []
+mergeBranches ghData = void $ queryGitHub' GHEndpoint
+  { method = POST
+  , endpoint = "/repos/:owner/:repo/merges"
+  , endpointVals = []
+  , ghData
+  }
 
 -- | Set the given branch to the given commit. Returns false if update is not a fast-forward.
 --
 -- https://developer.github.com/v3/git/refs/#update-a-reference
 updateBranch :: MonadBotApp m => Text -> GitHubData -> m Bool
-updateBranch branch = fmap isRight . githubTry .
-  queryGitHub' PATCH "/repos/:owner/:repo/git/refs/:ref" ["ref" := "heads/" <> branch]
+updateBranch branch ghData = fmap isRight $ githubTry $ queryGitHub' GHEndpoint
+  { method = PATCH
+  , endpoint = "/repos/:owner/:repo/git/refs/:ref"
+  , endpointVals = ["ref" := "heads/" <> branch]
+  , ghData
+  }
