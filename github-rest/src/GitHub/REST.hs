@@ -10,16 +10,19 @@ Definitions for querying the GitHub REST API.
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs #-}
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module GitHub.REST
   ( MonadGitHubREST(..)
+  -- * GitHub authentication
   , Token(..)
+  -- * GitHub Endpoints
   , GHEndpoint(..)
   , GitHubData
   , EndpointVals
+  -- * KeyValue pairs
   , KeyValue(..)
+  -- * Helpers
   , githubTry
   , (.:)
   ) where
@@ -29,7 +32,6 @@ import Control.Monad.IO.Class (MonadIO(..))
 import Data.Aeson
     (FromJSON, Value(..), decode, eitherDecode, encode, object, withObject)
 import Data.Aeson.Types (parseEither, parseField)
-import Data.ByteString (ByteString)
 import qualified Data.ByteString.Lazy as ByteStringL
 import Data.Text (Text)
 import qualified Data.Text as Text
@@ -47,6 +49,7 @@ import Network.HTTP.Client
     )
 import Network.HTTP.Types (hAccept, hAuthorization, hUserAgent, status422)
 
+import GitHub.REST.Auth
 import GitHub.REST.Endpoint
 import GitHub.REST.KeyValue
 
@@ -108,15 +111,6 @@ class MonadIO m => MonadGitHubREST m where
     where
       getResponse manager = fmap responseBody . flip httpLbs manager
       request = parseRequest_ $ Text.unpack $ "https://api.github.com" <> endpointPath ghEndpoint
-      fromToken = \case
-        AccessToken t -> "token " <> t
-        BearerToken t -> "bearer " <> t
-
--- | The token to use to authenticate with GitHub.
-data Token
-  = AccessToken ByteString -- ^ https://developer.github.com/v3/#authentication
-  | BearerToken ByteString -- ^ https://developer.github.com/apps/building-github-apps/authenticating-with-github-apps/#authenticating-as-a-github-app
-  deriving (Show)
 
 {- HTTP exception handling -}
 
