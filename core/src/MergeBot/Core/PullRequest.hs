@@ -36,7 +36,7 @@ import MergeBot.Core.Data
     , PullRequestSimple(..)
     , TryRun(..)
     )
-import MergeBot.Core.GitHub (PaginatedResult(..), queryAll)
+import MergeBot.Core.GitHub (MonadGraphQL, PaginatedResult(..), queryAll)
 import MergeBot.Core.GraphQL.Enums.PullRequestReviewState
     (PullRequestReviewState(..))
 import qualified MergeBot.Core.GraphQL.PullRequest as PullRequest
@@ -46,7 +46,7 @@ import MergeBot.Core.GraphQL.Scalars.DateTime (DateTime(..))
 import MergeBot.Core.GraphQL.Scalars.GitObjectID (GitObjectID(..))
 import MergeBot.Core.GraphQL.Scalars.HTML (HTML(..))
 import MergeBot.Core.GraphQL.Scalars.URI (URI(..))
-import MergeBot.Core.Monad (MonadBotApp(..), MonadGraphQL)
+import MergeBot.Core.Monad (MonadBotApp(..))
 
 -- | Get all open pull requests.
 getPullRequests :: (MonadBotApp m, MonadGraphQL m) => (PullRequestId -> BotStatus) -> m [PullRequest]

@@ -23,26 +23,15 @@ module MergeBot.Core.Monad
   , MonadBotApp(..)
   , runBot
   -- * Helpers
-  , MonadGraphQL
   , queryGitHub'
   ) where
 
-import Control.Monad.Base (MonadBase(..), liftBaseDefault)
 import Control.Monad.Catch (MonadCatch, MonadMask, MonadThrow)
-import Control.Monad.Except (MonadError)
 import Control.Monad.IO.Class (MonadIO(..))
-import Control.Monad.Reader (MonadReader, ReaderT, ask, asks, runReaderT)
+import Control.Monad.Reader (ReaderT, ask, runReaderT)
 import Control.Monad.Trans.Class (MonadTrans(..))
-import Control.Monad.Trans.Control
-    ( ComposeSt
-    , MonadBaseControl(..)
-    , MonadTransControl(..)
-    , defaultLiftBaseWith
-    , defaultLiftWith2
-    , defaultRestoreM
-    , defaultRestoreT2
-    )
 import Data.Aeson (Value)
+import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as Char8
 import Data.GraphQL
     ( MonadQuery(..)
@@ -52,59 +41,43 @@ import Data.GraphQL
     , runQueryT
     )
 import GitHub.REST
-    (GHEndpoint(..), KeyValue(..), MonadGitHubREST(..), Token(..))
-import Network.HTTP.Client (Manager, Request(..), newManager)
-import Network.HTTP.Client.TLS (tlsManagerSettings)
+    (GHEndpoint(..), GitHubT, KeyValue(..), MonadGitHubREST(..), runGitHubT)
+import GitHub.REST.Auth (Token(..), fromToken)
+import Network.HTTP.Client (Request(..))
 import Network.HTTP.Types (hAuthorization, hUserAgent)
 
 import MergeBot.Core.Config (BotConfig(..))
 import MergeBot.Core.GraphQL.API (API)
 
-type MonadGraphQL m = (MonadBotApp m, MonadQuery API m)
 
 data BotEnv = BotEnv
   { repoOwner :: String
   , repoName  :: String
-  , ghToken   :: String
-  , ghManager :: Manager
   }
 
-newtype BotAppT m a = BotAppT { unBotApp :: ReaderT BotEnv (QueryT API m) a }
+newtype BotAppT m a = BotAppT
+  { unBotApp :: ReaderT BotEnv (GitHubT (QueryT API m)) a
+  }
   deriving
     ( Functor
     , Applicative
     , Monad
     , MonadCatch
-    , MonadError e
     , MonadIO
     , MonadMask
-    , MonadReader BotEnv
     , MonadThrow
     )
 
 instance MonadTrans BotAppT where
-  lift = BotAppT . lift . lift
-
-instance MonadBase IO m => MonadBase IO (BotAppT m) where
-  liftBase = liftBaseDefault
-
-instance MonadTransControl BotAppT where
-  type StT BotAppT a = StT (ReaderT BotEnv) (StT (QueryT API) a)
-  liftWith = defaultLiftWith2 BotAppT unBotApp
-  restoreT = defaultRestoreT2 BotAppT
-
-instance MonadBaseControl IO m => MonadBaseControl IO (BotAppT m) where
-  type StM (BotAppT m) a = ComposeSt BotAppT m a
-  liftBaseWith = defaultLiftBaseWith
-  restoreM = defaultRestoreM
+  lift = BotAppT . lift . lift . lift
 
 instance MonadIO m => MonadQuery API (BotAppT m) where
-  runQuerySafe query = BotAppT . lift . runQuerySafe query
+  runQuerySafe query = BotAppT . lift . lift . runQuerySafe query
 
 instance MonadIO m => MonadGitHubREST (BotAppT m) where
-  getToken = asks (AccessToken . Char8.pack . ghToken)
-  getManager = asks ghManager
-  getUserAgent = pure "LeapYear/merge-bot"
+  getToken = BotAppT . lift $ getToken
+  getManager = BotAppT . lift $ getManager
+  getUserAgent = BotAppT . lift $ getUserAgent
 
 class (MonadCatch m, MonadGitHubREST m) => MonadBotApp m where
   getRepo :: m (String, String)
@@ -115,18 +88,17 @@ instance (MonadCatch m, MonadIO m) => MonadBotApp (BotAppT m) where
     return (repoOwner, repoName)
 
 runBot :: MonadIO m => BotConfig -> BotAppT m a -> m a
-runBot BotConfig{..} app = do
-  manager <- liftIO $ newManager tlsManagerSettings
-  let env = BotEnv
-        { repoOwner = cfgRepoOwner
-        , repoName = cfgRepoName
-        , ghToken = cfgToken
-        , ghManager = manager
-        }
-  runBotWith env app
-
-runBotWith :: MonadIO m => BotEnv -> BotAppT m a -> m a
-runBotWith env = runQueryT (graphqlSettings $ ghToken env) . (`runReaderT` env) . unBotApp
+runBot BotConfig{..} =
+  runQueryT (graphqlSettings token)
+  . runGitHubT token userAgent
+  . (`runReaderT` env)
+  . unBotApp
+  where
+    env = BotEnv
+      { repoOwner = cfgRepoOwner
+      , repoName = cfgRepoName
+      }
+    token = AccessToken $ Char8.pack cfgToken
 
 {- Helpers -}
 
@@ -141,13 +113,17 @@ queryGitHub' endpoint = do
     }
 
 -- | Settings to query GitHub's GraphQL endpoint
-graphqlSettings :: String -> QuerySettings API
+graphqlSettings :: Token -> QuerySettings API
 graphqlSettings token = defaultQuerySettings
   { url = "https://api.github.com/graphql"
   , modifyReq = \req -> req
       { requestHeaders =
-          (hAuthorization, Char8.pack $ "bearer " ++ token)
-          : (hUserAgent, "LeapYear/merge-bot")
+          (hAuthorization, fromToken token)
+          : (hUserAgent, userAgent)
           : requestHeaders req
       }
   }
+
+-- | The user agent to use for the merge bot.
+userAgent :: ByteString
+userAgent = "LeapYear/merge-bot"
