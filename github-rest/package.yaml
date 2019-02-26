@@ -10,7 +10,9 @@ dependencies:
 - bytestring
 - exceptions
 - http-client
+- http-client-tls
 - http-types
+- mtl
 - scientific
 - text
 

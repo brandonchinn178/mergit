@@ -7,7 +7,7 @@ Portability :  portable
 Defines helpers for querying the GitHub API.
 -}
 {-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -15,11 +15,11 @@ Defines helpers for querying the GitHub API.
 module MergeBot.Core.GitHub
   (
   -- * GraphQL API
-    PaginatedResult(..)
+    MonadGraphQL
+  , PaginatedResult(..)
   , queryAll
   -- * REST API
   , MonadREST
-  , runSimpleREST
   , createBranch
   , createCommit
   , createToken
@@ -29,22 +29,22 @@ module MergeBot.Core.GitHub
   ) where
 
 import Control.Monad (void)
-import Control.Monad.Catch (MonadCatch, MonadThrow)
-import Control.Monad.IO.Class (MonadIO(..))
-import Control.Monad.Reader (MonadReader, ReaderT, asks, runReaderT)
+import Control.Monad.Catch (MonadCatch)
 import Data.Either (isRight)
+import Data.GraphQL (MonadQuery)
 import Data.Maybe (fromJust)
 import Data.Monoid ((<>))
 import Data.Text (Text)
 import qualified Data.Text as Text
 import GitHub.REST
-import Network.HTTP.Client (Manager, newManager)
-import Network.HTTP.Client.TLS (tlsManagerSettings)
 import Network.HTTP.Types (StdMethod(..))
 
+import MergeBot.Core.GraphQL.API (API)
 import MergeBot.Core.Monad (MonadBotApp, queryGitHub')
 
 {- GraphQL API -}
+
+type MonadGraphQL m = (MonadBotApp m, MonadQuery API m)
 
 data PaginatedResult a = PaginatedResult
   { chunk      :: [a]
@@ -67,28 +67,6 @@ queryAll doQuery = queryAll' Nothing
 {- REST API -}
 
 type MonadREST m = (MonadBotApp m, MonadCatch m, MonadGitHubREST m)
-
--- | A simple monad that can run REST calls.
-newtype SimpleREST a = SimpleREST (ReaderT (Token, Manager) IO a)
-  deriving
-    ( Functor
-    , Applicative
-    , Monad
-    , MonadCatch
-    , MonadIO
-    , MonadReader (Token, Manager)
-    , MonadThrow
-    )
-
-instance MonadGitHubREST SimpleREST where
-  getToken = asks fst
-  getManager = asks snd
-  getUserAgent = error "no user agent" -- TODO
-
-runSimpleREST :: Token -> SimpleREST a -> IO a
-runSimpleREST token (SimpleREST action) = do
-  manager <- liftIO $ newManager tlsManagerSettings
-  runReaderT action (token, manager)
 
 -- | Create a branch.
 --

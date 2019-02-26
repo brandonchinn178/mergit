@@ -53,7 +53,8 @@ import MergeBot.Core.Data
     , TryStatus(..)
     )
 import MergeBot.Core.GitHub
-    ( MonadREST
+    ( MonadGraphQL
+    , MonadREST
     , PaginatedResult(..)
     , createBranch
     , createCommit
@@ -66,7 +67,7 @@ import qualified MergeBot.Core.GraphQL.Branch as Branch
 import qualified MergeBot.Core.GraphQL.Branches as Branches
 import qualified MergeBot.Core.GraphQL.PullRequest as PullRequest
 import MergeBot.Core.GraphQL.Scalars.GitObjectID (GitObjectID(..))
-import MergeBot.Core.Monad (MonadBotApp(..), MonadGraphQL)
+import MergeBot.Core.Monad (MonadBotApp(..))
 
 {- Branch operations -}
 

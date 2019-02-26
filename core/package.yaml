@@ -14,14 +14,11 @@ dependencies:
   - github-rest
   - graphql-client
   - http-client
-  - http-client-tls
   - http-types
-  - monad-control
   - mtl
   - text
   - time
   - transformers
-  - transformers-base
   - yaml
 
 library:
