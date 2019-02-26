@@ -25,8 +25,8 @@ out into a separate repo:
 a GraphQL API and consuming the output in a type-safe manner.
 
 * `github-rest`: A library for interacting with the GitHub REST API (v3). More
-flexible than the `github` package on Hackage by using string endpoints instead
-of writing a function per endpoint.
+flexible than the `github` package on Hackage by manually defining endpoints
+instead of writing a function per endpoint.
 
 * `servant-github-app`: A library for serving a GitHub App with Servant.
 Similar to the `servant-github-webhook` package on Hackage, this library checks
