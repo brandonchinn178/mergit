@@ -189,9 +189,9 @@ createCIBranch baseRef prs tempBranchName ciBranchName commitMessage = do
 
   -- create a new temp commit off base
   tempCommit <- createCommit
-    [ "message" := "[ci skip] temp"
+    [ "message" := ("[ci skip] temp" :: Text)
     , "tree" := unOID [get| base.tree!.oid |]
-    , "parents" :=* [baseCommit]
+    , "parents" := [baseCommit]
     ]
 
   -- create temp branch on new commit
@@ -213,7 +213,7 @@ createCIBranch baseRef prs tempBranchName ciBranchName commitMessage = do
     ciCommit <- createCommit
       [ "message" := commitMessage
       , "tree" := unOID [get| tempBranch.tree!.oid |]
-      , "parents" :=* (baseCommit : prCommits)
+      , "parents" := (baseCommit : prCommits)
       ]
 
     -- create try branch on new commit
@@ -225,7 +225,7 @@ createCIBranch baseRef prs tempBranchName ciBranchName commitMessage = do
     makeMerge branch commit =
       [ "base" := branch
       , "head" := commit
-      , "message" := "[ci skip] merge into temp"
+      , "message" := ("[ci skip] merge into temp" :: Text)
       ]
 
 -- | Create a trying branch for the given PR.

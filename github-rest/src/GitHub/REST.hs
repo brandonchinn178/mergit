@@ -27,24 +27,17 @@ module GitHub.REST
 import Control.Monad.Catch (MonadCatch, handleJust)
 import Control.Monad.IO.Class (MonadIO(..))
 import Data.Aeson
-    ( FromJSON
-    , ToJSON(..)
-    , Value(..)
-    , decode
-    , eitherDecode
-    , encode
-    , object
-    , withObject
-    )
+    (FromJSON, Value(..), decode, eitherDecode, encode, object, withObject)
 import Data.Aeson.Types (parseEither, parseField)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Lazy as ByteStringL
 import Data.Maybe (fromMaybe)
-import Data.Ratio (denominator, numerator)
 import Data.Text (Text)
 import qualified Data.Text as Text
 import Network.HTTP.Client
 import Network.HTTP.Types
+
+import GitHub.REST.KeyValue
 
 type MonadREST m = (MonadCatch m, MonadGitHub m)
 
@@ -148,38 +141,3 @@ githubTry = handleJust statusException (return . Left) . fmap Right
 (.:) v key = either error id $ parseEither parseObject v
   where
     parseObject = withObject "parseObject" (`parseField` key)
-
-{- Key/Value data -}
-
-data KeyValue where
-  (:=) :: Text -> Text -> KeyValue
-  (:=*) :: (Show v, ToJSON v) => Text -> v -> KeyValue
-infixr 1 :=
-infixr 1 :=*
-
--- | Convert the given KeyValues into a JSON Object.
-kvToValue :: [KeyValue] -> Value
-kvToValue = object . map toPair
-  where
-    toPair (k := v) = (k, String v)
-    toPair (k :=* v) = (k, toJSON v)
-
--- | Represent the given KeyValue as a pair of Texts.
-kvToText :: KeyValue -> (Text, Text)
-kvToText (k := v) = (k, v)
-kvToText (k :=* v) = (k, v')
-  where
-    v' = case toJSON v of
-      String t -> t
-      Number scientific ->
-        let rational = toRational scientific
-        in if denominator rational == 1
-          then showT $ numerator rational
-          else showT (realToFrac rational :: Double)
-      Bool b -> showT b
-      _ -> error $ "Could not convert value: " ++ show v
-
-{- Other helpers -}
-
-showT :: Show a => a -> Text
-showT = Text.pack . show
