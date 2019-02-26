@@ -7,20 +7,21 @@ Portability :  portable
 Definitions for querying the GitHub REST API.
 -}
 {-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module GitHub.REST
   ( MonadGitHubREST(..)
   , Token(..)
-  , Endpoint
-  , EndpointVals
+  , GHEndpoint(..)
   , GitHubData
+  , EndpointVals
   , KeyValue(..)
   , githubTry
   , (.:)
-  , kvToValue
   ) where
 
 import Control.Monad.Catch (MonadCatch, handleJust)
@@ -30,33 +31,52 @@ import Data.Aeson
 import Data.Aeson.Types (parseEither, parseField)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Lazy as ByteStringL
-import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import qualified Data.Text as Text
 import Network.HTTP.Client
-import Network.HTTP.Types
+    ( HttpException(..)
+    , HttpExceptionContent(..)
+    , Manager
+    , Request(..)
+    , RequestBody(..)
+    , httpLbs
+    , parseRequest_
+    , responseBody
+    , responseStatus
+    , throwErrorStatusCodes
+    )
+import Network.HTTP.Types (hAccept, hAuthorization, hUserAgent, status422)
 
+import GitHub.REST.Endpoint
 import GitHub.REST.KeyValue
 
 -- | A type class for monads that can query the GitHub REST API.
 --
 -- Example:
 -- > -- create the "foo" branch
--- > queryGitHub POST "/repos/:owner/:repo/git/refs"
--- >   [ "owner" := "alice"
--- >   , "repo" := "my-project"
--- >   ]
--- >   [ "ref" := "refs/heads/foo"
--- >   , "sha" := "1234567890abcdef"
--- >   ]
--- >
+-- > queryGitHub GHEndpoint
+-- >   { method = POST
+-- >   , endpoint = "/repos/:owner/:repo/git/refs"
+-- >   , endpointVals =
+-- >     [ "owner" := "alice"
+-- >     , "repo" := "my-project"
+-- >     ]
+-- >   , ghData =
+-- >     [ "ref" := "refs/heads/foo"
+-- >     , "sha" := "1234567890abcdef"
+-- >     ]
+-- >   }
 -- > -- delete the "foo" branch
--- > queryGitHub DELETE "/repos/:owner/:repo/git/refs/:ref"
--- >   [ "owner" := "alice"
--- >   , "repo" := "my-project"
--- >   , "ref" := "heads/foo"
--- >   ]
--- >   []
+-- > queryGitHub GHEndpoint
+-- >   { method = DELETE
+-- >   , endpoint = "/repos/:owner/:repo/git/refs/:ref"
+-- >   , endpointVals =
+-- >     [ "owner" := "alice"
+-- >     , "repo" := "my-project"
+-- >     , "ref" := "heads/foo"
+-- >     ]
+-- >   , ghData = []
+-- >   }
 class MonadIO m => MonadGitHubREST m where
   {-# MINIMAL getToken, getManager | queryGitHub #-}
 
@@ -66,72 +86,37 @@ class MonadIO m => MonadGitHubREST m where
   getManager :: m Manager
   getManager = error "No manager specified"
 
-  queryGitHub :: StdMethod -> Endpoint -> EndpointVals -> GitHubData -> m Value
-  queryGitHub stdMethod endpoint endpointVals ghData = do
-    token <- getToken
+  queryGitHub :: GHEndpoint -> m Value
+  queryGitHub ghEndpoint = do
     manager <- getManager
-    githubAPI stdMethod endpoint endpointVals ghData token manager
+    token <- getToken
+
+    response <- liftIO $ getResponse manager request
+      { method = renderMethod ghEndpoint
+      , requestHeaders =
+          (hAccept, "application/vnd.github.machine-man-preview+json")
+          : (hUserAgent, "LeapYear/merge-bot")
+          : (hAuthorization, fromToken token)
+          : requestHeaders request
+      , requestBody = RequestBodyLBS $ encode $ kvToValue $ ghData ghEndpoint
+      , checkResponse = throwErrorStatusCodes
+      }
+
+    if ByteStringL.null response
+      then return $ object []
+      else either fail return $ eitherDecode response
+    where
+      getResponse manager = fmap responseBody . flip httpLbs manager
+      request = parseRequest_ $ Text.unpack $ "https://api.github.com" <> endpointPath ghEndpoint
+      fromToken = \case
+        AccessToken t -> "token " <> t
+        BearerToken t -> "bearer " <> t
 
 -- | The token to use to authenticate with GitHub.
 data Token
   = AccessToken ByteString -- ^ https://developer.github.com/v3/#authentication
   | BearerToken ByteString -- ^ https://developer.github.com/apps/building-github-apps/authenticating-with-github-apps/#authenticating-as-a-github-app
   deriving (Show)
-
--- | The GitHub API endpoint with placeholders of the form ":abc" that can be replaced by
--- passed-in values.
-type Endpoint = Text
-
--- | Mapping to populate the endpoint.
-type EndpointVals = [KeyValue]
-
--- | Data to send to GitHub.
-type GitHubData = [KeyValue]
-
--- | A helper function to connect to the GitHub API.
-githubAPI :: MonadIO m
-  => StdMethod
-  -> Endpoint
-  -> EndpointVals
-  -> GitHubData
-  -> Token
-  -> Manager
-  -> m Value
-githubAPI stdMethod endpoint vals ghData token manager = do
-  response <- liftIO $ getResponse request
-    { method = renderStdMethod stdMethod
-    , requestHeaders =
-        (hAccept, "application/vnd.github.machine-man-preview+json")
-        : (hUserAgent, "LeapYear/merge-bot")
-        : (hAuthorization, token')
-        : requestHeaders request
-    , requestBody = RequestBodyLBS $ encode $ kvToValue ghData
-    , checkResponse = throwErrorStatusCodes
-    }
-
-  if ByteStringL.null response
-    then return $ object []
-    else either fail return $ eitherDecode response
-  where
-    url' = Text.unpack $ "https://api.github.com" <> populateEndpoint endpoint vals
-    token' = case token of
-      AccessToken t -> "token " <> t
-      BearerToken t -> "bearer " <> t
-    request = parseRequest_ url'
-    getResponse = fmap responseBody . flip httpLbs manager
-
--- | Set the placeholders in the given endpoint to the given values.
-populateEndpoint :: Endpoint -> EndpointVals -> Text
-populateEndpoint endpoint values = Text.intercalate "/" . map populate . Text.splitOn "/" $ endpoint
-  where
-    values' = map kvToText values
-    populate t = case Text.uncons t of
-      Nothing -> t
-      Just (':', key) -> fromMaybe
-        (fail' $ "Could not find value for key '" <> key <> "'")
-        $ lookup key values'
-      Just _ -> t
-    fail' msg = error . Text.unpack $ msg <> ": " <> endpoint
 
 {- HTTP exception handling -}
 

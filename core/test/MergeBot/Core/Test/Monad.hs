@@ -2,6 +2,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 
 module MergeBot.Core.Test.Monad where
@@ -19,7 +20,8 @@ import Data.GraphQL
 import Data.GraphQL.Aeson (FromJSON)
 import Data.GraphQL.TestUtils (mockWith)
 import Data.Text (Text)
-import GitHub.REST (MonadGitHubREST(..), kvToValue, (.:))
+import GitHub.REST (GHEndpoint(..), MonadGitHubREST(..), (.:))
+import GitHub.REST.KeyValue (kvToValue)
 import Network.HTTP.Types (StdMethod(..))
 
 import MergeBot.Core.GraphQL.API (API)
@@ -46,7 +48,7 @@ instance MonadQuery API TestApp where
   runQuerySafe query args = runQuerySafeMocked query args =<< gets mockWith
 
 instance MonadGitHubREST TestApp where
-  queryGitHub method endpoint endpointVals ghData = case (endpoint, method) of
+  queryGitHub GHEndpoint{..} = case (endpoint, method) of
     ("/repos/:owner/:repo/git/refs", POST) ->
       createBranch (ghData' "ref") (ghData' "sha")
     ("/repos/:owner/:repo/git/commits", POST) ->

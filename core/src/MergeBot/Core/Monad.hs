@@ -52,16 +52,10 @@ import Data.GraphQL
     , runQueryT
     )
 import GitHub.REST
-    ( Endpoint
-    , EndpointVals
-    , GitHubData
-    , KeyValue(..)
-    , MonadGitHubREST(..)
-    , Token(..)
-    )
+    (GHEndpoint(..), KeyValue(..), MonadGitHubREST(..), Token(..))
 import Network.HTTP.Client (Manager, Request(..), newManager)
 import Network.HTTP.Client.TLS (tlsManagerSettings)
-import Network.HTTP.Types (StdMethod, hAuthorization, hUserAgent)
+import Network.HTTP.Types (hAuthorization, hUserAgent)
 
 import MergeBot.Core.Config (BotConfig(..))
 import MergeBot.Core.GraphQL.API (API)
@@ -135,14 +129,15 @@ runBotWith env = runQueryT (graphqlSettings $ ghToken env) . (`runReaderT` env) 
 
 {- Helpers -}
 
-queryGitHub' :: MonadBotApp m => StdMethod -> Endpoint -> EndpointVals -> GitHubData -> m Value
-queryGitHub' method endpoint endpointVals ghData = do
+queryGitHub' :: MonadBotApp m => GHEndpoint -> m Value
+queryGitHub' endpoint = do
   (repoOwner, repoName) <- getRepo
-  let vals = endpointVals ++
+  queryGitHub endpoint
+    { endpointVals = endpointVals endpoint ++
         [ "owner" := repoOwner
         , "repo" := repoName
         ]
-  queryGitHub method endpoint vals ghData
+    }
 
 -- | Settings to query GitHub's GraphQL endpoint
 graphqlSettings :: String -> QuerySettings API
