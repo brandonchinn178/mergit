@@ -12,8 +12,7 @@ Definitions for querying the GitHub REST API.
 {-# LANGUAGE OverloadedStrings #-}
 
 module GitHub.REST
-  ( MonadGitHub(..)
-  , MonadREST
+  ( MonadGitHubREST(..)
   , Token(..)
   , Endpoint
   , EndpointVals
@@ -39,13 +38,27 @@ import Network.HTTP.Types
 
 import GitHub.REST.KeyValue
 
-type MonadREST m = (MonadCatch m, MonadGitHub m)
-
 -- | A type class for monads that can query the GitHub REST API.
-class MonadIO m => MonadGitHub m where
+--
+-- Example:
+-- > -- create the "foo" branch
+-- > queryGitHub POST "/repos/:owner/:repo/git/refs"
+-- >   [ "owner" := "alice"
+-- >   , "repo" := "my-project"
+-- >   ]
+-- >   [ "ref" := "refs/heads/foo"
+-- >   , "sha" := "1234567890abcdef"
+-- >   ]
+-- >
+-- > -- delete the "foo" branch
+-- > queryGitHub DELETE "/repos/:owner/:repo/git/refs/:ref"
+-- >   [ "owner" := "alice"
+-- >   , "repo" := "my-project"
+-- >   , "ref" := "heads/foo"
+-- >   ]
+-- >   []
+class MonadIO m => MonadGitHubREST m where
   {-# MINIMAL getToken, getManager | queryGitHub #-}
-  modifyEndpointVals :: EndpointVals -> m EndpointVals
-  modifyEndpointVals = return
 
   getToken :: m Token
   getToken = error "No token specified"
@@ -57,8 +70,7 @@ class MonadIO m => MonadGitHub m where
   queryGitHub stdMethod endpoint endpointVals ghData = do
     token <- getToken
     manager <- getManager
-    endpointVals' <- modifyEndpointVals endpointVals
-    githubAPI stdMethod endpoint endpointVals' ghData token manager
+    githubAPI stdMethod endpoint endpointVals ghData token manager
 
 -- | The token to use to authenticate with GitHub.
 data Token
