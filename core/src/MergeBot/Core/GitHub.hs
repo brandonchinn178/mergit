@@ -119,7 +119,7 @@ createCommit = fmap (.: "sha") . queryGitHub POST "/repos/:owner/:repo/git/commi
 createToken :: MonadREST m => Int -> m Text
 createToken installationId = (.: "token") <$>
   queryGitHub POST "/app/installations/:installation_id/access_tokens"
-    ["installation_id" :=* installationId] []
+    ["installation_id" := installationId] []
 
 -- | Delete the given branch, ignoring the error if the branch doesn't exist.
 --
