@@ -104,6 +104,7 @@ instance MonadIO m => MonadQuery API (BotAppT m) where
 instance MonadIO m => MonadGitHubREST (BotAppT m) where
   getToken = asks (AccessToken . Char8.pack . ghToken)
   getManager = asks ghManager
+  getUserAgent = pure "LeapYear/merge-bot"
 
 class (MonadCatch m, MonadGitHubREST m) => MonadBotApp m where
   getRepo :: m (String, String)
