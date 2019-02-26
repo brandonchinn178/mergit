@@ -5,6 +5,7 @@ packages:
   - github-rest
   - graphql
   - graphql/example
+  - servant-github-app
 
 extra-deps:
   - jwt-0.9.0
