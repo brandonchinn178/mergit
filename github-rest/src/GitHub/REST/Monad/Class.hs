@@ -39,6 +39,7 @@ import GitHub.REST.KeyValue
 -- | A type class for monads that can query the GitHub REST API.
 --
 -- Example:
+--
 -- > -- create the "foo" branch
 -- > queryGitHub GHEndpoint
 -- >   { method = POST
@@ -52,14 +53,16 @@ import GitHub.REST.KeyValue
 -- >     , "sha" := "1234567890abcdef"
 -- >     ]
 -- >   }
--- > -- delete the "foo" branch
--- > queryGitHub GHEndpoint
+--
+-- It's recommended that you create functions for the API endpoints you're using:
+--
+-- > deleteBranch branch = queryGitHub GHEndpoint
 -- >   { method = DELETE
 -- >   , endpoint = "/repos/:owner/:repo/git/refs/:ref"
 -- >   , endpointVals =
 -- >     [ "owner" := "alice"
 -- >     , "repo" := "my-project"
--- >     , "ref" := "heads/foo"
+-- >     , "ref" := "heads/" <> branch
 -- >     ]
 -- >   , ghData = []
 -- >   }

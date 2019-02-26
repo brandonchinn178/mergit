@@ -32,11 +32,13 @@ data GHEndpoint = GHEndpoint
   { method       :: StdMethod
   , endpoint     :: Text
     -- ^ The GitHub API endpoint, with colon-prefixed components that will be replaced; e.g.
-    -- "/repos/:owner/:repo/git/refs"
+    -- @"\/users\/:username\/repos"@
   , endpointVals :: EndpointVals
-    -- ^ Key-value pairs to replace colon-prefixed components in 'endpoint'
+    -- ^ Key-value pairs to replace colon-prefixed components in 'endpoint'; e.g.
+    -- @[ "username" := ("alice" :: Text) ]@
   , ghData       :: GitHubData
-    -- ^ Key-value pairs to send in the request body
+    -- ^ Key-value pairs to send in the request body; e.g.
+    -- @[ "sort" := ("created" :: Text), "direction" := ("asc" :: Text) ]@
   }
 
 -- | Return the endpoint path, populated by the values in 'endpointVals'.

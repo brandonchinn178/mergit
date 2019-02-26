@@ -53,6 +53,10 @@ instance MonadIO m => MonadGitHubREST (GitHubT m) where
   getManager = GitHubT $ asks manager
   getUserAgent = GitHubT $ asks userAgent
 
+-- | Run the given 'GitHubT' action with the given token and user agent.
+--
+-- The token will be sent with each API request -- see 'Token'. The user agent is also required for
+-- each API request -- see https://developer.github.com/v3/#user-agent-required.
 runGitHubT :: MonadIO m => Token -> ByteString -> GitHubT m a -> m a
 runGitHubT token userAgent action = do
   manager <- liftIO $ newManager tlsManagerSettings

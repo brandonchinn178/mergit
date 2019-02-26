@@ -5,6 +5,44 @@ Stability   :  experimental
 Portability :  portable
 
 Definitions for querying the GitHub REST API.
+
+Example (requires @OverloadedStrings@):
+
+> import Data.Text (Text)
+> import GitHub.REST
+> import Network.HTTP.Types (StdMethod(..))
+>
+> main = do
+>   let repoOwner = "alice"
+>       repoName = "my-project"
+>       userAgent = repoOwner <> "/" <> repoName
+>       token = undefined
+>
+>   runGitHubT token userAgent $ do
+>     ref <- queryGitHub GHEndpoint
+>       { method = GET
+>       , endpoint = "/repos/:owner/:repo/git/refs/:ref"
+>       , endpointVals =
+>         [ "owner" := repoOwner
+>         , "repo" := repoName
+>         , "ref" := ("heads/master" :: Text)
+>         ]
+>       , ghData = []
+>       }
+>     let sha = ref .: "object" .: "sha" :: Text
+>
+>     queryGitHub GHEndpoint
+>       { method = POST
+>       , endpoint = "/repos/:owner/:repo/git/refs"
+>       , endpointVals =
+>         [ "owner" := repoOwner
+>         , "repo" := repoName
+>         ]
+>       , ghData =
+>         [ "ref" := ("refs/heads/foo" :: Text)
+>         , "sha" := sha
+>         ]
+>       }
 -}
 
 module GitHub.REST
