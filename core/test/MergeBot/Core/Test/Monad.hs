@@ -10,6 +10,7 @@ module MergeBot.Core.Test.Monad where
 import Control.Monad.Catch (MonadCatch, MonadMask, MonadThrow)
 import Control.Monad.IO.Class (MonadIO)
 import Control.Monad.State.Lazy (MonadState, StateT, evalStateT, get, gets)
+import Data.Aeson (decode, encode)
 import Data.GraphQL
     ( MonadQuery(..)
     , QueryT
@@ -19,6 +20,7 @@ import Data.GraphQL
     )
 import Data.GraphQL.Aeson (FromJSON)
 import Data.GraphQL.TestUtils (mockWith)
+import Data.Maybe (fromJust)
 import Data.Text (Text)
 import GitHub.REST (GHEndpoint(..), MonadGitHubREST(..), (.:))
 import GitHub.REST.KeyValue (kvToValue)
@@ -48,7 +50,7 @@ instance MonadQuery API TestApp where
   runQuerySafe query args = runQuerySafeMocked query args =<< gets mockWith
 
 instance MonadGitHubREST TestApp where
-  queryGitHub GHEndpoint{..} = case (endpoint, method) of
+  queryGitHub GHEndpoint{..} = fromJust . decode . encode <$> case (endpoint, method) of
     ("/repos/:owner/:repo/git/refs", POST) ->
       createBranch (ghData' "ref") (ghData' "sha")
     ("/repos/:owner/:repo/git/commits", POST) ->

@@ -7,7 +7,9 @@ Portability :  portable
 Defines 'GitHubT' and 'MonadGitHubREST', a monad transformer and type class that gives a monad @m@
 the capability to query the GitHub REST API.
 -}
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 
 module GitHub.REST.Monad
@@ -18,13 +20,28 @@ module GitHub.REST.Monad
 
 import Control.Monad.Catch (MonadCatch, MonadMask, MonadThrow)
 import Control.Monad.IO.Class (MonadIO(..))
-import Control.Monad.Reader (ReaderT, asks, runReaderT)
+import Control.Monad.Reader (MonadReader, ReaderT, ask, runReaderT)
 import Control.Monad.Trans (MonadTrans)
+import Data.Aeson (eitherDecode, encode, object)
 import Data.ByteString (ByteString)
-import Network.HTTP.Client (Manager, newManager)
+import qualified Data.ByteString.Lazy as ByteStringL
+import qualified Data.Text as Text
+import Network.HTTP.Client
+    ( Manager
+    , Request(..)
+    , RequestBody(..)
+    , Response(..)
+    , httpLbs
+    , newManager
+    , parseRequest_
+    , throwErrorStatusCodes
+    )
 import Network.HTTP.Client.TLS (tlsManagerSettings)
+import Network.HTTP.Types (hAccept, hAuthorization, hUserAgent)
 
-import GitHub.REST.Auth (Token)
+import GitHub.REST.Auth (Token, fromToken)
+import GitHub.REST.Endpoint (GHEndpoint(..), endpointPath, renderMethod)
+import GitHub.REST.KeyValue (kvToValue)
 import GitHub.REST.Monad.Class
 
 data GitHubTState = GitHubTState
@@ -44,14 +61,32 @@ newtype GitHubT m a = GitHubT
     , MonadCatch
     , MonadIO
     , MonadMask
+    , MonadReader GitHubTState
     , MonadThrow
     , MonadTrans
     )
 
 instance MonadIO m => MonadGitHubREST (GitHubT m) where
-  getToken = GitHubT $ asks token
-  getManager = GitHubT $ asks manager
-  getUserAgent = GitHubT $ asks userAgent
+  queryGitHub ghEndpoint = do
+    GitHubTState{..} <- ask
+    response <- liftIO $ getResponse manager request
+      { method = renderMethod ghEndpoint
+      , requestHeaders =
+          (hAccept, "application/vnd.github.machine-man-preview+json")
+          : (hUserAgent, userAgent)
+          : (hAuthorization, fromToken token)
+          : requestHeaders request
+      , requestBody = RequestBodyLBS $ encode $ kvToValue $ ghData ghEndpoint
+      , checkResponse = throwErrorStatusCodes
+      }
+
+    either fail return . eitherDecode $
+      if ByteStringL.null response
+        then encode $ object []
+        else response
+    where
+      getResponse manager = fmap responseBody . flip httpLbs manager
+      request = parseRequest_ $ Text.unpack $ "https://api.github.com" <> endpointPath ghEndpoint
 
 -- | Run the given 'GitHubT' action with the given token and user agent.
 --

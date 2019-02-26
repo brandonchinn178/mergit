@@ -75,9 +75,7 @@ instance MonadIO m => MonadQuery API (BotAppT m) where
   runQuerySafe query = BotAppT . lift . lift . runQuerySafe query
 
 instance MonadIO m => MonadGitHubREST (BotAppT m) where
-  getToken = BotAppT . lift $ getToken
-  getManager = BotAppT . lift $ getManager
-  getUserAgent = BotAppT . lift $ getUserAgent
+  queryGitHub = BotAppT . lift . queryGitHub
 
 class (MonadCatch m, MonadGitHubREST m) => MonadBotApp m where
   getRepo :: m (String, String)
