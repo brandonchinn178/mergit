@@ -29,7 +29,6 @@ module MergeBot.Core
 
 import Control.Monad (forM_)
 import Control.Monad.Catch (MonadMask)
-import Control.Monad.Reader (MonadReader, asks)
 import Data.Map.Strict ((!?))
 import Data.Maybe (fromMaybe)
 import qualified Data.Set as Set
@@ -45,9 +44,9 @@ import MergeBot.Core.PullRequest
 import MergeBot.Core.State
 
 -- | Get information about the current session.
-getSessionInfo :: MonadReader BotEnv m => m SessionInfo
+getSessionInfo :: MonadBotApp m => m SessionInfo
 getSessionInfo = do
-  (repoOwner', repoName') <- asks getRepo
+  (repoOwner', repoName') <- getRepo
   let repoOwner = Text.pack repoOwner'
       repoName = Text.pack repoName'
   -- TODO: add info about user

@@ -20,7 +20,6 @@ module MergeBot.Core.PullRequest
   , getBaseBranch
   ) where
 
-import Control.Monad.Reader (asks)
 import Data.GraphQL (get, runQuery, unwrap)
 import qualified Data.Map.Strict as Map
 import Data.Maybe (isJust, isNothing)
@@ -47,12 +46,12 @@ import MergeBot.Core.GraphQL.Scalars.DateTime (DateTime(..))
 import MergeBot.Core.GraphQL.Scalars.GitObjectID (GitObjectID(..))
 import MergeBot.Core.GraphQL.Scalars.HTML (HTML(..))
 import MergeBot.Core.GraphQL.Scalars.URI (URI(..))
-import MergeBot.Core.Monad (MonadGraphQL, getRepo)
+import MergeBot.Core.Monad (MonadBotApp(..), MonadGraphQL)
 
 -- | Get all open pull requests.
-getPullRequests :: MonadGraphQL m => (PullRequestId -> BotStatus) -> m [PullRequest]
+getPullRequests :: (MonadBotApp m, MonadGraphQL m) => (PullRequestId -> BotStatus) -> m [PullRequest]
 getPullRequests getStatus = do
-  (_repoOwner, _repoName) <- asks getRepo
+  (_repoOwner, _repoName) <- getRepo
   queryAll $ \_after -> do
     result <- runQuery PullRequests.query PullRequests.Args{..}
     let info = [get| result.repository.pullRequests |]
@@ -74,9 +73,9 @@ getPullRequests getStatus = do
 type PR = [unwrap| (PullRequest.Schema).repository.pullRequest! |]
 
 -- | Get the GraphQL result for a single pull request.
-getPullRequest :: MonadGraphQL m => PullRequestId -> m PR
+getPullRequest :: (MonadBotApp m, MonadGraphQL m) => PullRequestId -> m PR
 getPullRequest prNum = do
-  (_repoOwner, _repoName) <- asks getRepo
+  (_repoOwner, _repoName) <- getRepo
   let _number = prNum
   [get| .repository.pullRequest! |] <$> runQuery PullRequest.query PullRequest.Args{..}
 
@@ -137,7 +136,7 @@ getPullRequestDetail prNum tryRun maybeQueue maybeStaging = do
 -- | Get the reviews for the given pull request.
 getReviews :: MonadGraphQL m => PullRequestId -> m [PullRequestReviewState]
 getReviews prNum = do
-  (_repoOwner, _repoName) <- asks getRepo
+  (_repoOwner, _repoName) <- getRepo
   fmap resolveReviews $ queryAll $ \_after -> do
     result <- runQuery PullRequestReview.query PullRequestReview.Args{_number=prNum,..}
     let info = [get| result.repository.pullRequest!.reviews! |]

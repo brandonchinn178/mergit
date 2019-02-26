@@ -8,7 +8,6 @@ module MergeBot.Core.Test.Monad where
 
 import Control.Monad.Catch (MonadCatch, MonadMask, MonadThrow)
 import Control.Monad.IO.Class (MonadIO)
-import Control.Monad.Reader (MonadReader(..))
 import Control.Monad.State.Lazy (MonadState, StateT, evalStateT, get, gets)
 import Data.GraphQL
     ( MonadQuery(..)
@@ -20,11 +19,11 @@ import Data.GraphQL
 import Data.GraphQL.Aeson (FromJSON)
 import Data.GraphQL.TestUtils (mockWith)
 import Data.Text (Text)
+import GitHub.REST (MonadGitHubREST(..), kvToValue, (.:))
 import Network.HTTP.Types (StdMethod(..))
 
-import MergeBot.Core.GitHub.REST (MonadGitHub(..), kvToValue, (.:))
 import MergeBot.Core.GraphQL.API (API)
-import MergeBot.Core.Monad (BotEnv(..))
+import MergeBot.Core.Monad (MonadBotApp(..))
 import MergeBot.Core.Test.Mock
 
 -- | The monad to run tests
@@ -40,19 +39,13 @@ newtype TestApp a = TestApp { unTestApp :: StateT MockState (QueryT API IO) a }
     , MonadThrow
     )
 
-instance MonadReader BotEnv TestApp where
-  ask = pure $ BotEnv
-    { repoOwner = "LeapYear"
-    , repoName = "merge-bot-test"
-    , ghToken = ""
-    , ghManager = error "Tests do not use an HTTP manager"
-    }
-  local _ = id
+instance MonadBotApp TestApp where
+  getRepo = pure ("LeapYear", "merge-bot-test")
 
 instance MonadQuery API TestApp where
   runQuerySafe query args = runQuerySafeMocked query args =<< gets mockWith
 
-instance MonadGitHub TestApp where
+instance MonadGitHubREST TestApp where
   queryGitHub method endpoint endpointVals ghData = case (endpoint, method) of
     ("/repos/:owner/:repo/git/refs", POST) ->
       createBranch (ghData' "ref") (ghData' "sha")
