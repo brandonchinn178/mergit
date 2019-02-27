@@ -8,7 +8,9 @@ Defines Servant combinators for serving a GitHub App.
 -}
 
 module Servant.GitHub
-  ( loadGitHubAppParams
+  ( GitHubSigned
+  , loadGitHubAppParams
   ) where
 
+import Servant.GitHub.Combinators
 import Servant.GitHub.Context
