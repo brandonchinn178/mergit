@@ -6,18 +6,21 @@ Portability :  portable
 
 Defines functions for ensuring secure communication with GitHub.
 -}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications #-}
 
 module Servant.GitHub.Security
   ( loadSigner
-  , checkSignature
+  , parseSignature
+  , doesSignatureMatch
   , getToken
   ) where
 
-import Control.Monad (unless)
-import Crypto.Hash (Digest, SHA1)
+import Control.Monad ((>=>))
+import Crypto.Hash (Digest, SHA1, digestFromByteString)
 import Crypto.MAC.HMAC (HMAC(..), hmac)
 import Data.ByteArray (constEq)
+import Data.ByteArray.Encoding (Base(..), convertFromBase)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as ByteString
 import Data.Text (Text)
@@ -43,13 +46,22 @@ loadSigner file = maybe badSigner return . readSigner =<< ByteString.readFile fi
     badSigner = fail $ "Not a valid RSA private key file: " ++ file
     readSigner = fmap RSAPrivateKey . readRsaSecret
 
+-- | Parse the signature from the given request.
+parseSignature :: ByteString -> Maybe (Digest SHA1)
+parseSignature signature =
+  case Text.splitOn "=" $ Text.decodeUtf8 signature of
+    ["sha1", sig] -> digestFromBase16 $ Text.encodeUtf8 sig
+    _ -> Nothing
+  where
+    digestFromBase16 = convertFromBase16 >=> digestFromByteString
+
 -- | Check that signing the given payload with the given key matches the given digest.
 --
 -- Uses `constEq` to avoid timing attacks.
-checkSignature :: Monad m => ByteString -> ByteString -> Digest SHA1 -> m ()
-checkSignature key payload digest =
-  let newDigest = hmacGetDigest @SHA1 $ hmac key payload
-  in unless (constEq digest newDigest) $ fail "Signature does not match payload"
+doesSignatureMatch :: ByteString -> ByteString -> Digest SHA1 -> Bool
+doesSignatureMatch key payload = constEq digest
+  where
+    digest = hmacGetDigest @SHA1 $ hmac key payload
 
 -- | Create an installation token to use for API calls.
 getToken :: Signer -> Int -> Int -> IO Text
@@ -64,3 +76,8 @@ getToken signer appId installationId = do
       token = BearerToken $ Text.encodeUtf8 jwt
   -- runSimpleREST token $ createToken installationId
   undefined token installationId
+
+{- Helpers -}
+
+convertFromBase16 :: ByteString -> Maybe ByteString
+convertFromBase16 = either (const Nothing) Just . convertFromBase Base16

@@ -9,12 +9,12 @@ import Network.Wai.Handler.Warp (run)
 import Servant
 import Servant.GitHub
 
-type GitHubEvents
+type ExampleGitHubEvents
   = Post '[JSON] ()
 
 type ExampleApp
   = Get '[PlainText] String
-  :<|> "webhook" :> GitHubEvents
+  :<|> "webhook" :> GitHubSigned :> ExampleGitHubEvents
 
 getHelloWorld :: Handler String
 getHelloWorld = pure "Hello world"

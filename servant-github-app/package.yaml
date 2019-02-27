@@ -5,16 +5,12 @@ name: servant-github-app
 version: 0.1.0
 
 dependencies:
-- aeson
 - base
 - bytestring
-- case-insensitive
 - cryptonite
 - github-rest
-- http-types
 - jwt
 - memory
-- mtl
 - servant-server
 - text
 - time
