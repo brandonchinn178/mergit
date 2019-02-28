@@ -6,15 +6,13 @@ version: 0.1.0
 
 dependencies:
   - aeson
+  - aeson-schemas
   - base
   - bytestring
   - exceptions
-  - extra
-  - first-class-families
   - http-client
   - http-client-tls
   - http-types
-  - megaparsec
   - monad-control
   - mtl
   - path
@@ -22,11 +20,9 @@ dependencies:
   - scientific
   - template-haskell
   - text
-  - th-utilities
   - transformers
   - transformers-base
   - unordered-containers
-  - vector
 
 library:
   source-dirs: src
@@ -36,7 +32,6 @@ tests:
     source-dirs:  test
     main:         Main.hs
     dependencies:
-      - bytestring
       - graphql-client
       - tasty
       - tasty-golden
