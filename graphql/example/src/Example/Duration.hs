@@ -1,6 +1,8 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Example.Duration where
 
@@ -12,13 +14,8 @@ import Text.Printf (printf)
 newtype Duration = Duration Int
   deriving (Show,FromJSON)
 
-instance GraphQLScalar Duration
-
-type instance ToScalar "Duration" = Duration
-
-instance FromSchema Duration where
-  type ToSchema Duration = 'SchemaScalar "Duration"
-  parseValue = parseValueScalar
+instance FromSchema ('SchemaCustom "Duration") where
+  type SchemaResult ('SchemaCustom "Duration") = Duration
 
 -- | Duration in (minutes, seconds).
 getDuration :: Duration -> (Int, Int)
