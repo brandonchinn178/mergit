@@ -17,7 +17,6 @@ Definitions for monads that can run GraphQL queries.
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilyDependencies #-}
 {-# LANGUAGE TypeInType #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -36,7 +35,6 @@ module Data.GraphQL.Monad
   ) where
 
 import Control.Exception (throwIO)
-import Control.Monad ((<=<))
 import Control.Monad.Base (MonadBase(..), liftBaseDefault)
 import Control.Monad.Catch (MonadCatch, MonadMask, MonadThrow)
 import Control.Monad.Except (MonadError)
@@ -54,7 +52,7 @@ import Control.Monad.Trans.Control
     )
 import Data.Aeson ((.=))
 import qualified Data.Aeson as Aeson
-import Data.Aeson.Schema (FromSchema(..), SchemaType, parseSchema)
+import Data.Aeson.Schema (IsSchemaObject, Object, SchemaType)
 import Data.ByteString.Lazy (ByteString)
 import Data.Maybe (fromJust)
 import Network.HTTP.Client
@@ -79,18 +77,18 @@ import Data.GraphQL.TestUtils (MockedEndpoints, MocksApi(..), lookupMock)
 class MonadIO m => MonadQuery api m where
   runQuerySafe
     :: forall args (schema :: SchemaType)
-     . (GraphQLArgs args, FromSchema schema)
-    => Query api args schema -> args -> m (GraphQLResult (SchemaResult schema))
+     . (GraphQLArgs args, IsSchemaObject schema)
+    => Query api args schema -> args -> m (GraphQLResult (Object schema))
 
 -- | Runs the given query and returns the result, erroring if the query returned errors.
 runQuery
   :: forall api m args (schema :: SchemaType)
-   . (MonadQuery api m, GraphQLArgs args, FromSchema schema)
-  => Query api args schema -> args -> m (SchemaResult schema)
+   . (MonadQuery api m, GraphQLArgs args, IsSchemaObject schema)
+  => Query api args schema -> args -> m (Object schema)
 runQuery query args = do
   result <- runQuerySafe query args
   case getErrors result of
-    [] -> return $ fromJust $ getResult @(SchemaResult schema) result
+    [] -> return $ fromJust $ getResult result
     errors -> liftIO $ throwIO $ GraphQLException errors
 
 -- | The monad transformer type that should be used to run GraphQL queries.
@@ -151,8 +149,8 @@ instance MonadIO m => MonadQuery api (QueryT api m) where
 -- | An implementation for mocked GraphQL endpoints using MockedEndpoints and MocksApi.
 runQuerySafeMocked
   :: forall api m args (schema :: SchemaType)
-   . (Monad m, GraphQLArgs args, FromSchema schema)
-  => Query api args schema -> args -> MockedEndpoints api -> m (GraphQLResult (SchemaResult schema))
+   . (Monad m, GraphQLArgs args, IsSchemaObject schema)
+  => Query api args schema -> args -> MockedEndpoints api -> m (GraphQLResult (Object schema))
 runQuerySafeMocked query args endpoints =
   decodeResponse =<< case lookupMock query (fromArgs args) endpoints of
     Nothing -> fail $ "Endpoint missing mocked data: " ++ queryName query
@@ -165,11 +163,9 @@ runQuerySafeMocked query args endpoints =
 -- | Decode a GraphQL response.
 decodeResponse
   :: forall (schema :: SchemaType) m
-   . (Monad m, FromSchema schema)
-  => ByteString -> m (GraphQLResult (SchemaResult schema))
-decodeResponse = either fail return . decodeResponse'
-  where
-    decodeResponse' = traverse (parseSchema @schema) <=< Aeson.eitherDecode
+   . (Monad m, IsSchemaObject schema)
+  => ByteString -> m (GraphQLResult (Object schema))
+decodeResponse = either fail return . Aeson.eitherDecode
 
 -- | The settings for running QueryT.
 data QuerySettings api = QuerySettings
