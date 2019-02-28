@@ -17,7 +17,7 @@ module Data.GraphQL.Result
   , getResult
   ) where
 
-import Data.Aeson (FromJSON(..), Value, withObject, (.!=), (.:?))
+import Data.Aeson (FromJSON(..), withObject, (.!=), (.:?))
 
 import Data.GraphQL.Error (GraphQLError)
 
@@ -27,7 +27,7 @@ data GraphQLResult r = GraphQLResult
   , resultResult :: Maybe r
   } deriving (Show,Functor,Foldable,Traversable)
 
-instance FromJSON (GraphQLResult Value) where
+instance FromJSON r => FromJSON (GraphQLResult r) where
   parseJSON = withObject "GraphQLResult" $ \o ->
     GraphQLResult
       <$> o .:? "errors" .!= []
