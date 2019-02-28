@@ -4,13 +4,12 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TypeFamilies #-}
 
+import Data.Aeson.Schema (Object, get, unwrap)
 import qualified Data.ByteString.Lazy.Char8 as ByteString
 import Data.Maybe (fromMaybe)
 import qualified Data.Text as Text
 import Test.Tasty (TestTree, defaultMain, testGroup)
 import Test.Tasty.Golden (goldenVsString)
-
-import Data.GraphQL (Object, get, unwrap)
 
 import qualified AllTypes
 import qualified Nested
@@ -19,7 +18,7 @@ allTypes :: Object AllTypes.Schema
 allTypes = AllTypes.result
 
 main :: IO ()
-main = defaultMain $ testGroup "graphql-client"
+main = defaultMain $ testGroup "aeson-schemas"
   [ testGetterExp
   , testFromObjectAllTypes
   , testFromObjectNested

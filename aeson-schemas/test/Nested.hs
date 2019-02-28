@@ -3,7 +3,8 @@
 
 module Nested where
 
-import Data.GraphQL (Object, SchemaGraph(..))
+import Data.Aeson.Schema (Object, SchemaGraph(..))
+
 import Util (getMockedResult)
 
 type Schema = 'SchemaObject

@@ -26,12 +26,3 @@ dependencies:
 
 library:
   source-dirs: src
-
-tests:
-  graphql-client-test:
-    source-dirs:  test
-    main:         Main.hs
-    dependencies:
-      - graphql-client
-      - tasty
-      - tasty-golden

@@ -9,9 +9,9 @@
 module AllTypes where
 
 import Data.Aeson (FromJSON(..), withText)
+import Data.Aeson.Schema
 import qualified Data.Text as Text
 
-import Data.GraphQL
 import Util (getMockedResult)
 
 {- Greeting enum -}
