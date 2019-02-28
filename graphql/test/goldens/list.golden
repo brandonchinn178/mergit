@@ -1,1 +1,1 @@
-[UnsafeObject (fromList [("maybeBool",Bool True),("type",String "bool")]),UnsafeObject (fromList [("type",String "int"),("maybeInt",Number 2.0)]),UnsafeObject (fromList [("maybeNull",Null),("type",String "null")])]
+[{"type": "bool", "maybeBool": Just True, "maybeInt": Nothing, "maybeNull": Nothing},{"type": "int", "maybeBool": Nothing, "maybeInt": Just 2, "maybeNull": Nothing},{"type": "null", "maybeBool": Nothing, "maybeInt": Nothing, "maybeNull": Nothing}]

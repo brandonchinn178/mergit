@@ -1,1 +1,1 @@
-Just [UnsafeObject (fromList [("text",String "foo")]),UnsafeObject (fromList [("text",String "bar")])]
+Just [{"text": "foo"},{"text": "bar"}]
