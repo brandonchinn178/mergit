@@ -1,5 +1,6 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -28,38 +29,32 @@ instance GraphQLArgs Args where
 query :: Query
 query = $(readGraphQLFile "Recordings.graphql")
 
-type Schema = 'SchemaObject
-  '[ '("search", 'SchemaMaybe ('SchemaObject
-        '[ '( "recordings", 'SchemaMaybe ('SchemaObject
-              '[ '( "nodes", 'SchemaMaybe ('SchemaList ('SchemaMaybe ('SchemaObject
-                    '[ '( "title", 'SchemaMaybe 'SchemaText )
-                     , '( "artists", 'SchemaMaybe ('SchemaObject
-                          '[ '( "nodes", 'SchemaMaybe ('SchemaList ('SchemaMaybe ('SchemaObject
-                                '[ '("name", 'SchemaMaybe 'SchemaText)
-                                 ]
-                              ))))
-                           ]
-                        ))
-                     , '( "video", 'SchemaMaybe 'SchemaBool )
-                     , '( "length", 'SchemaMaybe ('SchemaCustom "Duration") )
-                     , '( "rating", 'SchemaMaybe ('SchemaObject
-                          '[ '("voteCount", 'SchemaInt)
-                           , '("value", 'SchemaMaybe 'SchemaDouble)
-                           ]
-                        ))
-                     , '( "releases", 'SchemaMaybe ('SchemaObject
-                          '[ '( "nodes", 'SchemaMaybe ('SchemaList ('SchemaMaybe ('SchemaObject
-                                '[ '( "title", 'SchemaMaybe 'SchemaText )
-                                 , '( "date", 'SchemaMaybe ('SchemaCustom "Date") )
-                                 , '( "status", 'SchemaMaybe ('SchemaCustom "ReleaseStatus") )
-                                 ]
-                              ))))
-                           ]
-                        ))
-                     ]
-                  ))))
-               ]
-            ))
-         ]
-      ))
-   ]
+type Schema = [schema|
+  {
+    "search": Maybe {
+      "recordings": Maybe {
+        "nodes": Maybe List Maybe {
+          "title": Maybe Text,
+          "artists": Maybe {
+            "nodes": Maybe List Maybe {
+              "name": Maybe Text,
+            },
+          },
+          "video": Maybe Bool,
+          "length": Maybe Duration,
+          "rating": Maybe {
+            "voteCount": Int,
+            "value": Maybe Double,
+          },
+          "releases": Maybe {
+            "nodes": Maybe List Maybe {
+              "title": Maybe Text,
+              "date": Maybe Date,
+              "status": Maybe ReleaseStatus,
+            },
+          },
+        },
+      },
+    },
+  }
+|]
