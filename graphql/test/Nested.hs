@@ -3,8 +3,7 @@
 
 module Nested where
 
-import Data.GraphQL (SchemaGraph(..))
-import Data.GraphQL.Schema.Internal (Object(..))
+import Data.GraphQL (Object, SchemaGraph(..))
 import Util (getMockedResult)
 
 type Schema = 'SchemaObject

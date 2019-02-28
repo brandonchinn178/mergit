@@ -1,8 +1,10 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module AllTypes where
 
@@ -10,7 +12,6 @@ import Data.Aeson (FromJSON(..), withText)
 import qualified Data.Text as Text
 
 import Data.GraphQL
-import Data.GraphQL.Schema.Internal (Object(..))
 import Util (getMockedResult)
 
 {- Greeting enum -}
@@ -18,17 +19,14 @@ import Util (getMockedResult)
 data Greeting = HELLO | GOODBYE
   deriving (Show,Enum)
 
-instance GraphQLEnum Greeting where
-  getEnum s = case Text.unpack s of
-    "HELLO" -> HELLO
-    "GOODBYE" -> GOODBYE
-    _ -> error $ "Bad Greeting: " ++ Text.unpack s
+instance FromJSON Greeting where
+  parseJSON = withText "Greeting" $ \case
+    "HELLO" -> pure HELLO
+    "GOODBYE" -> pure GOODBYE
+    t -> fail $ "Bad Greeting: " ++ Text.unpack t
 
-type instance ToEnum "Greeting" = Greeting
-
-instance FromSchema Greeting where
-  type ToSchema Greeting = 'SchemaEnum "Greeting"
-  parseValue = parseValueEnum
+instance FromSchema ('SchemaCustom "Greeting") where
+  type SchemaResult ('SchemaCustom "Greeting") = Greeting
 
 {- Coordinate scalar -}
 
@@ -41,13 +39,8 @@ instance FromJSON Coordinate where
       [x, y] -> return $ Coordinate (x, y)
       _ -> fail $ "Bad Coordinate: " ++ Text.unpack s
 
-instance GraphQLScalar Coordinate
-
-type instance ToScalar "Coordinate" = Coordinate
-
-instance FromSchema Coordinate where
-  type ToSchema Coordinate = 'SchemaScalar "Coordinate"
-  parseValue = parseValueScalar
+instance FromSchema ('SchemaCustom "Coordinate") where
+  type SchemaResult ('SchemaCustom "Coordinate") = Coordinate
 
 {- AllTypes result -}
 
@@ -57,8 +50,8 @@ type Schema = 'SchemaObject
    , '("int2", 'SchemaInt)
    , '("double", 'SchemaDouble)
    , '("text", 'SchemaText)
-   , '("scalar", 'SchemaScalar "Coordinate")
-   , '("enum", 'SchemaEnum "Greeting")
+   , '("scalar", 'SchemaCustom "Coordinate")
+   , '("enum", 'SchemaCustom "Greeting")
    , '("maybeObject", 'SchemaMaybe ('SchemaObject
         '[ '("text", 'SchemaText)
          ]

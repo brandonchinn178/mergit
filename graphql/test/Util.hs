@@ -3,21 +3,13 @@
 
 module Util where
 
-import Data.Aeson (Value(..), decodeFileStrict)
-import Data.Bifunctor (first)
-import qualified Data.HashMap.Lazy as HashMap
-import qualified Data.Text as Text
+import Data.Aeson.Schema (decodeWithSchema)
+import qualified Data.ByteString.Lazy as ByteStringL
+import qualified Data.ByteString.Lazy.Char8 as Char8L
 import Language.Haskell.TH
 import Language.Haskell.TH.Syntax (lift)
 
-import Data.GraphQL.Schema.Internal (Object(..))
-
 getMockedResult :: FilePath -> ExpQ
-getMockedResult fp = runIO (decodeFileStrict fp) >>= \case
-  Just (Object o) ->
-    let o' = map (first Text.unpack) $ HashMap.toList o
-    in [| asObject $(lift o') |]
-  result -> error $ "Bad result: " ++ show result
-
-asObject :: [(String, Value)] -> Object schema
-asObject = UnsafeObject . HashMap.fromList . map (first Text.pack)
+getMockedResult fp = do
+  contents <- runIO $ ByteStringL.readFile fp
+  [| either error id $ decodeWithSchema $ Char8L.pack $(lift $ Char8L.unpack contents) |]
