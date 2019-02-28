@@ -1,7 +1,9 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Example.Date where
 
@@ -26,13 +28,8 @@ instance FromJSON Date where
       [y,m,d] -> return $ Date y (Just m) (Just d)
       v -> fail $ "Invalid Date: " ++ show v
 
-instance GraphQLScalar Date
-
-type instance ToScalar "Date" = Date
-
-instance FromSchema Date where
-  type ToSchema Date = 'SchemaScalar "Date"
-  parseValue = parseValueScalar
+instance FromSchema ('SchemaCustom "Date") where
+  type SchemaResult ('SchemaCustom "Date") = Date
 
 showDate :: Date -> String
 showDate Date{..} = intercalate "-" $ map show $ [year] ++ maybeToList month ++ maybeToList day

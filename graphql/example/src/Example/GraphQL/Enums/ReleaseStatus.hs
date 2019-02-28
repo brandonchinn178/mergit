@@ -1,8 +1,13 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Example.GraphQL.Enums.ReleaseStatus where
 
+import Data.Aeson (FromJSON(..), withText)
 import Data.GraphQL
 import qualified Data.Text as Text
 
@@ -13,16 +18,13 @@ data ReleaseStatus
   | PSEUDORELEASE
   deriving (Show,Eq,Enum)
 
-instance GraphQLEnum ReleaseStatus where
-  getEnum s = case Text.unpack s of
-    "OFFICIAL" -> OFFICIAL
-    "PROMOTION" -> PROMOTION
-    "BOOTLEG" -> BOOTLEG
-    "PSEUDORELEASE" -> PSEUDORELEASE
-    _ -> error $ "Bad ReleaseStatus: " ++ Text.unpack s
+instance FromJSON ReleaseStatus where
+  parseJSON = withText "ReleaseStatus" $ \case
+    "OFFICIAL" -> pure OFFICIAL
+    "PROMOTION" -> pure PROMOTION
+    "BOOTLEG" -> pure BOOTLEG
+    "PSEUDORELEASE" -> pure PSEUDORELEASE
+    t -> fail $ "Bad ReleaseStatus: " ++ Text.unpack t
 
-type instance ToEnum "ReleaseStatus" = ReleaseStatus
-
-instance FromSchema ReleaseStatus where
-  type ToSchema ReleaseStatus = 'SchemaEnum "ReleaseStatus"
-  parseValue = parseValueEnum
+instance FromSchema ('SchemaCustom "ReleaseStatus") where
+  type SchemaResult ('SchemaCustom "ReleaseStatus") = ReleaseStatus

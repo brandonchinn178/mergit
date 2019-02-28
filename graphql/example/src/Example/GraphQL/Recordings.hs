@@ -41,7 +41,7 @@ type Schema = 'SchemaObject
                            ]
                         ))
                      , '( "video", 'SchemaMaybe 'SchemaBool )
-                     , '( "length", 'SchemaMaybe ('SchemaScalar "Duration") )
+                     , '( "length", 'SchemaMaybe ('SchemaCustom "Duration") )
                      , '( "rating", 'SchemaMaybe ('SchemaObject
                           '[ '("voteCount", 'SchemaInt)
                            , '("value", 'SchemaMaybe 'SchemaDouble)
@@ -50,8 +50,8 @@ type Schema = 'SchemaObject
                      , '( "releases", 'SchemaMaybe ('SchemaObject
                           '[ '( "nodes", 'SchemaMaybe ('SchemaList ('SchemaMaybe ('SchemaObject
                                 '[ '( "title", 'SchemaMaybe 'SchemaText )
-                                 , '( "date", 'SchemaMaybe ('SchemaScalar "Date") )
-                                 , '( "status", 'SchemaMaybe ('SchemaEnum "ReleaseStatus") )
+                                 , '( "date", 'SchemaMaybe ('SchemaCustom "Date") )
+                                 , '( "status", 'SchemaMaybe ('SchemaCustom "ReleaseStatus") )
                                  ]
                               ))))
                            ]
