@@ -23,6 +23,7 @@ module Data.GraphQL.Query
   ) where
 
 import Data.Aeson (Object)
+import Data.Aeson.Schema (SchemaType)
 import Data.Kind (Type)
 import Data.Text (Text)
 import qualified Data.Text as Text
@@ -40,7 +41,6 @@ import Path
     )
 import Path.IO (getCurrentDir)
 
-import Data.GraphQL.Schema (SchemaType)
 
 -- | A type class for query arguments.
 class GraphQLArgs args where
