@@ -1,1 +1,1 @@
-UnsafeObject (fromList [("text",String "foo")])
+{"text": "foo"}

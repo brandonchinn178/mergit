@@ -1,1 +1,1 @@
-[UnsafeObject (fromList [("text",String "foo")]),UnsafeObject (fromList [("text",String "bar")])]
+[{"text": "foo"},{"text": "bar"}]
