@@ -6,10 +6,14 @@ Portability :  portable
 
 Defines all the possible GitHub events that can be sent.
 -}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module Servant.GitHub.Event
   ( GitHubEventType(..)
+  , FromEventType
   , eventName
   ) where
 
@@ -106,3 +110,5 @@ eventName = \case
   TeamEvent -> "team"
   TeamAddEvent -> "team_add"
   WatchEvent -> "watch"
+
+type family FromEventType (e :: GitHubEventType) :: *
