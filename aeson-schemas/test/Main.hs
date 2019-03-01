@@ -2,6 +2,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 
 import Data.Aeson.Schema (Object, get, unwrap)
@@ -13,6 +14,7 @@ import Test.Tasty.Golden (goldenVsString)
 
 import qualified AllTypes
 import qualified Nested
+import Util
 
 allTypes :: Object AllTypes.Schema
 allTypes = AllTypes.result
@@ -26,13 +28,13 @@ main = defaultMain $ testGroup "aeson-schemas"
   , testUnwrapSchema
   ]
 
-goldens' :: String -> IO String -> TestTree
-goldens' name = goldenVsString name fp . fmap ByteString.pack
+goldens' :: String -> String -> TestTree
+goldens' name = goldenVsString name fp . pure . ByteString.pack
   where
     fp = "test/goldens/" ++ name ++ ".golden"
 
 goldens :: Show s => String -> s -> TestTree
-goldens name = goldens' name . pure . show
+goldens name = goldens' name . show
 
 testGetterExp :: TestTree
 testGetterExp = testGroup "Test getter expressions"
@@ -103,6 +105,7 @@ nestedList = [get| (Nested.result).list[] |]
 
 testUnwrapSchema :: TestTree
 testUnwrapSchema = testGroup "Test unwrapping schemas"
-  [ goldens "unwrap_schema_nested_list" nestedList
+  [ goldens' "unwrap_schema" $(showUnwrap "(Nested.Schema).list[]")
+  , goldens "unwrap_schema_nested_list" nestedList
   , goldens "unwrap_schema_nested_object" $ map parseNestedObject nestedList
   ]
