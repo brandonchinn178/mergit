@@ -50,6 +50,21 @@ import Data.Aeson.Schema.TH.Parse
 -- >     },
 -- >   }
 -- > |]
+--
+-- The schema definition accepts the following syntax:
+--
+-- * @Bool@ corresponds to @'SchemaBool@, and similarly for @Int@, @Double@, and @Text@
+--
+-- * @Maybe x@ and @List x@ correspond to @'SchemaMaybe x@ and @'SchemaList x@, respectively. (no
+--   parentheses needed)
+--
+-- * Any other uppercase identifier corresponds to @'SchemaCustom ident@
+--
+-- * @{ "key": schema, ... }@ corresponds to @'SchemaObject '[ '("key", schema), ... ]@
+--
+-- * @{ "key": #Other }@ includes @Other@ as a schema
+--
+-- * @{ "key": schema, #Other }@ extends this schema with @Other@
 schema :: QuasiQuoter
 schema = QuasiQuoter
   { quoteExp = error "Cannot use `schema` for Exp"
@@ -69,6 +84,7 @@ generateSchema = \case
   SchemaDefMod "List" inner  -> [t| 'SchemaList $(generateSchema inner) |]
   SchemaDefMod other _       -> fail $ "Invalid schema modification: " ++ other
   SchemaDefObj pairs         -> [t| 'SchemaObject $(fromPairs pairs) |]
+  SchemaDefInclude other     -> maybe (fail $ "Unknown type: " ++ other) conT =<< lookupTypeName other
   where
     strLitT = litT . strTyLit
     pairT (a, b) = [t| '($a, $b) |]

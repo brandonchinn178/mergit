@@ -70,6 +70,7 @@ parseSchemaDef = choice
   [ between (lexeme "{") (lexeme "}") parseSchemaDefObj
   , choice (map lexeme' mods) >>= parseSchemaDefMod
   , SchemaDefType <$> identifier upperChar
+  , SchemaDefInclude <$> parseSchemaReference
   ]
   where
     mods = ["Maybe", "List"]
@@ -81,6 +82,7 @@ parseSchemaDef = choice
       value <- parseSchemaDef
       space
       return (key, value)
+    parseSchemaReference = char '#' *> identifier upperChar
 
 -- | A Haskell identifier, with the given first character.
 identifier :: Parser Char -> Parser String
@@ -112,6 +114,7 @@ data SchemaDef
   = SchemaDefType String
   | SchemaDefMod String SchemaDef
   | SchemaDefObj [(String, SchemaDef)]
+  | SchemaDefInclude String
   deriving (Show)
 
 schemaDef :: Parser SchemaDef
