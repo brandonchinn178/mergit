@@ -1,1 +1,1 @@
-Object (SchemaObject [("a", 'SchemaMaybe), ("b", 'SchemaInt)])
+Object (SchemaObject [("a", SchemaMaybe (SchemaObject [("b", SchemaInt)])), ("b", SchemaInt)])

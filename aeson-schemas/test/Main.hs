@@ -11,6 +11,7 @@ import Data.Maybe (fromMaybe)
 import qualified Data.Text as Text
 import Test.Tasty (TestTree, defaultMain, testGroup)
 import Test.Tasty.Golden (goldenVsString)
+import Text.RawString.QQ (r)
 
 import qualified AllTypes
 import qualified Nested
@@ -26,6 +27,7 @@ main = defaultMain $ testGroup "aeson-schemas"
   , testFromObjectNested
   , testFromObjectNamespaced
   , testUnwrapSchema
+  , testSchemaDef
   ]
 
 goldens' :: String -> String -> TestTree
@@ -108,4 +110,18 @@ testUnwrapSchema = testGroup "Test unwrapping schemas"
   [ goldens' "unwrap_schema" $(showUnwrap "(Nested.Schema).list[]")
   , goldens "unwrap_schema_nested_list" nestedList
   , goldens "unwrap_schema_nested_object" $ map parseNestedObject nestedList
+  ]
+
+testSchemaDef :: TestTree
+testSchemaDef = testGroup "Test generating schema definitions"
+  [ goldens' "schema_def_bool" $(showSchema [r| { "a": Bool } |])
+  , goldens' "schema_def_int" $(showSchema [r| { "a": Int } |])
+  , goldens' "schema_def_double" $(showSchema [r| { "foo!": Double } |])
+  , goldens' "schema_def_text" $(showSchema [r| { "some_text": Text } |])
+  , goldens' "schema_def_custom" $(showSchema [r| { "status": Status } |])
+  , goldens' "schema_def_maybe" $(showSchema [r| { "a": Maybe Int } |])
+  , goldens' "schema_def_list" $(showSchema [r| { "a": List Int } |])
+  , goldens' "schema_def_obj" $(showSchema [r| { "a": { "b": Int } } |])
+  , goldens' "schema_def_maybe_obj" $(showSchema [r| { "a": Maybe { "b": Int } } |])
+  , goldens' "schema_def_list_obj" $(showSchema [r| { "a": List { "b": Int } } |])
   ]
