@@ -45,7 +45,7 @@ aliases:
   # build steps
   - &run-build
     run:
-      name: Build package
+      name: Build packages
       command: stack build --test --no-run-tests
 
   # test steps
