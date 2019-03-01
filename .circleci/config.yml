@@ -23,9 +23,11 @@ aliases:
         FILES=(
           stack.yaml
           hpack.yaml
-          core/package.yaml
+          aeson-schemas/package.yaml
+          github-rest/package.yaml
           graphql/package.yaml
           graphql/example/package.yaml
+          servant-github-app/package.yaml
           scripts/install-stack-deps.sh
         )
         cat "${FILES[@]}" > cache-key.txt
@@ -59,7 +61,7 @@ aliases:
     run:
       name: Run tests
       command: stack test
-  - &run-example
+  - &run-graphql-example
     run:
       name: Run the graphql example
       command: stack exec graphql-example
@@ -96,9 +98,11 @@ jobs:
           root: .
           paths:
             - .stack-work
-            - core/.stack-work
+            - aeson-schemas/.stack-work
+            - github-rest/.stack-work
             - graphql/.stack-work
             - graphql/example/.stack-work
+            - servant-github-app/.stack-work
 
   lint:
     <<: *docker-linux
@@ -122,20 +126,20 @@ jobs:
       - restore_cache:
           key: *cache-key
       - *run-tests
-      - *run-example
+      - *run-graphql-example
 
 workflows:
   version: 2
 
-  # build_and_test:
-  #   jobs:
-  #     - prebuild
-  #     - build:
-  #         requires:
-  #           - prebuild
-  #     - lint:
-  #         requires:
-  #           - build
-  #     - test:
-  #         requires:
-  #           - build
+  build_and_test:
+    jobs:
+      - prebuild
+      - build:
+          requires:
+            - prebuild
+      - lint:
+          requires:
+            - build
+      - test:
+          requires:
+            - build
