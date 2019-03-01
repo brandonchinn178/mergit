@@ -2,7 +2,6 @@ resolver: lts-13.5
 
 packages:
   - aeson-schemas
-  - core
   - github-rest
   - graphql
   - graphql/example
