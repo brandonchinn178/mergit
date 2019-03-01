@@ -53,7 +53,7 @@ import Control.Monad.Trans.Control
 import Data.Aeson ((.=))
 import qualified Data.Aeson as Aeson
 import Data.Aeson.Schema (IsSchemaObject, Object, SchemaType)
-import Data.ByteString.Lazy (ByteString)
+import qualified Data.Aeson.Types as Aeson
 import Data.Maybe (fromJust)
 import Network.HTTP.Client
     ( Manager
@@ -143,7 +143,7 @@ instance MonadIO m => MonadQuery api (QueryT api m) where
                 , "variables" .= fromArgs args
                 ]
             }
-      in liftIO $ decodeResponse . responseBody =<< httpLbs request manager
+      in liftIO $ either fail return . Aeson.eitherDecode . responseBody =<< httpLbs request manager
     QueryMockState endpoints -> runQuerySafeMocked query args endpoints
 
 -- | An implementation for mocked GraphQL endpoints using MockedEndpoints and MocksApi.
@@ -152,20 +152,13 @@ runQuerySafeMocked
    . (Monad m, GraphQLArgs args, IsSchemaObject schema)
   => Query api args schema -> args -> MockedEndpoints api -> m (GraphQLResult (Object schema))
 runQuerySafeMocked query args endpoints =
-  decodeResponse =<< case lookupMock query (fromArgs args) endpoints of
+  case lookupMock query (fromArgs args) endpoints of
     Nothing -> fail $ "Endpoint missing mocked data: " ++ queryName query
     Just mockData ->
-      return $ Aeson.encode $ Aeson.object
+      either fail return $ Aeson.parseEither Aeson.parseJSON $ Aeson.object
         [ "errors" .= ([] :: [GraphQLError])
         , "data" .= Just mockData
         ]
-
--- | Decode a GraphQL response.
-decodeResponse
-  :: forall (schema :: SchemaType) m
-   . (Monad m, IsSchemaObject schema)
-  => ByteString -> m (GraphQLResult (Object schema))
-decodeResponse = either fail return . Aeson.eitherDecode
 
 -- | The settings for running QueryT.
 data QuerySettings api = QuerySettings
