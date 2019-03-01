@@ -9,7 +9,6 @@ Definitions for parsing input text in QuasiQuoters.
 {-# LANGUAGE DeriveLift #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 
 module Data.Aeson.Schema.TH.Parse where
@@ -105,7 +104,7 @@ namespacedIdentifier start = choice [lexeme "(" *> namespaced <* lexeme ")", ide
       ]
 
 quotedString :: Parser String
-quotedString = between (char '"') (char '"') $ many alphaNumChar
+quotedString = between (char '"') (char '"') $ many $ noneOf "\""
 
 {- SchemaDef -}
 
