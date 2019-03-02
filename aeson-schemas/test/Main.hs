@@ -5,7 +5,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 
-import Data.Aeson.Schema (Object, get, schema, unwrap)
+import Data.Aeson.Schema (Object, get, unwrap)
 import qualified Data.ByteString.Lazy.Char8 as ByteString
 import Data.Maybe (fromMaybe)
 import qualified Data.Text as Text
@@ -15,6 +15,7 @@ import Text.RawString.QQ (r)
 
 import qualified AllTypes
 import qualified Nested
+import Schema
 import Util
 
 allTypes :: Object AllTypes.Schema
@@ -112,8 +113,6 @@ testUnwrapSchema = testGroup "Test unwrapping schemas"
   , goldens "unwrap_schema_nested_object" $ map parseNestedObject nestedList
   ]
 
-type UserSchema = [schema| { "name": Text } |]
-
 testSchemaDef :: TestTree
 testSchemaDef = testGroup "Test generating schema definitions"
   [ goldens' "schema_def_bool" $(showSchema [r| { "a": Bool } |])
@@ -127,4 +126,5 @@ testSchemaDef = testGroup "Test generating schema definitions"
   , goldens' "schema_def_maybe_obj" $(showSchema [r| { "a": Maybe { "b": Int } } |])
   , goldens' "schema_def_list_obj" $(showSchema [r| { "a": List { "b": Int } } |])
   , goldens' "schema_def_import_user" $(showSchema [r| { "user": #UserSchema } |])
+  , goldens' "schema_def_extend" $(showSchema [r| { "a": Int, #(Schema.MySchema) } |])
   ]
