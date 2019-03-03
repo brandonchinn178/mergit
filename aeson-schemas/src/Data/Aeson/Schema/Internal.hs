@@ -80,8 +80,8 @@ data SchemaGraph s
 type SchemaType = SchemaGraph Symbol
 
 -- | Pretty show the given SchemaType.
-prettyShow :: forall (a :: SchemaType). Typeable a => String
-prettyShow = showSchemaType $ typeRep (Proxy @a)
+showSchema :: forall (a :: SchemaType). Typeable a => String
+showSchema = showSchemaType $ typeRep (Proxy @a)
   where
     showSchemaType tyRep = case splitTypeRep tyRep of
       ("'SchemaObject", [pairs]) ->
@@ -196,7 +196,7 @@ parseFail path value = fail $ msg ++ ": " ++ ellipses 200 (show value)
       then "Could not parse schema " ++ schema'
       else "Could not parse path '" ++ path' ++ "' with schema " ++ schema'
     path' = Text.unpack . Text.intercalate "." $ reverse path
-    schema' = "`" ++ prettyShow @schema ++ "`"
+    schema' = "`" ++ showSchema @schema ++ "`"
     ellipses n s = if length s > n then take n s ++ "..." else s
 
 {- Lookups within SchemaObject -}

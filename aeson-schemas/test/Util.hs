@@ -13,7 +13,7 @@ import Language.Haskell.TH.Quote (QuasiQuoter(..))
 import Language.Haskell.TH.Syntax (lift)
 
 import Data.Aeson.Schema (Object, schema, unwrap)
-import Data.Aeson.Schema.Internal (prettyShow)
+import Data.Aeson.Schema.Internal (showSchema)
 
 getMockedResult :: FilePath -> ExpQ
 getMockedResult fp = do
@@ -34,4 +34,4 @@ showType = \case
   ty -> lift $ pprint ty
 
 showSchemaType :: Type -> ExpQ
-showSchemaType = appTypeE [| prettyShow |] . pure
+showSchemaType = appTypeE [| showSchema |] . pure
