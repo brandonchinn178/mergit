@@ -1,14 +1,9 @@
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Example.GraphQL.Enums.ReleaseStatus where
 
 import Data.Aeson (FromJSON(..), withText)
-import Data.GraphQL
 import qualified Data.Text as Text
 
 data ReleaseStatus
@@ -25,6 +20,3 @@ instance FromJSON ReleaseStatus where
     "BOOTLEG" -> pure BOOTLEG
     "PSEUDORELEASE" -> pure PSEUDORELEASE
     t -> fail $ "Bad ReleaseStatus: " ++ Text.unpack t
-
-instance FromSchema ('SchemaCustom "ReleaseStatus") where
-  type SchemaResult ('SchemaCustom "ReleaseStatus") = ReleaseStatus
