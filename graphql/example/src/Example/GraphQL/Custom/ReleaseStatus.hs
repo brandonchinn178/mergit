@@ -1,7 +1,7 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Example.GraphQL.Enums.ReleaseStatus where
+module Example.GraphQL.Custom.ReleaseStatus where
 
 import Data.Aeson (FromJSON(..), withText)
 import qualified Data.Text as Text
