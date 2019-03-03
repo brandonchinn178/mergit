@@ -12,6 +12,9 @@ import qualified Data.GraphQL as GraphQL
 import Data.GraphQL.Aeson (object, (.=))
 
 import Example.GraphQL.API (API)
+import Example.GraphQL.Custom.Date (Date)
+import Example.GraphQL.Custom.Duration (Duration)
+import Example.GraphQL.Custom.ReleaseStatus (ReleaseStatus)
 
 type Query = GraphQL.Query API Args Schema
 

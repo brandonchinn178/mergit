@@ -15,10 +15,10 @@ import Data.Maybe (fromMaybe)
 import Data.Monoid ((<>))
 import qualified Data.Text as Text
 
-import Example.Date (showDate)
-import Example.Duration (showDuration)
 import Example.GraphQL.API (API)
-import Example.GraphQL.Enums.ReleaseStatus (ReleaseStatus(..))
+import Example.GraphQL.Custom.Date (showDate)
+import Example.GraphQL.Custom.Duration (showDuration)
+import Example.GraphQL.Custom.ReleaseStatus (ReleaseStatus(..))
 import qualified Example.GraphQL.Recordings as Recordings
 
 newtype App a = App { unApp :: QueryT API IO a }
