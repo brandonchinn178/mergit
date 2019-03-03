@@ -66,18 +66,15 @@ instance IsSchemaObject schema => FromJSON (Object schema) where
 {- Type-level schema definitions -}
 
 -- | The schema definition for JSON data.
-data SchemaGraph s
+data SchemaType
   = SchemaBool
   | SchemaInt
   | SchemaDouble
   | SchemaText
   | SchemaCustom Type
-  | SchemaMaybe (SchemaGraph s)
-  | SchemaList (SchemaGraph s)
-  | SchemaObject [(s, SchemaGraph s)]
-
--- | A 'SchemaGraph' at the kind level.
-type SchemaType = SchemaGraph Symbol
+  | SchemaMaybe SchemaType
+  | SchemaList SchemaType
+  | SchemaObject [(Symbol, SchemaType)]
 
 -- | Pretty show the given SchemaType.
 showSchema :: forall (a :: SchemaType). Typeable a => String

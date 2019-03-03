@@ -20,14 +20,14 @@ import Control.Monad ((>=>))
 import Language.Haskell.TH
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
 
-import Data.Aeson.Schema.Internal (SchemaGraph(..))
+import Data.Aeson.Schema.Internal (SchemaType(..))
 import Data.Aeson.Schema.TH.Parse
 
 -- | Defines a QuasiQuoter for writing schemas.
 --
 -- Example:
 --
--- > import Data.Aeson.Schema (SchemaGraph(..))
+-- > import Data.Aeson.Schema (SchemaType(..))
 -- > import Data.Aeson.Schema.TH (schema)
 -- >
 -- > -- | MySchema ~ 'SchemaObject
