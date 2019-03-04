@@ -35,6 +35,7 @@ import Servant.GitHub.Event.IssueComment as EventSchemas
 import Servant.GitHub.Event.Issues as EventSchemas
 import Servant.GitHub.Event.Label as EventSchemas
 
+-- | TODO: Finish implementing other events.
 data GitHubEventType
   = CheckRunEvent
   | CheckSuiteEvent
@@ -52,30 +53,30 @@ data GitHubEventType
   | IssueCommentEvent
   | IssuesEvent
   | LabelEvent
-  | MarketplacePurchaseEvent
-  | MemberEvent
-  | MembershipEvent
-  | MilestoneEvent
-  | OrganizationEvent
-  | OrgBlockEvent
-  | PageBuildEvent
-  | ProjectCardEvent
-  | ProjectColumnEvent
-  | ProjectEvent
-  | PublicEvent
+  -- | MarketplacePurchaseEvent
+  -- | MemberEvent
+  -- | MembershipEvent
+  -- | MilestoneEvent
+  -- | OrganizationEvent
+  -- | OrgBlockEvent
+  -- | PageBuildEvent
+  -- | ProjectCardEvent
+  -- | ProjectColumnEvent
+  -- | ProjectEvent
+  -- | PublicEvent
   | PullRequestEvent
-  | PullRequestReviewEvent
-  | PullRequestReviewCommentEvent
+  -- | PullRequestReviewEvent
+  -- | PullRequestReviewCommentEvent
   | PushEvent
-  | ReleaseEvent
-  | RepositoryEvent
-  | RepositoryImportEvent
-  | RepositoryVulnerabilityAlertEvent
-  | SecurityAdvisoryEvent
-  | StatusEvent
-  | TeamEvent
-  | TeamAddEvent
-  | WatchEvent
+  -- | ReleaseEvent
+  -- | RepositoryEvent
+  -- | RepositoryImportEvent
+  -- | RepositoryVulnerabilityAlertEvent
+  -- | SecurityAdvisoryEvent
+  -- | StatusEvent
+  -- | TeamEvent
+  -- | TeamAddEvent
+  -- | WatchEvent
   deriving (Show)
 
 class IsGitHubEvent (e :: GitHubEventType) where
