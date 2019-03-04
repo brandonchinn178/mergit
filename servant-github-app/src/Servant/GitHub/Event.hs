@@ -23,6 +23,7 @@ import Servant.GitHub.Event.CheckRun as EventSchemas
 import Servant.GitHub.Event.CheckSuite as EventSchemas
 import Servant.GitHub.Event.CommitComment as EventSchemas
 import Servant.GitHub.Event.ContentReference as EventSchemas
+import Servant.GitHub.Event.Create as EventSchemas
 
 data GitHubEventType
   = CheckRunEvent
@@ -90,3 +91,7 @@ instance IsGitHubEvent 'CommitCommentEvent where
 instance IsGitHubEvent 'ContentReferenceEvent where
   type EventSchema 'ContentReferenceEvent = ContentReferenceSchema
   eventName = "content_reference"
+
+instance IsGitHubEvent 'CreateEvent where
+  type EventSchema 'CreateEvent = CreateSchema
+  eventName = "create"
