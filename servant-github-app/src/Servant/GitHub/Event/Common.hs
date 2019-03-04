@@ -152,6 +152,32 @@ type BaseEvent = [schema|
   }
 |]
 
+{- Deployment -}
+
+type Deployment = [schema|
+  {
+    "url": Text,
+    "id": Int,
+    "node_id": Text,
+    "sha": Text,
+    "ref": Text,
+    "task": Text,
+    "payload": {
+      "deploy": Text,
+    },
+    "original_environment": Text,
+    "environment": Text,
+    "description": Maybe Text,
+    "creator": #User,
+    "created_at": UTCTime,
+    "updated_at": UTCTime,
+    "statuses_url": Text,
+    "repository_url": Text,
+    "transient_environment": Bool,
+    "producation_environment": Bool,
+  }
+|]
+
 {- Milestones -}
 
 data MilestoneState = MilestoneOpen | MilestoneClosed

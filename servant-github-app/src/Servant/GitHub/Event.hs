@@ -25,6 +25,7 @@ import Servant.GitHub.Event.CommitComment as EventSchemas
 import Servant.GitHub.Event.ContentReference as EventSchemas
 import Servant.GitHub.Event.Create as EventSchemas
 import Servant.GitHub.Event.Delete as EventSchemas
+import Servant.GitHub.Event.Deployment as EventSchemas
 
 data GitHubEventType
   = CheckRunEvent
@@ -100,3 +101,7 @@ instance IsGitHubEvent 'CreateEvent where
 instance IsGitHubEvent 'DeleteEvent where
   type EventSchema 'DeleteEvent = DeleteSchema
   eventName = "delete"
+
+instance IsGitHubEvent 'DeploymentEvent where
+  type EventSchema 'DeploymentEvent = DeploymentSchema
+  eventName = "deployment"
