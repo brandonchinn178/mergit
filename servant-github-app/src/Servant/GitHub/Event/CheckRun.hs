@@ -17,6 +17,8 @@ import Data.Aeson (FromJSON(..), withText)
 import Data.Aeson.Schema (schema)
 import qualified Data.Text as Text
 
+import Servant.GitHub.Event.Common
+
 data CheckRunAction
   = CheckRunCreated
   | CheckRunRerequested
@@ -76,5 +78,6 @@ type CheckRunSchema = [schema|
         "identifier": Text,
       },
     },
+    #BaseEvent,
   }
 |]
