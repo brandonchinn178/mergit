@@ -27,10 +27,7 @@ import Servant.GitHub.Event.Create as EventSchemas
 import Servant.GitHub.Event.Delete as EventSchemas
 import Servant.GitHub.Event.Deployment as EventSchemas
 import Servant.GitHub.Event.DeploymentStatus as EventSchemas
-import Servant.GitHub.Event.Download as EventSchemas
-import Servant.GitHub.Event.Follow as EventSchemas
 import Servant.GitHub.Event.Fork as EventSchemas
-import Servant.GitHub.Event.ForkApply as EventSchemas
 import Servant.GitHub.Event.GitHubAppAuthorization as EventSchemas
 
 data GitHubEventType
@@ -42,12 +39,8 @@ data GitHubEventType
   | DeleteEvent
   | DeploymentEvent
   | DeploymentStatusEvent
-  | DownloadEvent
-  | FollowEvent
   | ForkEvent
-  | ForkApplyEvent
   | GitHubAppAuthorizationEvent
-  | GistEvent
   | GollumEvent
   | InstallationEvent
   | InstallationRepositoriesEvent
@@ -116,21 +109,9 @@ instance IsGitHubEvent 'DeploymentStatusEvent where
   type EventSchema 'DeploymentStatusEvent = DeploymentStatusSchema
   eventName = "deployment_status"
 
-instance IsGitHubEvent 'DownloadEvent where
-  type EventSchema 'DownloadEvent = DownloadSchema
-  eventName = "download"
-
-instance IsGitHubEvent 'FollowEvent where
-  type EventSchema 'FollowEvent = FollowSchema
-  eventName = "follow"
-
 instance IsGitHubEvent 'ForkEvent where
   type EventSchema 'ForkEvent = ForkSchema
   eventName = "fork"
-
-instance IsGitHubEvent 'ForkApplyEvent where
-  type EventSchema 'ForkApplyEvent = ForkApplySchema
-  eventName = "fork_apply"
 
 instance IsGitHubEvent 'GitHubAppAuthorizationEvent where
   type EventSchema 'GitHubAppAuthorizationEvent = GitHubAppAuthorizationSchema
