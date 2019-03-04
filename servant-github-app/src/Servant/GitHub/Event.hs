@@ -29,6 +29,7 @@ import Servant.GitHub.Event.Deployment as EventSchemas
 import Servant.GitHub.Event.DeploymentStatus as EventSchemas
 import Servant.GitHub.Event.Download as EventSchemas
 import Servant.GitHub.Event.Follow as EventSchemas
+import Servant.GitHub.Event.Fork as EventSchemas
 
 data GitHubEventType
   = CheckRunEvent
@@ -120,3 +121,7 @@ instance IsGitHubEvent 'DownloadEvent where
 instance IsGitHubEvent 'FollowEvent where
   type EventSchema 'FollowEvent = FollowSchema
   eventName = "follow"
+
+instance IsGitHubEvent 'ForkEvent where
+  type EventSchema 'ForkEvent = ForkSchema
+  eventName = "fork"
