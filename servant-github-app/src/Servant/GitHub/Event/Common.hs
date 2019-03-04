@@ -264,6 +264,20 @@ type Issue = [schema|
   }
 |]
 
+{- Labels: https://developer.github.com/v3/issues/labels/#get-a-single-label -}
+
+type Label = [schema|
+  {
+    "id": Int,
+    "node_id": Text,
+    "url": Text,
+    "name": Text,
+    "description": Text,
+    "color": Text,
+    "default": Bool,
+  }
+|]
+
 {- Milestones -}
 
 data MilestoneState = MilestoneOpen | MilestoneClosed
@@ -293,20 +307,6 @@ type Milestone = [schema|
     "updated_at": UTCTime,
     "closed_at": Maybe UTCTime,
     "due_on": UTCTime,
-  }
-|]
-
-{- Labels -}
-
-type Label = [schema|
-  {
-    "id": Int,
-    "node_id": Text,
-    "url": Text,
-    "name": Text,
-    "description": Text,
-    "color": Text,
-    "default": Bool,
   }
 |]
 
