@@ -20,6 +20,7 @@ module Servant.GitHub.Event
 import Data.Aeson.Schema (SchemaType)
 
 import Servant.GitHub.Event.CheckRun as EventSchemas
+import Servant.GitHub.Event.CheckSuite as EventSchemas
 
 data GitHubEventType
   = CheckRunEvent
@@ -75,3 +76,7 @@ class IsGitHubEvent (e :: GitHubEventType) where
 instance IsGitHubEvent 'CheckRunEvent where
   type EventSchema 'CheckRunEvent = CheckRunSchema
   eventName = "check_run"
+
+instance IsGitHubEvent 'CheckSuiteEvent where
+  type EventSchema 'CheckSuiteEvent = CheckSuiteSchema
+  eventName = "check_suite"

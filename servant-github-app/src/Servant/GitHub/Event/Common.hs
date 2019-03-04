@@ -7,15 +7,20 @@ Portability :  portable
 Defines common types and schemas for GitHub events.
 -}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 
 module Servant.GitHub.Event.Common where
 
+import Data.Aeson (FromJSON(..), withText)
 import Data.Aeson.Schema (schema)
+import qualified Data.Text as Text
+import Data.Time (UTCTime)
 
 {- Schemas used in every webhook: https://developer.github.com/webhooks/#payloads -}
 
-type Sender = [schema|
+type User = [schema|
   {
     "login": Text,
     "id": Int,
@@ -44,26 +49,7 @@ type Repository = [schema|
     "node_id": Text,
     "name": Text,
     "full_name": Text,
-    "owner": {
-      "login": Text,
-      "id": Int,
-      "node_id": Text,
-      "avatar_url": Text,
-      "gravatar_id": Text,
-      "url": Text,
-      "html_url": Text,
-      "followers_url": Text,
-      "following_url": Text,
-      "gists_url": Text,
-      "starred_url": Text,
-      "subscriptions_url": Text,
-      "organizations_url": Text,
-      "repos_url": Text,
-      "events_url": Text,
-      "received_events_url": Text,
-      "type": Text,
-      "site_admin": Bool,
-    },
+    "owner": #User,
     "private": Bool,
     "html_url": Text,
     "description": Maybe Text,
@@ -159,9 +145,180 @@ type InstallationId = [schema|
 
 type BaseEvent = [schema|
   {
-    "sender": #Sender,
+    "sender": #User,
     "repository": Maybe #Repository,
     "organization": Maybe #Organization,
     "installation": Maybe #InstallationId,
+  }
+|]
+
+{- Milestones -}
+
+data MilestoneState = MilestoneOpen | MilestoneClosed
+  deriving (Show)
+
+instance FromJSON MilestoneState where
+  parseJSON = withText "MilestoneState" $ \case
+    "open" -> pure MilestoneOpen
+    "closed" -> pure MilestoneClosed
+    t -> fail $ "Bad MilestoneState: " ++ Text.unpack t
+
+type Milestone = [schema|
+  {
+    "url": Text,
+    "html_url": Text,
+    "labels_url": Text,
+    "id": Int,
+    "node_id": Text,
+    "number": Int,
+    "state": MilestoneState,
+    "title": Text,
+    "description": Text,
+    "creator": #User,
+    "open_issues": Int,
+    "closed_issues": Int,
+    "created_at": UTCTime,
+    "updated_at": UTCTime,
+    "closed_at": Maybe UTCTime,
+    "due_on": UTCTime,
+  }
+|]
+
+{- Labels -}
+
+type Label = [schema|
+  {
+    "id": Int,
+    "node_id": Text,
+    "url": Text,
+    "name": Text,
+    "description": Text,
+    "color": Text,
+    "default": Bool,
+  }
+|]
+
+{- Pull requests -}
+
+data PullRequestState = PullRequestOpen | PullRequestClosed
+  deriving (Show)
+
+instance FromJSON PullRequestState where
+  parseJSON = withText "PullRequestState" $ \case
+    "open" -> pure PullRequestOpen
+    "closed" -> pure PullRequestClosed
+    t -> fail $ "Bad PullRequestState: " ++ Text.unpack t
+
+type PullRequest = [schema|
+  {
+    "url": Text,
+    "id": Int,
+    "node_id": Text,
+    "html_url": Text,
+    "diff_url": Text,
+    "patch_url": Text,
+    "issue_url": Text,
+    "number": Int,
+    "state": PullRequestState,
+    "locked": Bool,
+    "title": Text,
+    "user": #User,
+    "body": Text,
+    "created_at": UTCTime,
+    "updated_at": UTCTime,
+    "closed_at": Maybe UTCTime,
+    "merged_at": Maybe UTCTime,
+    "merge_commit_sha": Text,
+    "assignee": Maybe #User,
+    "assignees": List #User,
+    "requested_reviewers": List #User,
+    "requested_teams": List #Team,
+    "labels": List #Label,
+    "milestone": Maybe #Milestone,
+    "commits_url": Text,
+    "review_comments_url": Text,
+    "review_comment_url": Text,
+    "comments_url": Text,
+    "statuses_url": Text,
+    "head": {
+      "label": Text,
+      "ref": Text,
+      "sha": Text,
+      "user": #User,
+      "repo": #Repository,
+    },
+    "base": {
+      "label": Text,
+      "ref": Text,
+      "sha": Text,
+      "user": #User,
+      "repo": #Repository
+    },
+    "_links": {
+      "self": {
+        "href": Text
+      },
+      "html": {
+        "href": Text
+      },
+      "issue": {
+        "href": Text
+      },
+      "comments": {
+        "href": Text
+      },
+      "review_comments": {
+        "href": Text
+      },
+      "review_comment": {
+        "href": Text
+      },
+      "commits": {
+        "href": Text
+      },
+      "statuses": {
+        "href": Text
+      }
+    },
+    "author_association": Text,
+    "merged": Bool,
+    "mergeable": Bool,
+    "rebaseable": Bool,
+    "mergeable_state": Text,
+    "merged_by": Maybe #User,
+    "comments": Int,
+    "review_comments": Int,
+    "maintainer_can_modify": Bool,
+    "commits": Int,
+    "additions": Int,
+    "deletions": Int,
+    "changed_files": Int
+  }
+|]
+
+{- Teams -}
+
+data TeamPrivacy = TeamSecret | TeamClosed
+  deriving (Show)
+
+instance FromJSON TeamPrivacy where
+  parseJSON = withText "TeamPrivacy" $ \case
+    "secret" -> pure TeamSecret
+    "closed" -> pure TeamClosed
+    t -> fail $ "Bad TeamPrivacy: " ++ Text.unpack t
+
+type Team = [schema|
+  {
+    "id": Int,
+    "node_id": Text,
+    "url": Text,
+    "name": Text,
+    "slug": Text,
+    "description": Text,
+    "privacy": TeamPrivacy,
+    "permission": Text,
+    "members_url": Text,
+    "repositories_url": Text,
+    "parent": Maybe Int,
   }
 |]
