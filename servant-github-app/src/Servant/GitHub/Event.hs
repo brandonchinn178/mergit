@@ -29,6 +29,7 @@ import Servant.GitHub.Event.Deployment as EventSchemas
 import Servant.GitHub.Event.DeploymentStatus as EventSchemas
 import Servant.GitHub.Event.Fork as EventSchemas
 import Servant.GitHub.Event.GitHubAppAuthorization as EventSchemas
+import Servant.GitHub.Event.Installation as EventSchemas
 
 data GitHubEventType
   = CheckRunEvent
@@ -116,3 +117,7 @@ instance IsGitHubEvent 'ForkEvent where
 instance IsGitHubEvent 'GitHubAppAuthorizationEvent where
   type EventSchema 'GitHubAppAuthorizationEvent = GitHubAppAuthorizationSchema
   eventName = "github_app_authorization"
+
+instance IsGitHubEvent 'InstallationEvent where
+  type EventSchema 'InstallationEvent = InstallationSchema
+  eventName = "installation"

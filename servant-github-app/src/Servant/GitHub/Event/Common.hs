@@ -178,6 +178,31 @@ type Deployment = [schema|
   }
 |]
 
+{- Installation -}
+
+type Installation = [schema|
+  {
+    "id": Int,
+    "account": #User,
+    "repository_selection": Text,
+    "access_tokens_url": Text,
+    "repositories_url": Text,
+    "html_url": Text,
+    "app_id": Int,
+    "target_id": Int,
+    "target_type": Text,
+    "permissions": {
+      "metadata": Text,
+      "contents": Text,
+      "issues": Text,
+    },
+    "events": List Text,
+    "created_at": Int,
+    "updated_at": Int,
+    "single_file_name": Text,
+  }
+|]
+
 {- Milestones -}
 
 data MilestoneState = MilestoneOpen | MilestoneClosed
