@@ -31,6 +31,7 @@ import Servant.GitHub.Event.Download as EventSchemas
 import Servant.GitHub.Event.Follow as EventSchemas
 import Servant.GitHub.Event.Fork as EventSchemas
 import Servant.GitHub.Event.ForkApply as EventSchemas
+import Servant.GitHub.Event.GitHubAppAuthorization as EventSchemas
 
 data GitHubEventType
   = CheckRunEvent
@@ -130,3 +131,7 @@ instance IsGitHubEvent 'ForkEvent where
 instance IsGitHubEvent 'ForkApplyEvent where
   type EventSchema 'ForkApplyEvent = ForkApplySchema
   eventName = "fork_apply"
+
+instance IsGitHubEvent 'GitHubAppAuthorizationEvent where
+  type EventSchema 'GitHubAppAuthorizationEvent = GitHubAppAuthorizationSchema
+  eventName = "github_app_authorization"
