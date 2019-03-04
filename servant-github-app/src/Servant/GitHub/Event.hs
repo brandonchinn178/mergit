@@ -21,6 +21,7 @@ import Data.Aeson.Schema (SchemaType)
 
 import Servant.GitHub.Event.CheckRun as EventSchemas
 import Servant.GitHub.Event.CheckSuite as EventSchemas
+import Servant.GitHub.Event.CommitComment as EventSchemas
 
 data GitHubEventType
   = CheckRunEvent
@@ -80,3 +81,7 @@ instance IsGitHubEvent 'CheckRunEvent where
 instance IsGitHubEvent 'CheckSuiteEvent where
   type EventSchema 'CheckSuiteEvent = CheckSuiteSchema
   eventName = "check_suite"
+
+instance IsGitHubEvent 'CommitCommentEvent where
+  type EventSchema 'CommitCommentEvent = CommitCommentSchema
+  eventName = "commit_comment"
