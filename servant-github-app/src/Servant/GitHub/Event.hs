@@ -27,6 +27,7 @@ import Servant.GitHub.Event.Create as EventSchemas
 import Servant.GitHub.Event.Delete as EventSchemas
 import Servant.GitHub.Event.Deployment as EventSchemas
 import Servant.GitHub.Event.DeploymentStatus as EventSchemas
+import Servant.GitHub.Event.Download as EventSchemas
 
 data GitHubEventType
   = CheckRunEvent
@@ -110,3 +111,7 @@ instance IsGitHubEvent 'DeploymentEvent where
 instance IsGitHubEvent 'DeploymentStatusEvent where
   type EventSchema 'DeploymentStatusEvent = DeploymentStatusSchema
   eventName = "deployment_status"
+
+instance IsGitHubEvent 'DownloadEvent where
+  type EventSchema 'DownloadEvent = DownloadSchema
+  eventName = "download"
