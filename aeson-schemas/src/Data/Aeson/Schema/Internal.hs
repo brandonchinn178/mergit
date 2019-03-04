@@ -160,8 +160,7 @@ instance
   , FromSchema inner
   , Show (SchemaResult inner)
   , Typeable (SchemaResult inner)
-  , FromSchema ('SchemaObject rest)
-  , SchemaResult ('SchemaObject rest) ~ Object ('SchemaObject rest)
+  , IsSchemaObject ('SchemaObject rest)
   , Typeable rest
   ) => FromSchema ('SchemaObject ('(key, inner) ': rest)) where
   type SchemaResult ('SchemaObject ('(key, inner) ': rest)) = Object ('SchemaObject ('(key, inner) ': rest))
