@@ -35,6 +35,7 @@ import Servant.GitHub.Event.IssueComment as EventSchemas
 import Servant.GitHub.Event.Issues as EventSchemas
 import Servant.GitHub.Event.Label as EventSchemas
 import Servant.GitHub.Event.PullRequest as EventSchemas
+import Servant.GitHub.Event.Push as EventSchemas
 
 -- | TODO: Finish implementing other events.
 data GitHubEventType
@@ -147,3 +148,7 @@ instance IsGitHubEvent 'LabelEvent where
 instance IsGitHubEvent 'PullRequestEvent where
   type EventSchema 'PullRequestEvent = PullRequestSchema
   eventName = "pull_request"
+
+instance IsGitHubEvent 'PushEvent where
+  type EventSchema 'PushEvent = PushSchema
+  eventName = "push"
