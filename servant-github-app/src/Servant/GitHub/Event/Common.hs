@@ -347,6 +347,17 @@ type PullRequest = [schema|
   }
 |]
 
+{- Repository -}
+
+type RepositoryShort = [schema|
+  {
+    "id": Int,
+    "name": Text,
+    "full_name": Text,
+    "private": Bool,
+  }
+|]
+
 {- Teams -}
 
 data TeamPrivacy = TeamSecret | TeamClosed

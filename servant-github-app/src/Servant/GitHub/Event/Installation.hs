@@ -34,12 +34,7 @@ type InstallationSchema = [schema|
   {
     "action": InstallationAction,
     "installation": #Installation,
-    "repositories": List {
-      "id": Int,
-      "name": Text,
-      "full_name": Text,
-      "private": Bool,
-    },
+    "repositories": List #RepositoryShort,
     #BaseEvent,
   }
 |]
