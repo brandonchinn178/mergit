@@ -57,7 +57,7 @@ instance
 
   hoistServerWithContext _ _ f s = hoistServerWithContext (Proxy @api) (Proxy @context) f s
 
-  route _ context = route (Proxy @api) context . addBodyCheck (Servant.withRequest verify)
+  route _ context = route (Proxy @api) context . addAuthCheck (Servant.withRequest verify)
     where
       GitHubAppParams{ghWebhookSecret} = getContextEntry context
 
@@ -91,7 +91,7 @@ instance
 
   hoistServerWithContext _ _ f s = hoistServerWithContext (Proxy @api) (Proxy @context) f . s
 
-  route _ context = route (Proxy @api) context . addBodyCheck' (Servant.withRequest verify)
+  route _ context = route (Proxy @api) context . addBodyCheck (Servant.withRequest verify)
     where
       verify request = do
         ghEvent <- maybeDelayed missingEvent $ lookup "x-github-event" $ requestHeaders request
@@ -110,14 +110,14 @@ instance
 maybeDelayed :: ServantErr -> Maybe a -> Servant.DelayedIO a
 maybeDelayed e = maybe (Servant.delayedFailFatal e) return
 
--- | The function I wish 'Servant.addBodyCheck' actually was.
-addBodyCheck :: Servant.DelayedIO () -> Servant.Delayed env a -> Servant.Delayed env a
-addBodyCheck bodyCheck Servant.Delayed{..} =
-  Servant.Delayed { Servant.bodyD = \content -> bodyCheck >> bodyD content, .. }
+-- | The function I wish 'Servant.addAuthCheck' actually was.
+addAuthCheck :: Servant.DelayedIO () -> Servant.Delayed env a -> Servant.Delayed env a
+addAuthCheck authCheck Servant.Delayed{..} =
+  Servant.Delayed { Servant.authD = authCheck >> authD, .. }
 
--- | 'addBodyCheck', but providing a value to apply to the server function.
-addBodyCheck' :: Servant.DelayedIO a -> Servant.Delayed env (a -> b) -> Servant.Delayed env b
-addBodyCheck' bodyCheck Servant.Delayed{..} =
+-- | The function I wish 'Servant.addBodyCheck' actually was.
+addBodyCheck :: Servant.DelayedIO a -> Servant.Delayed env (a -> b) -> Servant.Delayed env b
+addBodyCheck bodyCheck Servant.Delayed{..} =
   Servant.Delayed
     { Servant.bodyD = \content -> (,) <$> bodyCheck <*> bodyD content
     , Servant.serverD = \c p h a (res, b) req -> ($ res) <$> serverD c p h a b req
