@@ -220,15 +220,6 @@ type Installation = [schema|
 
 {- Issue: https://developer.github.com/v3/issues/#get-a-single-issue -}
 
-data IssueState = IssueOpen | IssueClosed
-  deriving (Show)
-
-instance FromJSON IssueState where
-  parseJSON = withText "IssueState" $ \case
-    "open" -> pure IssueOpen
-    "closed" -> pure IssueClosed
-    t -> fail $ "Bad IssueState: " ++ Text.unpack t
-
 type Issue = [schema|
   {
     "id": Int,
@@ -240,7 +231,7 @@ type Issue = [schema|
     "events_url": Text,
     "html_url": Text,
     "number": Int,
-    "state": IssueState,
+    "state": State,
     "title": Text,
     "body": Maybe Text,
     "user": #User,
@@ -280,15 +271,6 @@ type Label = [schema|
 
 {- Milestones -}
 
-data MilestoneState = MilestoneOpen | MilestoneClosed
-  deriving (Show)
-
-instance FromJSON MilestoneState where
-  parseJSON = withText "MilestoneState" $ \case
-    "open" -> pure MilestoneOpen
-    "closed" -> pure MilestoneClosed
-    t -> fail $ "Bad MilestoneState: " ++ Text.unpack t
-
 type Milestone = [schema|
   {
     "url": Text,
@@ -297,7 +279,7 @@ type Milestone = [schema|
     "id": Int,
     "node_id": Text,
     "number": Int,
-    "state": MilestoneState,
+    "state": State,
     "title": Text,
     "description": Text,
     "creator": #User,
@@ -312,15 +294,6 @@ type Milestone = [schema|
 
 {- Pull requests -}
 
-data PullRequestState = PullRequestOpen | PullRequestClosed
-  deriving (Show)
-
-instance FromJSON PullRequestState where
-  parseJSON = withText "PullRequestState" $ \case
-    "open" -> pure PullRequestOpen
-    "closed" -> pure PullRequestClosed
-    t -> fail $ "Bad PullRequestState: " ++ Text.unpack t
-
 type PullRequest = [schema|
   {
     "url": Text,
@@ -331,7 +304,7 @@ type PullRequest = [schema|
     "patch_url": Text,
     "issue_url": Text,
     "number": Int,
-    "state": PullRequestState,
+    "state": State,
     "locked": Bool,
     "title": Text,
     "user": #User,
@@ -418,6 +391,17 @@ type RepositoryShort = [schema|
     "private": Bool,
   }
 |]
+
+{- State -}
+
+data State = StateOpen | StateClosed
+  deriving (Show)
+
+instance FromJSON State where
+  parseJSON = withText "State" $ \case
+    "open" -> pure StateOpen
+    "closed" -> pure StateClosed
+    t -> fail $ "Bad State: " ++ Text.unpack t
 
 {- Teams -}
 
