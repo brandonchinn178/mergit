@@ -5,6 +5,8 @@ name: servant-github-app
 version: 0.1.0
 
 dependencies:
+- aeson
+- aeson-schemas
 - base
 - bytestring
 - cryptonite
