@@ -33,6 +33,7 @@ import Servant.GitHub.Event.Installation as EventSchemas
 import Servant.GitHub.Event.InstallationRepositories as EventSchemas
 import Servant.GitHub.Event.IssueComment as EventSchemas
 import Servant.GitHub.Event.Issues as EventSchemas
+import Servant.GitHub.Event.Label as EventSchemas
 
 data GitHubEventType
   = CheckRunEvent
@@ -136,3 +137,7 @@ instance IsGitHubEvent 'IssueCommentEvent where
 instance IsGitHubEvent 'IssuesEvent where
   type EventSchema 'IssuesEvent = IssuesSchema
   eventName = "issues"
+
+instance IsGitHubEvent 'LabelEvent where
+  type EventSchema 'LabelEvent = LabelSchema
+  eventName = "label"
