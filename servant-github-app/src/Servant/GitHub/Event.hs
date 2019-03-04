@@ -31,6 +31,7 @@ import Servant.GitHub.Event.Fork as EventSchemas
 import Servant.GitHub.Event.GitHubAppAuthorization as EventSchemas
 import Servant.GitHub.Event.Installation as EventSchemas
 import Servant.GitHub.Event.InstallationRepositories as EventSchemas
+import Servant.GitHub.Event.IssueComment as EventSchemas
 
 data GitHubEventType
   = CheckRunEvent
@@ -126,3 +127,7 @@ instance IsGitHubEvent 'InstallationEvent where
 instance IsGitHubEvent 'InstallationRepositoriesEvent where
   type EventSchema 'InstallationRepositoriesEvent = InstallationRepositoriesSchema
   eventName = "installation_repositories"
+
+instance IsGitHubEvent 'IssueCommentEvent where
+  type EventSchema 'IssueCommentEvent = IssueCommentSchema
+  eventName = "issue_comment"

@@ -152,6 +152,21 @@ type BaseEvent = [schema|
   }
 |]
 
+{- Comment: https://developer.github.com/v3/issues/comments/#get-a-single-comment -}
+
+type Comment = [schema|
+  {
+    "id": Int,
+    "node_id": Text,
+    "url": Text,
+    "html_url": Text,
+    "body": Text,
+    "user": #User,
+    "created_at": UTCTime,
+    "updated_at": UTCTime,
+  }
+|]
+
 {- Deployment -}
 
 type Deployment = [schema|
@@ -200,6 +215,52 @@ type Installation = [schema|
     "created_at": Int,
     "updated_at": Int,
     "single_file_name": Text,
+  }
+|]
+
+{- Issue: https://developer.github.com/v3/issues/#get-a-single-issue -}
+
+data IssueState = IssueOpen | IssueClosed
+  deriving (Show)
+
+instance FromJSON IssueState where
+  parseJSON = withText "IssueState" $ \case
+    "open" -> pure IssueOpen
+    "closed" -> pure IssueClosed
+    t -> fail $ "Bad IssueState: " ++ Text.unpack t
+
+type Issue = [schema|
+  {
+    "id": Int,
+    "node_id": Text,
+    "url": Text,
+    "repository_url": Text,
+    "labels_url": Text,
+    "comments_url": Text,
+    "events_url": Text,
+    "html_url": Text,
+    "number": Int,
+    "state": IssueState,
+    "title": Text,
+    "body": Maybe Text,
+    "user": #User,
+    "labels": List #Label,
+    "assignee": #User,
+    "assignees": List #User,
+    "milestone": Maybe #Milestone,
+    "locked": Bool,
+    "active_lock_reason": Maybe Text,
+    "comments": Int,
+    "pull_request": Maybe {
+      "url": Text,
+      "html_url": Text,
+      "diff_url": Text,
+      "patch_url": Text,
+    },
+    "closed_at": Maybe UTCTime,
+    "created_at": Maybe UTCTime,
+    "updated_at": Maybe UTCTime,
+    "closed_by": #User,
   }
 |]
 
