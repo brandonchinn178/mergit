@@ -10,8 +10,8 @@ import Servant
 import Servant.GitHub
 
 type ExampleGitHubEvents
-  = GitHubEvent 'InstallationEvent :> Post '[JSON] ()
-  :<|> Post '[JSON] ()
+  = GitHubEvent 'InstallationEvent :> GitHubAction
+  :<|> GitHubAction
 
 type ExampleApp
   = Get '[PlainText] String

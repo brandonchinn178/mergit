@@ -22,6 +22,7 @@ Defines Servant combinators for serving a GitHub App.
 module Servant.GitHub.Combinators
   ( GitHubSigned
   , GitHubEvent
+  , GitHubAction
   ) where
 
 import Control.Concurrent.MVar (MVar, modifyMVar, newMVar)
@@ -109,6 +110,12 @@ instance
       event = eventName @event
       missingEvent = err400 { errBody = "x-github-event header not found" }
       wrongEvent e = err400 { errBody = "Found event: " <> e <> " (expected: " <> event <> ")" }
+
+-- TODO: 'WithToken' combinator
+
+-- | An alias for @Post '[JSON] ()@, since GitHub sends JSON data, and webhook handlers shouldn't
+-- return anything (they're only consumers).
+type GitHubAction = Post '[JSON] ()
 
 {- Request body caching
 

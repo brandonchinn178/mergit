@@ -10,6 +10,7 @@ Defines Servant combinators for serving a GitHub App.
 module Servant.GitHub
   ( GitHubSigned
   , GitHubEvent
+  , GitHubAction
   , loadGitHubAppParams
   , module Servant.GitHub.Event
   -- * Re-exports
