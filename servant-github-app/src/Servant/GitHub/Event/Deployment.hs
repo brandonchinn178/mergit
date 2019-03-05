@@ -15,10 +15,10 @@ import Data.Aeson.Schema (schema)
 
 import Servant.GitHub.Event.Common
 
--- TODO: make repository not 'Maybe' (from BaseEvent)?
 type DeploymentSchema = [schema|
   {
     "deployment": #Deployment,
+    "repository": #Repository,
     #BaseEvent,
   }
 |]
