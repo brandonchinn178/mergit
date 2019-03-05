@@ -34,7 +34,6 @@ instance FromJSON DeploymentState where
     "error" -> pure DeploymentError
     t -> fail $ "Bad DeploymentState: " ++ Text.unpack t
 
--- TODO: make repository not 'Maybe' (from BaseEvent)?
 type DeploymentStatusSchema = [schema|
   {
     "deployment_status": {
@@ -43,6 +42,7 @@ type DeploymentStatusSchema = [schema|
       "description": Maybe Text,
     },
     "deployment": #Deployment,
+    "repository": #Repository,
     #BaseEvent,
   }
 |]
