@@ -9,6 +9,7 @@ Defines all the possible GitHub events that can be sent.
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeFamilies #-}
 
 module Servant.GitHub.Event
@@ -18,6 +19,7 @@ module Servant.GitHub.Event
   ) where
 
 import Data.Aeson.Schema (SchemaType)
+import Data.ByteString.Lazy (ByteString)
 
 import Servant.GitHub.Event.CheckRun as EventSchemas
 import Servant.GitHub.Event.CheckSuite as EventSchemas
@@ -83,7 +85,7 @@ data GitHubEventType
 
 class IsGitHubEvent (e :: GitHubEventType) where
   type EventSchema e :: SchemaType
-  eventName :: String
+  eventName :: ByteString
 
 instance IsGitHubEvent 'CheckRunEvent where
   type EventSchema 'CheckRunEvent = CheckRunSchema

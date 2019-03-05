@@ -207,14 +207,13 @@ type Installation = [schema|
     "target_id": Int,
     "target_type": Text,
     "permissions": {
+      "checks": Text,
       "metadata": Text,
-      "contents": Text,
-      "issues": Text,
     },
     "events": List Text,
     "created_at": Int,
     "updated_at": Int,
-    "single_file_name": Text,
+    "single_file_name": Maybe Text,
   }
 |]
 
