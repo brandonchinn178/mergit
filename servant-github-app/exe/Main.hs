@@ -10,7 +10,8 @@ import Servant
 import Servant.GitHub
 
 type ExampleGitHubEvents
-  = Post '[JSON] ()
+  = GitHubEvent 'InstallationEvent :> Post '[JSON] ()
+  :<|> Post '[JSON] ()
 
 type ExampleApp
   = Get '[PlainText] String
@@ -19,11 +20,14 @@ type ExampleApp
 getHelloWorld :: Handler String
 getHelloWorld = pure "Hello world"
 
+handleInstallationEvent :: Object InstallationSchema -> Handler ()
+handleInstallationEvent o = liftIO $ putStrLn $ "Got installation event: " ++ show o
+
 handleGitHubEvent :: Handler ()
 handleGitHubEvent = liftIO $ putStrLn "Got GitHub event!"
 
 server :: Server ExampleApp
-server = getHelloWorld :<|> handleGitHubEvent
+server = getHelloWorld :<|> (handleInstallationEvent :<|> handleGitHubEvent)
 
 initApp :: IO Application
 initApp = do

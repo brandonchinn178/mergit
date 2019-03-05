@@ -12,7 +12,11 @@ module Servant.GitHub
   , GitHubEvent
   , loadGitHubAppParams
   , module Servant.GitHub.Event
+  -- * Re-exports
+  , Object
   ) where
+
+import Data.Aeson.Schema (Object)
 
 import Servant.GitHub.Combinators
 import Servant.GitHub.Context
