@@ -26,7 +26,7 @@ module Servant.GitHub.Combinators
   ) where
 
 import Control.Concurrent.MVar (MVar, modifyMVar, newMVar)
-import Control.Monad (unless)
+import Control.Monad (unless, void)
 import Control.Monad.IO.Class (liftIO)
 import Data.Aeson (eitherDecode)
 import Data.Aeson.Schema (IsSchemaObject, Object)
@@ -63,7 +63,7 @@ instance
 
   hoistServerWithContext _ _ f s = hoistServerWithContext (Proxy @api) (Proxy @context) f s
 
-  route _ context = route (Proxy @api) context . addAuthCheck verify
+  route _ context = route (Proxy @api) context . addAuthCheck_ verify
     where
       GitHubAppParams{ghWebhookSecret} = getContextEntry context
 
@@ -96,7 +96,7 @@ instance
 
   hoistServerWithContext _ _ f s = hoistServerWithContext (Proxy @api) (Proxy @context) f . s
 
-  route _ context = route (Proxy @api) context . addBodyCheck parseBody . addHeaderCheck verify
+  route _ context = route (Proxy @api) context . addBodyCheck parseBody . addHeaderCheck_ verify
     where
       verify request = do
         ghEvent <- maybeDelayed missingEvent $ lookup "x-github-event" $ requestHeaders request
@@ -104,7 +104,7 @@ instance
         unless (e == event) $ Servant.delayedFail $ wrongEvent e
 
       parseBody request = do
-        body <- liftIO . getRequestBody True request =<< getSignature request
+        body <- getRequestBody' False request
         either fail return $ eitherDecode @(Object (EventSchema event)) body
 
       event = eventName @event
@@ -115,7 +115,18 @@ instance
 
 -- | An alias for @Post '[JSON] ()@, since GitHub sends JSON data, and webhook handlers shouldn't
 -- return anything (they're only consumers).
-type GitHubAction = Post '[JSON] ()
+--
+-- This combinator MUST be used in order to clear the request body cache.
+data GitHubAction
+
+instance HasServer GitHubAction context where
+  type ServerT GitHubAction m = m ()
+
+  hoistServerWithContext _ _ nt s = nt s
+
+  route _ context = route (Proxy @(Post '[JSON] ())) context . addPostBodyCheck_ clearCache
+    where
+      clearCache = void . getRequestBody' True
 
 {- Request body caching
 
@@ -143,6 +154,9 @@ getRequestBody shouldDelete request signature = modifyMVar requestBodyMapVar $ \
             else requestBodyMap
       in return (requestBodyMap', body)
 
+getRequestBody' :: Bool -> Request -> Servant.DelayedIO ByteStringL.ByteString
+getRequestBody' shouldDelete request = liftIO . getRequestBody shouldDelete request =<< getSignature request
+
 {- Helpers -}
 
 maybeDelayed :: ServantErr -> Maybe a -> Servant.DelayedIO a
@@ -156,20 +170,34 @@ getSignature = maybeDelayed missingSignature . lookup "x-hub-signature" . reques
 {- Servant internal functions -}
 
 -- | The function I wish 'Servant.addAuthCheck' actually was.
-addAuthCheck ::(Request -> Servant.DelayedIO ()) -> Servant.Delayed env a -> Servant.Delayed env a
-addAuthCheck authCheck Servant.Delayed{..} =
+addAuthCheck_ ::(Request -> Servant.DelayedIO ()) -> Servant.Delayed env a -> Servant.Delayed env a
+addAuthCheck_ authCheck Servant.Delayed{..} =
   Servant.Delayed { Servant.authD = Servant.withRequest authCheck >> authD, .. }
 
 -- | The function I wish 'Servant.addHeaderCheck' actually was.
-addHeaderCheck :: (Request -> Servant.DelayedIO ()) -> Servant.Delayed env a -> Servant.Delayed env a
-addHeaderCheck headerCheck Servant.Delayed{..} =
+addHeaderCheck_ :: (Request -> Servant.DelayedIO ()) -> Servant.Delayed env a -> Servant.Delayed env a
+addHeaderCheck_ headerCheck Servant.Delayed{..} =
   Servant.Delayed { Servant.headersD = Servant.withRequest headerCheck >> headersD, .. }
 
 -- | The function I wish 'Servant.addBodyCheck' actually was.
 addBodyCheck :: (Request -> Servant.DelayedIO a) -> Servant.Delayed env (a -> b) -> Servant.Delayed env b
 addBodyCheck bodyCheck Servant.Delayed{..} =
   Servant.Delayed
-    { Servant.bodyD = \content -> (,) <$> Servant.withRequest bodyCheck <*> bodyD content
+    { Servant.bodyD = \content -> do
+        res <- Servant.withRequest bodyCheck
+        b <- bodyD content
+        return (res, b)
     , Servant.serverD = \c p h a (res, b) req -> ($ res) <$> serverD c p h a b req
+    , ..
+    }
+
+-- | The function I wish 'Servant.addBodyCheck' also was.
+addPostBodyCheck_ :: (Request -> Servant.DelayedIO ()) -> Servant.Delayed env a -> Servant.Delayed env a
+addPostBodyCheck_ bodyCheck Servant.Delayed{..} =
+  Servant.Delayed
+    { Servant.bodyD = \content -> do
+        res <- bodyD content
+        Servant.withRequest bodyCheck
+        return res
     , ..
     }
