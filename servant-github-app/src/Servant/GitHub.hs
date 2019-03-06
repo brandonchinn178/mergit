@@ -14,6 +14,7 @@ module Servant.GitHub
   , WithToken'
   , TokenType(..)
   , GitHubAction
+  , GitHubAppParams(..)
   , loadGitHubAppParams
   , module Servant.GitHub.Event
   -- * Re-exports
