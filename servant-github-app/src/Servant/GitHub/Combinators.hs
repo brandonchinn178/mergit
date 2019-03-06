@@ -29,26 +29,21 @@ module Servant.GitHub.Combinators
   , GitHubAction
   ) where
 
-import Control.Concurrent.MVar (MVar, modifyMVar, modifyMVar_, newMVar)
-import Control.Monad (unless, (<=<))
+import Control.Monad (unless)
 import Control.Monad.IO.Class (liftIO)
-import Data.Aeson (eitherDecode)
-import Data.Aeson.Schema (IsSchemaObject, Object, SchemaType, get)
-import Data.ByteString (ByteString)
+import Data.Aeson.Schema (IsSchemaObject, Object, get)
 import qualified Data.ByteString.Lazy as ByteStringL
-import Data.Map.Strict (Map)
-import qualified Data.Map.Strict as Map
 import Data.Proxy (Proxy(..))
 import GHC.TypeLits (KnownNat, Nat, natVal)
 import GitHub.REST (Token)
-import Network.Wai (Request, lazyRequestBody, requestHeaders)
+import Network.Wai (Request)
 import Servant
 import qualified Servant.Server.Internal as Servant
-import System.IO.Unsafe (unsafePerformIO)
 
 import Servant.GitHub.Context (GitHubAppParams(..))
 import Servant.GitHub.Event (GitHubEventType, IsGitHubEvent(..))
 import Servant.GitHub.Event.Common (BaseEvent)
+import Servant.GitHub.Internal.Request
 import Servant.GitHub.Security (doesSignatureMatch, getToken, parseSignature)
 
 -- | A combinator for securing a path for only allowing valid signed requests sent from GitHub.
@@ -76,7 +71,7 @@ instance
 
       verify request = do
         signature <- getSignature request
-        ghSignature <- maybeDelayed invalidSignature $ parseSignature signature
+        ghSignature <- maybe (Servant.delayedFailFatal invalidSignature) return $ parseSignature signature
         body <- liftIO $ getRequestBody' request signature
 
         unless (doesSignatureMatch ghWebhookSecret (ByteStringL.toStrict body) ghSignature)
@@ -106,14 +101,13 @@ instance
   route _ context = route (Proxy @api) context . addBodyCheck parseBody . addHeaderCheck_ verify
     where
       verify request = do
-        ghEvent <- maybeDelayed missingEvent $ lookup "x-github-event" $ requestHeaders request
+        ghEvent <- getGitHubEvent request
         let e = ByteStringL.fromStrict ghEvent
         unless (e == event) $ Servant.delayedFail $ wrongEvent e
 
       parseBody = decodeRequestBody @(EventSchema event)
 
       event = eventName @event
-      missingEvent = err400 { errBody = "x-github-event header not found" }
       wrongEvent e = err400 { errBody = "Found event: " <> e <> " (expected: " <> event <> ")" }
 
 -- | A combinator for providing an access token to an endpoint that provides access to the GitHub
@@ -192,50 +186,6 @@ instance HasServer GitHubAction context where
   hoistServerWithContext _ _ nt s = nt s
 
   route _ context = route (Proxy @(Post '[JSON] ())) context . addPostBodyCheck_ clearRequestBody
-
-{- Request body caching
-
-Have to do fun hacks since:
-  1. 'lazyRequestBody' consumes the request body (so it can only be called once)
-  2. Servant doesn't cache the request body
-
-So we get to manually implement caching the request body YAY.
-Ref: https://www.stackage.org/haddock/lts-13.10/servant-server-0.15/Servant-Server-Internal-RoutingApplication.html#t:Delayed
--}
-
-requestBodyMapVar :: MVar (Map ByteString ByteStringL.ByteString)
-{-# NOINLINE requestBodyMapVar #-}
-requestBodyMapVar = unsafePerformIO $ newMVar Map.empty
-
-getRequestBody' :: Request -> ByteString -> IO ByteStringL.ByteString
-getRequestBody' request signature = modifyMVar requestBodyMapVar $ \requestBodyMap ->
-  case Map.lookup signature requestBodyMap of
-    Nothing -> do
-      body <- lazyRequestBody request
-      return (Map.insert signature body requestBodyMap, body)
-    Just body -> return (requestBodyMap, body)
-
-getRequestBody :: Request -> Servant.DelayedIO ByteStringL.ByteString
-getRequestBody request = liftIO . getRequestBody' request =<< getSignature request
-
-decodeRequestBody :: forall (schema :: SchemaType). IsSchemaObject schema
-  => Request -> Servant.DelayedIO (Object schema)
-decodeRequestBody = either fail return . eitherDecode @(Object schema) <=< getRequestBody
-
-clearRequestBody :: Request -> Servant.DelayedIO ()
-clearRequestBody request = do
-  signature <- getSignature request
-  liftIO $ modifyMVar_ requestBodyMapVar $ pure . Map.delete signature
-
-{- Helpers -}
-
-maybeDelayed :: ServantErr -> Maybe a -> Servant.DelayedIO a
-maybeDelayed e = maybe (Servant.delayedFailFatal e) return
-
-getSignature :: Request -> Servant.DelayedIO ByteString
-getSignature = maybeDelayed missingSignature . lookup "x-hub-signature" . requestHeaders
-  where
-    missingSignature = err400 { errBody = "x-hub-signature header not found" }
 
 {- Servant internal functions -}
 

@@ -9,6 +9,7 @@ dependencies:
 - aeson-schemas
 - base
 - bytestring
+- case-insensitive
 - containers
 - cryptonite
 - github-rest
