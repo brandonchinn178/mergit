@@ -8,7 +8,29 @@ function is_command() {
     type "$1" &> /dev/null
 }
 
+# installs stack to /usr/local/bin/stack
+function install_stack() {
+    if is_command stack; then
+        return
+    fi
+
+    local SUFFIX=$1
+    local STACK_VERSION=1.9.3
+    local BASE_URL=https://github.com/commercialhaskell/stack/releases/download/v${STACK_VERSION}/
+    local STACK_ARCHIVE=stack-${STACK_VERSION}-${SUFFIX}.tar.gz
+
+    local TMP_DIR=$(mktemp -d)
+    curl -L "${BASE_URL}/${STACK_ARCHIVE}" -o "${TMP_DIR}/${STACK_ARCHIVE}"
+    tar xzf "${TMP_DIR}/${STACK_ARCHIVE}" -C /usr/local/bin/ --strip-components=1
+    rm -rf "${TMP_DIR}"
+}
+
+# installs bazel to /usr/local/bin/bazel
 function install_bazel() {
+    if is_command bazel; then
+        return
+    fi
+
     local PLATFORM=$1
     local BAZEL_VERSION=0.23.1
     local BASE_URL='https://github.com/bazelbuild/bazel/releases/download'
@@ -27,10 +49,12 @@ function install_linux() {
         yum update -y --exclude=filesystem
         yum install -y zlib-devel || exit
     fi
+    install_stack 'linux-x86_64-gmp4'
     install_bazel 'linux'
 }
 
 function install_darwin() {
+    install_stack 'osx-x86_64'
     install_bazel 'darwin'
 }
 
