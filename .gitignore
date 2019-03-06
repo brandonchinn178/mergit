@@ -9,4 +9,4 @@
 
 # Bazel
 /bazel-out
-/dist
+/bazel-build

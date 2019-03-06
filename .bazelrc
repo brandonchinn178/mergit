@@ -1,2 +1,2 @@
-build --symlink_prefix=dist/
-test --symlink_prefix=dist/
+build --symlink_prefix=bazel-build/
+test --symlink_prefix=bazel-build/

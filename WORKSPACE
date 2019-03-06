@@ -6,7 +6,7 @@ load("//bazel:prelude.bzl", "github_archive")
 github_archive(
     name = "io_tweag_rules_haskell",
     repo = ("tweag", "rules_haskell"),
-    version = "0.8",
+    release = "0.8",
     sha = "431d492a8ee6a110cdf42496181c9d27225dfb997379e64a148eb8e69f272ab7",
 )
 
@@ -18,7 +18,7 @@ haskell_repositories()
 github_archive(
     name = "io_tweag_rules_nixpkgs",
     repo = ("tweag", "rules_nixpkgs"),
-    version = "0.2",
+    release = "0.2",
     sha = "2ff425a98762322eb895f092bb58effecb52bddc06b468ce1123d090e960e14d",
 )
 
@@ -31,8 +31,7 @@ haskell_register_ghc_bindists(ghc_version)
 github_archive(
     name = "ai_formation_hazel",
     repo = ("FormationAI", "hazel"),
-    version = "4684266e14e4a4ebb5973c1036f701f7f287d3fa",
-    release = False,
+    commit = "4684266e14e4a4ebb5973c1036f701f7f287d3fa",
     sha = "fd6a4542bfeb02793e8ff6a65d42eaed5bc98198e348428f4940be6f3a84707d",
 )
 load("@ai_formation_hazel//:hazel.bzl", "hazel_repositories")
