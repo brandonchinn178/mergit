@@ -1,20 +1,41 @@
 workspace(name = "merge_bot")
 
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+load("//bazel:prelude.bzl", "github_archive")
 
-rules_haskell_version = "0.8"
 
-http_archive(
+github_archive(
     name = "io_tweag_rules_haskell",
-    strip_prefix = "rules_haskell-%s" % rules_haskell_version,
-    urls = ["https://github.com/tweag/rules_haskell/archive/v%s.tar.gz" % rules_haskell_version],
-    sha256 = "431d492a8ee6a110cdf42496181c9d27225dfb997379e64a148eb8e69f272ab7",
+    repo = ("tweag", "rules_haskell"),
+    version = "0.8",
+    sha = "431d492a8ee6a110cdf42496181c9d27225dfb997379e64a148eb8e69f272ab7",
 )
 
+# load dependencies for 'rules_haskell'
 load("@io_tweag_rules_haskell//haskell:repositories.bzl", "haskell_repositories")
-
 haskell_repositories()
 
-load("@io_tweag_rules_haskell//haskell:ghc_bindist.bzl", "haskell_register_ghc_bindists")
+# needed for haskell.bzl
+github_archive(
+    name = "io_tweag_rules_nixpkgs",
+    repo = ("tweag", "rules_nixpkgs"),
+    version = "0.2",
+    sha = "2ff425a98762322eb895f092bb58effecb52bddc06b468ce1123d090e960e14d",
+)
 
-haskell_register_ghc_bindists("8.6.3")
+# Load GHC compiler
+ghc_version = "8.6.3"
+load("@io_tweag_rules_haskell//haskell:haskell.bzl", "haskell_register_ghc_bindists")
+haskell_register_ghc_bindists(ghc_version)
+
+# Hazel
+github_archive(
+    name = "ai_formation_hazel",
+    repo = ("FormationAI", "hazel"),
+    version = "4684266e14e4a4ebb5973c1036f701f7f287d3fa",
+    release = False,
+    sha = "fd6a4542bfeb02793e8ff6a65d42eaed5bc98198e348428f4940be6f3a84707d",
+)
+load("@ai_formation_hazel//:hazel.bzl", "hazel_repositories")
+# this file was generated with: https://github.com/formationai/hazel#setting-up-a-new-project
+load("//bazel:packages.bzl", "core_packages", "packages")
+hazel_repositories(core_packages = core_packages, packages = packages)

@@ -1,0 +1,2 @@
+build --symlink_prefix=dist/
+test --symlink_prefix=dist/

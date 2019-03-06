@@ -6,3 +6,7 @@
 *.pem
 
 /core/.graphql
+
+# Bazel
+/bazel-out
+/dist
