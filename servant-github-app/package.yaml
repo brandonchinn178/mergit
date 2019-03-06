@@ -9,9 +9,11 @@ dependencies:
 - aeson-schemas
 - base
 - bytestring
+- case-insensitive
 - containers
 - cryptonite
 - github-rest
+- http-types
 - jwt
 - memory
 - servant-server

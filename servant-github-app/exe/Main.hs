@@ -1,16 +1,26 @@
 -- | An example usage of a Servant website that allows GitHub events at the '/webhook/' route.
 
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
 
+import Control.Monad (forM_)
 import Control.Monad.IO.Class (liftIO)
+import Data.Aeson.Schema (Object, get)
+import qualified Data.Text as Text
+import GitHub.REST
+    (GHEndpoint(..), KeyValue(..), Token, queryGitHub, runGitHubT)
+import Network.HTTP.Types (StdMethod(..))
 import Network.Wai.Handler.Warp (run)
 import Servant
 import Servant.GitHub
+import Servant.GitHub.Event.Common (Repository)
 
 type ExampleGitHubEvents
-  = GitHubEvent 'InstallationEvent :> GitHubAction
+  = GitHubEvent 'InstallationEvent :> WithToken :> GitHubAction
   :<|> GitHubAction
 
 type ExampleApp
@@ -20,11 +30,26 @@ type ExampleApp
 getHelloWorld :: Handler String
 getHelloWorld = pure "Hello world"
 
-handleInstallationEvent :: Object InstallationSchema -> Handler ()
-handleInstallationEvent o = liftIO $ putStrLn $ "Got installation event: " ++ show o
+handleInstallationEvent :: Object InstallationSchema -> Token -> Handler ()
+handleInstallationEvent o token = liftIO $ do
+  putStrLn "** Got installation event!"
+  putStrLn $ "Installation ID: " ++ show [get| o.installation.id |]
+
+  GitHubAppParams{ghUserAgent} <- loadGitHubAppParams
+  forM_ [get| o.repositories[].full_name |] $ \repoName -> do
+    repo <- runGitHubT token ghUserAgent $
+      queryGitHub @_ @(Object Repository) GHEndpoint
+        { method = GET
+        , endpoint = "/repos/:full_repo_name"
+        , endpointVals = [ "full_repo_name" := repoName ]
+        , ghData = []
+        }
+    putStrLn $ "Repository name: " ++ Text.unpack repoName
+    putStrLn $ "URL: " ++ Text.unpack [get| repo.html_url |]
+    putStrLn $ "Description: " ++ maybe "N/A" Text.unpack [get| repo.description |]
 
 handleGitHubEvent :: Handler ()
-handleGitHubEvent = liftIO $ putStrLn "Got GitHub event!"
+handleGitHubEvent = liftIO $ putStrLn "** Got GitHub event!"
 
 server :: Server ExampleApp
 server = getHelloWorld :<|> (handleInstallationEvent :<|> handleGitHubEvent)

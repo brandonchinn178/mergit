@@ -54,5 +54,7 @@ the App ID and Private key that GitHub generated for you.
     1. `GITHUB_APP_ID` to the App ID
     1. `GITHUB_WEBHOOK_SECRET` to the webhook secret you created
     1. `GITHUB_PRIVATE_KEY` to the absolute path of the private key
+    1. `GITHUB_USER_AGENT` to the [user agent][user-agent] to use with the API
 
 [create-github-app]: https://developer.github.com/apps/quickstart-guides/setting-up-your-development-environment/#step-2-register-a-new-github-app
+[user-agent]: https://developer.github.com/v3/#user-agent-required
