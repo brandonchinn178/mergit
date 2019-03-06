@@ -29,11 +29,11 @@ module Servant.GitHub.Combinators
   , GitHubAction
   ) where
 
-import Control.Concurrent.MVar (MVar, modifyMVar, newMVar)
-import Control.Monad (unless, void)
+import Control.Concurrent.MVar (MVar, modifyMVar, modifyMVar_, newMVar)
+import Control.Monad (unless, (<=<))
 import Control.Monad.IO.Class (liftIO)
 import Data.Aeson (eitherDecode)
-import Data.Aeson.Schema (IsSchemaObject, Object, get)
+import Data.Aeson.Schema (IsSchemaObject, Object, SchemaType, get)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Lazy as ByteStringL
 import Data.Map.Strict (Map)
@@ -77,7 +77,7 @@ instance
       verify request = do
         signature <- getSignature request
         ghSignature <- maybeDelayed invalidSignature $ parseSignature signature
-        body <- liftIO $ getRequestBody False request signature
+        body <- liftIO $ getRequestBody' request signature
 
         unless (doesSignatureMatch ghWebhookSecret (ByteStringL.toStrict body) ghSignature)
           $ Servant.delayedFailFatal badSignature
@@ -110,9 +110,7 @@ instance
         let e = ByteStringL.fromStrict ghEvent
         unless (e == event) $ Servant.delayedFail $ wrongEvent e
 
-      parseBody request = do
-        body <- getRequestBody' False request
-        either fail return $ eitherDecode @(Object (EventSchema event)) body
+      parseBody = decodeRequestBody @(EventSchema event)
 
       event = eventName @event
       missingEvent = err400 { errBody = "x-github-event header not found" }
@@ -148,9 +146,7 @@ type TokenGenerator = Int -> IO Token
 mkTokenGenerator :: HasContextEntry context GitHubAppParams
   => Context context -> Request -> Servant.DelayedIO TokenGenerator
 mkTokenGenerator context request = do
-  body <- getRequestBody' False request
-  event <- either fail return $ eitherDecode @(Object BaseEvent) body
-
+  event <- decodeRequestBody @BaseEvent request
   return $ getToken ghSigner ghUserAgent ghAppId [get| event.installation!.id |]
   where
     GitHubAppParams{ghAppId, ghSigner, ghUserAgent} = getContextEntry context
@@ -195,9 +191,7 @@ instance HasServer GitHubAction context where
 
   hoistServerWithContext _ _ nt s = nt s
 
-  route _ context = route (Proxy @(Post '[JSON] ())) context . addPostBodyCheck_ clearCache
-    where
-      clearCache = void . getRequestBody' True
+  route _ context = route (Proxy @(Post '[JSON] ())) context . addPostBodyCheck_ clearRequestBody
 
 {- Request body caching
 
@@ -213,20 +207,25 @@ requestBodyMapVar :: MVar (Map ByteString ByteStringL.ByteString)
 {-# NOINLINE requestBodyMapVar #-}
 requestBodyMapVar = unsafePerformIO $ newMVar Map.empty
 
-getRequestBody :: Bool -> Request -> ByteString -> IO ByteStringL.ByteString
-getRequestBody shouldDelete request signature = modifyMVar requestBodyMapVar $ \requestBodyMap ->
+getRequestBody' :: Request -> ByteString -> IO ByteStringL.ByteString
+getRequestBody' request signature = modifyMVar requestBodyMapVar $ \requestBodyMap ->
   case Map.lookup signature requestBodyMap of
     Nothing -> do
       body <- lazyRequestBody request
       return (Map.insert signature body requestBodyMap, body)
-    Just body ->
-      let requestBodyMap' = if shouldDelete
-            then Map.delete signature requestBodyMap
-            else requestBodyMap
-      in return (requestBodyMap', body)
+    Just body -> return (requestBodyMap, body)
 
-getRequestBody' :: Bool -> Request -> Servant.DelayedIO ByteStringL.ByteString
-getRequestBody' shouldDelete request = liftIO . getRequestBody shouldDelete request =<< getSignature request
+getRequestBody :: Request -> Servant.DelayedIO ByteStringL.ByteString
+getRequestBody request = liftIO . getRequestBody' request =<< getSignature request
+
+decodeRequestBody :: forall (schema :: SchemaType). IsSchemaObject schema
+  => Request -> Servant.DelayedIO (Object schema)
+decodeRequestBody = either fail return . eitherDecode @(Object schema) <=< getRequestBody
+
+clearRequestBody :: Request -> Servant.DelayedIO ()
+clearRequestBody request = do
+  signature <- getSignature request
+  liftIO $ modifyMVar_ requestBodyMapVar $ pure . Map.delete signature
 
 {- Helpers -}
 
