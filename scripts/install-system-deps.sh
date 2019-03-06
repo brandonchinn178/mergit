@@ -32,7 +32,7 @@ function install_bazel() {
     fi
 
     local PLATFORM=$1
-    local BAZEL_VERSION=0.23.1
+    local BAZEL_VERSION=0.22.0
     local BASE_URL='https://github.com/bazelbuild/bazel/releases/download'
     local INSTALL_SCRIPT_NAME="bazel-${BAZEL_VERSION}-installer-${PLATFORM}-x86_64.sh"
 

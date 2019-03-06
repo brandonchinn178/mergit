@@ -5,8 +5,8 @@ load("//tools/build_rules:workspace.bzl", "github_archive")
 github_archive(
     name = "io_tweag_rules_haskell",
     repo = ("tweag", "rules_haskell"),
-    release = "0.8",
-    sha = "431d492a8ee6a110cdf42496181c9d27225dfb997379e64a148eb8e69f272ab7",
+    commit = "96315c6294ebe70abd492bed94d3fee172c0e15f",
+    sha = "6f1617c8d1782d29081bcd3bf157d9dad3bf875dd85d05b9dc00233269707a9d",
 )
 
 # load dependencies for 'rules_haskell'
