@@ -1,10 +1,10 @@
-load(
-    "@io_tweag_rules_haskell//haskell:haskell.bzl",
-    "haskell_library",
-)
+haskell_import(name = "base")
 
 haskell_library(
     name = "aeson-schemas",
     srcs = glob(["src/**/*.hs"]),
     src_strip_prefix = "src/",
+    deps = [
+        ":base",
+    ],
 )

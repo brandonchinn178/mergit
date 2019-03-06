@@ -1,7 +1,6 @@
 workspace(name = "merge_bot")
 
-load("//bazel:prelude.bzl", "github_archive")
-
+load("//tools/build_rules:workspace.bzl", "github_archive")
 
 github_archive(
     name = "io_tweag_rules_haskell",
@@ -35,6 +34,5 @@ github_archive(
     sha = "fd6a4542bfeb02793e8ff6a65d42eaed5bc98198e348428f4940be6f3a84707d",
 )
 load("@ai_formation_hazel//:hazel.bzl", "hazel_repositories")
-# this file was generated with: https://github.com/formationai/hazel#setting-up-a-new-project
-load("//bazel:packages.bzl", "core_packages", "packages")
+load("//tools/build_rules:packages.bzl", "core_packages", "packages")
 hazel_repositories(core_packages = core_packages, packages = packages)
