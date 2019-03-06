@@ -27,6 +27,7 @@ data GitHubAppParams = GitHubAppParams
   { ghAppId         :: Int
   , ghWebhookSecret :: ByteString
   , ghSigner        :: Signer
+  , ghUserAgent     :: ByteString
   }
 
 -- | Load 'GitHubAppParams' from environment variables.
@@ -35,6 +36,7 @@ loadGitHubAppParams = do
   ghAppId <- parseInt =<< getEnv "GITHUB_APP_ID"
   ghWebhookSecret <- Char8.pack <$> getEnv "GITHUB_WEBHOOK_SECRET"
   ghSigner <- loadSigner =<< getEnv "GITHUB_PRIVATE_KEY"
+  ghUserAgent <- Char8.pack <$> getEnv "GITHUB_USER_AGENT"
 
   return GitHubAppParams{..}
 

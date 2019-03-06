@@ -12,6 +12,7 @@ Defines Servant combinators for serving a GitHub App.
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
@@ -22,6 +23,9 @@ Defines Servant combinators for serving a GitHub App.
 module Servant.GitHub.Combinators
   ( GitHubSigned
   , GitHubEvent
+  , WithToken
+  , WithToken'
+  , TokenType(..)
   , GitHubAction
   ) where
 
@@ -29,12 +33,14 @@ import Control.Concurrent.MVar (MVar, modifyMVar, newMVar)
 import Control.Monad (unless, void)
 import Control.Monad.IO.Class (liftIO)
 import Data.Aeson (eitherDecode)
-import Data.Aeson.Schema (IsSchemaObject, Object)
+import Data.Aeson.Schema (IsSchemaObject, Object, get)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Lazy as ByteStringL
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Proxy (Proxy(..))
+import GHC.TypeLits (KnownNat, Nat, natVal)
+import GitHub.REST (Token)
 import Network.Wai (Request, lazyRequestBody, requestHeaders)
 import Servant
 import qualified Servant.Server.Internal as Servant
@@ -42,7 +48,8 @@ import System.IO.Unsafe (unsafePerformIO)
 
 import Servant.GitHub.Context (GitHubAppParams(..))
 import Servant.GitHub.Event (GitHubEventType, IsGitHubEvent(..))
-import Servant.GitHub.Security (doesSignatureMatch, parseSignature)
+import Servant.GitHub.Event.Common (BaseEvent)
+import Servant.GitHub.Security (doesSignatureMatch, getToken, parseSignature)
 
 -- | A combinator for securing a path for only allowing valid signed requests sent from GitHub.
 --
@@ -111,7 +118,71 @@ instance
       missingEvent = err400 { errBody = "x-github-event header not found" }
       wrongEvent e = err400 { errBody = "Found event: " <> e <> " (expected: " <> event <> ")" }
 
--- TODO: 'WithToken' combinator
+-- | A combinator for providing an access token to an endpoint that provides access to the GitHub
+-- API. The token provided expires after 10 minutes. For different options, see 'WithToken''.
+--
+-- Usage:
+--
+-- > import GitHub.REST (Token)
+-- > type MyGitHubEvents = WithToken :> GitHubAction
+-- > server :: Server MyGitHubEvents
+-- > server = handle
+--
+-- > handle :: Token -> Handler ()
+-- > handle token = ...
+type WithToken = WithToken' ('SingleToken 10)
+
+data TokenType
+  = SingleToken Nat
+    -- ^ Generates a single token to use, with the given expiration in minutes
+  | TokenMaker
+    -- ^ Provides a value @Int -> IO Token@ that generates a token with the given expiration. Useful
+    -- for hooks that might take a long time, and you want finer-grained control over token
+    -- generation
+
+data WithToken' (tokenType :: TokenType)
+
+-- Generates a token that expires in the given number of minutes
+type TokenGenerator = Int -> IO Token
+
+mkTokenGenerator :: HasContextEntry context GitHubAppParams
+  => Context context -> Request -> Servant.DelayedIO TokenGenerator
+mkTokenGenerator context request = do
+  body <- getRequestBody' False request
+  event <- either fail return $ eitherDecode @(Object BaseEvent) body
+
+  return $ getToken ghSigner ghUserAgent ghAppId [get| event.installation!.id |]
+  where
+    GitHubAppParams{ghAppId, ghSigner, ghUserAgent} = getContextEntry context
+
+instance
+  ( HasServer api context
+  , HasContextEntry context GitHubAppParams
+  , KnownNat expiry
+  ) => HasServer (WithToken' ('SingleToken expiry) :> api) context where
+
+  type ServerT (WithToken' ('SingleToken expiry) :> api) m = Token -> ServerT api m
+
+  hoistServerWithContext _ _ f s = hoistServerWithContext (Proxy @api) (Proxy @context) f . s
+
+  route _ context = route (Proxy @api) context . addBodyCheck provideToken
+    where
+      provideToken request = do
+        generator <- mkTokenGenerator context request
+        liftIO . generator $ fromIntegral $ natVal (Proxy @expiry)
+
+instance
+  ( HasServer api context
+  , HasContextEntry context GitHubAppParams
+  ) => HasServer (WithToken' 'TokenMaker :> api) context where
+
+  type ServerT (WithToken' 'TokenMaker :> api) m = TokenGenerator -> ServerT api m
+
+  hoistServerWithContext _ _ f s = hoistServerWithContext (Proxy @api) (Proxy @context) f . s
+
+  route _ context = route (Proxy @api) context . addBodyCheck provideToken
+    where
+      provideToken = mkTokenGenerator context
 
 -- | An alias for @Post '[JSON] ()@, since GitHub sends JSON data, and webhook handlers shouldn't
 -- return anything (they're only consumers).

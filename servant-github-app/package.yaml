@@ -12,6 +12,7 @@ dependencies:
 - containers
 - cryptonite
 - github-rest
+- http-types
 - jwt
 - memory
 - servant-server
