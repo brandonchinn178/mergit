@@ -20,8 +20,8 @@ function install_stack() {
     local STACK_ARCHIVE=stack-${STACK_VERSION}-${SUFFIX}.tar.gz
 
     local TMP_DIR=$(mktemp -d)
-    curl -L "${BASE_URL}/${STACK_ARCHIVE}" -o "${TMP_DIR}/${STACK_ARCHIVE}"
-    tar xzf "${TMP_DIR}/${STACK_ARCHIVE}" -C /usr/local/bin/ --strip-components=1
+    curl -L "${BASE_URL}/${STACK_ARCHIVE}" -o "${TMP_DIR}/${STACK_ARCHIVE}" || exit
+    tar xzf "${TMP_DIR}/${STACK_ARCHIVE}" -C /usr/local/bin/ --strip-components=1 || exit
     rm -rf "${TMP_DIR}"
 }
 
@@ -39,16 +39,32 @@ function install_bazel() {
     local TMP_DIR=$(mktemp -d)
     local INSTALL_SCRIPT="${TMP_DIR}/${INSTALL_SCRIPT_NAME}"
 
-    curl -L "${BASE_URL}/${BAZEL_VERSION}/${INSTALL_SCRIPT_NAME}" -o "${INSTALL_SCRIPT}"
-    chmod +x "${INSTALL_SCRIPT}" && "${INSTALL_SCRIPT}"
+    curl -L "${BASE_URL}/${BAZEL_VERSION}/${INSTALL_SCRIPT_NAME}" -o "${INSTALL_SCRIPT}" || exit
+    chmod +x "${INSTALL_SCRIPT}" && "${INSTALL_SCRIPT}" || exit
     rm -rf "${TMP_DIR}"
 }
 
 function install_linux() {
     if is_command yum; then
         yum update -y --exclude=filesystem
-        yum install -y zlib-devel || exit
+
+        local YUM_DEPS=(
+            # stack dependencies
+            gcc
+            gmp-devel
+            # bazel dependencies
+            unzip
+            which
+            # haskell dependencies
+            zlib-devel
+        )
+
+        yum install -y --setopt=skip_missing_names_on_install=False "${YUM_DEPS[@]}" || exit
     fi
+
+    # hack for stack
+    ln -sf /lib64/libgmp.so /lib64/libgmp.so.3
+
     install_stack 'linux-x86_64-gmp4'
     install_bazel 'linux'
 }
