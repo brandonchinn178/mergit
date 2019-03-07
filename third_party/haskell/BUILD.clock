@@ -1,0 +1,38 @@
+load(
+    "@io_tweag_rules_haskell//haskell:haskell.bzl",
+    "haskell_library",
+)
+load("@ai_formation_hazel//:hazel.bzl", "hazel_library")
+
+haskell_library(
+    name = "clock",
+    srcs = ["System/Clock.hsc"],
+    compiler_flags = [
+        "-XDeriveGeneric",
+        "-XDeriveDataTypeable",
+        "-XForeignFunctionInterface",
+        "-XScopedTypeVariables",
+        "-XViewPatterns",
+        "-w",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":clock-cbits",
+        hazel_library("base"),
+    ],
+)
+
+cc_library(
+    name = "clock-cbits",
+    srcs = select({
+        "@bazel_tools//src/conditions:darwin": ["cbits/hs_clock_darwin.c"],
+        "//conditions:default": [],
+    }),
+    includes = ["cbits"],
+    strip_include_prefix = "cbits",
+    textual_hdrs = select({
+        "@bazel_tools//src/conditions:darwin": ["cbits/hs_clock_darwin.c"],
+        "//conditions:default": [],
+    }),
+    visibility = ["//visibility:public"],
+)

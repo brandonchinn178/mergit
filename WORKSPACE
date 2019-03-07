@@ -33,7 +33,7 @@ github_archive(
     commit = "4684266e14e4a4ebb5973c1036f701f7f287d3fa",
     sha = "fd6a4542bfeb02793e8ff6a65d42eaed5bc98198e348428f4940be6f3a84707d",
 )
-load("@ai_formation_hazel//:hazel.bzl", "hazel_repositories")
+load("@ai_formation_hazel//:hazel.bzl", "hazel_repositories", "hazel_custom_package_hackage")
 load("//tools/build_rules:packages.bzl", "core_packages", "packages")
 hazel_repositories(
     core_packages = core_packages,
@@ -41,4 +41,12 @@ hazel_repositories(
     ghc_workspaces = {
         "darwin": "@io_tweag_rules_haskell_ghc_darwin_amd64",
     },
+)
+
+# Custom Hazel packages
+# https://github.com/FormationAI/hazel/issues/81#issuecomment-470660846
+hazel_custom_package_hackage(
+    package_name = "clock",
+    version = "0.7.2",
+    sha256 = "886601978898d3a91412fef895e864576a7125d661e1f8abc49a2a08840e691f",
 )

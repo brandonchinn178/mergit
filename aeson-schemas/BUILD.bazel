@@ -13,3 +13,20 @@ haskell_library(
         hazel_library("unordered-containers"),
     ],
 )
+
+haskell_test(
+    name = "aeson-schemas-test",
+    srcs = glob(["test/**/*.hs"]),
+    extra_srcs = glob(["test/**/*.json"]),
+    src_strip_prefix = "test/",
+    deps = [
+        ":aeson-schemas",
+        hazel_library("aeson"),
+        hazel_library("base"),
+        hazel_library("bytestring"),
+        hazel_library("raw-strings-qq"),
+        hazel_library("tasty"),
+        hazel_library("tasty-golden"),
+        hazel_library("template-haskell"),
+    ],
+)
