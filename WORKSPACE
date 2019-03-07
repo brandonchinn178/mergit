@@ -4,9 +4,9 @@ load("//tools/build_rules:workspace.bzl", "github_archive")
 
 github_archive(
     name = "io_tweag_rules_haskell",
-    repo = ("tweag", "rules_haskell"),
-    commit = "96315c6294ebe70abd492bed94d3fee172c0e15f",
-    sha = "6f1617c8d1782d29081bcd3bf157d9dad3bf875dd85d05b9dc00233269707a9d",
+    repo = ("brandon-leapyear", "rules_haskell"),
+    commit = "986e1bad2c9f0d9f13c7ac9ea37853cc0fb3a2ba",
+    sha = "0d1d8a0087401f451fd54b44e106cde92372b0a07be6d3fa5b83bcf24e4072f5",
 )
 
 # load dependencies for 'rules_haskell'
@@ -35,4 +35,10 @@ github_archive(
 )
 load("@ai_formation_hazel//:hazel.bzl", "hazel_repositories")
 load("//tools/build_rules:packages.bzl", "core_packages", "packages")
-hazel_repositories(core_packages = core_packages, packages = packages)
+hazel_repositories(
+    core_packages = core_packages,
+    packages = packages,
+    ghc_workspaces = {
+        "darwin": "@io_tweag_rules_haskell_ghc_darwin_amd64",
+    },
+)
