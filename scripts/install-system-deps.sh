@@ -49,6 +49,8 @@ function install_linux() {
         yum update -y --exclude=filesystem
 
         local YUM_DEPS=(
+            # general dependencies
+            git
             # stack dependencies
             gcc
             gmp-devel
