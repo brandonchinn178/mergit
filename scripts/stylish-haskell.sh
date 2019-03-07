@@ -16,12 +16,6 @@ for arg in "$@"; do
     esac
 done
 
-function get_files() {
-    # don't stylish-haskell this file
-    IGNORED=clients/web/src/MergeBot/Client/Settings/Development.hs
-    find . -name .stack-work -prune -o -path "${IGNORED}" -o -name "*.hs" -print0
-}
-
 function diff_no_fail() {
     diff "$@" || true
 }
@@ -35,7 +29,7 @@ function check_file_empty() {
 FILES=()
 while read -r -d $'\0'; do
     FILES+=("${REPLY}")
-done < <(get_files)
+done < <(git ls-files '*.hs' -z)
 
 RUN_STYLISH=$(stack exec -- bash -c 'type -P stylish-haskell')
 

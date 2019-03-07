@@ -6,4 +6,4 @@ set -eo pipefail
 
 builtin cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
-stack exec -- hlint .
+git ls-files '*.hs' -z | xargs -0 stack exec hlint
