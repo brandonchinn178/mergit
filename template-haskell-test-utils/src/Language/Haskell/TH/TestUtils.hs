@@ -15,6 +15,8 @@ module Language.Haskell.TH.TestUtils
     -- $tryQ
     tryQ
   , tryQ'
+  , tryQErr
+  , tryQErr'
   ) where
 
 import Control.Monad ((>=>))
@@ -95,3 +97,13 @@ tryQ' :: Q Exp -> Q Exp
 tryQ' = tryQ >=> either
   (appE [| Left |] . lift)
   (appE [| Right |] . pure)
+
+-- | 'tryQ', except returns Just the error message or Nothing if the computation succeeded.
+tryQErr :: Q a -> Q Exp
+tryQErr = tryQ >=> either
+  (appE [| Just |] . lift)
+  (const [| Nothing |])
+
+-- | 'tryQ', except returns the error message or fails if the computation succeeded.
+tryQErr' :: Q a -> Q Exp
+tryQErr' = tryQ >=> either lift (const $ fail "Q monad unexpectedly succeeded")

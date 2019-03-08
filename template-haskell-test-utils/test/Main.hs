@@ -14,9 +14,9 @@ main = defaultMain $ testGroup "template-haskell-test-utils"
   , testCase "NonExistent" $
     $(tryQ' $ firstConstrForType "NonExistent") @== Left "Type does not exist: NonExistent"
   , testCase "Show" $
-    $(tryQ' $ firstConstrForType "Show") @== Left "Not a data type: Show"
+    $(tryQErr $ firstConstrForType "Show") @?= Just "Not a data type: Show"
   , testCase "Void" $
-    $(tryQ' $ firstConstrForType "Void") @== Left "Data type has no constructors: Void"
+    $(tryQErr' $ firstConstrForType "Void") @?= "Data type has no constructors: Void"
   ]
 
 -- | Helper to specify the type of the splice.
