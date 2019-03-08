@@ -28,6 +28,7 @@ aliases:
           graphql/package.yaml
           graphql/example/package.yaml
           servant-github-app/package.yaml
+          template-haskell-test-utils/package.yaml
           scripts/install-stack-deps.sh
         )
         cat "${FILES[@]}" > cache-key.txt
@@ -103,6 +104,7 @@ jobs:
             - graphql/.stack-work
             - graphql/example/.stack-work
             - servant-github-app/.stack-work
+            - template-haskell-test-utils/.stack-work
 
   lint:
     <<: *docker-linux
