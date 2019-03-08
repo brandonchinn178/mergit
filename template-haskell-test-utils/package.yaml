@@ -16,3 +16,7 @@ tests:
   template-haskell-test-utils-test:
     source-dirs:  test
     main:         Main.hs
+    dependencies:
+      - tasty
+      - tasty-hunit
+      - template-haskell-test-utils
