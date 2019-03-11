@@ -5,6 +5,7 @@ packages:
   - github-rest
   - graphql
   - graphql/example
+  - merge-bot
   - servant-github-app
   - template-haskell-test-utils
 
