@@ -6,13 +6,15 @@ Portability :  portable
 
 Defines 'MonadGitHubREST' that gives a monad @m@ the capability to query the GitHub REST API.
 -}
+{-# LANGUAGE TypeApplications #-}
 
 module GitHub.REST.Monad.Class
   ( MonadGitHubREST(..)
   ) where
 
+import Control.Monad (void)
 import Control.Monad.IO.Class (MonadIO)
-import Data.Aeson (FromJSON)
+import Data.Aeson (FromJSON, Value)
 
 import GitHub.REST.Endpoint
 
@@ -48,3 +50,6 @@ import GitHub.REST.Endpoint
 -- >   }
 class MonadIO m => MonadGitHubREST m where
   queryGitHub :: FromJSON a => GHEndpoint -> m a
+
+  queryGitHub_ :: GHEndpoint -> m ()
+  queryGitHub_ = void . queryGitHub @_ @Value
