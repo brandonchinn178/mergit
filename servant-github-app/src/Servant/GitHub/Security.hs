@@ -85,6 +85,7 @@ getToken signer userAgent appId installationId expiry = do
         }
       jwt = encodeSigned signer claims
       token = BearerToken $ Text.encodeUtf8 jwt
+      apiVersion = "machine-man-preview"
   runGitHubT GitHubState{..} createToken
   where
     createToken = AccessToken . Text.encodeUtf8 . [get| .token |] <$>

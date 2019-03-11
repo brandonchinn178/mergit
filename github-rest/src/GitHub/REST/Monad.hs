@@ -46,8 +46,11 @@ import GitHub.REST.KeyValue (kvToValue)
 import GitHub.REST.Monad.Class
 
 data GitHubState = GitHubState
-  { token     :: Token
-  , userAgent :: ByteString
+  { token      :: Token
+  , userAgent  :: ByteString
+  , apiVersion :: ByteString
+    -- ^ The media type will be sent as: application/vnd.github.VERSION+json. For the standard
+    -- API endpoints, "v3" should be sufficient here. See https://developer.github.com/v3/media/
   }
 
 -- | A simple monad that can run REST calls.
@@ -71,7 +74,7 @@ instance MonadIO m => MonadGitHubREST (GitHubT m) where
     response <- liftIO $ getResponse manager request
       { method = renderMethod ghEndpoint
       , requestHeaders =
-          (hAccept, "application/vnd.github.machine-man-preview+json")
+          (hAccept, "application/vnd.github." <> apiVersion <> "+json")
           : (hUserAgent, userAgent)
           : (hAuthorization, fromToken token)
           : requestHeaders request
