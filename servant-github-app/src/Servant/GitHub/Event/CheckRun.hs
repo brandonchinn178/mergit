@@ -74,7 +74,7 @@ type CheckRunSchema = [schema|
       "check_suite": {
         "id": Int,
       },
-      "requested_action": {
+      "requested_action": Maybe {
         "identifier": Text,
       },
     },

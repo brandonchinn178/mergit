@@ -57,7 +57,29 @@ type CheckSuiteSchema = [schema|
       "status": CheckSuiteStatus,
       "conclusion": Maybe CheckRunConclusion,
       "url": Text,
-      "pull_requests": List #PullRequest,
+      "pull_requests": List {
+        "url": Text,
+        "id": Int,
+        "number": Int,
+        "head": {
+          "ref": Text,
+          "sha": Text,
+          "repo": {
+            "id": Int,
+            "url": Text,
+            "name": Text,
+          },
+        },
+        "base": {
+          "ref": Text,
+          "sha": Text,
+          "repo": {
+            "id": Int,
+            "url": Text,
+            "name": Text,
+          },
+        },
+      },
     },
     #BaseEvent,
   }
