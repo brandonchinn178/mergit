@@ -35,6 +35,7 @@ instance FromJSON CheckSuiteAction where
 
 data CheckSuiteStatus
   = CheckSuiteRequested
+  | CheckSuiteQueued
   | CheckSuiteInProgress
   | CheckSuiteCompleted
   deriving (Show)
@@ -42,6 +43,7 @@ data CheckSuiteStatus
 instance FromJSON CheckSuiteStatus where
   parseJSON = withText "CheckSuiteStatus" $ \case
     "requested" -> pure CheckSuiteRequested
+    "queued" -> pure CheckSuiteQueued
     "in_progress" -> pure CheckSuiteInProgress
     "completed" -> pure CheckSuiteCompleted
     t -> fail $ "Bad CheckSuiteStatus: " ++ Text.unpack t
