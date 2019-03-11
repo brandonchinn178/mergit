@@ -1,2 +1,4 @@
+import MergeBot
+
 main :: IO ()
-main = putStrLn "Hello world"
+main = runMergeBot

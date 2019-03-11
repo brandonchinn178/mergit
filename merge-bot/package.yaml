@@ -5,7 +5,12 @@ name: merge-bot
 version: 0.1.0
 
 dependencies:
+- aeson-schemas
 - base
+- github-rest
+- servant-github-app
+- servant-server
+- warp
 
 library:
   source-dirs: src
@@ -13,3 +18,5 @@ library:
 executable:
   source-dirs: exe
   main:        Main.hs
+  dependencies:
+    - merge-bot
