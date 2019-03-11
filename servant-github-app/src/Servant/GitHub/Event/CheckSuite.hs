@@ -35,6 +35,7 @@ instance FromJSON CheckSuiteAction where
 
 data CheckSuiteStatus
   = CheckSuiteRequested
+  | CheckSuiteQueued
   | CheckSuiteInProgress
   | CheckSuiteCompleted
   deriving (Show)
@@ -42,6 +43,7 @@ data CheckSuiteStatus
 instance FromJSON CheckSuiteStatus where
   parseJSON = withText "CheckSuiteStatus" $ \case
     "requested" -> pure CheckSuiteRequested
+    "queued" -> pure CheckSuiteQueued
     "in_progress" -> pure CheckSuiteInProgress
     "completed" -> pure CheckSuiteCompleted
     t -> fail $ "Bad CheckSuiteStatus: " ++ Text.unpack t
@@ -55,7 +57,29 @@ type CheckSuiteSchema = [schema|
       "status": CheckSuiteStatus,
       "conclusion": Maybe CheckRunConclusion,
       "url": Text,
-      "pull_requests": List #PullRequest,
+      "pull_requests": List {
+        "url": Text,
+        "id": Int,
+        "number": Int,
+        "head": {
+          "ref": Text,
+          "sha": Text,
+          "repo": {
+            "id": Int,
+            "url": Text,
+            "name": Text,
+          },
+        },
+        "base": {
+          "ref": Text,
+          "sha": Text,
+          "repo": {
+            "id": Int,
+            "url": Text,
+            "name": Text,
+          },
+        },
+      },
     },
     #BaseEvent,
   }

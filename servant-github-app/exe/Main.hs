@@ -12,7 +12,13 @@ import Control.Monad.IO.Class (liftIO)
 import Data.Aeson.Schema (Object, get)
 import qualified Data.Text as Text
 import GitHub.REST
-    (GHEndpoint(..), KeyValue(..), Token, queryGitHub, runGitHubT)
+    ( GHEndpoint(..)
+    , GitHubState(..)
+    , KeyValue(..)
+    , Token
+    , queryGitHub
+    , runGitHubT
+    )
 import Network.HTTP.Types (StdMethod(..))
 import Network.Wai.Handler.Warp (run)
 import Servant
@@ -36,8 +42,10 @@ handleInstallationEvent o token = liftIO $ do
   putStrLn $ "Installation ID: " ++ show [get| o.installation.id |]
 
   GitHubAppParams{ghUserAgent} <- loadGitHubAppParams
+  let state = GitHubState token ghUserAgent "v3"
+
   forM_ [get| o.repositories[].full_name |] $ \repoName -> do
-    repo <- runGitHubT token ghUserAgent $
+    repo <- runGitHubT state $
       queryGitHub @_ @(Object Repository) GHEndpoint
         { method = GET
         , endpoint = "/repos/:full_repo_name"

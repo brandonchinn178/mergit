@@ -50,6 +50,7 @@ module GitHub.REST
   -- * Monad transformer and type-class for querying the GitHub REST API
     MonadGitHubREST(..)
   , GitHubT
+  , GitHubState(..)
   , runGitHubT
   -- * GitHub authentication
   , Token(..)
@@ -62,6 +63,8 @@ module GitHub.REST
   -- * Helpers
   , githubTry
   , (.:)
+  -- * Re-exports
+  , StdMethod(..)
   ) where
 
 import Control.Monad.Catch (MonadCatch, handleJust)
@@ -71,7 +74,7 @@ import qualified Data.ByteString.Lazy as ByteStringL
 import Data.Text (Text)
 import Network.HTTP.Client
     (HttpException(..), HttpExceptionContent(..), Response(..))
-import Network.HTTP.Types (status422)
+import Network.HTTP.Types (StdMethod(..), status422)
 
 import GitHub.REST.Auth
 import GitHub.REST.Endpoint

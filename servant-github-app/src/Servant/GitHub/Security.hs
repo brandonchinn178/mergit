@@ -9,6 +9,7 @@ Defines functions for ensuring secure communication with GitHub.
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeApplications #-}
 
 module Servant.GitHub.Security
@@ -31,7 +32,13 @@ import qualified Data.Text.Encoding as Text
 import Data.Time (getCurrentTime)
 import Data.Time.Clock.POSIX (utcTimeToPOSIXSeconds)
 import GitHub.REST
-    (GHEndpoint(..), KeyValue(..), Token(..), queryGitHub, runGitHubT)
+    ( GHEndpoint(..)
+    , GitHubState(..)
+    , KeyValue(..)
+    , Token(..)
+    , queryGitHub
+    , runGitHubT
+    )
 import Network.HTTP.Types (StdMethod(..))
 import Prelude hiding (exp)
 import Web.JWT
@@ -78,7 +85,8 @@ getToken signer userAgent appId installationId expiry = do
         }
       jwt = encodeSigned signer claims
       token = BearerToken $ Text.encodeUtf8 jwt
-  runGitHubT token userAgent createToken
+      apiVersion = "machine-man-preview"
+  runGitHubT GitHubState{..} createToken
   where
     createToken = AccessToken . Text.encodeUtf8 . [get| .token |] <$>
       queryGitHub @_ @(Object [schema| { "token": Text } |]) GHEndpoint

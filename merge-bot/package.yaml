@@ -1,0 +1,23 @@
+defaults:
+  local: ../hpack.yaml
+
+name: merge-bot
+version: 0.1.0
+
+dependencies:
+- aeson-schemas
+- base
+- github-rest
+- servant-github-app
+- servant-server
+- text
+- warp
+
+library:
+  source-dirs: src
+
+executable:
+  source-dirs: exe
+  main:        Main.hs
+  dependencies:
+    - merge-bot

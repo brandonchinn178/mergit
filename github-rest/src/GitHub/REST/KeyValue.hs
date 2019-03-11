@@ -6,6 +6,7 @@ Portability :  portable
 
 Define the 'KeyValue' helper type.
 -}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
 
 module GitHub.REST.KeyValue
@@ -24,6 +25,12 @@ import qualified Data.Text as Text
 data KeyValue where
   (:=) :: (Show v, ToJSON v) => Text -> v -> KeyValue
 infixr 1 :=
+
+instance Show KeyValue where
+  show = show . kvToText
+
+instance {-# OVERLAPS #-} ToJSON [KeyValue] where
+  toJSON = kvToValue
 
 -- | Convert a 'KeyValue' into a 'Pair'.
 toPair :: KeyValue -> Pair

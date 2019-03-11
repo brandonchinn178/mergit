@@ -22,12 +22,14 @@ import Servant.GitHub.Event.Common
 data InstallationAction
   = InstallationCreated
   | InstallationDeleted
+  | InstallationNewPerms
   deriving (Show)
 
 instance FromJSON InstallationAction where
   parseJSON = withText "InstallationAction" $ \case
     "created" -> pure InstallationCreated
     "deleted" -> pure InstallationDeleted
+    "new_permissions_accepted" -> pure InstallationNewPerms
     t -> fail $ "Bad InstallationAction: " ++ Text.unpack t
 
 type InstallationSchema = [schema|

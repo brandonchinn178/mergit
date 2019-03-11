@@ -15,12 +15,13 @@ the capability to query the GitHub REST API.
 module GitHub.REST.Monad
   ( MonadGitHubREST(..)
   , GitHubT
+  , GitHubState(..)
   , runGitHubT
   ) where
 
 import Control.Monad.Catch (MonadCatch, MonadMask, MonadThrow)
 import Control.Monad.IO.Class (MonadIO(..))
-import Control.Monad.Reader (MonadReader, ReaderT, ask, runReaderT)
+import Control.Monad.Reader (ReaderT, ask, runReaderT)
 import Control.Monad.Trans (MonadTrans)
 import Data.Aeson (eitherDecode, encode, object)
 import Data.ByteString (ByteString)
@@ -44,15 +45,17 @@ import GitHub.REST.Endpoint (GHEndpoint(..), endpointPath, renderMethod)
 import GitHub.REST.KeyValue (kvToValue)
 import GitHub.REST.Monad.Class
 
-data GitHubTState = GitHubTState
-  { token     :: Token
-  , manager   :: Manager
-  , userAgent :: ByteString
+data GitHubState = GitHubState
+  { token      :: Token
+  , userAgent  :: ByteString
+  , apiVersion :: ByteString
+    -- ^ The media type will be sent as: application/vnd.github.VERSION+json. For the standard
+    -- API endpoints, "v3" should be sufficient here. See https://developer.github.com/v3/media/
   }
 
 -- | A simple monad that can run REST calls.
 newtype GitHubT m a = GitHubT
-  { unGitHubT :: ReaderT GitHubTState m a
+  { unGitHubT :: ReaderT (Manager, GitHubState) m a
   }
   deriving
     ( Functor
@@ -61,18 +64,17 @@ newtype GitHubT m a = GitHubT
     , MonadCatch
     , MonadIO
     , MonadMask
-    , MonadReader GitHubTState
     , MonadThrow
     , MonadTrans
     )
 
 instance MonadIO m => MonadGitHubREST (GitHubT m) where
   queryGitHub ghEndpoint = do
-    GitHubTState{..} <- ask
+    (manager, GitHubState{..}) <- GitHubT ask
     response <- liftIO $ getResponse manager request
       { method = renderMethod ghEndpoint
       , requestHeaders =
-          (hAccept, "application/vnd.github.machine-man-preview+json")
+          (hAccept, "application/vnd.github." <> apiVersion <> "+json")
           : (hUserAgent, userAgent)
           : (hAuthorization, fromToken token)
           : requestHeaders request
@@ -92,7 +94,7 @@ instance MonadIO m => MonadGitHubREST (GitHubT m) where
 --
 -- The token will be sent with each API request -- see 'Token'. The user agent is also required for
 -- each API request -- see https://developer.github.com/v3/#user-agent-required.
-runGitHubT :: MonadIO m => Token -> ByteString -> GitHubT m a -> m a
-runGitHubT token userAgent action = do
+runGitHubT :: MonadIO m => GitHubState -> GitHubT m a -> m a
+runGitHubT state action = do
   manager <- liftIO $ newManager tlsManagerSettings
-  runReaderT (unGitHubT action) GitHubTState{..}
+  (`runReaderT` (manager, state)) . unGitHubT $ action
