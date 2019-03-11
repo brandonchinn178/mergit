@@ -10,6 +10,7 @@ dependencies:
 - github-rest
 - servant-github-app
 - servant-server
+- text
 - warp
 
 library:

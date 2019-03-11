@@ -19,9 +19,11 @@ module Servant.GitHub
   , module Servant.GitHub.Event
   -- * Re-exports
   , Object
+  , Token
   ) where
 
 import Data.Aeson.Schema (Object)
+import GitHub.REST (Token)
 
 import Servant.GitHub.Combinators
 import Servant.GitHub.Context

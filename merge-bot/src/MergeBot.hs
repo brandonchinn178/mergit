@@ -9,6 +9,7 @@ This module defines the entrypoint for the MergeBot GitHub application.
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
+{-# OPTIONS_GHC -freduction-depth=400 #-}
 
 module MergeBot (runMergeBot) where
 
@@ -21,14 +22,14 @@ import MergeBot.Handlers
 
 type MergeBotApp
   = "webhook" :> GitHubSigned :>
-    (    GitHubEvent 'InstallationEvent :> WithToken :> GitHubAction
-    :<|> GitHubEvent 'PullRequestEvent :> WithToken :> GitHubAction
+    (    GitHubEvent 'CheckSuiteEvent :> WithToken :> GitHubAction
+    :<|> GitHubEvent 'CheckRunEvent :> WithToken :> GitHubAction
     )
 
 server :: Server MergeBotApp
 server
-  =    handleInstallation
-  :<|> handlePullRequest
+  =    handleCheckSuite
+  :<|> handleCheckRun
 
 initApp :: IO Application
 initApp = do
