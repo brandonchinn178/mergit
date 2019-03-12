@@ -5,9 +5,11 @@ name: merge-bot-core
 version: 0.1.0
 
 dependencies:
+- aeson
 - base
 - github-rest
 - text
+- transformers
 
 library:
   source-dirs: src

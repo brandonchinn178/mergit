@@ -7,40 +7,19 @@ Portability :  portable
 This module defines functions for running GitHubT actions.
 -}
 {-# LANGUAGE NamedFieldPuns #-}
-{-# LANGUAGE OverloadedStrings #-}
 
 module MergeBot.Monad
   ( runGitHub
-  , createCheckRun
   ) where
 
 import Data.Text (Text)
-import qualified Data.Text as Text
 import GitHub.REST
 import Servant (Handler)
 
-type GitHubM = GitHubT Handler
+import MergeBot.Core.Monad (BotAppT, runBotAppT)
 
-runGitHub :: GitHubM a -> Token -> Handler a
-runGitHub action token = runGitHubT state action
-  where
-    state = GitHubState
-      { token
-      , userAgent = "LeapYear/merge-bot"
-      , apiVersion = "antiope-preview"
-      }
+type BotApp = BotAppT Handler
 
-createCheckRun :: Text -> GitHubData -> GitHubM ()
-createCheckRun repo ghData = queryGitHub_ GHEndpoint
-  { method = POST
-  , endpoint = "/repos/:owner/:repo/check-runs"
-  , endpointVals = parseRepo repo
-  , ghData
-  }
-
-{- Helpers -}
-
-parseRepo :: Text -> [KeyValue]
-parseRepo repo = case Text.splitOn "/" repo of
-  [repoOwner, repoName] -> [ "owner" := repoOwner, "repo" := repoName ]
-  _ -> error $ "Invalid repo: " ++ Text.unpack repo
+-- | 'runBotAppT' with the arguments in a different order to take in 'Token' last.
+runGitHub :: Text -> BotApp a -> Token -> Handler a
+runGitHub repo action token = runBotAppT token repo action

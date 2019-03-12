@@ -9,21 +9,22 @@ This module defines core MergeBot functionality.
 {-# LANGUAGE OverloadedStrings #-}
 
 module MergeBot.Core
-  ( startTryJob
+  ( createCheckRun
+  , startTryJob
   ) where
 
-import Control.Monad.IO.Class (MonadIO(..))
 import Data.Text (Text)
-import GitHub.REST (GitHubT)
 
+import MergeBot.Core.GitHub
+import MergeBot.Core.Monad (MonadMergeBot)
 import MergeBot.Core.Text (toTryBranch, toTryMessage)
 
-startTryJob :: MonadIO m => Int -> Text -> GitHubT m ()
+startTryJob :: MonadMergeBot m => Int -> Text -> m ()
 startTryJob prNum base = createCIBranch base [prNum] tempBranchName tryBranch tryMessage
   where
     tryBranch = toTryBranch prNum
     tempBranchName = "temp-" <> tryBranch
     tryMessage = toTryMessage prNum
 
-createCIBranch :: Text -> [Int] -> Text -> Text -> Text -> GitHubT m ()
+createCIBranch :: MonadMergeBot m => Text -> [Int] -> Text -> Text -> Text -> m ()
 createCIBranch = undefined

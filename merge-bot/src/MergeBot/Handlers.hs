@@ -24,17 +24,17 @@ import GitHub.REST
 import Servant
 import qualified Servant.GitHub as GitHub
 
-import MergeBot.Core (startTryJob)
+import MergeBot.Core (createCheckRun, startTryJob)
 import MergeBot.Monad
 
 default (Text)
 
 -- | Handle the 'check_suite' GitHub event.
 handleCheckSuite :: Object GitHub.CheckSuiteSchema -> GitHub.Token -> Handler ()
-handleCheckSuite o = runGitHub $
+handleCheckSuite o = runGitHub repo $
   case [get| o.action |] of
     GitHub.CheckSuiteRequestedAction -> do
-      createCheckRun repo
+      createCheckRun
         [ "name"     := "Bot Try"
         , "head_sha" := sha
         , "output" :=
@@ -48,7 +48,7 @@ handleCheckSuite o = runGitHub $
             ]
           ]
         ]
-      createCheckRun repo
+      createCheckRun
         [ "name"     := "Bot Merge"
         , "head_sha" := sha
         , "output" :=
@@ -69,7 +69,7 @@ handleCheckSuite o = runGitHub $
 
 -- | Handle the 'check_run' GitHub event.
 handleCheckRun :: Object GitHub.CheckRunSchema -> GitHub.Token -> Handler ()
-handleCheckRun o = runGitHub $
+handleCheckRun o = runGitHub repo $
   case [get| o.action |] of
     GitHub.CheckRunRequestedAction ->
       case [get| o.requested_action!.identifier |] of
@@ -77,3 +77,5 @@ handleCheckRun o = runGitHub $
         "lybot_queue" -> liftIO $ putStrLn "Queue PR"
         _ -> return ()
     _ -> return ()
+  where
+    repo = [get| o.repository!.full_name |]
