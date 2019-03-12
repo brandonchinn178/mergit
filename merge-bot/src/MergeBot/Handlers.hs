@@ -73,7 +73,7 @@ handleCheckRun o = runGitHub $
   case [get| o.action |] of
     GitHub.CheckRunRequestedAction ->
       case [get| o.requested_action!.identifier |] of
-        "lybot_run_try" -> mapM_ startTryJob [get| o.check_run.pull_requests[].number |]
+        "lybot_run_try" -> mapM_ (uncurry startTryJob) [get| o.check_run.pull_requests[].(number, base.ref) |]
         "lybot_queue" -> liftIO $ putStrLn "Queue PR"
         _ -> return ()
     _ -> return ()
