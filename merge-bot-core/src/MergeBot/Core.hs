@@ -7,7 +7,6 @@ Portability :  portable
 This module defines core MergeBot functionality.
 -}
 {-# LANGUAGE ExtendedDefaultRules #-}
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
@@ -17,9 +16,9 @@ module MergeBot.Core
   , startTryJob
   ) where
 
-import Control.Monad (forM_)
+import Control.Monad (forM_, unless)
 import Data.Text (Text)
-import GitHub.REST (KeyValue(..), githubTry)
+import GitHub.REST (KeyValue(..))
 
 import MergeBot.Core.GitHub
 import MergeBot.Core.Monad (MonadMergeBot)
@@ -77,17 +76,16 @@ startTryJob prNum prSHA baseSHA = createCIBranch baseSHA [prSHA] tryBranch tryMe
 -- * Errors if the .lymerge.yaml file is missing or invalid
 createCIBranch :: MonadMergeBot m => Text -> [Text] -> Text -> Text -> m ()
 createCIBranch baseSHA prSHAs ciBranch message = do
-  -- TODO: delete ci branch
+  deleteBranch ciBranch
 
   -- create CI branch off base
   createBranch ciBranch baseSHA
 
   -- merge prs into temp branch
-  forM_ prSHAs $ \prSHA ->
-    -- TODO: merge branches
-    githubTry (undefined ciBranch prSHA "[ci skip] merge into temp") >>= \case
-      Right _ -> return ()
-      Left _ -> fail "Merge conflict" -- TODO: better error throwing
+  forM_ prSHAs $ \prSHA -> do
+    success <- mergeBranches ciBranch prSHA "[ci skip] merge into temp"
+    unless success $
+      fail "Merge conflict" -- TODO: better error throwing
 
   -- TODO: fail if missing/invalid .lymerge.yaml
 
@@ -96,5 +94,6 @@ createCIBranch baseSHA prSHAs ciBranch message = do
   mergeSHA <- createCommit message treeSHA (baseSHA : prSHAs)
 
   -- forcibly update CI branch to point to new merge commit
-  -- TODO: update branch
-  undefined ciBranch mergeSHA
+  success <- updateBranch True ciBranch mergeSHA
+  unless success $
+    fail "Force update CI branch failed"
