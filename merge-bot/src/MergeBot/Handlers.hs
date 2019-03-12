@@ -7,10 +7,8 @@ Portability :  portable
 This module defines handlers for the MergeBot.
 -}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE ExtendedDefaultRules #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
-{-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
 module MergeBot.Handlers
   ( handleCheckSuite
@@ -19,63 +17,34 @@ module MergeBot.Handlers
 
 import Control.Monad.IO.Class (liftIO)
 import Data.Aeson.Schema (Object, get)
-import Data.Text (Text)
-import GitHub.REST
-import Servant
-import qualified Servant.GitHub as GitHub
+import Servant (Handler)
+import Servant.GitHub
 
-import MergeBot.Core (createCheckRun, startTryJob)
-import MergeBot.Monad
-
-default (Text)
+import MergeBot.Core (createMergeCheckRun, createTryCheckRun, startTryJob)
+import MergeBot.Monad (runGitHub)
 
 -- | Handle the 'check_suite' GitHub event.
-handleCheckSuite :: Object GitHub.CheckSuiteSchema -> GitHub.Token -> Handler ()
+handleCheckSuite :: Object CheckSuiteSchema -> Token -> Handler ()
 handleCheckSuite o = runGitHub repo $
   case [get| o.action |] of
-    GitHub.CheckSuiteRequestedAction -> do
-      createCheckRun
-        [ "name"     := "Bot Try"
-        , "head_sha" := sha
-        , "output" :=
-          [ "title"   := "Try Run"
-          , "summary" := "No try run available. Click \"Run Try\" above to begin your try run."
-          ]
-        , "actions" :=
-          [ [ "label"       := "Run Try"
-            , "description" := "Start a try run"
-            , "identifier"  := "lybot_run_try"
-            ]
-          ]
-        ]
-      createCheckRun
-        [ "name"     := "Bot Merge"
-        , "head_sha" := sha
-        , "output" :=
-          [ "title"   := "Merge Run"
-          , "summary" := "Not queued. Click \"Queue\" above to queue this PR for the next merge run."
-          ]
-        , "actions" :=
-          [ [ "label"       := "Queue"
-            , "description" := "Queue this PR"
-            , "identifier"  := "lybot_queue"
-            ]
-          ]
-        ]
+    CheckSuiteRequestedAction -> do
+      createTryCheckRun sha
+      createMergeCheckRun sha
     _ -> return ()
   where
     repo = [get| o.repository!.full_name |]
     sha = [get| o.check_suite.head_sha |]
 
 -- | Handle the 'check_run' GitHub event.
-handleCheckRun :: Object GitHub.CheckRunSchema -> GitHub.Token -> Handler ()
+handleCheckRun :: Object CheckRunSchema -> Token -> Handler ()
 handleCheckRun o = runGitHub repo $
   case [get| o.action |] of
-    GitHub.CheckRunRequestedAction ->
+    CheckRunRequestedAction ->
       case [get| o.requested_action!.identifier |] of
-        "lybot_run_try" -> mapM_ (uncurry startTryJob) [get| o.check_run.pull_requests[].(number, base.ref) |]
+        "lybot_run_try" -> mapM_ (uncurry startTryJob) prs
         "lybot_queue" -> liftIO $ putStrLn "Queue PR"
         _ -> return ()
     _ -> return ()
   where
     repo = [get| o.repository!.full_name |]
+    prs = [get| o.check_run.pull_requests[].(number, base.ref) |]
