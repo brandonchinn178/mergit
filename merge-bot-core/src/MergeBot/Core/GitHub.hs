@@ -10,13 +10,32 @@ This module defines functions for manipulating GitHub state.
 {-# LANGUAGE OverloadedStrings #-}
 
 module MergeBot.Core.GitHub
-  ( createCheckRun
+  ( createBranch
+  , createCheckRun
+  , createCommit
+  , createCommitAndBranch
   ) where
 
 import Control.Monad (void)
-import GitHub.REST (GHEndpoint(..), GitHubData, StdMethod(..))
+import Data.Text (Text)
+import GitHub.REST
+    (GHEndpoint(..), GitHubData, KeyValue(..), StdMethod(..), (.:))
 
 import MergeBot.Core.Monad (MonadMergeBot, queryGitHub')
+
+-- | Create a branch.
+--
+-- https://developer.github.com/v3/git/refs/#create-a-reference
+createBranch :: MonadMergeBot m => Text -> Text -> m ()
+createBranch name sha = void $ queryGitHub' GHEndpoint
+  { method = POST
+  , endpoint = "/repos/:owner/:repo/git/refs"
+  , endpointVals = []
+  , ghData =
+    [ "ref" := "refs/heads/" <> name
+    , "sha" := sha
+    ]
+  }
 
 -- | Create a check run.
 --
@@ -28,3 +47,25 @@ createCheckRun ghData = void $ queryGitHub' GHEndpoint
   , endpointVals = []
   , ghData
   }
+
+-- | Create a commit.
+--
+-- https://developer.github.com/v3/git/commits/#create-a-commit
+createCommit :: MonadMergeBot m => Text -> Text -> [Text] -> m Text
+createCommit message tree parents = (.: "sha") <$> queryGitHub' GHEndpoint
+  { method = POST
+  , endpoint = "/repos/:owner/:repo/git/commits"
+  , endpointVals = []
+  , ghData =
+    [ "message" := message
+    , "tree"    := tree
+    , "parents" := parents
+    ]
+  }
+
+-- | Create a commit and a branch on the new commit.
+--
+-- https://developer.github.com/v3/git/commits/#create-a-commit
+createCommitAndBranch :: MonadMergeBot m => Text -> Text -> [Text] -> Text -> m ()
+createCommitAndBranch commitMessage commitTree commitParents branchName =
+  createCommit commitMessage commitTree commitParents >>= createBranch branchName

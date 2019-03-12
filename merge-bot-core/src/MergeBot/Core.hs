@@ -16,6 +16,8 @@ module MergeBot.Core
   , startTryJob
   ) where
 
+import Control.Monad (forM_)
+import Control.Monad.Catch (finally)
 import Data.Text (Text)
 import GitHub.REST (KeyValue(..))
 
@@ -59,12 +61,38 @@ createMergeCheckRun sha = createCheckRun
     ]
   ]
 
-startTryJob :: MonadMergeBot m => Int -> Text -> m ()
-startTryJob prNum base = createCIBranch base [prNum] tempBranchName tryBranch tryMessage
+startTryJob :: MonadMergeBot m => Int -> Text -> Text -> m ()
+startTryJob prNum prSHA baseSHA =
+  createCIBranch baseSHA [prSHA] tempBranchName tryBranch tryMessage
   where
     tryBranch = toTryBranch prNum
     tempBranchName = "temp-" <> tryBranch
     tryMessage = toTryMessage prNum
 
-createCIBranch :: MonadMergeBot m => Text -> [Int] -> Text -> Text -> Text -> m ()
-createCIBranch = undefined
+{- Helpers -}
+
+-- | Create a branch for a try or merge job.
+createCIBranch :: MonadMergeBot m => Text -> [Text] -> Text -> Text -> Text -> m ()
+createCIBranch baseSHA prSHAs tempBranch ciBranch message = do
+  -- TODO: delete temp branch + ci branch
+
+  -- create a new commit on temp branch off base
+  let baseTree = undefined
+  createCommitAndBranch "[ci skip] temp" baseTree [baseSHA] tempBranch
+
+  -- TODO: delete temp branch after finished
+  (`finally` pure ()) $ do
+    -- merge prs into temp branch
+    forM_ prSHAs $ \prSHA ->
+      -- TODO: merge branches
+      (const $ pure ())
+        [ "base" := tempBranch
+        , "head" := prSHA
+        , "message" := ("[ci skip] merge into temp" :: Text)
+        ]
+
+    -- TODO: fail if missing/invalid .lymerge.yaml
+
+    -- create a new commit on CI branch off base
+    let tempTree = undefined
+    createCommitAndBranch message tempTree (baseSHA : prSHAs) ciBranch

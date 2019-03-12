@@ -41,10 +41,11 @@ handleCheckRun o = runGitHub repo $
   case [get| o.action |] of
     CheckRunRequestedAction ->
       case [get| o.requested_action!.identifier |] of
-        "lybot_run_try" -> mapM_ (uncurry startTryJob) prs
+        "lybot_run_try" -> mapM_ (uncurry3 startTryJob) prs
         "lybot_queue" -> liftIO $ putStrLn "Queue PR"
         _ -> return ()
     _ -> return ()
   where
     repo = [get| o.repository!.full_name |]
-    prs = [get| o.check_run.pull_requests[].(number, base.ref) |]
+    prs = [get| o.check_run.pull_requests[].(number, head.ref, base.ref) |]
+    uncurry3 f (a,b,c) = f a b c

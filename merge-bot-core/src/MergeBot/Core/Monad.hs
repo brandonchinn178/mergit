@@ -18,6 +18,7 @@ module MergeBot.Core.Monad
   , queryGitHub'
   ) where
 
+import Control.Monad.Catch (MonadCatch, MonadMask, MonadThrow)
 import Control.Monad.IO.Class (MonadIO)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Reader (ReaderT, ask, runReaderT)
@@ -37,15 +38,15 @@ import GitHub.REST
 newtype BotAppT m a = BotAppT
   { unBotApp :: ReaderT (Text, Text) (GitHubT m) a
   }
-  deriving (Functor,Applicative,Monad,MonadIO)
+  deriving (Functor,Applicative,Monad,MonadCatch,MonadIO,MonadMask,MonadThrow)
 
 instance MonadIO m => MonadGitHubREST (BotAppT m) where
   queryGitHub = BotAppT . lift . queryGitHub
 
-class MonadGitHubREST m => MonadMergeBot m where
+class (MonadMask m, MonadGitHubREST m) => MonadMergeBot m where
   getRepo :: m (Text, Text)
 
-instance MonadIO m => MonadMergeBot (BotAppT m) where
+instance (MonadMask m, MonadIO m) => MonadMergeBot (BotAppT m) where
   getRepo = BotAppT ask
 
 runBotAppT :: MonadIO m => Token -> Text -> BotAppT m a -> m a
