@@ -167,6 +167,20 @@ type Comment = [schema|
   }
 |]
 
+{- Commit -}
+
+type CommitShort = [schema|
+  {
+    "ref": Text,
+    "sha": Text,
+    "repo": {
+      "id": Int,
+      "url": Text,
+      "name": Text,
+    },
+  }
+|]
+
 {- Deployment -}
 
 type Deployment = [schema|
@@ -377,6 +391,16 @@ type PullRequest = [schema|
     "additions": Int,
     "deletions": Int,
     "changed_files": Int
+  }
+|]
+
+type PullRequestShort = [schema|
+  {
+    "url": Text,
+    "id": Int,
+    "number": Int,
+    "head": #CommitShort,
+    "base": #CommitShort,
   }
 |]
 
