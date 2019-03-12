@@ -24,6 +24,7 @@ import GitHub.REST
 import Servant
 import qualified Servant.GitHub as GitHub
 
+import MergeBot.Core (startTryJob)
 import MergeBot.Monad
 
 default (Text)
@@ -72,7 +73,7 @@ handleCheckRun o = runGitHub $
   case [get| o.action |] of
     GitHub.CheckRunRequestedAction ->
       case [get| o.requested_action!.identifier |] of
-        "lybot_run_try" -> liftIO $ putStrLn "Start run try"
+        "lybot_run_try" -> mapM_ startTryJob [get| o.check_run.pull_requests[].number |]
         "lybot_queue" -> liftIO $ putStrLn "Queue PR"
         _ -> return ()
     _ -> return ()

@@ -1,0 +1,12 @@
+defaults:
+  local: ../hpack.yaml
+
+name: merge-bot-core
+version: 0.1.0
+
+dependencies:
+- base
+- github-rest
+
+library:
+  source-dirs: src
