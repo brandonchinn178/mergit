@@ -57,30 +57,30 @@ data GitHubEventType
   | IssueCommentEvent
   | IssuesEvent
   | LabelEvent
-  -- | MarketplacePurchaseEvent
-  -- | MemberEvent
-  -- | MembershipEvent
-  -- | MilestoneEvent
-  -- | OrganizationEvent
-  -- | OrgBlockEvent
-  -- | PageBuildEvent
-  -- | ProjectCardEvent
-  -- | ProjectColumnEvent
-  -- | ProjectEvent
-  -- | PublicEvent
+  -- TODO: MarketplacePurchaseEvent
+  -- TODO: MemberEvent
+  -- TODO: MembershipEvent
+  -- TODO: MilestoneEvent
+  -- TODO: OrganizationEvent
+  -- TODO: OrgBlockEvent
+  -- TODO: PageBuildEvent
+  -- TODO: ProjectCardEvent
+  -- TODO: ProjectColumnEvent
+  -- TODO: ProjectEvent
+  -- TODO: PublicEvent
   | PullRequestEvent
-  -- | PullRequestReviewEvent
-  -- | PullRequestReviewCommentEvent
+  -- TODO: PullRequestReviewEvent
+  -- TODO: PullRequestReviewCommentEvent
   | PushEvent
-  -- | ReleaseEvent
-  -- | RepositoryEvent
-  -- | RepositoryImportEvent
-  -- | RepositoryVulnerabilityAlertEvent
-  -- | SecurityAdvisoryEvent
-  -- | StatusEvent
-  -- | TeamEvent
-  -- | TeamAddEvent
-  -- | WatchEvent
+  -- TODO: ReleaseEvent
+  -- TODO: RepositoryEvent
+  -- TODO: RepositoryImportEvent
+  -- TODO: RepositoryVulnerabilityAlertEvent
+  -- TODO: SecurityAdvisoryEvent
+  -- TODO: StatusEvent
+  -- TODO: TeamEvent
+  -- TODO: TeamAddEvent
+  -- TODO: WatchEvent
   deriving (Show)
 
 class IsGitHubEvent (e :: GitHubEventType) where
