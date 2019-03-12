@@ -13,7 +13,6 @@ module MergeBot.Core.GitHub
   ( createBranch
   , createCheckRun
   , createCommit
-  , createCommitAndBranch
   ) where
 
 import Control.Monad (void)
@@ -62,10 +61,3 @@ createCommit message tree parents = (.: "sha") <$> queryGitHub' GHEndpoint
     , "parents" := parents
     ]
   }
-
--- | Create a commit and a branch on the new commit.
---
--- https://developer.github.com/v3/git/commits/#create-a-commit
-createCommitAndBranch :: MonadMergeBot m => Text -> Text -> [Text] -> Text -> m ()
-createCommitAndBranch commitMessage commitTree commitParents branchName =
-  createCommit commitMessage commitTree commitParents >>= createBranch branchName

@@ -7,6 +7,7 @@ Portability :  portable
 This module defines core MergeBot functionality.
 -}
 {-# LANGUAGE ExtendedDefaultRules #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
@@ -17,9 +18,8 @@ module MergeBot.Core
   ) where
 
 import Control.Monad (forM_)
-import Control.Monad.Catch (finally)
 import Data.Text (Text)
-import GitHub.REST (KeyValue(..))
+import GitHub.REST (KeyValue(..), githubTry)
 
 import MergeBot.Core.GitHub
 import MergeBot.Core.Monad (MonadMergeBot)
@@ -61,38 +61,40 @@ createMergeCheckRun sha = createCheckRun
     ]
   ]
 
+-- | Start a new try job.
 startTryJob :: MonadMergeBot m => Int -> Text -> Text -> m ()
-startTryJob prNum prSHA baseSHA =
-  createCIBranch baseSHA [prSHA] tempBranchName tryBranch tryMessage
+startTryJob prNum prSHA baseSHA = createCIBranch baseSHA [prSHA] tryBranch tryMessage
   where
     tryBranch = toTryBranch prNum
-    tempBranchName = "temp-" <> tryBranch
     tryMessage = toTryMessage prNum
 
 {- Helpers -}
 
 -- | Create a branch for a try or merge job.
-createCIBranch :: MonadMergeBot m => Text -> [Text] -> Text -> Text -> Text -> m ()
-createCIBranch baseSHA prSHAs tempBranch ciBranch message = do
-  -- TODO: delete temp branch + ci branch
+--
+-- * Deletes the existing try or merge branch, if one exists.
+-- * Errors if merge conflict
+-- * Errors if the .lymerge.yaml file is missing or invalid
+createCIBranch :: MonadMergeBot m => Text -> [Text] -> Text -> Text -> m ()
+createCIBranch baseSHA prSHAs ciBranch message = do
+  -- TODO: delete ci branch
 
-  -- create a new commit on temp branch off base
-  let baseTree = undefined
-  createCommitAndBranch "[ci skip] temp" baseTree [baseSHA] tempBranch
+  -- create CI branch off base
+  createBranch ciBranch baseSHA
 
-  -- TODO: delete temp branch after finished
-  (`finally` pure ()) $ do
-    -- merge prs into temp branch
-    forM_ prSHAs $ \prSHA ->
-      -- TODO: merge branches
-      (const $ pure ())
-        [ "base" := tempBranch
-        , "head" := prSHA
-        , "message" := ("[ci skip] merge into temp" :: Text)
-        ]
+  -- merge prs into temp branch
+  forM_ prSHAs $ \prSHA ->
+    -- TODO: merge branches
+    githubTry (undefined ciBranch prSHA "[ci skip] merge into temp") >>= \case
+      Right _ -> return ()
+      Left _ -> fail "Merge conflict" -- TODO: better error throwing
 
-    -- TODO: fail if missing/invalid .lymerge.yaml
+  -- TODO: fail if missing/invalid .lymerge.yaml
 
-    -- create a new commit on CI branch off base
-    let tempTree = undefined
-    createCommitAndBranch message tempTree (baseSHA : prSHAs) ciBranch
+  -- create a new commit that merges all the PRs at once
+  let treeSHA = undefined
+  mergeSHA <- createCommit message treeSHA (baseSHA : prSHAs)
+
+  -- forcibly update CI branch to point to new merge commit
+  -- TODO: update branch
+  undefined ciBranch mergeSHA
