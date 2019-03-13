@@ -7,25 +7,19 @@ Portability :  portable
 Defines common types and schemas for GitHub events.
 -}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 
 module GitHub.Schema.Event.Common where
 
-import Data.Aeson (FromJSON(..), ToJSON, withText)
+import Data.Aeson (FromJSON(..), withText)
 import Data.Aeson.Schema (schema)
-import Data.Text (Text)
 import qualified Data.Text as Text
 import Data.Time (UTCTime)
 
-{- Basic data types -}
-
-newtype SHA = SHA { unSHA :: Text }
-  deriving (Show,FromJSON,ToJSON)
-
-type URL = Text
+import GitHub.Data.GitObjectID (GitObjectID)
+import GitHub.Data.URL (URL)
 
 {- Schemas used in every webhook: https://developer.github.com/webhooks/#payloads -}
 
@@ -181,7 +175,7 @@ type Comment = [schema|
 type CommitShort = [schema|
   {
     "ref": Text,
-    "sha": SHA,
+    "sha": GitObjectID,
     "repo": {
       "id": Int,
       "url": URL,
@@ -197,7 +191,7 @@ type Deployment = [schema|
     "url": URL,
     "id": Int,
     "node_id": Text,
-    "sha": SHA,
+    "sha": GitObjectID,
     "ref": Text,
     "task": Text,
     "payload": {
@@ -335,7 +329,7 @@ type PullRequest = [schema|
     "updated_at": UTCTime,
     "closed_at": Maybe UTCTime,
     "merged_at": Maybe UTCTime,
-    "merge_commit_sha": Maybe SHA,
+    "merge_commit_sha": Maybe GitObjectID,
     "assignee": Maybe #User,
     "assignees": List #User,
     "requested_reviewers": List #User,
@@ -350,14 +344,14 @@ type PullRequest = [schema|
     "head": {
       "label": Text,
       "ref": Text,
-      "sha": SHA,
+      "sha": GitObjectID,
       "user": #User,
       "repo": #Repository,
     },
     "base": {
       "label": Text,
       "ref": Text,
-      "sha": SHA,
+      "sha": GitObjectID,
       "user": #User,
       "repo": #Repository
     },

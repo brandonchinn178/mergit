@@ -1,17 +1,17 @@
 {-|
-Module      :  MergeBot.Core.GraphQL.Custom.GitObjectID
+Module      :  GitHub.Data.URL
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
 Portability :  portable
 
-Defines the GitObjectID data type.
+Defines the URL data type.
 -}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
-module MergeBot.Core.GraphQL.Custom.GitObjectID where
+module GitHub.Data.URL where
 
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Text (Text)
 
-newtype GitObjectID = GitObjectID { unOID :: Text }
+newtype URL = URL { unURL :: Text }
   deriving (Show,FromJSON,ToJSON)
