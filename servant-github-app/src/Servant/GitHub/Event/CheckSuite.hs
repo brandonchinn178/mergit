@@ -53,10 +53,10 @@ type CheckSuiteSchema = [schema|
     "action": CheckSuiteAction,
     "check_suite": {
       "head_branch": Text,
-      "head_sha": Text,
+      "head_sha": SHA,
       "status": CheckSuiteStatus,
       "conclusion": Maybe CheckRunConclusion,
-      "url": Text,
+      "url": URL,
       "pull_requests": List #PullRequestShort,
     },
     #BaseEvent,

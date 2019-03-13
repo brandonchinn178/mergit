@@ -38,7 +38,7 @@ type DeploymentStatusSchema = [schema|
   {
     "deployment_status": {
       "state": DeploymentState,
-      "target_url": Maybe Text,
+      "target_url": Maybe URL,
       "description": Maybe Text,
     },
     "deployment": #Deployment,
