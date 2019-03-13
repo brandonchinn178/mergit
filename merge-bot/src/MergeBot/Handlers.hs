@@ -47,5 +47,5 @@ handleCheckRun o = runGitHub repo $
     _ -> return ()
   where
     repo = [get| o.repository!.full_name |]
-    prs = [get| o.check_run.pull_requests[].(number, head.ref, base.ref) |]
+    prs = [get| o.check_run.pull_requests[].(number, head.sha, base.sha) |]
     uncurry3 f (a,b,c) = f a b c
