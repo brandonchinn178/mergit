@@ -94,3 +94,13 @@ type RepoWebhook = [schema|
     "default_branch": Text,
   }
 |]
+
+-- | An abbreviated schema for Repository.
+type RepositoryShort = [schema|
+  {
+    "id": Int,
+    "name": Text,
+    "full_name": Text,
+    "private": Bool,
+  }
+|]
