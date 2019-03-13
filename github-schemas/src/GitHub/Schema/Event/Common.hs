@@ -23,39 +23,6 @@ import GitHub.Data.URL (URL)
 import GitHub.Schema.Repository (RepoWebhook)
 import GitHub.Schema.User (UserWebhook)
 
-{- Schemas used in every webhook: https://developer.github.com/webhooks/#payloads -}
-
-type Organization = [schema|
-  {
-    "login": Text,
-    "id": Int,
-    "node_id": Text,
-    "url": URL,
-    "repos_url": URL,
-    "events_url": URL,
-    "hooks_url": URL,
-    "issues_url": URL,
-    "members_url": URL,
-    "public_members_url": URL,
-    "avatar_url": URL,
-    "description": Text,
-  }
-|]
-
-type InstallationId = [schema|
-  {
-    "id": Int
-  }
-|]
-
-type BaseEvent = [schema|
-  {
-    "sender": #UserWebhook,
-    "repository": Maybe #RepoWebhook,
-    "organization": Maybe #Organization,
-    "installation": Maybe #InstallationId,
-  }
-|]
 
 {- Comment: https://developer.github.com/v3/issues/comments/#get-a-single-comment -}
 
