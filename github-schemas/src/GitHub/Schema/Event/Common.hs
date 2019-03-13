@@ -20,88 +20,9 @@ import Data.Time (UTCTime)
 
 import GitHub.Data.GitObjectID (GitObjectID)
 import GitHub.Data.URL (URL)
+import GitHub.Schema.Commit (CommitShort)
 import GitHub.Schema.Repository (RepoWebhook)
 import GitHub.Schema.User (UserWebhook)
-
-
-{- Comment: https://developer.github.com/v3/issues/comments/#get-a-single-comment -}
-
-type Comment = [schema|
-  {
-    "id": Int,
-    "node_id": Text,
-    "url": Text,
-    "html_url": URL,
-    "body": Text,
-    "user": #UserWebhook,
-    "created_at": UTCTime,
-    "updated_at": UTCTime,
-  }
-|]
-
-{- Commit -}
-
-type CommitShort = [schema|
-  {
-    "ref": Text,
-    "sha": GitObjectID,
-    "repo": {
-      "id": Int,
-      "url": URL,
-      "name": Text,
-    },
-  }
-|]
-
-{- Deployment -}
-
-type Deployment = [schema|
-  {
-    "url": URL,
-    "id": Int,
-    "node_id": Text,
-    "sha": GitObjectID,
-    "ref": Text,
-    "task": Text,
-    "payload": {
-      "deploy": Text,
-    },
-    "original_environment": Text,
-    "environment": Text,
-    "description": Maybe Text,
-    "creator": #UserWebhook,
-    "created_at": UTCTime,
-    "updated_at": UTCTime,
-    "statuses_url": URL,
-    "repository_url": URL,
-    "transient_environment": Bool,
-    "producation_environment": Bool,
-  }
-|]
-
-{- Installation -}
-
-type Installation = [schema|
-  {
-    "id": Int,
-    "account": #UserWebhook,
-    "repository_selection": Text,
-    "access_tokens_url": URL,
-    "repositories_url": URL,
-    "html_url": URL,
-    "app_id": Int,
-    "target_id": Int,
-    "target_type": Text,
-    "permissions": {
-      "checks": Text,
-      "metadata": Text,
-    },
-    "events": List Text,
-    "created_at": Int,
-    "updated_at": Int,
-    "single_file_name": Maybe Text,
-  }
-|]
 
 {- Issue: https://developer.github.com/v3/issues/#get-a-single-issue -}
 
