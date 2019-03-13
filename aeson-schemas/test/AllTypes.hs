@@ -10,6 +10,7 @@ module AllTypes where
 
 import Data.Aeson (FromJSON(..), withText)
 import Data.Aeson.Schema
+import Data.Aeson.Schema.TH (genFromJSONEnum)
 import qualified Data.Text as Text
 
 import Util (getMockedResult)
@@ -19,11 +20,7 @@ import Util (getMockedResult)
 data Greeting = HELLO | GOODBYE
   deriving (Show,Enum)
 
-instance FromJSON Greeting where
-  parseJSON = withText "Greeting" $ \case
-    "HELLO" -> pure HELLO
-    "GOODBYE" -> pure GOODBYE
-    t -> fail $ "Bad Greeting: " ++ Text.unpack t
+genFromJSONEnum ''Greeting
 
 {- Coordinate scalar -}
 
