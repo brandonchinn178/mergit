@@ -3,6 +3,7 @@ resolver: lts-13.5
 packages:
   - aeson-schemas
   - github-rest
+  - github-schemas
   - graphql
   - graphql/example
   - merge-bot

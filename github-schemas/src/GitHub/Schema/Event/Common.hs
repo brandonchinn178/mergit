@@ -1,5 +1,5 @@
 {-|
-Module      :  Servant.GitHub.Event.Common
+Module      :  GitHub.Schema.Event.Common
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
 Portability :  portable
@@ -12,7 +12,7 @@ Defines common types and schemas for GitHub events.
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 
-module Servant.GitHub.Event.Common where
+module GitHub.Schema.Event.Common where
 
 import Data.Aeson (FromJSON(..), ToJSON, withText)
 import Data.Aeson.Schema (schema)

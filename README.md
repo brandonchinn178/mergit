@@ -36,6 +36,9 @@ a GraphQL API and consuming the output using `aeson-schemas`.
 flexible than the `github` package on Hackage by manually defining endpoints
 instead of writing a function per endpoint.
 
+* `github-schemas`: A library containing schemas (defined with `aeson-schemas`)
+and data types for interacting with GitHub APIs.
+
 * `servant-github-app`: A library for serving a GitHub App with Servant.
 Similar to the `servant-github-webhook` package on Hackage, this library checks
 the signature sent with the payload to ensure that the event is sent by GitHub.

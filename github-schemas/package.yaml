@@ -1,0 +1,25 @@
+defaults:
+  local: ../hpack.yaml
+
+name: github-schemas
+version: 0.1.0
+
+dependencies:
+- aeson
+- aeson-schemas
+- base
+# - bytestring
+# - case-insensitive
+# - containers
+# - cryptonite
+# - github-rest
+# - http-types
+# - jwt
+# - memory
+# - servant-server
+- text
+- time
+# - wai
+
+library:
+  source-dirs: src
