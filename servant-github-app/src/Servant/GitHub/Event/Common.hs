@@ -14,7 +14,7 @@ Defines common types and schemas for GitHub events.
 
 module Servant.GitHub.Event.Common where
 
-import Data.Aeson (FromJSON(..), withText)
+import Data.Aeson (FromJSON(..), ToJSON, withText)
 import Data.Aeson.Schema (schema)
 import Data.Text (Text)
 import qualified Data.Text as Text
@@ -23,7 +23,7 @@ import Data.Time (UTCTime)
 {- Basic data types -}
 
 newtype SHA = SHA { unSHA :: Text }
-  deriving (Show,FromJSON)
+  deriving (Show,FromJSON,ToJSON)
 
 type URL = Text
 

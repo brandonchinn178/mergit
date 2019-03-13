@@ -24,6 +24,7 @@ import Data.GraphQL (get, runQuery)
 import Data.Text (Text)
 import qualified Data.Text as Text
 import GitHub.REST (KeyValue(..))
+import Servant.GitHub.Event.Common (SHA)
 
 import MergeBot.Core.GitHub
 import qualified MergeBot.Core.GraphQL.BranchTree as BranchTree
@@ -33,7 +34,7 @@ import MergeBot.Core.Text (toTryBranch, toTryMessage)
 default (Text)
 
 -- | Create the check run for trying PRs.
-createTryCheckRun :: MonadMergeBot m => Text -> m ()
+createTryCheckRun :: MonadMergeBot m => SHA -> m ()
 createTryCheckRun sha = createCheckRun
   [ "name"     := "Bot Try"
   , "head_sha" := sha
@@ -50,7 +51,7 @@ createTryCheckRun sha = createCheckRun
   ]
 
 -- | Create the check run for queuing/merging PRs.
-createMergeCheckRun :: MonadMergeBot m => Text -> m ()
+createMergeCheckRun :: MonadMergeBot m => SHA -> m ()
 createMergeCheckRun sha = createCheckRun
   [ "name"     := "Bot Merge"
   , "head_sha" := sha
@@ -67,7 +68,7 @@ createMergeCheckRun sha = createCheckRun
   ]
 
 -- | Start a new try job.
-startTryJob :: MonadMergeBot m => Int -> Text -> Text -> m ()
+startTryJob :: MonadMergeBot m => Int -> SHA -> SHA -> m ()
 startTryJob prNum prSHA baseSHA = createCIBranch baseSHA [prSHA] tryBranch tryMessage
   where
     tryBranch = toTryBranch prNum
@@ -80,7 +81,7 @@ startTryJob prNum prSHA baseSHA = createCIBranch baseSHA [prSHA] tryBranch tryMe
 -- * Deletes the existing try or merge branch, if one exists.
 -- * Errors if merge conflict
 -- * Errors if the .lymerge.yaml file is missing or invalid
-createCIBranch :: MonadMergeBot m => Text -> [Text] -> Text -> Text -> m ()
+createCIBranch :: MonadMergeBot m => SHA -> [SHA] -> Text -> Text -> m ()
 createCIBranch baseSHA prSHAs ciBranch message = do
   deleteBranch ciBranch
 

@@ -14,6 +14,7 @@ dependencies:
 - graphql-client
 - http-client
 - http-types
+- servant-github-app
 - text
 - transformers
 
