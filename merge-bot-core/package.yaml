@@ -8,9 +8,12 @@ dependencies:
 - aeson
 - aeson-schemas
 - base
+- bytestring
 - exceptions
 - github-rest
 - graphql-client
+- http-client
+- http-types
 - text
 - transformers
 

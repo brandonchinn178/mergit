@@ -24,6 +24,7 @@ import Data.Text (Text)
 import GitHub.REST
     (GHEndpoint(..), GitHubData, KeyValue(..), StdMethod(..), githubTry, (.:))
 
+import MergeBot.Core.GraphQL.Custom.GitObjectID (GitObjectID(..))
 import MergeBot.Core.Monad (MonadMergeBot, queryGitHub')
 
 -- | Create a branch.
@@ -54,14 +55,14 @@ createCheckRun ghData = void $ queryGitHub' GHEndpoint
 -- | Create a commit.
 --
 -- https://developer.github.com/v3/git/commits/#create-a-commit
-createCommit :: MonadMergeBot m => Text -> Text -> [Text] -> m Text
+createCommit :: MonadMergeBot m => Text -> GitObjectID -> [Text] -> m Text
 createCommit message tree parents = (.: "sha") <$> queryGitHub' GHEndpoint
   { method = POST
   , endpoint = "/repos/:owner/:repo/git/commits"
   , endpointVals = []
   , ghData =
     [ "message" := message
-    , "tree"    := tree
+    , "tree"    := unOID tree
     , "parents" := parents
     ]
   }

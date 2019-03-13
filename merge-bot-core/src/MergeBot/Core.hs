@@ -6,8 +6,11 @@ Portability :  portable
 
 This module defines core MergeBot functionality.
 -}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DisambiguateRecordFields #-}
 {-# LANGUAGE ExtendedDefaultRules #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
 module MergeBot.Core
@@ -17,11 +20,14 @@ module MergeBot.Core
   ) where
 
 import Control.Monad (forM_, unless)
+import Data.GraphQL (get, runQuery)
 import Data.Text (Text)
+import qualified Data.Text as Text
 import GitHub.REST (KeyValue(..))
 
 import MergeBot.Core.GitHub
-import MergeBot.Core.Monad (MonadMergeBot)
+import qualified MergeBot.Core.GraphQL.BranchTree as BranchTree
+import MergeBot.Core.Monad (MonadMergeBot(..))
 import MergeBot.Core.Text (toTryBranch, toTryMessage)
 
 default (Text)
@@ -90,7 +96,13 @@ createCIBranch baseSHA prSHAs ciBranch message = do
   -- TODO: fail if missing/invalid .lymerge.yaml
 
   -- create a new commit that merges all the PRs at once
-  let treeSHA = undefined
+  (repoOwner, repoName) <- getRepo
+  treeSHA <- [get| .repository.ref!.target.tree!.oid |] <$>
+    runQuery BranchTree.query BranchTree.Args
+      { _repoOwner = Text.unpack repoOwner
+      , _repoName = Text.unpack repoName
+      , _name = Text.unpack ciBranch
+      }
   mergeSHA <- createCommit message treeSHA (baseSHA : prSHAs)
 
   -- forcibly update CI branch to point to new merge commit
