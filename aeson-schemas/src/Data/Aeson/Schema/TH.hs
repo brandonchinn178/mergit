@@ -26,6 +26,7 @@ module Data.Aeson.Schema.TH
   , get
   , unwrap
   -- * Helpers for Enum types
+  , mkEnum
   , genFromJSONEnum
   ) where
 

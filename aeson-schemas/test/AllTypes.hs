@@ -1,26 +1,20 @@
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeFamilies #-}
 
 module AllTypes where
 
 import Data.Aeson (FromJSON(..), withText)
 import Data.Aeson.Schema
-import Data.Aeson.Schema.TH (genFromJSONEnum)
+import Data.Aeson.Schema.TH (mkEnum)
 import qualified Data.Text as Text
 
 import Util (getMockedResult)
 
 {- Greeting enum -}
 
-data Greeting = HELLO | GOODBYE
-  deriving (Show,Enum)
-
-genFromJSONEnum ''Greeting
+mkEnum "Greeting" ["HELLO", "GOODBYE"]
 
 {- Coordinate scalar -}
 
