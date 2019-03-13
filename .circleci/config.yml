@@ -28,6 +28,7 @@ aliases:
           graphql/package.yaml
           graphql/example/package.yaml
           merge-bot/package.yaml
+          merge-bot-core/package.yaml
           servant-github-app/package.yaml
           template-haskell-test-utils/package.yaml
           scripts/install-stack-deps.sh
@@ -105,6 +106,7 @@ jobs:
             - graphql/.stack-work
             - graphql/example/.stack-work
             - merge-bot/.stack-work
+            - merge-bot-core/.stack-work
             - servant-github-app/.stack-work
             - template-haskell-test-utils/.stack-work
 
