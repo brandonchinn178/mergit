@@ -6,9 +6,11 @@ version: 0.1.0
 
 dependencies:
 - aeson
+- aeson-schemas
 - base
 - exceptions
 - github-rest
+- graphql-client
 - text
 - transformers
 
