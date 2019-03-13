@@ -1,0 +1,21 @@
+query BranchTree($repoOwner: String!, $repoName: String!, $name: String!) {
+  repository(owner: $repoOwner, name: $repoName) {
+    ref(qualifiedName: $name) {
+      target {
+        ... on Commit {
+          tree {
+            oid
+            # entries {
+            #   name
+            #   object {
+            #     ... on Blob {
+            #       text
+            #     }
+            #   }
+            # }
+          }
+        }
+      }
+    }
+  }
+}

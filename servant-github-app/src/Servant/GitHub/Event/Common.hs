@@ -7,16 +7,25 @@ Portability :  portable
 Defines common types and schemas for GitHub events.
 -}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 
 module Servant.GitHub.Event.Common where
 
-import Data.Aeson (FromJSON(..), withText)
+import Data.Aeson (FromJSON(..), ToJSON, withText)
 import Data.Aeson.Schema (schema)
+import Data.Text (Text)
 import qualified Data.Text as Text
 import Data.Time (UTCTime)
+
+{- Basic data types -}
+
+newtype SHA = SHA { unSHA :: Text }
+  deriving (Show,FromJSON,ToJSON)
+
+type URL = Text
 
 {- Schemas used in every webhook: https://developer.github.com/webhooks/#payloads -}
 
@@ -25,19 +34,19 @@ type User = [schema|
     "login": Text,
     "id": Int,
     "node_id": Text,
-    "avatar_url": Text,
+    "avatar_url": URL,
     "gravatar_id": Text,
     "url": Text,
-    "html_url": Text,
-    "followers_url": Text,
-    "following_url": Text,
-    "gists_url": Text,
-    "starred_url": Text,
-    "subscriptions_url": Text,
-    "organizations_url": Text,
-    "repos_url": Text,
-    "events_url": Text,
-    "received_events_url": Text,
+    "html_url": URL,
+    "followers_url": URL,
+    "following_url": URL,
+    "gists_url": URL,
+    "starred_url": URL,
+    "subscriptions_url": URL,
+    "organizations_url": URL,
+    "repos_url": URL,
+    "events_url": URL,
+    "received_events_url": URL,
     "type": Text,
     "site_admin": Bool,
   }
@@ -51,54 +60,54 @@ type Repository = [schema|
     "full_name": Text,
     "owner": #User,
     "private": Bool,
-    "html_url": Text,
+    "html_url": URL,
     "description": Maybe Text,
     "fork": Bool,
-    "url": Text,
-    "forks_url": Text,
-    "keys_url": Text,
-    "collaborators_url": Text,
-    "teams_url": Text,
-    "hooks_url": Text,
-    "issue_events_url": Text,
-    "events_url": Text,
-    "assignees_url": Text,
-    "branches_url": Text,
-    "tags_url": Text,
-    "blobs_url": Text,
-    "git_tags_url": Text,
-    "git_refs_url": Text,
-    "trees_url": Text,
-    "statuses_url": Text,
-    "languages_url": Text,
-    "stargazers_url": Text,
-    "contributors_url": Text,
-    "subscribers_url": Text,
-    "subscription_url": Text,
-    "commits_url": Text,
-    "git_commits_url": Text,
-    "comments_url": Text,
-    "issue_comment_url": Text,
-    "contents_url": Text,
-    "compare_url": Text,
-    "merges_url": Text,
-    "archive_url": Text,
-    "downloads_url": Text,
-    "issues_url": Text,
-    "pulls_url": Text,
-    "milestones_url": Text,
-    "notifications_url": Text,
-    "labels_url": Text,
-    "releases_url": Text,
-    "deployments_url": Text,
-    "created_at": Text,
-    "updated_at": Text,
-    "pushed_at": Text,
-    "git_url": Text,
-    "ssh_url": Text,
-    "clone_url": Text,
-    "svn_url": Text,
-    "homepage": Maybe Text,
+    "url": URL,
+    "forks_url": URL,
+    "keys_url": URL,
+    "collaborators_url": URL,
+    "teams_url": URL,
+    "hooks_url": URL,
+    "issue_events_url": URL,
+    "events_url": URL,
+    "assignees_url": URL,
+    "branches_url": URL,
+    "tags_url": URL,
+    "blobs_url": URL,
+    "git_tags_url": URL,
+    "git_refs_url": URL,
+    "trees_url": URL,
+    "statuses_url": URL,
+    "languages_url": URL,
+    "stargazers_url": URL,
+    "contributors_url": URL,
+    "subscribers_url": URL,
+    "subscription_url": URL,
+    "commits_url": URL,
+    "git_commits_url": URL,
+    "comments_url": URL,
+    "issue_comment_url": URL,
+    "contents_url": URL,
+    "compare_url": URL,
+    "merges_url": URL,
+    "archive_url": URL,
+    "downloads_url": URL,
+    "issues_url": URL,
+    "pulls_url": URL,
+    "milestones_url": URL,
+    "notifications_url": URL,
+    "labels_url": URL,
+    "releases_url": URL,
+    "deployments_url": URL,
+    "created_at": UTCTime,
+    "updated_at": UTCTime,
+    "pushed_at": UTCTime,
+    "git_url": URL,
+    "ssh_url": URL,
+    "clone_url": URL,
+    "svn_url": URL,
+    "homepage": Maybe URL,
     "size": Int,
     "stargazers_count": Int,
     "watchers_count": Int,
@@ -109,7 +118,7 @@ type Repository = [schema|
     "has_wiki": Bool,
     "has_pages": Bool,
     "forks_count": Int,
-    "mirror_url": Maybe Text,
+    "mirror_url": Maybe URL,
     "archived": Bool,
     "open_issues_count": Int,
     "license": Maybe Text,
@@ -125,14 +134,14 @@ type Organization = [schema|
     "login": Text,
     "id": Int,
     "node_id": Text,
-    "url": Text,
-    "repos_url": Text,
-    "events_url": Text,
-    "hooks_url": Text,
-    "issues_url": Text,
-    "members_url": Text,
-    "public_members_url": Text,
-    "avatar_url": Text,
+    "url": URL,
+    "repos_url": URL,
+    "events_url": URL,
+    "hooks_url": URL,
+    "issues_url": URL,
+    "members_url": URL,
+    "public_members_url": URL,
+    "avatar_url": URL,
     "description": Text,
   }
 |]
@@ -159,7 +168,7 @@ type Comment = [schema|
     "id": Int,
     "node_id": Text,
     "url": Text,
-    "html_url": Text,
+    "html_url": URL,
     "body": Text,
     "user": #User,
     "created_at": UTCTime,
@@ -167,14 +176,28 @@ type Comment = [schema|
   }
 |]
 
+{- Commit -}
+
+type CommitShort = [schema|
+  {
+    "ref": Text,
+    "sha": SHA,
+    "repo": {
+      "id": Int,
+      "url": URL,
+      "name": Text,
+    },
+  }
+|]
+
 {- Deployment -}
 
 type Deployment = [schema|
   {
-    "url": Text,
+    "url": URL,
     "id": Int,
     "node_id": Text,
-    "sha": Text,
+    "sha": SHA,
     "ref": Text,
     "task": Text,
     "payload": {
@@ -186,8 +209,8 @@ type Deployment = [schema|
     "creator": #User,
     "created_at": UTCTime,
     "updated_at": UTCTime,
-    "statuses_url": Text,
-    "repository_url": Text,
+    "statuses_url": URL,
+    "repository_url": URL,
     "transient_environment": Bool,
     "producation_environment": Bool,
   }
@@ -200,9 +223,9 @@ type Installation = [schema|
     "id": Int,
     "account": #User,
     "repository_selection": Text,
-    "access_tokens_url": Text,
-    "repositories_url": Text,
-    "html_url": Text,
+    "access_tokens_url": URL,
+    "repositories_url": URL,
+    "html_url": URL,
     "app_id": Int,
     "target_id": Int,
     "target_type": Text,
@@ -223,12 +246,12 @@ type Issue = [schema|
   {
     "id": Int,
     "node_id": Text,
-    "url": Text,
-    "repository_url": Text,
-    "labels_url": Text,
-    "comments_url": Text,
-    "events_url": Text,
-    "html_url": Text,
+    "url": URL,
+    "repository_url": URL,
+    "labels_url": URL,
+    "comments_url": URL,
+    "events_url": URL,
+    "html_url": URL,
     "number": Int,
     "state": State,
     "title": Text,
@@ -242,10 +265,10 @@ type Issue = [schema|
     "active_lock_reason": Maybe Text,
     "comments": Int,
     "pull_request": Maybe {
-      "url": Text,
-      "html_url": Text,
-      "diff_url": Text,
-      "patch_url": Text,
+      "url": URL,
+      "html_url": URL,
+      "diff_url": URL,
+      "patch_url": URL,
     },
     "closed_at": Maybe UTCTime,
     "created_at": Maybe UTCTime,
@@ -260,7 +283,7 @@ type Label = [schema|
   {
     "id": Int,
     "node_id": Text,
-    "url": Text,
+    "url": URL,
     "name": Text,
     "description": Text,
     "color": Text,
@@ -272,9 +295,9 @@ type Label = [schema|
 
 type Milestone = [schema|
   {
-    "url": Text,
-    "html_url": Text,
-    "labels_url": Text,
+    "url": URL,
+    "html_url": URL,
+    "labels_url": URL,
     "id": Int,
     "node_id": Text,
     "number": Int,
@@ -295,13 +318,13 @@ type Milestone = [schema|
 
 type PullRequest = [schema|
   {
-    "url": Text,
+    "url": URL,
     "id": Int,
     "node_id": Text,
-    "html_url": Text,
-    "diff_url": Text,
-    "patch_url": Text,
-    "issue_url": Text,
+    "html_url": URL,
+    "diff_url": URL,
+    "patch_url": URL,
+    "issue_url": URL,
     "number": Int,
     "state": State,
     "locked": Bool,
@@ -312,57 +335,57 @@ type PullRequest = [schema|
     "updated_at": UTCTime,
     "closed_at": Maybe UTCTime,
     "merged_at": Maybe UTCTime,
-    "merge_commit_sha": Maybe Text,
+    "merge_commit_sha": Maybe SHA,
     "assignee": Maybe #User,
     "assignees": List #User,
     "requested_reviewers": List #User,
     "requested_teams": List #Team,
     "labels": List #Label,
     "milestone": Maybe #Milestone,
-    "commits_url": Text,
-    "review_comments_url": Text,
-    "review_comment_url": Text,
-    "comments_url": Text,
-    "statuses_url": Text,
+    "commits_url": URL,
+    "review_comments_url": URL,
+    "review_comment_url": URL,
+    "comments_url": URL,
+    "statuses_url": URL,
     "head": {
       "label": Text,
       "ref": Text,
-      "sha": Text,
+      "sha": SHA,
       "user": #User,
       "repo": #Repository,
     },
     "base": {
       "label": Text,
       "ref": Text,
-      "sha": Text,
+      "sha": SHA,
       "user": #User,
       "repo": #Repository
     },
     "_links": {
       "self": {
-        "href": Text
+        "href": URL
       },
       "html": {
-        "href": Text
+        "href": URL
       },
       "issue": {
-        "href": Text
+        "href": URL
       },
       "comments": {
-        "href": Text
+        "href": URL
       },
       "review_comments": {
-        "href": Text
+        "href": URL
       },
       "review_comment": {
-        "href": Text
+        "href": URL
       },
       "commits": {
-        "href": Text
+        "href": URL
       },
       "statuses": {
-        "href": Text
-      }
+        "href": URL
+      },
     },
     "author_association": Text,
     "merged": Bool,
@@ -377,6 +400,16 @@ type PullRequest = [schema|
     "additions": Int,
     "deletions": Int,
     "changed_files": Int
+  }
+|]
+
+type PullRequestShort = [schema|
+  {
+    "url": URL,
+    "id": Int,
+    "number": Int,
+    "head": #CommitShort,
+    "base": #CommitShort,
   }
 |]
 
@@ -417,14 +450,14 @@ type Team = [schema|
   {
     "id": Int,
     "node_id": Text,
-    "url": Text,
+    "url": URL,
     "name": Text,
     "slug": Text,
     "description": Text,
     "privacy": TeamPrivacy,
     "permission": Text,
-    "members_url": Text,
-    "repositories_url": Text,
+    "members_url": URL,
+    "repositories_url": URL,
     "parent": Maybe Int,
   }
 |]

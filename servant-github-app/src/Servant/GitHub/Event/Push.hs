@@ -23,13 +23,13 @@ type PushSchema = [schema|
     "size": Int,
     "distinct_size": Int,
     "commits": List {
-      "sha": Text,
+      "sha": SHA,
       "message": Text,
       "author": {
         "name": Text,
         "email": Text,
       },
-      "url": Text,
+      "url": URL,
       "distinct": Bool,
     },
     #BaseEvent,

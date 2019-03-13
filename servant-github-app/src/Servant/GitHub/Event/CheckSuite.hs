@@ -53,33 +53,11 @@ type CheckSuiteSchema = [schema|
     "action": CheckSuiteAction,
     "check_suite": {
       "head_branch": Text,
-      "head_sha": Text,
+      "head_sha": SHA,
       "status": CheckSuiteStatus,
       "conclusion": Maybe CheckRunConclusion,
-      "url": Text,
-      "pull_requests": List {
-        "url": Text,
-        "id": Int,
-        "number": Int,
-        "head": {
-          "ref": Text,
-          "sha": Text,
-          "repo": {
-            "id": Int,
-            "url": Text,
-            "name": Text,
-          },
-        },
-        "base": {
-          "ref": Text,
-          "sha": Text,
-          "repo": {
-            "id": Int,
-            "url": Text,
-            "name": Text,
-          },
-        },
-      },
+      "url": URL,
+      "pull_requests": List #PullRequestShort,
     },
     #BaseEvent,
   }

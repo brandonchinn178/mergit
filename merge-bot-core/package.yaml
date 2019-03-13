@@ -1,24 +1,22 @@
 defaults:
   local: ../hpack.yaml
 
-name: merge-bot
+name: merge-bot-core
 version: 0.1.0
 
 dependencies:
+- aeson
 - aeson-schemas
 - base
+- bytestring
+- exceptions
 - github-rest
-- merge-bot-core
+- graphql-client
+- http-client
+- http-types
 - servant-github-app
-- servant-server
 - text
-- warp
+- transformers
 
 library:
   source-dirs: src
-
-executable:
-  source-dirs: exe
-  main:        Main.hs
-  dependencies:
-    - merge-bot
