@@ -25,8 +25,11 @@ module Data.Aeson.Schema.TH
   ( schema
   , get
   , unwrap
+  -- * Helpers for Enum types
+  , genFromJSONEnum
   ) where
 
+import Data.Aeson.Schema.TH.Enum
 import Data.Aeson.Schema.TH.Get
 import Data.Aeson.Schema.TH.Schema
 import Data.Aeson.Schema.TH.Unwrap
