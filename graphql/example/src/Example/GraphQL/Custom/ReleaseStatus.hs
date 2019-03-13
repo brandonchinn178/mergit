@@ -1,22 +1,12 @@
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Example.GraphQL.Custom.ReleaseStatus where
 
-import Data.Aeson (FromJSON(..), withText)
-import qualified Data.Text as Text
+import Data.Aeson.Schema.TH (mkEnum)
 
-data ReleaseStatus
-  = OFFICIAL
-  | PROMOTION
-  | BOOTLEG
-  | PSEUDORELEASE
-  deriving (Show,Eq,Enum)
-
-instance FromJSON ReleaseStatus where
-  parseJSON = withText "ReleaseStatus" $ \case
-    "OFFICIAL" -> pure OFFICIAL
-    "PROMOTION" -> pure PROMOTION
-    "BOOTLEG" -> pure BOOTLEG
-    "PSEUDORELEASE" -> pure PSEUDORELEASE
-    t -> fail $ "Bad ReleaseStatus: " ++ Text.unpack t
+mkEnum "ReleaseStatus"
+  [ "OFFICIAL"
+  , "PROMOTION"
+  , "BOOTLEG"
+  , "PSEUDORELEASE"
+  ]
