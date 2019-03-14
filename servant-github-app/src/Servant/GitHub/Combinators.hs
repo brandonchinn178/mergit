@@ -29,12 +29,11 @@ module Servant.GitHub.Combinators
   , GitHubAction
   ) where
 
-import Control.Monad (unless)
+import Control.Monad (unless, (>=>))
 import Control.Monad.IO.Class (liftIO)
 import Data.Aeson.Schema (IsSchemaObject, Object, get)
 import qualified Data.ByteString.Lazy as ByteStringL
 import Data.Proxy (Proxy(..))
-import GHC.TypeLits (KnownNat, Nat, natVal)
 import GitHub.REST (Token)
 import GitHub.Schema.BaseEvent (BaseEvent)
 import Network.Wai (Request)
@@ -121,20 +120,19 @@ instance
 --
 -- > handle :: Token -> Handler ()
 -- > handle token = ...
-type WithToken = WithToken' ('SingleToken 10)
+type WithToken = WithToken' 'SingleToken
 
 data TokenType
-  = SingleToken Nat
-    -- ^ Generates a single token to use, with the given expiration in minutes
+  = SingleToken
+    -- ^ Generates a single token to use
   | TokenMaker
-    -- ^ Provides a value @Int -> IO Token@ that generates a token with the given expiration. Useful
-    -- for hooks that might take a long time, and you want finer-grained control over token
-    -- generation
+    -- ^ Provides a value @IO Token@ that generates a token. Useful for hooks that might take a
+    -- long time and/or you want finer-grained control over token generation
 
 data WithToken' (tokenType :: TokenType)
 
 -- Generates a token that expires in the given number of minutes
-type TokenGenerator = Int -> IO Token
+type TokenGenerator = IO Token
 
 mkTokenGenerator :: HasContextEntry context GitHubAppParams
   => Context context -> Request -> Servant.DelayedIO TokenGenerator
@@ -147,19 +145,16 @@ mkTokenGenerator context request = do
 instance
   ( HasServer api context
   , HasContextEntry context GitHubAppParams
-  , KnownNat expiry
-  ) => HasServer (WithToken' ('SingleToken expiry) :> api) context where
+  ) => HasServer (WithToken' 'SingleToken :> api) context where
 
-  type ServerT (WithToken' ('SingleToken expiry) :> api) m = Token -> ServerT api m
+  type ServerT (WithToken' 'SingleToken :> api) m = Token -> ServerT api m
 
   hoistServerWithContext _ _ f s = hoistServerWithContext (Proxy @api) (Proxy @context) f . s
 
   -- TODO: fix the fact that a token is generated for every branch, even if the event didn't match
   route _ context = route (Proxy @api) context . addBodyCheck provideToken
     where
-      provideToken request = do
-        generator <- mkTokenGenerator context request
-        liftIO . generator $ fromIntegral $ natVal (Proxy @expiry)
+      provideToken = mkTokenGenerator context >=> liftIO
 
 instance
   ( HasServer api context
