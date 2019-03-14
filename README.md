@@ -62,6 +62,7 @@ provide an access token to use for the duration of a request.
     1. Events:
         * Check run
         * Check suite
+        * Pull request
     1. Save the webhook secret you created and the App ID and Private key that
        GitHub generated for you.
 

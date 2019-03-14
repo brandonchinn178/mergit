@@ -13,8 +13,7 @@ This module defines core MergeBot functionality.
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
 module MergeBot.Core
-  ( createTryCheckRun
-  , createMergeCheckRun
+  ( createCheckRuns
   , startTryJob
   ) where
 
@@ -36,6 +35,9 @@ import MergeBot.Core.Monad (MonadMergeBot(..))
 import MergeBot.Core.Text (toTryBranch, toTryMessage)
 
 default (Text)
+
+createCheckRuns :: MonadMergeBot m => GitObjectID -> m ()
+createCheckRuns sha = createTryCheckRun sha >> createMergeCheckRun sha
 
 -- | Create the check run for trying PRs.
 createTryCheckRun :: MonadMergeBot m => GitObjectID -> m ()
