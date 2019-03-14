@@ -7,46 +7,32 @@ Portability :  portable
 Defines the schema for PullRequestEvent.
 -}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module GitHub.Schema.Event.PullRequest where
 
-import Data.Aeson (FromJSON(..), withText)
 import Data.Aeson.Schema (schema)
-import qualified Data.Text as Text
+import Data.Aeson.Schema.TH (mkEnum)
 
 import GitHub.Schema.BaseEvent (BaseEvent)
+import GitHub.Schema.PullRequest (PullRequestWebhook)
 
-data PullRequestAction
-  = PullRequestAssigned
-  | PullRequestUnassigned
-  | PullRequestReviewRequested
-  | PullRequestReviewRequestRemoved
-  | PullRequestLabeled
-  | PullRequestUnlabeled
-  | PullRequestOpened
-  | PullRequestEdited
-  | PullRequestClosed
-  | PullRequestReopened
-  deriving (Show)
+mkEnum "PullRequestAction"
+  [ "ASSIGNED"
+  , "UNASSIGNED"
+  , "REVIEW_REQUESTED"
+  , "REVIEW_REQUEST_REMOVED"
+  , "LABELED"
+  , "UNLABELED"
+  , "OPENED"
+  , "EDITED"
+  , "CLOSED"
+  , "REOPENED"
+  ]
 
-instance FromJSON PullRequestAction where
-  parseJSON = withText "PullRequestAction" $ \case
-    "assigned" -> pure PullRequestAssigned
-    "unassigned" -> pure PullRequestUnassigned
-    "review_requested" -> pure PullRequestReviewRequested
-    "review_request_removed" -> pure PullRequestReviewRequestRemoved
-    "labeled" -> pure PullRequestLabeled
-    "unlabeled" -> pure PullRequestUnlabeled
-    "opened" -> pure PullRequestOpened
-    "edited" -> pure PullRequestEdited
-    "closed" -> pure PullRequestClosed
-    "reopened" -> pure PullRequestReopened
-    t -> fail $ "Bad PullRequestAction: " ++ Text.unpack t
-
-type PullRequestSchema = [schema|
+type PullRequestEvent = [schema|
   {
     "action": PullRequestAction,
     "number": Int,
@@ -58,7 +44,7 @@ type PullRequestSchema = [schema|
         "from": Text,
       },
     },
-    "pull_request": #PullRequest,
+    "pull_request": #PullRequestWebhook,
     #BaseEvent,
   }
 |]

@@ -7,6 +7,7 @@ Portability :  portable
 Defines the schema for ForkEvent.
 -}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE QuasiQuotes #-}
 
 module GitHub.Schema.Event.Fork where
@@ -14,10 +15,11 @@ module GitHub.Schema.Event.Fork where
 import Data.Aeson.Schema (schema)
 
 import GitHub.Schema.BaseEvent (BaseEvent)
+import GitHub.Schema.Repository (RepoWebhook)
 
-type ForkSchema = [schema|
+type ForkEvent = [schema|
   {
-    "forkee": #Repository,
+    "forkee": #RepoWebhook,
     #BaseEvent,
   }
 |]

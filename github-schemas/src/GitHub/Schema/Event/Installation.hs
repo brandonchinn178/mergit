@@ -7,32 +7,26 @@ Portability :  portable
 Defines the schema for InstallationEvent.
 -}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module GitHub.Schema.Event.Installation where
 
-import Data.Aeson (FromJSON(..), withText)
 import Data.Aeson.Schema (schema)
-import qualified Data.Text as Text
+import Data.Aeson.Schema.TH (mkEnum)
 
 import GitHub.Schema.BaseEvent (BaseEvent)
+import GitHub.Schema.Installation (Installation)
+import GitHub.Schema.Repository (RepositoryShort)
 
-data InstallationAction
-  = InstallationCreated
-  | InstallationDeleted
-  | InstallationNewPerms
-  deriving (Show)
+mkEnum "InstallationAction"
+  [ "CREATED"
+  , "DELETED"
+  , "NEW_PERMISSIONS_ACCEPTED"
+  ]
 
-instance FromJSON InstallationAction where
-  parseJSON = withText "InstallationAction" $ \case
-    "created" -> pure InstallationCreated
-    "deleted" -> pure InstallationDeleted
-    "new_permissions_accepted" -> pure InstallationNewPerms
-    t -> fail $ "Bad InstallationAction: " ++ Text.unpack t
-
-type InstallationSchema = [schema|
+type InstallationEvent = [schema|
   {
     "action": InstallationAction,
     "installation": #Installation,

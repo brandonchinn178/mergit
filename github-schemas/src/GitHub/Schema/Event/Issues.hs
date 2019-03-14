@@ -7,54 +7,38 @@ Portability :  portable
 Defines the schema for IssuesEvent.
 -}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module GitHub.Schema.Event.Issues where
 
-import Data.Aeson (FromJSON(..), withText)
 import Data.Aeson.Schema (schema)
-import qualified Data.Text as Text
+import Data.Aeson.Schema.TH (mkEnum)
 
 import GitHub.Schema.BaseEvent (BaseEvent)
+import GitHub.Schema.Issue (Issue)
+import GitHub.Schema.Label (Label)
+import GitHub.Schema.User (UserWebhook)
 
-data IssuesAction
-  = IssuesOpened
-  | IssuesEdited
-  | IssuesDeleted
-  | IssuesTransferred
-  | IssuesPinned
-  | IssuesUnpinned
-  | IssuesClosed
-  | IssuesReopened
-  | IssuesAssigned
-  | IssuesUnassigned
-  | IssuesLabeled
-  | IssuesUnlabeled
-  | IssuesMilestoned
-  | IssuesDemilestoned
-  deriving (Show)
+mkEnum "IssuesAction"
+  [ "OPENED"
+  , "EDITED"
+  , "DELETED"
+  , "TRANSFERRED"
+  , "PINNED"
+  , "UNPINNED"
+  , "CLOSED"
+  , "REOPENED"
+  , "ASSIGNED"
+  , "UNASSIGNED"
+  , "LABELED"
+  , "UNLABELED"
+  , "MILESTONED"
+  , "DEMILESTONED"
+  ]
 
-instance FromJSON IssuesAction where
-  parseJSON = withText "IssuesAction" $ \case
-    "opened" -> pure IssuesOpened
-    "edited" -> pure IssuesEdited
-    "deleted" -> pure IssuesDeleted
-    "transferred" -> pure IssuesTransferred
-    "pinned" -> pure IssuesPinned
-    "unpinned" -> pure IssuesUnpinned
-    "closed" -> pure IssuesClosed
-    "reopened" -> pure IssuesReopened
-    "assigned" -> pure IssuesAssigned
-    "unassigned" -> pure IssuesUnassigned
-    "labeled" -> pure IssuesLabeled
-    "unlabeled" -> pure IssuesUnlabeled
-    "milestoned" -> pure IssuesMilestoned
-    "demilestoned" -> pure IssuesDemilestoned
-    t -> fail $ "Bad IssuesAction: " ++ Text.unpack t
-
-type IssuesSchema = [schema|
+type IssuesEvent = [schema|
   {
     "action": IssuesAction,
     "issue": #Issue,
@@ -66,7 +50,7 @@ type IssuesSchema = [schema|
         "from": Text,
       },
     },
-    "assignee": Maybe #User,
+    "assignee": Maybe #UserWebhook,
     "label": Maybe #Label,
     #BaseEvent,
   }

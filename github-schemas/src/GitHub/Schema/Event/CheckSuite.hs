@@ -7,53 +7,34 @@ Portability :  portable
 Defines the schema for CheckSuiteEvent.
 -}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module GitHub.Schema.Event.CheckSuite where
 
-import Data.Aeson (FromJSON(..), withText)
 import Data.Aeson.Schema (schema)
-import qualified Data.Text as Text
+import Data.Aeson.Schema.TH (mkEnum)
 
-import GitHub.Schema.Event.CheckRun (CheckRunConclusion)
+import GitHub.Data.CheckSuiteStatus (CheckSuiteStatus)
+import GitHub.Data.GitObjectID (GitObjectID)
+import GitHub.Data.URL (URL)
 import GitHub.Schema.BaseEvent (BaseEvent)
+import GitHub.Schema.Event.CheckRun (CheckRunConclusion)
+import GitHub.Schema.PullRequest (PullRequestShort)
 
-data CheckSuiteAction
-  = CheckSuiteCompletedAction
-  | CheckSuiteRequestedAction
-  | CheckSuiteRerequestedAction
-  deriving (Show)
+mkEnum "CheckSuiteAction"
+  [ "COMPLETED"
+  , "REQUESTED"
+  , "REREQUESTED"
+  ]
 
-instance FromJSON CheckSuiteAction where
-  parseJSON = withText "CheckSuiteAction" $ \case
-    "completed" -> pure CheckSuiteCompletedAction
-    "requested" -> pure CheckSuiteRequestedAction
-    "rerequested" -> pure CheckSuiteRerequestedAction
-    t -> fail $ "Bad CheckSuiteAction: " ++ Text.unpack t
-
-data CheckSuiteStatus
-  = CheckSuiteRequested
-  | CheckSuiteQueued
-  | CheckSuiteInProgress
-  | CheckSuiteCompleted
-  deriving (Show)
-
-instance FromJSON CheckSuiteStatus where
-  parseJSON = withText "CheckSuiteStatus" $ \case
-    "requested" -> pure CheckSuiteRequested
-    "queued" -> pure CheckSuiteQueued
-    "in_progress" -> pure CheckSuiteInProgress
-    "completed" -> pure CheckSuiteCompleted
-    t -> fail $ "Bad CheckSuiteStatus: " ++ Text.unpack t
-
-type CheckSuiteSchema = [schema|
+type CheckSuiteEvent = [schema|
   {
     "action": CheckSuiteAction,
     "check_suite": {
       "head_branch": Text,
-      "head_sha": SHA,
+      "head_sha": GitObjectID,
       "status": CheckSuiteStatus,
       "conclusion": Maybe CheckRunConclusion,
       "url": URL,

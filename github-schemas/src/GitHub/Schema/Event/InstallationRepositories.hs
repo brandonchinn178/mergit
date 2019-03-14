@@ -7,41 +7,30 @@ Portability :  portable
 Defines the schema for InstallationRepositoriesEvent.
 -}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module GitHub.Schema.Event.InstallationRepositories where
 
-import Data.Aeson (FromJSON(..), withText)
 import Data.Aeson.Schema (schema)
-import qualified Data.Text as Text
+import Data.Aeson.Schema.TH (mkEnum)
 
 import GitHub.Schema.BaseEvent (BaseEvent)
+import GitHub.Schema.Installation (Installation)
+import GitHub.Schema.Repository (RepositoryShort)
 
-data InstallationRepoAction
-  = InstallationRepoAdded
-  | InstallationRepoRemoved
-  deriving (Show)
+mkEnum "InstallationRepoAction"
+  [ "ADDED"
+  , "REMOVED"
+  ]
 
-instance FromJSON InstallationRepoAction where
-  parseJSON = withText "InstallationRepoAction" $ \case
-    "added" -> pure InstallationRepoAdded
-    "removed" -> pure InstallationRepoRemoved
-    t -> fail $ "Bad InstallationRepoAction: " ++ Text.unpack t
+mkEnum "InstallationRepoSelection"
+  [ "SELECTED"
+  , "ALL"
+  ]
 
-data InstallationRepoSelection
-  = InstallationRepoSelected
-  | InstallationRepoSelectAll
-  deriving (Show)
-
-instance FromJSON InstallationRepoSelection where
-  parseJSON = withText "InstallationRepoSelection" $ \case
-    "selected" -> pure InstallationRepoSelected
-    "all" -> pure InstallationRepoSelectAll
-    t -> fail $ "Bad InstallationRepoSelection: " ++ Text.unpack t
-
-type InstallationRepositoriesSchema = [schema|
+type InstallationRepositoriesEvent = [schema|
   {
     "action": InstallationRepoAction,
     "installation": #Installation,

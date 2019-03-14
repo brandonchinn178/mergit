@@ -7,32 +7,26 @@ Portability :  portable
 Defines the schema for IssueCommentEvent.
 -}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module GitHub.Schema.Event.IssueComment where
 
-import Data.Aeson (FromJSON(..), withText)
 import Data.Aeson.Schema (schema)
-import qualified Data.Text as Text
+import Data.Aeson.Schema.TH (mkEnum)
 
 import GitHub.Schema.BaseEvent (BaseEvent)
+import GitHub.Schema.Comment (Comment)
+import GitHub.Schema.Issue (Issue)
 
-data IssueCommentAction
-  = IssueCommentCreated
-  | IssueCommentEdited
-  | IssueCommentDeleted
-  deriving (Show)
+mkEnum "IssueCommentAction"
+  [ "CREATED"
+  , "EDITED"
+  , "DELETED"
+  ]
 
-instance FromJSON IssueCommentAction where
-  parseJSON = withText "IssueCommentAction" $ \case
-    "created" -> pure IssueCommentCreated
-    "edited" -> pure IssueCommentEdited
-    "deleted" -> pure IssueCommentDeleted
-    t -> fail $ "Bad IssueCommentAction: " ++ Text.unpack t
-
-type IssueCommentSchema = [schema|
+type IssueCommentEvent = [schema|
   {
     "action": IssueCommentAction,
     "changes": Maybe {

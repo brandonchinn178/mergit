@@ -7,34 +7,28 @@ Portability :  portable
 Defines the schema for DeploymentStatusEvent.
 -}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module GitHub.Schema.Event.DeploymentStatus where
 
-import Data.Aeson (FromJSON(..), withText)
 import Data.Aeson.Schema (schema)
-import qualified Data.Text as Text
+import Data.Aeson.Schema.TH (mkEnum)
 
+import GitHub.Data.URL (URL)
 import GitHub.Schema.BaseEvent (BaseEvent)
+import GitHub.Schema.Deployment (Deployment)
+import GitHub.Schema.Repository (RepoWebhook)
 
-data DeploymentState
-  = DeploymentPending
-  | DeploymentSuccess
-  | DeploymentFailure
-  | DeploymentError
-  deriving (Show)
+mkEnum "DeploymentState"
+  [ "PENDING"
+  , "SUCCESS"
+  , "FAILURE"
+  , "ERROR"
+  ]
 
-instance FromJSON DeploymentState where
-  parseJSON = withText "DeploymentState" $ \case
-    "pending" -> pure DeploymentPending
-    "success" -> pure DeploymentSuccess
-    "failure" -> pure DeploymentFailure
-    "error" -> pure DeploymentError
-    t -> fail $ "Bad DeploymentState: " ++ Text.unpack t
-
-type DeploymentStatusSchema = [schema|
+type DeploymentStatusEvent = [schema|
   {
     "deployment_status": {
       "state": DeploymentState,
@@ -42,7 +36,7 @@ type DeploymentStatusSchema = [schema|
       "description": Maybe Text,
     },
     "deployment": #Deployment,
-    "repository": #Repository,
+    "repository": #RepoWebhook,
     #BaseEvent,
   }
 |]

@@ -7,28 +7,22 @@ Portability :  portable
 Defines the schema for GitHubAppAuthorizationEvent.
 -}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module GitHub.Schema.Event.GitHubAppAuthorization where
 
-import Data.Aeson (FromJSON(..), withText)
 import Data.Aeson.Schema (schema)
-import qualified Data.Text as Text
+import Data.Aeson.Schema.TH (mkEnum)
 
 import GitHub.Schema.BaseEvent (BaseEvent)
 
-data GitHubAppAuthorizationAction
-  = GitHubAppAuthorizationRevoked
-  deriving (Show)
+mkEnum "GitHubAppAuthorizationAction"
+  [ "REVOKED"
+  ]
 
-instance FromJSON GitHubAppAuthorizationAction where
-  parseJSON = withText "GitHubAppAuthorizationAction" $ \case
-    "revoked" -> pure GitHubAppAuthorizationRevoked
-    t -> fail $ "Bad GitHubAppAuthorizationAction: " ++ Text.unpack t
-
-type GitHubAppAuthorizationSchema = [schema|
+type GitHubAppAuthorizationEvent = [schema|
   {
     "action": GitHubAppAuthorizationAction,
     #BaseEvent,

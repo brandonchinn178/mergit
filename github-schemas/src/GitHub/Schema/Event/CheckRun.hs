@@ -7,64 +7,35 @@ Portability :  portable
 Defines the schema for CheckRunEvent.
 -}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module GitHub.Schema.Event.CheckRun where
 
-import Data.Aeson (FromJSON(..), withText)
 import Data.Aeson.Schema (schema)
-import qualified Data.Text as Text
+import Data.Aeson.Schema.TH (mkEnum)
 
+import GitHub.Data.CheckRunStatus (CheckRunStatus)
 import GitHub.Schema.BaseEvent (BaseEvent)
+import GitHub.Schema.PullRequest (PullRequestShort)
 
-data CheckRunAction
-  = CheckRunCreated
-  | CheckRunRerequested
-  | CheckRunRequestedAction
-  deriving (Show)
+mkEnum "CheckRunAction"
+  [ "CREATED"
+  , "REREQUESTED"
+  , "REQUESTED_ACTION"
+  ]
 
-instance FromJSON CheckRunAction where
-  parseJSON = withText "CheckRunAction" $ \case
-    "created" -> pure CheckRunCreated
-    "rerequested" -> pure CheckRunRerequested
-    "requested_action" -> pure CheckRunRequestedAction
-    t -> fail $ "Bad CheckRunAction: " ++ Text.unpack t
+mkEnum "CheckRunConclusion"
+  [ "SUCCESS"
+  , "FAILURE"
+  , "NEUTRAL"
+  , "CANCELLED"
+  , "TIMED_OUT"
+  , "ACTION_REQUIRED"
+  ]
 
-data CheckRunStatus
-  = CheckRunQueued
-  | CheckRunInProgress
-  | CheckRunCompleted
-  deriving (Show)
-
-instance FromJSON CheckRunStatus where
-  parseJSON = withText "CheckRunStatus" $ \case
-    "queued" -> pure CheckRunQueued
-    "in_progress" -> pure CheckRunInProgress
-    "completed" -> pure CheckRunCompleted
-    t -> fail $ "Bad CheckRunStatus: " ++ Text.unpack t
-
-data CheckRunConclusion
-  = CheckRunSuccess
-  | CheckRunFailure
-  | CheckRunNeutral
-  | CheckRunCancelled
-  | CheckRunTimedOut
-  | CheckRunActionRequired
-  deriving (Show)
-
-instance FromJSON CheckRunConclusion where
-  parseJSON = withText "CheckRunConclusion" $ \case
-    "success" -> pure CheckRunSuccess
-    "failure" -> pure CheckRunFailure
-    "neutral" -> pure CheckRunNeutral
-    "cancelled" -> pure CheckRunCancelled
-    "timed_out" -> pure CheckRunTimedOut
-    "action_required" -> pure CheckRunActionRequired
-    t -> fail $ "Bad CheckRunConclusion: " ++ Text.unpack t
-
-type CheckRunSchema = [schema|
+type CheckRunEvent = [schema|
   {
     "action": CheckRunAction,
     "check_run": {

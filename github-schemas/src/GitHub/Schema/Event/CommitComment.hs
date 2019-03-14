@@ -7,28 +7,23 @@ Portability :  portable
 Defines the schema for CommitCommentEvent.
 -}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module GitHub.Schema.Event.CommitComment where
 
-import Data.Aeson (FromJSON(..), withText)
 import Data.Aeson.Schema (schema)
-import qualified Data.Text as Text
+import Data.Aeson.Schema.TH (mkEnum)
 
 import GitHub.Schema.BaseEvent (BaseEvent)
+import GitHub.Schema.Comment (Comment)
 
-data CommitCommentAction
-  = CommitCommentCreated
-  deriving (Show)
+mkEnum "CommitCommentAction"
+  [ "CREATED"
+  ]
 
-instance FromJSON CommitCommentAction where
-  parseJSON = withText "CommitCommentAction" $ \case
-    "created" -> pure CommitCommentCreated
-    t -> fail $ "Bad CommitCommentAction: " ++ Text.unpack t
-
-type CommitCommentSchema = [schema|
+type CommitCommentEvent = [schema|
   {
     "action": CommitCommentAction,
     "comment": {

@@ -7,28 +7,22 @@ Portability :  portable
 Defines the schema for ContentReferenceEvent.
 -}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module GitHub.Schema.Event.ContentReference where
 
-import Data.Aeson (FromJSON(..), withText)
 import Data.Aeson.Schema (schema)
-import qualified Data.Text as Text
+import Data.Aeson.Schema.TH (mkEnum)
 
 import GitHub.Schema.BaseEvent (BaseEvent)
 
-data ContentReferenceAction
-  = ContentReferenceCreated
-  deriving (Show)
+mkEnum "ContentReferenceAction"
+  [ "CREATED"
+  ]
 
-instance FromJSON ContentReferenceAction where
-  parseJSON = withText "ContentReferenceAction" $ \case
-    "created" -> pure ContentReferenceCreated
-    t -> fail $ "Bad ContentReferenceAction: " ++ Text.unpack t
-
-type ContentReferenceSchema = [schema|
+type ContentReferenceEvent = [schema|
   {
     "action": ContentReferenceAction,
     "content_reference": {

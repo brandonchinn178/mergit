@@ -7,32 +7,24 @@ Portability :  portable
 Defines the schema for CreateEvent.
 -}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module GitHub.Schema.Event.Create where
 
-import Data.Aeson (FromJSON(..), withText)
 import Data.Aeson.Schema (schema)
-import qualified Data.Text as Text
+import Data.Aeson.Schema.TH (mkEnum)
 
 import GitHub.Schema.BaseEvent (BaseEvent)
 
-data CreateRefType
-  = CreateRefRepo
-  | CreateRefBranch
-  | CreateRefTag
-  deriving (Show)
+mkEnum "CreateRefType"
+  [ "REPO"
+  , "BRANCH"
+  , "TAG"
+  ]
 
-instance FromJSON CreateRefType where
-  parseJSON = withText "CreateRefType" $ \case
-    "repository" -> pure CreateRefRepo
-    "branch" -> pure CreateRefBranch
-    "tag" -> pure CreateRefTag
-    t -> fail $ "Bad CreateRefType: " ++ Text.unpack t
-
-type CreateSchema = [schema|
+type CreateEvent = [schema|
   {
     "ref_type": CreateRefType,
     "ref": Maybe Text,

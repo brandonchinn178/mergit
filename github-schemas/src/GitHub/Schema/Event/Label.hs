@@ -7,32 +7,25 @@ Portability :  portable
 Defines the schema for LabelEvent.
 -}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module GitHub.Schema.Event.Label where
 
-import Data.Aeson (FromJSON(..), withText)
 import Data.Aeson.Schema (schema)
-import qualified Data.Text as Text
+import Data.Aeson.Schema.TH (mkEnum)
 
 import GitHub.Schema.BaseEvent (BaseEvent)
+import GitHub.Schema.Label (Label)
 
-data LabelAction
-  = LabelCreated
-  | LabelEdited
-  | LabelDeleted
-  deriving (Show)
+mkEnum "LabelAction"
+  [ "CREATED"
+  , "EDITED"
+  , "DELETED"
+  ]
 
-instance FromJSON LabelAction where
-  parseJSON = withText "LabelAction" $ \case
-    "opened" -> pure LabelCreated
-    "edited" -> pure LabelEdited
-    "deleted" -> pure LabelDeleted
-    t -> fail $ "Bad LabelAction: " ++ Text.unpack t
-
-type LabelSchema = [schema|
+type LabelEvent = [schema|
   {
     "action": LabelAction,
     "label": #Label,
