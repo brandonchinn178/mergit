@@ -19,11 +19,13 @@ module MergeBot.Core
   ) where
 
 import Control.Monad (forM_, unless, when)
+import Control.Monad.IO.Class (liftIO)
 import Data.GraphQL (get)
 import Data.Maybe (isNothing)
 import Data.Text (Text)
 import qualified Data.Text as Text
 import qualified Data.Text.Encoding as Text
+import Data.Time (getCurrentTime)
 import Data.Yaml (decodeThrow)
 import GitHub.Data.GitObjectID (GitObjectID)
 import GitHub.REST (KeyValue(..))
@@ -70,8 +72,23 @@ createMergeCheckRun sha = createCheckRun
   ]
 
 -- | Start a new try job.
-startTryJob :: MonadMergeBot m => Int -> GitObjectID -> GitObjectID -> m ()
-startTryJob prNum prSHA baseSHA = createCIBranch baseSHA [prSHA] tryBranch tryMessage
+startTryJob :: MonadMergeBot m => Int -> Int -> GitObjectID -> GitObjectID -> m ()
+startTryJob checkRunId prNum prSHA baseSHA = do
+  -- create the try branch
+  createCIBranch baseSHA [prSHA] tryBranch tryMessage
+
+  now <- liftIO getCurrentTime
+
+  -- update the "Bot Try" check run
+  updateCheckRun checkRunId
+    [ "started_at" := now
+    , "status" := "in_progress"
+    , "output" :=
+      [ "title" := "Try Run"
+      , "summary" := "Try run is in progress (TODO: show CI details)"
+      ]
+    , "actions" := []
+    ]
   where
     tryBranch = toTryBranch prNum
     tryMessage = toTryMessage prNum

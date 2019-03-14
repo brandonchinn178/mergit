@@ -38,6 +38,7 @@ type CheckRunEvent = [schema|
   {
     "action": CheckRunAction,
     "check_run": {
+      "id": Int,
       "status": CheckRunStatus,
       "conclusion": Maybe CheckRunConclusion,
       "name": Text,

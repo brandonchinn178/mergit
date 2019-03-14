@@ -18,6 +18,7 @@ module MergeBot.Core.GitHub
     getTree, Tree
   -- * REST
   , createCheckRun
+  , updateCheckRun
   , createCommit
   , createBranch
   , updateBranch
@@ -62,6 +63,17 @@ createCheckRun ghData = void $ queryGitHub' GHEndpoint
   { method = POST
   , endpoint = "/repos/:owner/:repo/check-runs"
   , endpointVals = []
+  , ghData
+  }
+
+-- | Update a check run.
+--
+-- https://developer.github.com/v3/checks/runs/#update-a-check-run
+updateCheckRun :: MonadMergeBot m => Int -> GitHubData -> m ()
+updateCheckRun checkRunId ghData = void $ queryGitHub' GHEndpoint
+  { method = PATCH
+  , endpoint = "/repos/:owner/:repo/check-runs/:check_run_id"
+  , endpointVals = ["check_run_id" := checkRunId]
   , ghData
   }
 
