@@ -11,10 +11,10 @@ dependencies:
 - bytestring
 - exceptions
 - github-rest
+- github-schemas
 - graphql-client
 - http-client
 - http-types
-- servant-github-app
 - text
 - transformers
 

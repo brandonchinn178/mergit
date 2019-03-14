@@ -21,17 +21,16 @@ module MergeBot.Core.GitHub
 import Control.Monad (void)
 import Data.Either (isRight)
 import Data.Text (Text)
+import GitHub.Data.GitObjectID (GitObjectID)
 import GitHub.REST
     (GHEndpoint(..), GitHubData, KeyValue(..), StdMethod(..), githubTry, (.:))
-import Servant.GitHub.Event.Common (SHA)
 
-import MergeBot.Core.GraphQL.Custom.GitObjectID (GitObjectID)
 import MergeBot.Core.Monad (MonadMergeBot, queryGitHub')
 
 -- | Create a branch.
 --
 -- https://developer.github.com/v3/git/refs/#create-a-reference
-createBranch :: MonadMergeBot m => Text -> SHA -> m ()
+createBranch :: MonadMergeBot m => Text -> GitObjectID -> m ()
 createBranch name sha = void $ queryGitHub' GHEndpoint
   { method = POST
   , endpoint = "/repos/:owner/:repo/git/refs"
@@ -56,7 +55,7 @@ createCheckRun ghData = void $ queryGitHub' GHEndpoint
 -- | Create a commit.
 --
 -- https://developer.github.com/v3/git/commits/#create-a-commit
-createCommit :: MonadMergeBot m => Text -> GitObjectID -> [SHA] -> m SHA
+createCommit :: MonadMergeBot m => Text -> GitObjectID -> [GitObjectID] -> m GitObjectID
 createCommit message tree parents = (.: "sha") <$> queryGitHub' GHEndpoint
   { method = POST
   , endpoint = "/repos/:owner/:repo/git/commits"
@@ -84,7 +83,7 @@ deleteBranch branch = void $ githubTry $ queryGitHub' GHEndpoint
 -- Returns False if there was a merge conflict
 --
 -- https://developer.github.com/v3/repos/merging/#perform-a-merge
-mergeBranches :: MonadMergeBot m => Text -> SHA -> Text -> m Bool
+mergeBranches :: MonadMergeBot m => Text -> GitObjectID -> Text -> m Bool
 mergeBranches base sha message = fmap isRight $ githubTry $ queryGitHub' GHEndpoint
   { method = POST
   , endpoint = "/repos/:owner/:repo/merges"
@@ -101,7 +100,7 @@ mergeBranches base sha message = fmap isRight $ githubTry $ queryGitHub' GHEndpo
 -- Returns False if update is not a fast-forward.
 --
 -- https://developer.github.com/v3/git/refs/#update-a-reference
-updateBranch :: MonadMergeBot m => Bool -> Text -> SHA -> m Bool
+updateBranch :: MonadMergeBot m => Bool -> Text -> GitObjectID -> m Bool
 updateBranch force branch sha = fmap isRight $ githubTry $ queryGitHub' GHEndpoint
   { method = PATCH
   , endpoint = "/repos/:owner/:repo/git/refs/:ref"

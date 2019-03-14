@@ -36,13 +36,13 @@ import qualified Data.ByteString.Lazy as ByteStringL
 import Data.Proxy (Proxy(..))
 import GHC.TypeLits (KnownNat, Nat, natVal)
 import GitHub.REST (Token)
+import GitHub.Schema.BaseEvent (BaseEvent)
 import Network.Wai (Request)
 import Servant
 import qualified Servant.Server.Internal as Servant
 
 import Servant.GitHub.Context (GitHubAppParams(..))
 import Servant.GitHub.Event (GitHubEventType, IsGitHubEvent(..))
-import Servant.GitHub.Event.Common (BaseEvent)
 import Servant.GitHub.Internal.Request
 import Servant.GitHub.Security (doesSignatureMatch, getToken, parseSignature)
 

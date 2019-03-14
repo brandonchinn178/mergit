@@ -15,29 +15,30 @@ Defines all the possible GitHub events that can be sent.
 module Servant.GitHub.Event
   ( GitHubEventType(..)
   , IsGitHubEvent(..)
-  , module EventSchemas
+  , module Schema
   ) where
 
 import Data.Aeson.Schema (SchemaType)
 import Data.ByteString.Lazy (ByteString)
-
-import Servant.GitHub.Event.CheckRun as EventSchemas
-import Servant.GitHub.Event.CheckSuite as EventSchemas
-import Servant.GitHub.Event.CommitComment as EventSchemas
-import Servant.GitHub.Event.ContentReference as EventSchemas
-import Servant.GitHub.Event.Create as EventSchemas
-import Servant.GitHub.Event.Delete as EventSchemas
-import Servant.GitHub.Event.Deployment as EventSchemas
-import Servant.GitHub.Event.DeploymentStatus as EventSchemas
-import Servant.GitHub.Event.Fork as EventSchemas
-import Servant.GitHub.Event.GitHubAppAuthorization as EventSchemas
-import Servant.GitHub.Event.Installation as EventSchemas
-import Servant.GitHub.Event.InstallationRepositories as EventSchemas
-import Servant.GitHub.Event.IssueComment as EventSchemas
-import Servant.GitHub.Event.Issues as EventSchemas
-import Servant.GitHub.Event.Label as EventSchemas
-import Servant.GitHub.Event.PullRequest as EventSchemas
-import Servant.GitHub.Event.Push as EventSchemas
+import GitHub.Schema.Event.CheckRun as Schema (CheckRunEvent)
+import GitHub.Schema.Event.CheckSuite as Schema (CheckSuiteEvent)
+import GitHub.Schema.Event.CommitComment as Schema (CommitCommentEvent)
+import GitHub.Schema.Event.ContentReference as Schema (ContentReferenceEvent)
+import GitHub.Schema.Event.Create as Schema (CreateEvent)
+import GitHub.Schema.Event.Delete as Schema (DeleteEvent)
+import GitHub.Schema.Event.Deployment as Schema (DeploymentEvent)
+import GitHub.Schema.Event.DeploymentStatus as Schema (DeploymentStatusEvent)
+import GitHub.Schema.Event.Fork as Schema (ForkEvent)
+import GitHub.Schema.Event.GitHubAppAuthorization as Schema
+    (GitHubAppAuthorizationEvent)
+import GitHub.Schema.Event.Installation as Schema (InstallationEvent)
+import GitHub.Schema.Event.InstallationRepositories as Schema
+    (InstallationRepositoriesEvent)
+import GitHub.Schema.Event.IssueComment as Schema (IssueCommentEvent)
+import GitHub.Schema.Event.Issues as Schema (IssuesEvent)
+import GitHub.Schema.Event.Label as Schema (LabelEvent)
+import GitHub.Schema.Event.PullRequest as Schema (PullRequestEvent)
+import GitHub.Schema.Event.Push as Schema (PushEvent)
 
 -- | TODO: Finish implementing other events.
 data GitHubEventType
@@ -88,69 +89,69 @@ class IsGitHubEvent (e :: GitHubEventType) where
   eventName :: ByteString
 
 instance IsGitHubEvent 'CheckRunEvent where
-  type EventSchema 'CheckRunEvent = CheckRunSchema
+  type EventSchema 'CheckRunEvent = Schema.CheckRunEvent
   eventName = "check_run"
 
 instance IsGitHubEvent 'CheckSuiteEvent where
-  type EventSchema 'CheckSuiteEvent = CheckSuiteSchema
+  type EventSchema 'CheckSuiteEvent = Schema.CheckSuiteEvent
   eventName = "check_suite"
 
 instance IsGitHubEvent 'CommitCommentEvent where
-  type EventSchema 'CommitCommentEvent = CommitCommentSchema
+  type EventSchema 'CommitCommentEvent = Schema.CommitCommentEvent
   eventName = "commit_comment"
 
 instance IsGitHubEvent 'ContentReferenceEvent where
-  type EventSchema 'ContentReferenceEvent = ContentReferenceSchema
+  type EventSchema 'ContentReferenceEvent = Schema.ContentReferenceEvent
   eventName = "content_reference"
 
 instance IsGitHubEvent 'CreateEvent where
-  type EventSchema 'CreateEvent = CreateSchema
+  type EventSchema 'CreateEvent = Schema.CreateEvent
   eventName = "create"
 
 instance IsGitHubEvent 'DeleteEvent where
-  type EventSchema 'DeleteEvent = DeleteSchema
+  type EventSchema 'DeleteEvent = Schema.DeleteEvent
   eventName = "delete"
 
 instance IsGitHubEvent 'DeploymentEvent where
-  type EventSchema 'DeploymentEvent = DeploymentSchema
+  type EventSchema 'DeploymentEvent = Schema.DeploymentEvent
   eventName = "deployment"
 
 instance IsGitHubEvent 'DeploymentStatusEvent where
-  type EventSchema 'DeploymentStatusEvent = DeploymentStatusSchema
+  type EventSchema 'DeploymentStatusEvent = Schema.DeploymentStatusEvent
   eventName = "deployment_status"
 
 instance IsGitHubEvent 'ForkEvent where
-  type EventSchema 'ForkEvent = ForkSchema
+  type EventSchema 'ForkEvent = Schema.ForkEvent
   eventName = "fork"
 
 instance IsGitHubEvent 'GitHubAppAuthorizationEvent where
-  type EventSchema 'GitHubAppAuthorizationEvent = GitHubAppAuthorizationSchema
+  type EventSchema 'GitHubAppAuthorizationEvent = Schema.GitHubAppAuthorizationEvent
   eventName = "github_app_authorization"
 
 instance IsGitHubEvent 'InstallationEvent where
-  type EventSchema 'InstallationEvent = InstallationSchema
+  type EventSchema 'InstallationEvent = Schema.InstallationEvent
   eventName = "installation"
 
 instance IsGitHubEvent 'InstallationRepositoriesEvent where
-  type EventSchema 'InstallationRepositoriesEvent = InstallationRepositoriesSchema
+  type EventSchema 'InstallationRepositoriesEvent = Schema.InstallationRepositoriesEvent
   eventName = "installation_repositories"
 
 instance IsGitHubEvent 'IssueCommentEvent where
-  type EventSchema 'IssueCommentEvent = IssueCommentSchema
+  type EventSchema 'IssueCommentEvent = Schema.IssueCommentEvent
   eventName = "issue_comment"
 
 instance IsGitHubEvent 'IssuesEvent where
-  type EventSchema 'IssuesEvent = IssuesSchema
+  type EventSchema 'IssuesEvent = Schema.IssuesEvent
   eventName = "issues"
 
 instance IsGitHubEvent 'LabelEvent where
-  type EventSchema 'LabelEvent = LabelSchema
+  type EventSchema 'LabelEvent = Schema.LabelEvent
   eventName = "label"
 
 instance IsGitHubEvent 'PullRequestEvent where
-  type EventSchema 'PullRequestEvent = PullRequestSchema
+  type EventSchema 'PullRequestEvent = Schema.PullRequestEvent
   eventName = "pull_request"
 
 instance IsGitHubEvent 'PushEvent where
-  type EventSchema 'PushEvent = PushSchema
+  type EventSchema 'PushEvent = Schema.PushEvent
   eventName = "push"

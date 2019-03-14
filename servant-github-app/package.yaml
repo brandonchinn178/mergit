@@ -13,6 +13,7 @@ dependencies:
 - containers
 - cryptonite
 - github-rest
+- github-schemas
 - http-types
 - jwt
 - memory

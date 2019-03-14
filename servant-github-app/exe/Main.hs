@@ -11,6 +11,7 @@ import Control.Monad (forM_)
 import Control.Monad.IO.Class (liftIO)
 import Data.Aeson.Schema (Object, get)
 import qualified Data.Text as Text
+import GitHub.Data.URL (URL(..))
 import GitHub.REST
     ( GHEndpoint(..)
     , GitHubState(..)
@@ -19,11 +20,11 @@ import GitHub.REST
     , queryGitHub
     , runGitHubT
     )
+import GitHub.Schema.Repository (RepoWebhook)
 import Network.HTTP.Types (StdMethod(..))
 import Network.Wai.Handler.Warp (run)
 import Servant
 import Servant.GitHub
-import Servant.GitHub.Event.Common (Repository)
 
 type ExampleGitHubEvents
   = GitHubEvent 'InstallationEvent :> WithToken :> GitHubAction
@@ -36,7 +37,7 @@ type ExampleApp
 getHelloWorld :: Handler String
 getHelloWorld = pure "Hello world"
 
-handleInstallationEvent :: Object InstallationSchema -> Token -> Handler ()
+handleInstallationEvent :: Object InstallationEvent -> Token -> Handler ()
 handleInstallationEvent o token = liftIO $ do
   putStrLn "** Got installation event!"
   putStrLn $ "Installation ID: " ++ show [get| o.installation.id |]
@@ -46,14 +47,14 @@ handleInstallationEvent o token = liftIO $ do
 
   forM_ [get| o.repositories[].full_name |] $ \repoName -> do
     repo <- runGitHubT state $
-      queryGitHub @_ @(Object Repository) GHEndpoint
+      queryGitHub @_ @(Object RepoWebhook) GHEndpoint
         { method = GET
         , endpoint = "/repos/:full_repo_name"
         , endpointVals = [ "full_repo_name" := repoName ]
         , ghData = []
         }
     putStrLn $ "Repository name: " ++ Text.unpack repoName
-    putStrLn $ "URL: " ++ Text.unpack [get| repo.html_url |]
+    putStrLn $ "URL: " ++ (Text.unpack . unURL $ [get| repo.html_url |])
     putStrLn $ "Description: " ++ maybe "N/A" Text.unpack [get| repo.description |]
 
 handleGitHubEvent :: Handler ()
