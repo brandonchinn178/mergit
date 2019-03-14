@@ -1,5 +1,5 @@
 {-|
-Module      :  Servant.GitHub.Event.Fork
+Module      :  GitHub.Schema.Event.Fork
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
 Portability :  portable
@@ -9,15 +9,16 @@ Defines the schema for ForkEvent.
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE QuasiQuotes #-}
 
-module Servant.GitHub.Event.Fork where
+module GitHub.Schema.Event.Fork where
 
 import Data.Aeson.Schema (schema)
 
-import Servant.GitHub.Event.Common
+import GitHub.Schema.BaseEvent (BaseEvent)
+import GitHub.Schema.Repository (RepoWebhook)
 
-type ForkSchema = [schema|
+type ForkEvent = [schema|
   {
-    "forkee": #Repository,
+    "forkee": #RepoWebhook,
     #BaseEvent,
   }
 |]

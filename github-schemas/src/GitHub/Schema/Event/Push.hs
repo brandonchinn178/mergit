@@ -1,5 +1,5 @@
 {-|
-Module      :  Servant.GitHub.Event.Push
+Module      :  GitHub.Schema.Event.Push
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
 Portability :  portable
@@ -9,13 +9,15 @@ Defines the schema for PushEvent.
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE QuasiQuotes #-}
 
-module Servant.GitHub.Event.Push where
+module GitHub.Schema.Event.Push where
 
 import Data.Aeson.Schema (schema)
 
-import Servant.GitHub.Event.Common
+import GitHub.Data.GitObjectID (GitObjectID)
+import GitHub.Data.URL (URL)
+import GitHub.Schema.BaseEvent (BaseEvent)
 
-type PushSchema = [schema|
+type PushEvent = [schema|
   {
     "ref": Text,
     "head": Text,
@@ -23,7 +25,7 @@ type PushSchema = [schema|
     "size": Int,
     "distinct_size": Int,
     "commits": List {
-      "sha": SHA,
+      "sha": GitObjectID,
       "message": Text,
       "author": {
         "name": Text,

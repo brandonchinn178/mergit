@@ -8,6 +8,7 @@ dependencies:
 - aeson-schemas
 - base
 - github-rest
+- github-schemas
 - merge-bot-core
 - servant-github-app
 - servant-server

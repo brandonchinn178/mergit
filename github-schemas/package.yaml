@@ -1,0 +1,15 @@
+defaults:
+  local: ../hpack.yaml
+
+name: github-schemas
+version: 0.1.0
+
+dependencies:
+- aeson
+- aeson-schemas
+- base
+- text
+- time
+
+library:
+  source-dirs: src

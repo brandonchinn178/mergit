@@ -17,9 +17,9 @@ import Data.Aeson.Schema (schema)
 import Data.GraphQL hiding (Query)
 import qualified Data.GraphQL as GraphQL
 import Data.GraphQL.Aeson (object, (.=))
+import GitHub.Data.GitObjectID (GitObjectID)
 
 import MergeBot.Core.GraphQL.API (API)
-import MergeBot.Core.GraphQL.Custom.GitObjectID (GitObjectID)
 
 type Query = GraphQL.Query API Args Schema
 
