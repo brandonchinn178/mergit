@@ -141,8 +141,8 @@ mergeBranches base sha message = fmap isRight $ githubTry $ queryGitHub' GHEndpo
   , endpoint = "/repos/:owner/:repo/merges"
   , endpointVals = []
   , ghData =
-    [ "base"    := base
-    , "head"    := sha
-    , "message" := message
+    [ "base"           := base
+    , "head"           := sha
+    , "commit_message" := message
     ]
   }
