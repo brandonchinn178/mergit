@@ -40,8 +40,8 @@ So we get to manually implement caching the request body YAY.
 Ref: https://www.stackage.org/haddock/lts-13.10/servant-server-0.15/Servant-Server-Internal-RoutingApplication.html#t:Delayed
 -}
 
-requestBodyMapVar :: MVar (Map ByteString ByteStringL.ByteString)
 {-# NOINLINE requestBodyMapVar #-}
+requestBodyMapVar :: MVar (Map ByteString ByteStringL.ByteString)
 requestBodyMapVar = unsafePerformIO $ newMVar Map.empty
 
 getRequestBody' :: Request -> ByteString -> IO ByteStringL.ByteString
