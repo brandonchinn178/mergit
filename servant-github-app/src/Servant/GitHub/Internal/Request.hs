@@ -76,8 +76,3 @@ getSignature = getHeader "x-hub-signature"
 
 getGitHubEvent :: Request -> Servant.DelayedIO ByteString
 getGitHubEvent = getHeader "x-github-event"
-
-{- Helpers -}
-
-maybeDelayed :: ServantErr -> Maybe a -> Servant.DelayedIO a
-maybeDelayed e = maybe (Servant.delayedFailFatal e) return
