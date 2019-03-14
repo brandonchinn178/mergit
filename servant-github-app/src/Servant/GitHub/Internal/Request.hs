@@ -6,19 +6,12 @@ Portability :  portable
 
 Helper functions for getting information from Request objects.
 -}
-{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE TypeFamilies #-}
 
 module Servant.GitHub.Internal.Request where
 
 import Control.Concurrent.MVar (MVar, modifyMVar, modifyMVar_, newMVar)
-import Control.Monad ((<=<))
 import Control.Monad.IO.Class (liftIO)
-import Data.Aeson (eitherDecode)
-import Data.Aeson.Schema (IsSchemaObject, Object, SchemaType)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Lazy as ByteStringL
 import Data.CaseInsensitive (CI, original)
@@ -54,10 +47,6 @@ getRequestBody' request signature = modifyMVar requestBodyMapVar $ \requestBodyM
 
 getRequestBody :: Request -> Servant.DelayedIO ByteStringL.ByteString
 getRequestBody request = liftIO . getRequestBody' request =<< getSignature request
-
-decodeRequestBody :: forall (schema :: SchemaType). IsSchemaObject schema
-  => Request -> Servant.DelayedIO (Object schema)
-decodeRequestBody = either fail return . eitherDecode @(Object schema) <=< getRequestBody
 
 clearRequestBody :: Request -> Servant.DelayedIO ()
 clearRequestBody request = do
