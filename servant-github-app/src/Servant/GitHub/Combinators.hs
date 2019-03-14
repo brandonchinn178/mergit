@@ -103,12 +103,11 @@ instance
       verify request = do
         ghEvent <- getGitHubEvent request
         let e = ByteStringL.fromStrict ghEvent
-        unless (e == event) $ Servant.delayedFail $ wrongEvent e
+        unless (e == eventName @event) $ Servant.delayedFail $ wrongEvent e
 
       parseBody = decodeRequestBody @(EventSchema event)
 
-      event = eventName @event
-      wrongEvent e = err400 { errBody = "Found event: " <> e <> " (expected: " <> event <> ")" }
+      wrongEvent e = err400 { errBody = "Unhandled event: " <> e }
 
 -- | A combinator for providing an access token to an endpoint that provides access to the GitHub
 -- API. The token provided expires after 10 minutes. For different options, see 'WithToken''.
