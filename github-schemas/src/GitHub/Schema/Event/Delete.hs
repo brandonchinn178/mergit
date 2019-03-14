@@ -1,5 +1,5 @@
 {-|
-Module      :  Servant.GitHub.Event.Delete
+Module      :  GitHub.Schema.Event.Delete
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
 Portability :  portable
@@ -11,13 +11,13 @@ Defines the schema for DeleteEvent.
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 
-module Servant.GitHub.Event.Delete where
+module GitHub.Schema.Event.Delete where
 
 import Data.Aeson (FromJSON(..), withText)
 import Data.Aeson.Schema (schema)
 import qualified Data.Text as Text
 
-import Servant.GitHub.Event.Common
+import GitHub.Schema.BaseEvent (BaseEvent)
 
 data DeleteRefType
   = DeleteRefBranch

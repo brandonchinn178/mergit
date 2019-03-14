@@ -1,5 +1,5 @@
 {-|
-Module      :  Servant.GitHub.Event.InstallationRepositories
+Module      :  GitHub.Schema.Event.InstallationRepositories
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
 Portability :  portable
@@ -11,13 +11,13 @@ Defines the schema for InstallationRepositoriesEvent.
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 
-module Servant.GitHub.Event.InstallationRepositories where
+module GitHub.Schema.Event.InstallationRepositories where
 
 import Data.Aeson (FromJSON(..), withText)
 import Data.Aeson.Schema (schema)
 import qualified Data.Text as Text
 
-import Servant.GitHub.Event.Common
+import GitHub.Schema.BaseEvent (BaseEvent)
 
 data InstallationRepoAction
   = InstallationRepoAdded

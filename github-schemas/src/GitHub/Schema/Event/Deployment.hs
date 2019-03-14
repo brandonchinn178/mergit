@@ -1,5 +1,5 @@
 {-|
-Module      :  Servant.GitHub.Event.Deployment
+Module      :  GitHub.Schema.Event.Deployment
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
 Portability :  portable
@@ -9,11 +9,11 @@ Defines the schema for DeploymentEvent.
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE QuasiQuotes #-}
 
-module Servant.GitHub.Event.Deployment where
+module GitHub.Schema.Event.Deployment where
 
 import Data.Aeson.Schema (schema)
 
-import Servant.GitHub.Event.Common
+import GitHub.Schema.BaseEvent (BaseEvent)
 
 type DeploymentSchema = [schema|
   {

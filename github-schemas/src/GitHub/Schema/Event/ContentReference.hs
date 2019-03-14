@@ -1,5 +1,5 @@
 {-|
-Module      :  Servant.GitHub.Event.ContentReference
+Module      :  GitHub.Schema.Event.ContentReference
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
 Portability :  portable
@@ -11,13 +11,13 @@ Defines the schema for ContentReferenceEvent.
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 
-module Servant.GitHub.Event.ContentReference where
+module GitHub.Schema.Event.ContentReference where
 
 import Data.Aeson (FromJSON(..), withText)
 import Data.Aeson.Schema (schema)
 import qualified Data.Text as Text
 
-import Servant.GitHub.Event.Common
+import GitHub.Schema.BaseEvent (BaseEvent)
 
 data ContentReferenceAction
   = ContentReferenceCreated

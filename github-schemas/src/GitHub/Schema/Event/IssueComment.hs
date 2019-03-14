@@ -1,5 +1,5 @@
 {-|
-Module      :  Servant.GitHub.Event.IssueComment
+Module      :  GitHub.Schema.Event.IssueComment
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
 Portability :  portable
@@ -11,13 +11,13 @@ Defines the schema for IssueCommentEvent.
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 
-module Servant.GitHub.Event.IssueComment where
+module GitHub.Schema.Event.IssueComment where
 
 import Data.Aeson (FromJSON(..), withText)
 import Data.Aeson.Schema (schema)
 import qualified Data.Text as Text
 
-import Servant.GitHub.Event.Common
+import GitHub.Schema.BaseEvent (BaseEvent)
 
 data IssueCommentAction
   = IssueCommentCreated

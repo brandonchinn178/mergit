@@ -1,5 +1,5 @@
 {-|
-Module      :  Servant.GitHub.Event.CheckSuite
+Module      :  GitHub.Schema.Event.CheckSuite
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
 Portability :  portable
@@ -11,14 +11,14 @@ Defines the schema for CheckSuiteEvent.
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 
-module Servant.GitHub.Event.CheckSuite where
+module GitHub.Schema.Event.CheckSuite where
 
 import Data.Aeson (FromJSON(..), withText)
 import Data.Aeson.Schema (schema)
 import qualified Data.Text as Text
 
-import Servant.GitHub.Event.CheckRun (CheckRunConclusion)
-import Servant.GitHub.Event.Common
+import GitHub.Schema.Event.CheckRun (CheckRunConclusion)
+import GitHub.Schema.BaseEvent (BaseEvent)
 
 data CheckSuiteAction
   = CheckSuiteCompletedAction

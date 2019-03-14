@@ -1,5 +1,5 @@
 {-|
-Module      :  Servant.GitHub.Event.GitHubAppAuthorization
+Module      :  GitHub.Schema.Event.GitHubAppAuthorization
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
 Portability :  portable
@@ -11,13 +11,13 @@ Defines the schema for GitHubAppAuthorizationEvent.
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 
-module Servant.GitHub.Event.GitHubAppAuthorization where
+module GitHub.Schema.Event.GitHubAppAuthorization where
 
 import Data.Aeson (FromJSON(..), withText)
 import Data.Aeson.Schema (schema)
 import qualified Data.Text as Text
 
-import Servant.GitHub.Event.Common
+import GitHub.Schema.BaseEvent (BaseEvent)
 
 data GitHubAppAuthorizationAction
   = GitHubAppAuthorizationRevoked

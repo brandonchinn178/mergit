@@ -1,5 +1,5 @@
 {-|
-Module      :  Servant.GitHub.Event.PullRequest
+Module      :  GitHub.Schema.Event.PullRequest
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
 Portability :  portable
@@ -11,13 +11,13 @@ Defines the schema for PullRequestEvent.
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 
-module Servant.GitHub.Event.PullRequest where
+module GitHub.Schema.Event.PullRequest where
 
 import Data.Aeson (FromJSON(..), withText)
 import Data.Aeson.Schema (schema)
 import qualified Data.Text as Text
 
-import Servant.GitHub.Event.Common
+import GitHub.Schema.BaseEvent (BaseEvent)
 
 data PullRequestAction
   = PullRequestAssigned
