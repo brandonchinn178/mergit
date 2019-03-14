@@ -29,7 +29,7 @@ import Data.ByteString (ByteString)
 import qualified Data.ByteString as ByteString
 import qualified Data.Text as Text
 import qualified Data.Text.Encoding as Text
-import Data.Time (getCurrentTime)
+import Data.Time (addUTCTime, getCurrentTime)
 import Data.Time.Clock.POSIX (utcTimeToPOSIXSeconds)
 import GitHub.REST
     ( GHEndpoint(..)
@@ -75,12 +75,14 @@ doesSignatureMatch key payload = constEq digest
     digest = hmacGetDigest @SHA1 $ hmac key payload
 
 -- | Create an installation token to use for API calls.
-getToken :: Signer -> ByteString -> Int -> Int -> Int -> IO Token
-getToken signer userAgent appId installationId expiry = do
-  now <- getCurrentTime
+getToken :: Signer -> ByteString -> Int -> Int -> IO Token
+getToken signer userAgent appId installationId = do
+  -- lose a second in the case of rounding
+  -- https://github.community/t5/GitHub-API-Development-and/quot-Expiration-time-claim-exp-is-too-far-in-the-future-quot/m-p/20457/highlight/true#M1127
+  now <- addUTCTime (-1) <$> getCurrentTime
   let claims = mempty
         { iat = numericDate $ utcTimeToPOSIXSeconds now
-        , exp = numericDate $ utcTimeToPOSIXSeconds now + (fromIntegral expiry * 60)
+        , exp = numericDate $ utcTimeToPOSIXSeconds now + (expiry * 60)
         , iss = stringOrURI $ Text.pack $ show appId
         }
       jwt = encodeSigned signer claims
@@ -88,6 +90,7 @@ getToken signer userAgent appId installationId expiry = do
       apiVersion = "machine-man-preview"
   runGitHubT GitHubState{..} createToken
   where
+    expiry = 10 -- minutes
     createToken = AccessToken . Text.encodeUtf8 . [get| .token |] <$>
       queryGitHub @_ @(Object [schema| { "token": Text } |]) GHEndpoint
         { method = POST

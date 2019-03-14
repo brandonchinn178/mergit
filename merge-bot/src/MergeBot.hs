@@ -21,7 +21,7 @@ import Servant.GitHub
 import MergeBot.Handlers
 
 type MergeBotApp
-  = "webhook" :> GitHubSigned :>
+  = "webhook" :>
     (    GitHubEvent 'CheckSuiteEvent :> WithToken :> GitHubAction
     :<|> GitHubEvent 'CheckRunEvent :> WithToken :> GitHubAction
     )

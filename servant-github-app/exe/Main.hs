@@ -32,7 +32,7 @@ type ExampleGitHubEvents
 
 type ExampleApp
   = Get '[PlainText] String
-  :<|> "webhook" :> GitHubSigned :> ExampleGitHubEvents
+  :<|> "webhook" :> ExampleGitHubEvents
 
 getHelloWorld :: Handler String
 getHelloWorld = pure "Hello world"

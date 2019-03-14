@@ -21,20 +21,19 @@ Defines Servant combinators for serving a GitHub App.
 {-# LANGUAGE UndecidableInstances #-}
 
 module Servant.GitHub.Combinators
-  ( GitHubSigned
-  , GitHubEvent
+  ( GitHubEvent
   , WithToken
   , WithToken'
   , TokenType(..)
   , GitHubAction
   ) where
 
-import Control.Monad (unless)
+import Control.Monad (unless, (>=>))
 import Control.Monad.IO.Class (liftIO)
-import Data.Aeson.Schema (IsSchemaObject, Object, get)
+import Data.Aeson (eitherDecode)
+import Data.Aeson.Schema (IsSchemaObject, Object, SchemaType, get)
 import qualified Data.ByteString.Lazy as ByteStringL
 import Data.Proxy (Proxy(..))
-import GHC.TypeLits (KnownNat, Nat, natVal)
 import GitHub.REST (Token)
 import GitHub.Schema.BaseEvent (BaseEvent)
 import Network.Wai (Request)
@@ -46,50 +45,27 @@ import Servant.GitHub.Event (GitHubEventType, IsGitHubEvent(..))
 import Servant.GitHub.Internal.Request
 import Servant.GitHub.Security (doesSignatureMatch, getToken, parseSignature)
 
--- | A combinator for securing a path for only allowing valid signed requests sent from GitHub.
---
--- Usage:
---
--- > type MyApi = "webhook" :> GitHubSigned :> MyGitHubEvents
--- >
--- > -- These routes are guaranteed to only run if the request is signed by GitHub
--- > type MyGitHubEvents = ...
-data GitHubSigned
-
-instance
-  ( HasServer api context
-  , HasContextEntry context GitHubAppParams
-  ) => HasServer (GitHubSigned :> api) context where
-
-  type ServerT (GitHubSigned :> api) m = ServerT api m
-
-  hoistServerWithContext _ _ f s = hoistServerWithContext (Proxy @api) (Proxy @context) f s
-
-  route _ context = route (Proxy @api) context . addAuthCheck_ verify
-    where
-      GitHubAppParams{ghWebhookSecret} = getContextEntry context
-
-      verify request = do
-        signature <- getSignature request
-        ghSignature <- maybe (Servant.delayedFailFatal invalidSignature) return $ parseSignature signature
-        body <- liftIO $ getRequestBody' request signature
-
-        unless (doesSignatureMatch ghWebhookSecret (ByteStringL.toStrict body) ghSignature)
-          $ Servant.delayedFailFatal badSignature
-
-      invalidSignature = err401 { errBody = "Invalid signature found" }
-      badSignature = err401 { errBody = "Signature did not match payload" }
-
 -- | A combinator for matching incoming requests with a given GitHub event.
 --
+-- The handler function will be passed an 'Object' containing the data sent with the event.
+-- Automatically verifies that the request is signed by GitHub.
+--
 -- Usage:
 --
--- > import Servant.GitHub.Event (EventType(..))
--- > type MyGitHubEvents = GitHubEvent 'PushEvent :> GitHubAction
+-- > import Servant.GitHub
+-- >
+-- > type MyApi = "webhook" :>
+-- >   (    GitHubEvent 'InstallationEvent :> GitHubAction
+-- >   :<|> GitHubEvent 'PushEvent :> GitHubAction
+-- >   )
+-- >
+-- > handleInstallationEvent :: Object InstallationEvent -> Handler ()
+-- > handlePushEvent :: Object PushEvent -> Handler ()
 data GitHubEvent (event :: GitHubEventType)
 
 instance
   ( HasServer api context
+  , HasContextEntry context GitHubAppParams
   , IsGitHubEvent event
   , IsSchemaObject (EventSchema event)
   ) => HasServer (GitHubEvent event :> api) context where
@@ -100,15 +76,26 @@ instance
 
   route _ context = route (Proxy @api) context . addBodyCheck parseBody . addHeaderCheck_ verify
     where
+      GitHubAppParams{ghWebhookSecret} = getContextEntry context
+
       verify request = do
         ghEvent <- getGitHubEvent request
         let e = ByteStringL.fromStrict ghEvent
-        unless (e == event) $ Servant.delayedFail $ wrongEvent e
+        unless (e == eventName @event) $ Servant.delayedFail $ wrongEvent e
 
-      parseBody = decodeRequestBody @(EventSchema event)
+      parseBody request = do
+        signature <- getSignature request
+        ghSignature <- maybe (Servant.delayedFailFatal invalidSignature) return $ parseSignature signature
+        body <- liftIO $ getRequestBody' request signature
 
-      event = eventName @event
-      wrongEvent e = err400 { errBody = "Found event: " <> e <> " (expected: " <> event <> ")" }
+        unless (doesSignatureMatch ghWebhookSecret (ByteStringL.toStrict body) ghSignature) $
+          Servant.delayedFailFatal badSignature
+
+        decodeRequestBody @(EventSchema event) body
+
+      wrongEvent e = err400 { errBody = "Unhandled event: " <> e }
+      invalidSignature = err401 { errBody = "Invalid signature found" }
+      badSignature = err401 { errBody = "Signature did not match payload" }
 
 -- | A combinator for providing an access token to an endpoint that provides access to the GitHub
 -- API. The token provided expires after 10 minutes. For different options, see 'WithToken''.
@@ -122,25 +109,24 @@ instance
 --
 -- > handle :: Token -> Handler ()
 -- > handle token = ...
-type WithToken = WithToken' ('SingleToken 10)
+type WithToken = WithToken' 'SingleToken
 
 data TokenType
-  = SingleToken Nat
-    -- ^ Generates a single token to use, with the given expiration in minutes
+  = SingleToken
+    -- ^ Generates a single token to use
   | TokenMaker
-    -- ^ Provides a value @Int -> IO Token@ that generates a token with the given expiration. Useful
-    -- for hooks that might take a long time, and you want finer-grained control over token
-    -- generation
+    -- ^ Provides a value @IO Token@ that generates a token. Useful for hooks that might take a
+    -- long time and/or you want finer-grained control over token generation
 
 data WithToken' (tokenType :: TokenType)
 
 -- Generates a token that expires in the given number of minutes
-type TokenGenerator = Int -> IO Token
+type TokenGenerator = IO Token
 
 mkTokenGenerator :: HasContextEntry context GitHubAppParams
   => Context context -> Request -> Servant.DelayedIO TokenGenerator
 mkTokenGenerator context request = do
-  event <- decodeRequestBody @BaseEvent request
+  event <- decodeRequestBody @BaseEvent =<< getRequestBody request
   return $ getToken ghSigner ghUserAgent ghAppId [get| event.installation!.id |]
   where
     GitHubAppParams{ghAppId, ghSigner, ghUserAgent} = getContextEntry context
@@ -148,19 +134,15 @@ mkTokenGenerator context request = do
 instance
   ( HasServer api context
   , HasContextEntry context GitHubAppParams
-  , KnownNat expiry
-  ) => HasServer (WithToken' ('SingleToken expiry) :> api) context where
+  ) => HasServer (WithToken' 'SingleToken :> api) context where
 
-  type ServerT (WithToken' ('SingleToken expiry) :> api) m = Token -> ServerT api m
+  type ServerT (WithToken' 'SingleToken :> api) m = Token -> ServerT api m
 
   hoistServerWithContext _ _ f s = hoistServerWithContext (Proxy @api) (Proxy @context) f . s
 
-  -- TODO: fix the fact that a token is generated for every branch, even if the event didn't match
   route _ context = route (Proxy @api) context . addBodyCheck provideToken
     where
-      provideToken request = do
-        generator <- mkTokenGenerator context request
-        liftIO . generator $ fromIntegral $ natVal (Proxy @expiry)
+      provideToken = mkTokenGenerator context >=> liftIO
 
 instance
   ( HasServer api context
@@ -190,11 +172,6 @@ instance HasServer GitHubAction context where
 
 {- Servant internal functions -}
 
--- | The function I wish 'Servant.addAuthCheck' actually was.
-addAuthCheck_ ::(Request -> Servant.DelayedIO ()) -> Servant.Delayed env a -> Servant.Delayed env a
-addAuthCheck_ authCheck Servant.Delayed{..} =
-  Servant.Delayed { Servant.authD = Servant.withRequest authCheck >> authD, .. }
-
 -- | The function I wish 'Servant.addHeaderCheck' actually was.
 addHeaderCheck_ :: (Request -> Servant.DelayedIO ()) -> Servant.Delayed env a -> Servant.Delayed env a
 addHeaderCheck_ headerCheck Servant.Delayed{..} =
@@ -222,3 +199,9 @@ addPostBodyCheck_ bodyCheck Servant.Delayed{..} =
         return res
     , ..
     }
+
+{- Helpers -}
+
+decodeRequestBody :: forall (schema :: SchemaType). IsSchemaObject schema
+  => ByteStringL.ByteString -> Servant.DelayedIO (Object schema)
+decodeRequestBody = either fail return . eitherDecode @(Object schema)

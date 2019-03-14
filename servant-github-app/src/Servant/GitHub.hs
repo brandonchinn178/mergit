@@ -8,8 +8,7 @@ Defines Servant combinators for serving a GitHub App.
 -}
 
 module Servant.GitHub
-  ( GitHubSigned
-  , GitHubEvent
+  ( GitHubEvent
   , WithToken
   , WithToken'
   , TokenType(..)

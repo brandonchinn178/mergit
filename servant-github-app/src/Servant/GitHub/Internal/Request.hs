@@ -6,19 +6,12 @@ Portability :  portable
 
 Helper functions for getting information from Request objects.
 -}
-{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE TypeFamilies #-}
 
 module Servant.GitHub.Internal.Request where
 
 import Control.Concurrent.MVar (MVar, modifyMVar, modifyMVar_, newMVar)
-import Control.Monad ((<=<))
 import Control.Monad.IO.Class (liftIO)
-import Data.Aeson (eitherDecode)
-import Data.Aeson.Schema (IsSchemaObject, Object, SchemaType)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Lazy as ByteStringL
 import Data.CaseInsensitive (CI, original)
@@ -40,8 +33,8 @@ So we get to manually implement caching the request body YAY.
 Ref: https://www.stackage.org/haddock/lts-13.10/servant-server-0.15/Servant-Server-Internal-RoutingApplication.html#t:Delayed
 -}
 
-requestBodyMapVar :: MVar (Map ByteString ByteStringL.ByteString)
 {-# NOINLINE requestBodyMapVar #-}
+requestBodyMapVar :: MVar (Map ByteString ByteStringL.ByteString)
 requestBodyMapVar = unsafePerformIO $ newMVar Map.empty
 
 getRequestBody' :: Request -> ByteString -> IO ByteStringL.ByteString
@@ -54,10 +47,6 @@ getRequestBody' request signature = modifyMVar requestBodyMapVar $ \requestBodyM
 
 getRequestBody :: Request -> Servant.DelayedIO ByteStringL.ByteString
 getRequestBody request = liftIO . getRequestBody' request =<< getSignature request
-
-decodeRequestBody :: forall (schema :: SchemaType). IsSchemaObject schema
-  => Request -> Servant.DelayedIO (Object schema)
-decodeRequestBody = either fail return . eitherDecode @(Object schema) <=< getRequestBody
 
 clearRequestBody :: Request -> Servant.DelayedIO ()
 clearRequestBody request = do
@@ -76,8 +65,3 @@ getSignature = getHeader "x-hub-signature"
 
 getGitHubEvent :: Request -> Servant.DelayedIO ByteString
 getGitHubEvent = getHeader "x-github-event"
-
-{- Helpers -}
-
-maybeDelayed :: ServantErr -> Maybe a -> Servant.DelayedIO a
-maybeDelayed e = maybe (Servant.delayedFailFatal e) return
