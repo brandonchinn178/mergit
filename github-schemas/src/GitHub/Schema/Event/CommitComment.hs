@@ -7,7 +7,6 @@ Portability :  portable
 Defines the schema for CommitCommentEvent.
 -}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TemplateHaskell #-}
 

@@ -7,7 +7,6 @@ Portability :  portable
 Defines the schema for GitHubAppAuthorizationEvent.
 -}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TemplateHaskell #-}
 

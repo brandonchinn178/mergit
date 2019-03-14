@@ -7,7 +7,6 @@ Portability :  portable
 Defines the schema for ForkEvent.
 -}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE QuasiQuotes #-}
 
 module GitHub.Schema.Event.Fork where

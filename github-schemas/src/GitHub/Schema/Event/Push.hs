@@ -7,7 +7,6 @@ Portability :  portable
 Defines the schema for PushEvent.
 -}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE QuasiQuotes #-}
 
 module GitHub.Schema.Event.Push where
