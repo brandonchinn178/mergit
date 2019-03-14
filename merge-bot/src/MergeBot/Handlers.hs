@@ -15,7 +15,7 @@ module MergeBot.Handlers
   , handleCheckRun
   ) where
 
-import Control.Monad (forM_)
+import Control.Monad (forM_, unless)
 import Control.Monad.IO.Class (liftIO)
 import Data.Aeson.Schema (Object, get)
 import qualified GitHub.Schema.Event.CheckRun as CheckRun
@@ -30,9 +30,10 @@ import MergeBot.Monad (runBotApp)
 handleCheckSuite :: Object CheckSuiteEvent -> Token -> Handler ()
 handleCheckSuite o = runBotApp repo $
   case [get| o.action |] of
-    CheckSuite.REQUESTED -> do
-      createTryCheckRun sha
-      createMergeCheckRun sha
+    CheckSuite.REQUESTED ->
+      unless (null [get| o.check_suite.pull_requests |]) $ do
+        createTryCheckRun sha
+        createMergeCheckRun sha
     _ -> return ()
   where
     repo = [get| o.repository! |]
