@@ -140,7 +140,6 @@ instance
 
   hoistServerWithContext _ _ f s = hoistServerWithContext (Proxy @api) (Proxy @context) f . s
 
-  -- TODO: fix the fact that a token is generated for every branch, even if the event didn't match
   route _ context = route (Proxy @api) context . addBodyCheck provideToken
     where
       provideToken = mkTokenGenerator context >=> liftIO
