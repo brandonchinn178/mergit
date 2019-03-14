@@ -15,6 +15,7 @@ This module defines core MergeBot functionality.
 module MergeBot.Core
   ( createCheckRuns
   , startTryJob
+  , handleStatusUpdate
   ) where
 
 import Control.Monad (forM_, unless, when)
@@ -27,7 +28,9 @@ import qualified Data.Text.Encoding as Text
 import Data.Time (getCurrentTime)
 import Data.Yaml (decodeThrow)
 import GitHub.Data.GitObjectID (GitObjectID)
+import GitHub.Data.URL (URL)
 import GitHub.REST (KeyValue(..))
+import GitHub.Schema.Event.Status (StatusState)
 
 import MergeBot.Core.Config (BotConfig, configFileName)
 import MergeBot.Core.GitHub
@@ -94,6 +97,10 @@ startTryJob checkRunId prNum prSHA baseSHA = do
   where
     tryBranch = toTryBranch prNum
     tryMessage = toTryMessage prNum
+
+-- | Handle a notification that a commit's status has been updated.
+handleStatusUpdate :: GitObjectID -> Text -> StatusState -> Maybe URL -> m ()
+handleStatusUpdate = undefined
 
 {- Helpers -}
 

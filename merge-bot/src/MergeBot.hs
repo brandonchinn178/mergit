@@ -25,6 +25,7 @@ type MergeBotApp
     (    GitHubEvent 'PullRequestEvent :> WithToken :> GitHubAction
     :<|> GitHubEvent 'CheckSuiteEvent :> WithToken :> GitHubAction
     :<|> GitHubEvent 'CheckRunEvent :> WithToken :> GitHubAction
+    :<|> GitHubEvent 'StatusEvent :> WithToken :> GitHubAction
     )
 
 server :: Server MergeBotApp
@@ -32,6 +33,7 @@ server
   =    handlePullRequest
   :<|> handleCheckSuite
   :<|> handleCheckRun
+  :<|> handleStatus
 
 initApp :: IO Application
 initApp = do

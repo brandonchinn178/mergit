@@ -39,6 +39,7 @@ import GitHub.Schema.Event.Issues as Schema (IssuesEvent)
 import GitHub.Schema.Event.Label as Schema (LabelEvent)
 import GitHub.Schema.Event.PullRequest as Schema (PullRequestEvent)
 import GitHub.Schema.Event.Push as Schema (PushEvent)
+import GitHub.Schema.Event.Status as Schema (StatusEvent)
 
 -- | TODO: Finish implementing other events.
 data GitHubEventType
@@ -78,7 +79,7 @@ data GitHubEventType
   -- TODO: RepositoryImportEvent
   -- TODO: RepositoryVulnerabilityAlertEvent
   -- TODO: SecurityAdvisoryEvent
-  -- TODO: StatusEvent
+  | StatusEvent
   -- TODO: TeamEvent
   -- TODO: TeamAddEvent
   -- TODO: WatchEvent
@@ -155,3 +156,7 @@ instance IsGitHubEvent 'PullRequestEvent where
 instance IsGitHubEvent 'PushEvent where
   type EventSchema 'PushEvent = Schema.PushEvent
   eventName = "push"
+
+instance IsGitHubEvent 'StatusEvent where
+  type EventSchema 'StatusEvent = Schema.StatusEvent
+  eventName = "status"

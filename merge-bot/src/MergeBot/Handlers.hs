@@ -14,6 +14,7 @@ module MergeBot.Handlers
   ( handlePullRequest
   , handleCheckSuite
   , handleCheckRun
+  , handleStatus
   ) where
 
 import Control.Monad (forM_, unless)
@@ -25,14 +26,14 @@ import qualified GitHub.Schema.Event.PullRequest as PullRequest
 import Servant (Handler)
 import Servant.GitHub
 
-import MergeBot.Core (createCheckRuns, startTryJob)
+import qualified MergeBot.Core as Core
 import MergeBot.Monad (runBotApp)
 
 -- | Handle the 'pull_request' GitHub event.
 handlePullRequest :: Object PullRequestEvent -> Token -> Handler ()
 handlePullRequest o = runBotApp repo $
   case [get| o.action |] of
-    PullRequest.OPENED -> createCheckRuns [get| o.pull_request.head.sha |]
+    PullRequest.OPENED -> Core.createCheckRuns [get| o.pull_request.head.sha |]
     _ -> return ()
   where
     repo = [get| o.repository! |]
@@ -43,7 +44,7 @@ handleCheckSuite o = runBotApp repo $
   case [get| o.action |] of
     CheckSuite.REQUESTED ->
       unless (null [get| o.check_suite.pull_requests |]) $
-        createCheckRuns [get| o.check_suite.head_sha |]
+        Core.createCheckRuns [get| o.check_suite.head_sha |]
     _ -> return ()
   where
     repo = [get| o.repository! |]
@@ -55,7 +56,7 @@ handleCheckRun o = runBotApp repo $
     CheckRun.REQUESTED_ACTION ->
       case [get| o.requested_action!.identifier |] of
         "lybot_run_try" -> forM_ prs $ \pr ->
-          startTryJob
+          Core.startTryJob
             [get| o.check_run.id |]
             [get| pr.number |]
             [get| pr.head.sha |]
@@ -66,3 +67,14 @@ handleCheckRun o = runBotApp repo $
   where
     repo = [get| o.repository! |]
     prs = [get| o.check_run.pull_requests[] |]
+
+-- | Handle the 'status' GitHub event.
+handleStatus :: Object StatusEvent -> Token -> Handler ()
+handleStatus o = runBotApp repo $
+  Core.handleStatusUpdate
+    [get| o.sha |]
+    [get| o.context |]
+    [get| o.state |]
+    [get| o.target_url |]
+  where
+    repo = [get| o.repository! |]
