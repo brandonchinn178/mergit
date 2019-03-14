@@ -13,13 +13,16 @@ This module defines functions for manipulating GitHub state.
 {-# LANGUAGE QuasiQuotes #-}
 
 module MergeBot.Core.GitHub
-  ( getTree, Tree
-  , createBranch
+  (
+  -- * GraphQL
+    getTree, Tree
+  -- * REST
   , createCheckRun
   , createCommit
+  , createBranch
+  , updateBranch
   , deleteBranch
   , mergeBranches
-  , updateBranch
   ) where
 
 import Control.Monad (void)
@@ -51,20 +54,6 @@ getTree branch = do
 
 {- REST -}
 
--- | Create a branch.
---
--- https://developer.github.com/v3/git/refs/#create-a-reference
-createBranch :: MonadMergeBot m => Text -> GitObjectID -> m ()
-createBranch name sha = void $ queryGitHub' GHEndpoint
-  { method = POST
-  , endpoint = "/repos/:owner/:repo/git/refs"
-  , endpointVals = []
-  , ghData =
-    [ "ref" := "refs/heads/" <> name
-    , "sha" := sha
-    ]
-  }
-
 -- | Create a check run.
 --
 -- https://developer.github.com/v3/checks/runs/#create-a-check-run
@@ -89,6 +78,33 @@ createCommit message tree parents = (.: "sha") <$> queryGitHub' GHEndpoint
     , "tree"    := tree
     , "parents" := parents
     ]
+  }
+
+-- | Create a branch.
+--
+-- https://developer.github.com/v3/git/refs/#create-a-reference
+createBranch :: MonadMergeBot m => Text -> GitObjectID -> m ()
+createBranch name sha = void $ queryGitHub' GHEndpoint
+  { method = POST
+  , endpoint = "/repos/:owner/:repo/git/refs"
+  , endpointVals = []
+  , ghData =
+    [ "ref" := "refs/heads/" <> name
+    , "sha" := sha
+    ]
+  }
+
+-- | Set the given branch to the given commit.
+--
+-- Returns False if update is not a fast-forward.
+--
+-- https://developer.github.com/v3/git/refs/#update-a-reference
+updateBranch :: MonadMergeBot m => Bool -> Text -> GitObjectID -> m Bool
+updateBranch force branch sha = fmap isRight $ githubTry $ queryGitHub' GHEndpoint
+  { method = PATCH
+  , endpoint = "/repos/:owner/:repo/git/refs/:ref"
+  , endpointVals = ["ref" := "heads/" <> branch]
+  , ghData = ["sha" := sha, "force" := force]
   }
 
 -- | Delete the given branch, ignoring the error if the branch doesn't exist.
@@ -117,17 +133,4 @@ mergeBranches base sha message = fmap isRight $ githubTry $ queryGitHub' GHEndpo
     , "head"    := sha
     , "message" := message
     ]
-  }
-
--- | Set the given branch to the given commit.
---
--- Returns False if update is not a fast-forward.
---
--- https://developer.github.com/v3/git/refs/#update-a-reference
-updateBranch :: MonadMergeBot m => Bool -> Text -> GitObjectID -> m Bool
-updateBranch force branch sha = fmap isRight $ githubTry $ queryGitHub' GHEndpoint
-  { method = PATCH
-  , endpoint = "/repos/:owner/:repo/git/refs/:ref"
-  , endpointVals = ["ref" := "heads/" <> branch]
-  , ghData = ["sha" := sha, "force" := force]
   }
