@@ -83,6 +83,7 @@ data BotSettings = BotSettings
   { token     :: Token
   , repoOwner :: Text
   , repoName  :: Text
+  , userAgent :: ByteString
   } deriving (Show)
 
 runBotAppT :: MonadIO m => BotSettings -> BotAppT m a -> m a
@@ -92,16 +93,12 @@ runBotAppT BotSettings{..} =
   . (`runReaderT` (repoOwner, repoName))
   . unBotApp
   where
-    state = GitHubState
-      { token
-      , userAgent = botUserAgent
-      , apiVersion = "antiope-preview"
-      }
+    state = GitHubState { token, userAgent, apiVersion = "antiope-preview" }
     graphqlSettings = githubQuerySettings
       { modifyReq = \req -> req
         { requestHeaders =
             (hAuthorization, fromToken token)
-            : (hUserAgent, botUserAgent)
+            : (hUserAgent, userAgent)
             : requestHeaders req
         }
       }
@@ -122,9 +119,6 @@ githubQuerySettings :: QuerySettings API
 githubQuerySettings = defaultQuerySettings
   { url = "https://api.github.com/graphql"
   }
-
-botUserAgent :: ByteString
-botUserAgent = "LeapYear/merge-bot"
 
 -- | Separate a repo name of the format "owner/repo" into a tuple @(owner, repo)@.
 parseRepo :: Text -> (Text, Text)
