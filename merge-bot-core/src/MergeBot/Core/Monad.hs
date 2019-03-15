@@ -6,6 +6,7 @@ Portability :  portable
 
 This module defines the monad used by the MergeBot.
 -}
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -55,9 +56,15 @@ import Network.HTTP.Types (hAuthorization, hUserAgent)
 
 import MergeBot.Core.GraphQL.API (API)
 
+-- | The monadic state in BotAppT.
+data BotState = BotState
+  { repoOwner :: Text
+  , repoName  :: Text
+  } deriving (Show)
+
 newtype BotAppT m a = BotAppT
   { unBotApp ::
-      ReaderT (Text, Text)
+      ReaderT BotState
         ( GitHubT
           ( QueryT API
               m
@@ -77,7 +84,9 @@ class (MonadMask m, MonadGitHubREST m, MonadQuery API m) => MonadMergeBot m wher
   getRepo :: m (Text, Text)
 
 instance (MonadMask m, MonadIO m) => MonadMergeBot (BotAppT m) where
-  getRepo = BotAppT ask
+  getRepo = BotAppT $ do
+    BotState{..} <- ask
+    return (repoOwner, repoName)
 
 data BotSettings = BotSettings
   { token     :: Token
@@ -90,10 +99,11 @@ runBotAppT :: MonadIO m => BotSettings -> BotAppT m a -> m a
 runBotAppT BotSettings{..} =
   runQueryT graphqlSettings
   . runGitHubT state
-  . (`runReaderT` (repoOwner, repoName))
+  . (`runReaderT` botState)
   . unBotApp
   where
     state = GitHubState { token, userAgent, apiVersion = "antiope-preview" }
+    botState = BotState{..}
     graphqlSettings = githubQuerySettings
       { modifyReq = \req -> req
         { requestHeaders =
