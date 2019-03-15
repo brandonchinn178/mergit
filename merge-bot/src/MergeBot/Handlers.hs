@@ -27,7 +27,7 @@ import Servant (Handler)
 import Servant.GitHub
 
 import qualified MergeBot.Core as Core
-import MergeBot.Core.Text (isTryBranch)
+import MergeBot.Core.Text (checkRunTry, isTryBranch)
 import MergeBot.Monad (runBotApp)
 
 -- | Handle the 'pull_request' GitHub event.
@@ -58,7 +58,6 @@ handleCheckRun o = runBotApp repo $
       case [get| o.requested_action!.identifier |] of
         "lybot_run_try" -> forM_ prs $ \pr ->
           Core.startTryJob
-            [get| o.check_run.id |]
             [get| pr.number |]
             [get| pr.head.sha |]
             [get| pr.base.sha |]
@@ -74,10 +73,6 @@ handleStatus :: Object StatusEvent -> Token -> Handler ()
 handleStatus o = runBotApp repo $
   -- TODO: also allow merge branches
   when (any isTryBranch [get| o.branches[].name |]) $
-    Core.handleStatusUpdate
-      [get| o.sha |]
-      [get| o.context |]
-      [get| o.state |]
-      [get| o.target_url |]
+    Core.handleStatusUpdate [get| o.sha |] checkRunTry
   where
     repo = [get| o.repository! |]

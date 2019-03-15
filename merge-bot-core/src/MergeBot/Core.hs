@@ -28,9 +28,7 @@ import qualified Data.Text.Encoding as Text
 import Data.Time (getCurrentTime)
 import Data.Yaml (decodeThrow)
 import GitHub.Data.GitObjectID (GitObjectID)
-import GitHub.Data.URL (URL)
-import GitHub.REST (KeyValue(..))
-import GitHub.Schema.Event.Status (StatusState)
+import GitHub.REST (GitHubData, KeyValue(..))
 
 import MergeBot.Core.Config (BotConfig, configFileName)
 import MergeBot.Core.GitHub
@@ -77,30 +75,24 @@ createMergeCheckRun sha = createCheckRun
   ]
 
 -- | Start a new try job.
-startTryJob :: MonadMergeBot m => Int -> Int -> GitObjectID -> GitObjectID -> m ()
-startTryJob checkRunId prNum prSHA baseSHA = do
-  -- create the try branch
-  createCIBranch baseSHA [prSHA] tryBranch tryMessage
+startTryJob :: MonadMergeBot m => Int -> GitObjectID -> GitObjectID -> m ()
+startTryJob prNum prSHA baseSHA = do
+  mergeSHA <- createCIBranch baseSHA [prSHA] tryBranch tryMessage
 
   now <- liftIO getCurrentTime
-
-  -- update the "Bot Try" check run
-  updateCheckRun checkRunId
-    [ "started_at" := now
-    , "status" := "in_progress"
-    , "output" :=
-      [ "title" := "Try Run"
-      , "summary" := "Try run is in progress (TODO: show CI details)"
-      ]
-    , "actions" := []
-    ]
+  let ghData =
+        [ "started_at" := now
+        , "status"     := "in_progress"
+        , "actions"    := []
+        ]
+  refreshCheckRuns ghData mergeSHA checkRunTry
   where
     tryBranch = toTryBranch prNum
     tryMessage = toTryMessage prNum
 
--- | Handle a notification that a commit's status has been updated.
-handleStatusUpdate :: GitObjectID -> Text -> StatusState -> Maybe URL -> m ()
-handleStatusUpdate = undefined
+-- | Handle a notification that the given commit's status has been updated.
+handleStatusUpdate :: MonadMergeBot m => GitObjectID -> Text -> m ()
+handleStatusUpdate = refreshCheckRuns []
 
 {- Helpers -}
 
@@ -109,7 +101,7 @@ handleStatusUpdate = undefined
 -- * Deletes the existing try or merge branch, if one exists.
 -- * Errors if merge conflict
 -- * Errors if the .lymerge.yaml file is missing or invalid
-createCIBranch :: MonadMergeBot m => GitObjectID -> [GitObjectID] -> Text -> Text -> m ()
+createCIBranch :: MonadMergeBot m => GitObjectID -> [GitObjectID] -> Text -> Text -> m GitObjectID
 createCIBranch baseSHA prSHAs ciBranch message = do
   deleteBranch ciBranch
 
@@ -136,6 +128,24 @@ createCIBranch baseSHA prSHAs ciBranch message = do
   success <- updateBranch True ciBranch mergeSHA
   unless success $
     fail "Force update CI branch failed"
+
+  return mergeSHA
+
+-- | Update the check runs for the given CI commit, including any additional data provided.
+refreshCheckRuns :: MonadMergeBot m => GitHubData -> GitObjectID -> Text -> m ()
+refreshCheckRuns ghData sha checkName = do
+  -- TODO: get sha commit parents, 'tail' to ignore baseSHA and get prSHAs
+  checkRunId <- undefined sha checkName
+
+  -- TODO: get .lymerge.yaml config
+
+  -- update the "Bot Try" check run
+  updateCheckRun checkRunId $ ghData ++
+    [ "output" :=
+      [ "title" := "Try Run"
+      , "summary" := "Try run is in progress (TODO: show CI details)"
+      ]
+    ]
 
 -- | Get the configuration file for the given tree.
 extractConfig :: Tree -> Maybe BotConfig
