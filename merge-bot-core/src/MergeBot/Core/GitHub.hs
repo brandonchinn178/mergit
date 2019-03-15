@@ -11,12 +11,13 @@ This module defines functions for manipulating GitHub state.
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module MergeBot.Core.GitHub
-  (
-  -- * GraphQL
-    getTree, Tree
-  -- * REST
+  ( -- * GraphQL
+    getCIParents
+  , getTree, Tree
+    -- * REST
   , createCheckRun
   , updateCheckRun
   , createCommit
@@ -36,9 +37,34 @@ import GitHub.REST
     (GHEndpoint(..), GitHubData, KeyValue(..), StdMethod(..), githubTry, (.:))
 
 import qualified MergeBot.Core.GraphQL.BranchTree as BranchTree
+import qualified MergeBot.Core.GraphQL.ParentsStatus as ParentsStatus
 import MergeBot.Core.Monad (MonadMergeBot(..), queryGitHub')
 
 {- GraphQL -}
+
+-- | A commit's CI statuses and check runs.
+type CommitStatus = [unwrap| (ParentsStatus.Schema).repository!.object!.parents!.nodes![]! |]
+
+-- | Get the parent commits for the given CI commit.
+getCIParents :: MonadMergeBot m => GitObjectID -> Text -> m [CommitStatus]
+getCIParents sha checkName = do
+  (repoOwner, repoName) <- getRepo
+  appId <- getAppId
+  queryAll $ \after -> do
+    result <- runQuery ParentsStatus.query ParentsStatus.Args
+      { _repoOwner = Text.unpack repoOwner
+      , _repoName = Text.unpack repoName
+      , _appId = appId
+      , _after = after
+      , _sha = sha
+      , _checkName = Just $ Text.unpack checkName
+      }
+    let info = [get| result.repository!.object!.parents!.pageInfo |]
+    return PaginatedResult
+      { chunk = [get| result.repository!.object!.parents!.nodes![]! |]
+      , hasNext = [get| info.hasNextPage |]
+      , nextCursor = [get| info.endCursor |]
+      }
 
 type Tree = [unwrap| (BranchTree.Schema).repository.ref!.target.tree! |]
 
@@ -146,3 +172,23 @@ mergeBranches base sha message = fmap isRight $ githubTry $ queryGitHub' GHEndpo
     , "commit_message" := message
     ]
   }
+
+{- Helpers -}
+
+data PaginatedResult a = PaginatedResult
+  { chunk      :: [a]
+  , hasNext    :: Bool
+  , nextCursor :: Maybe Text
+  } deriving (Show)
+
+-- | Run a paginated query as many times as possible until all the results have been fetched.
+queryAll :: (Monad m, Show a) => (Maybe String -> m (PaginatedResult a)) -> m [a]
+queryAll doQuery = queryAll' Nothing
+  where
+    queryAll' cursor = do
+      result@PaginatedResult{..} <- doQuery cursor
+      next <- case (hasNext, nextCursor) of
+        (True, Just nextCursor') -> queryAll' . Just . Text.unpack $ nextCursor'
+        (True, Nothing) -> fail $ "Paginated result says it has next with no cursor: " ++ show result
+        (False, _) -> return []
+      return $ chunk ++ next
