@@ -23,23 +23,23 @@ import Servant (Handler)
 import Servant.GitHub
 
 import MergeBot.Core (createMergeCheckRun, createTryCheckRun, startTryJob)
-import MergeBot.Monad (runGitHub)
+import MergeBot.Monad (runBotApp)
 
 -- | Handle the 'check_suite' GitHub event.
 handleCheckSuite :: Object CheckSuiteEvent -> Token -> Handler ()
-handleCheckSuite o = runGitHub repo $
+handleCheckSuite o = runBotApp repo $
   case [get| o.action |] of
     CheckSuite.REQUESTED -> do
       createTryCheckRun sha
       createMergeCheckRun sha
     _ -> return ()
   where
-    repo = [get| o.repository!.full_name |]
+    repo = [get| o.repository! |]
     sha = [get| o.check_suite.head_sha |]
 
 -- | Handle the 'check_run' GitHub event.
 handleCheckRun :: Object CheckRunEvent -> Token -> Handler ()
-handleCheckRun o = runGitHub repo $
+handleCheckRun o = runBotApp repo $
   case [get| o.action |] of
     CheckRun.REQUESTED_ACTION ->
       case [get| o.requested_action!.identifier |] of
@@ -48,6 +48,6 @@ handleCheckRun o = runGitHub repo $
         _ -> return ()
     _ -> return ()
   where
-    repo = [get| o.repository!.full_name |]
+    repo = [get| o.repository! |]
     prs = [get| o.check_run.pull_requests[].(number, head.sha, base.sha) |]
     uncurry3 f (a,b,c) = f a b c
