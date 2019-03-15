@@ -9,12 +9,22 @@ This module defines labels and messages used in the MergeBot.
 {-# LANGUAGE OverloadedStrings #-}
 
 module MergeBot.Core.Text
-  ( toTryBranch
+  ( checkRunTry
+  , checkRunMerge
+  , toTryBranch
   , toTryMessage
   ) where
 
 import Data.Text (Text)
 import qualified Data.Text as Text
+
+-- | The label for the check run for trying PRs.
+checkRunTry :: Text
+checkRunTry = "Bot Try"
+
+-- | The label for the check run for merging PRs.
+checkRunMerge :: Text
+checkRunMerge = "Bot Merge"
 
 -- | Display the pull request number.
 toId :: Int -> Text

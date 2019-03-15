@@ -34,8 +34,8 @@ import GitHub.Schema.Event.Status (StatusState)
 
 import MergeBot.Core.Config (BotConfig, configFileName)
 import MergeBot.Core.GitHub
-import MergeBot.Core.Monad (MonadMergeBot(..))
-import MergeBot.Core.Text (toTryBranch, toTryMessage)
+import MergeBot.Core.Monad
+import MergeBot.Core.Text
 
 default (Text)
 
@@ -45,7 +45,7 @@ createCheckRuns sha = createTryCheckRun sha >> createMergeCheckRun sha
 -- | Create the check run for trying PRs.
 createTryCheckRun :: MonadMergeBot m => GitObjectID -> m ()
 createTryCheckRun sha = createCheckRun
-  [ "name"     := "Bot Try"
+  [ "name"     := checkRunTry
   , "head_sha" := sha
   , "output" :=
     [ "title"   := "Try Run"
@@ -62,7 +62,7 @@ createTryCheckRun sha = createCheckRun
 -- | Create the check run for queuing/merging PRs.
 createMergeCheckRun :: MonadMergeBot m => GitObjectID -> m ()
 createMergeCheckRun sha = createCheckRun
-  [ "name"     := "Bot Merge"
+  [ "name"     := checkRunMerge
   , "head_sha" := sha
   , "output" :=
     [ "title"   := "Merge Run"
