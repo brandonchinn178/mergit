@@ -6,20 +6,30 @@ Portability :  portable
 
 This module defines functions for running GitHubT actions.
 -}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module MergeBot.Monad
-  ( runGitHub
+  ( runBotApp
   ) where
 
-import Data.Text (Text)
+import Control.Monad.IO.Class (liftIO)
+import Data.Aeson.Schema (Object, get)
 import GitHub.REST
+import GitHub.Schema.Repository (RepoWebhook)
 import Servant (Handler)
+import Servant.GitHub (GitHubAppParams(..), loadGitHubAppParams)
 
-import MergeBot.Core.Monad (BotAppT, runBotAppT)
+import MergeBot.Core.Monad (BotAppT, BotSettings(..), parseRepo, runBotAppT)
 
 type BotApp = BotAppT Handler
 
--- | 'runBotAppT' with the arguments in a different order to take in 'Token' last.
-runGitHub :: Text -> BotApp a -> Token -> Handler a
-runGitHub repo action token = runBotAppT token repo action
+-- | A helper around 'runBotAppT' for easy use by the Servant handlers.
+runBotApp :: Object RepoWebhook -> BotApp a -> Token -> Handler a
+runBotApp repo action token = do
+  GitHubAppParams{ghUserAgent} <- liftIO loadGitHubAppParams
+  runBotAppT BotSettings{userAgent = ghUserAgent, ..} action
+  where
+    (repoOwner, repoName) = parseRepo [get| repo.full_name |]
