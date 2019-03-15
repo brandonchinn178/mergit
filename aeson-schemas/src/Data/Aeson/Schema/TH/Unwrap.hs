@@ -19,6 +19,7 @@ import Language.Haskell.TH.Quote (QuasiQuoter(..))
 
 import Data.Aeson.Schema.Internal (Object, SchemaResult, SchemaType(..))
 import Data.Aeson.Schema.TH.Parse
+import Data.Aeson.Schema.TH.Utils (stripSigs)
 
 -- | Defines a QuasiQuoter to extract a schema within the given schema.
 --
@@ -77,15 +78,12 @@ generateUnwrapSchema :: UnwrapSchema -> TypeQ
 generateUnwrapSchema UnwrapSchema{..} = do
   startSchemaName <- maybe (fail $ "Unknown schema: " ++ startSchema) return =<< lookupTypeName startSchema
   startSchemaType <- reify startSchemaName >>= \case
-    TyConI (TySynD _ _ ty) -> return ty
+    TyConI (TySynD _ _ ty) -> return $ stripSigs ty
     info -> fail $ "Unknown type to unwrap: " ++ show info
   getType startSchemaType getterOps
   where
-    unSig = \case
-      SigT ty _ -> ty
-      ty -> ty
     getType schema [] = fromSchemaType schema
-    getType schema (op:ops) = case unSig schema of
+    getType schema (op:ops) = case schema of
       AppT (PromotedT ty) inner ->
         case op of
           GetterKey key | ty == 'SchemaObject ->
@@ -109,14 +107,14 @@ generateUnwrapSchema UnwrapSchema{..} = do
           GetterMapList | ty == 'SchemaList -> getType inner ops
           GetterMapList -> fail $ "Cannot use `[]` operator on schema: " ++ show schema
       _ -> fail $ unlines ["Cannot get type:", show schema, show op]
-    getObjectSchema schema = case unSig schema of
+    getObjectSchema schema = case schema of
       AppT (AppT PromotedConsT t1) t2 ->
-        case unSig t1 of
+        case t1 of
           AppT (AppT (PromotedTupleT 2) (LitT (StrTyLit key))) ty -> (key, ty) : getObjectSchema t2
           _ -> error $ "Could not parse a (key, schema) tuple: " ++ show t1
       PromotedNilT -> []
       t -> error $ "Could not get object schema: " ++ show t
-    fromSchemaType schema = case unSig schema of
+    fromSchemaType schema = case schema of
       schema'@(AppT (PromotedT ty) inner)
         | ty == 'SchemaCustom -> [t| SchemaResult $(pure schema') |]
         | ty == 'SchemaMaybe -> [t| Maybe $(fromSchemaType inner) |]
