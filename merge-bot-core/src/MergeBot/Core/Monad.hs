@@ -30,7 +30,7 @@ module MergeBot.Core.Monad
 import Control.Monad.Catch (MonadCatch, MonadMask, MonadThrow)
 import Control.Monad.IO.Class (MonadIO)
 import Control.Monad.Trans.Class (lift)
-import Control.Monad.Trans.Reader (ReaderT, ask, runReaderT)
+import Control.Monad.Trans.Reader (ReaderT, asks, runReaderT)
 import Data.Aeson (Value)
 import Data.ByteString (ByteString)
 import Data.GraphQL
@@ -83,10 +83,12 @@ instance MonadIO m => MonadQuery API (BotAppT m) where
 class (MonadMask m, MonadGitHubREST m, MonadQuery API m) => MonadMergeBot m where
   getRepo :: m (Text, Text)
 
+-- | 'asks' specialized to 'BotAppT'.
+botAsks :: Monad m => (BotState -> a) -> BotAppT m a
+botAsks = BotAppT . asks
+
 instance (MonadMask m, MonadIO m) => MonadMergeBot (BotAppT m) where
-  getRepo = BotAppT $ do
-    BotState{..} <- ask
-    return (repoOwner, repoName)
+  getRepo = (,) <$> botAsks repoOwner <*> botAsks repoName
 
 data BotSettings = BotSettings
   { token     :: Token
