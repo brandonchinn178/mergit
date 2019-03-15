@@ -17,7 +17,7 @@ module MergeBot.Handlers
   , handleStatus
   ) where
 
-import Control.Monad (forM_, unless)
+import Control.Monad (forM_, unless, when)
 import Control.Monad.IO.Class (liftIO)
 import Data.Aeson.Schema (Object, get)
 import qualified GitHub.Schema.Event.CheckRun as CheckRun
@@ -27,6 +27,7 @@ import Servant (Handler)
 import Servant.GitHub
 
 import qualified MergeBot.Core as Core
+import MergeBot.Core.Text (isTryBranch)
 import MergeBot.Monad (runBotApp)
 
 -- | Handle the 'pull_request' GitHub event.
@@ -71,10 +72,12 @@ handleCheckRun o = runBotApp repo $
 -- | Handle the 'status' GitHub event.
 handleStatus :: Object StatusEvent -> Token -> Handler ()
 handleStatus o = runBotApp repo $
-  Core.handleStatusUpdate
-    [get| o.sha |]
-    [get| o.context |]
-    [get| o.state |]
-    [get| o.target_url |]
+  -- TODO: also allow merge branches
+  when (any isTryBranch [get| o.branches[].name |]) $
+    Core.handleStatusUpdate
+      [get| o.sha |]
+      [get| o.context |]
+      [get| o.state |]
+      [get| o.target_url |]
   where
     repo = [get| o.repository! |]

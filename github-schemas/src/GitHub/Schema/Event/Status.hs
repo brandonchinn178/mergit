@@ -34,6 +34,9 @@ type StatusEvent = [schema|
     "description": Maybe Text,
     "state": StatusState,
     "target_url": Maybe URL,
+    "branches": List {
+      "name": Text,
+    },
     #BaseEvent,
   }
 |]
