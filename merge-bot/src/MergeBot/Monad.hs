@@ -29,7 +29,11 @@ type BotApp = BotAppT Handler
 -- | A helper around 'runBotAppT' for easy use by the Servant handlers.
 runBotApp :: Object RepoWebhook -> BotApp a -> Token -> Handler a
 runBotApp repo action token = do
-  GitHubAppParams{ghUserAgent} <- liftIO loadGitHubAppParams
-  runBotAppT BotSettings{userAgent = ghUserAgent, ..} action
+  GitHubAppParams{ghUserAgent, ghAppId} <- liftIO loadGitHubAppParams
+  (`runBotAppT` action) BotSettings
+    { userAgent = ghUserAgent
+    , appId = ghAppId
+    , ..
+    }
   where
     (repoOwner, repoName) = parseRepo [get| repo.full_name |]

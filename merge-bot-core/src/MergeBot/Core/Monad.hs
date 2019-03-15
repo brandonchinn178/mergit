@@ -6,6 +6,7 @@ Portability :  portable
 
 This module defines the monad used by the MergeBot.
 -}
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -29,7 +30,7 @@ module MergeBot.Core.Monad
 import Control.Monad.Catch (MonadCatch, MonadMask, MonadThrow)
 import Control.Monad.IO.Class (MonadIO)
 import Control.Monad.Trans.Class (lift)
-import Control.Monad.Trans.Reader (ReaderT, ask, runReaderT)
+import Control.Monad.Trans.Reader (ReaderT, asks, runReaderT)
 import Data.Aeson (Value)
 import Data.ByteString (ByteString)
 import Data.GraphQL
@@ -55,9 +56,16 @@ import Network.HTTP.Types (hAuthorization, hUserAgent)
 
 import MergeBot.Core.GraphQL.API (API)
 
+-- | The monadic state in BotAppT.
+data BotState = BotState
+  { repoOwner :: Text
+  , repoName  :: Text
+  , appId     :: Int
+  } deriving (Show)
+
 newtype BotAppT m a = BotAppT
   { unBotApp ::
-      ReaderT (Text, Text)
+      ReaderT BotState
         ( GitHubT
           ( QueryT API
               m
@@ -75,25 +83,33 @@ instance MonadIO m => MonadQuery API (BotAppT m) where
 
 class (MonadMask m, MonadGitHubREST m, MonadQuery API m) => MonadMergeBot m where
   getRepo :: m (Text, Text)
+  getAppId :: m Int
+
+-- | 'asks' specialized to 'BotAppT'.
+botAsks :: Monad m => (BotState -> a) -> BotAppT m a
+botAsks = BotAppT . asks
 
 instance (MonadMask m, MonadIO m) => MonadMergeBot (BotAppT m) where
-  getRepo = BotAppT ask
+  getRepo = (,) <$> botAsks repoOwner <*> botAsks repoName
+  getAppId = botAsks appId
 
 data BotSettings = BotSettings
   { token     :: Token
   , repoOwner :: Text
   , repoName  :: Text
   , userAgent :: ByteString
+  , appId     :: Int
   } deriving (Show)
 
 runBotAppT :: MonadIO m => BotSettings -> BotAppT m a -> m a
 runBotAppT BotSettings{..} =
   runQueryT graphqlSettings
   . runGitHubT state
-  . (`runReaderT` (repoOwner, repoName))
+  . (`runReaderT` botState)
   . unBotApp
   where
     state = GitHubState { token, userAgent, apiVersion = "antiope-preview" }
+    botState = BotState{..}
     graphqlSettings = githubQuerySettings
       { modifyReq = \req -> req
         { requestHeaders =
