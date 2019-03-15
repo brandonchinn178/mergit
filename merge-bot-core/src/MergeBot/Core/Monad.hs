@@ -60,6 +60,7 @@ import MergeBot.Core.GraphQL.API (API)
 data BotState = BotState
   { repoOwner :: Text
   , repoName  :: Text
+  , appId     :: Int
   } deriving (Show)
 
 newtype BotAppT m a = BotAppT
@@ -82,6 +83,7 @@ instance MonadIO m => MonadQuery API (BotAppT m) where
 
 class (MonadMask m, MonadGitHubREST m, MonadQuery API m) => MonadMergeBot m where
   getRepo :: m (Text, Text)
+  getAppId :: m Int
 
 -- | 'asks' specialized to 'BotAppT'.
 botAsks :: Monad m => (BotState -> a) -> BotAppT m a
@@ -89,12 +91,14 @@ botAsks = BotAppT . asks
 
 instance (MonadMask m, MonadIO m) => MonadMergeBot (BotAppT m) where
   getRepo = (,) <$> botAsks repoOwner <*> botAsks repoName
+  getAppId = botAsks appId
 
 data BotSettings = BotSettings
   { token     :: Token
   , repoOwner :: Text
   , repoName  :: Text
   , userAgent :: ByteString
+  , appId     :: Int
   } deriving (Show)
 
 runBotAppT :: MonadIO m => BotSettings -> BotAppT m a -> m a
