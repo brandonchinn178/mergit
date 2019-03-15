@@ -13,13 +13,17 @@ This module defines the monad used by the MergeBot.
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 
 module MergeBot.Core.Monad
   ( BotAppT
   , MonadMergeBot(..)
+  , BotSettings(..)
   , runBotAppT
   , queryGitHub'
+  -- * Helpers
+  , parseRepo
   ) where
 
 import Control.Monad.Catch (MonadCatch, MonadMask, MonadThrow)
@@ -75,11 +79,17 @@ class (MonadMask m, MonadGitHubREST m, MonadQuery API m) => MonadMergeBot m wher
 instance (MonadMask m, MonadIO m) => MonadMergeBot (BotAppT m) where
   getRepo = BotAppT ask
 
-runBotAppT :: MonadIO m => Token -> Text -> BotAppT m a -> m a
-runBotAppT token repo =
+data BotSettings = BotSettings
+  { token     :: Token
+  , repoOwner :: Text
+  , repoName  :: Text
+  } deriving (Show)
+
+runBotAppT :: MonadIO m => BotSettings -> BotAppT m a -> m a
+runBotAppT BotSettings{..} =
   runQueryT graphqlSettings
   . runGitHubT state
-  . (`runReaderT` repo')
+  . (`runReaderT` (repoOwner, repoName))
   . unBotApp
   where
     state = GitHubState
@@ -95,9 +105,6 @@ runBotAppT token repo =
             : requestHeaders req
         }
       }
-    repo' = case Text.splitOn "/" repo of
-      [repoOwner, repoName] -> (repoOwner, repoName)
-      _ -> error $ "Invalid repo: " ++ Text.unpack repo
 
 queryGitHub' :: MonadMergeBot m => GHEndpoint -> m Value
 queryGitHub' endpoint = do
@@ -118,3 +125,9 @@ githubQuerySettings = defaultQuerySettings
 
 botUserAgent :: ByteString
 botUserAgent = "LeapYear/merge-bot"
+
+-- | Separate a repo name of the format "owner/repo" into a tuple @(owner, repo)@.
+parseRepo :: Text -> (Text, Text)
+parseRepo repo = case Text.splitOn "/" repo of
+  [repoOwner, repoName] -> (repoOwner, repoName)
+  _ -> error $ "Invalid repo: " ++ Text.unpack repo
