@@ -77,7 +77,7 @@ instance (MonadMask m, MonadIO m) => MonadMergeBot (BotAppT m) where
 
 runBotAppT :: MonadIO m => Token -> Text -> BotAppT m a -> m a
 runBotAppT token repo =
-  runQueryT (graphqlSettings token)
+  runQueryT graphqlSettings
   . runGitHubT state
   . (`runReaderT` repo')
   . unBotApp
@@ -86,6 +86,14 @@ runBotAppT token repo =
       { token
       , userAgent = botUserAgent
       , apiVersion = "antiope-preview"
+      }
+    graphqlSettings = githubQuerySettings
+      { modifyReq = \req -> req
+        { requestHeaders =
+            (hAuthorization, fromToken token)
+            : (hUserAgent, botUserAgent)
+            : requestHeaders req
+        }
       }
     repo' = case Text.splitOn "/" repo of
       [repoOwner, repoName] -> (repoOwner, repoName)
@@ -101,17 +109,11 @@ queryGitHub' endpoint = do
       ]
     }
 
-{- Settings -}
+{- Helpers -}
 
-graphqlSettings :: Token -> QuerySettings API
-graphqlSettings token = defaultQuerySettings
+githubQuerySettings :: QuerySettings API
+githubQuerySettings = defaultQuerySettings
   { url = "https://api.github.com/graphql"
-  , modifyReq = \req -> req
-      { requestHeaders =
-          (hAuthorization, fromToken token)
-          : (hUserAgent, botUserAgent)
-          : requestHeaders req
-      }
   }
 
 botUserAgent :: ByteString
