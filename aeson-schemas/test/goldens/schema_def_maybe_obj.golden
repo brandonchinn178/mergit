@@ -1,1 +1,1 @@
-Schema {"a": Maybe {"b": Int}}
+SchemaObject {"a": Maybe {"b": Int}}

@@ -1,1 +1,1 @@
-Schema {"user": {"name": Text}}
+SchemaObject {"user": {"name": Text}}

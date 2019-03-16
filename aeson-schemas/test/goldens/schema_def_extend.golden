@@ -1,1 +1,1 @@
-Schema {"a": Int, "extra": Text}
+SchemaObject {"a": Int, "extra": Text}

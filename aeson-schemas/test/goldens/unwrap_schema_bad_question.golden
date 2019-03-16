@@ -1,1 +1,1 @@
-Cannot use `?` operator on schema: Schema {"type": Text, "maybeBool": Maybe Bool, "maybeInt": Maybe Int, "maybeNull": Maybe Bool}
+Cannot use `?` operator on schema: SchemaObject {"type": Text, "maybeBool": Maybe Bool, "maybeInt": Maybe Int, "maybeNull": Maybe Bool}

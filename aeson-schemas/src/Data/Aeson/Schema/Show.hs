@@ -30,8 +30,14 @@ data SchemaType
 -- | Pretty show the given SchemaType.
 showSchemaType :: SchemaType -> String
 showSchemaType schema = case schema of
-  SchemaObject _ -> "Schema " ++ showSchemaType' schema
-  _ -> showSchemaType' schema
+  SchemaBool -> "SchemaBool"
+  SchemaInt -> "SchemaInt"
+  SchemaDouble -> "SchemaDouble"
+  SchemaText -> "SchemaText"
+  SchemaCustom s -> "SchemaCustom " ++ s
+  SchemaMaybe inner -> "SchemaMaybe " ++ showSchemaType' inner
+  SchemaList inner -> "SchemaList " ++ showSchemaType' inner
+  SchemaObject _ -> "SchemaObject " ++ showSchemaType' schema
   where
     showSchemaType' = \case
       SchemaBool -> "Bool"

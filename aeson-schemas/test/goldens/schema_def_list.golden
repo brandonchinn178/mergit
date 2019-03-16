@@ -1,1 +1,1 @@
-Schema {"a": List Int}
+SchemaObject {"a": List Int}
