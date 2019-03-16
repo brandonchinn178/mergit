@@ -1,1 +1,1 @@
-SchemaObject [("a", SchemaBool)]
+Schema {"a": Bool}

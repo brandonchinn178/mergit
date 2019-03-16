@@ -1,1 +1,1 @@
-SchemaObject [("a", SchemaMaybe SchemaInt)]
+Schema {"a": Maybe Int}

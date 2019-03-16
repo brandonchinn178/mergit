@@ -1,1 +1,1 @@
-SchemaObject [("user", SchemaObject [("name", SchemaText)])]
+Schema {"user": {"name": Text}}
