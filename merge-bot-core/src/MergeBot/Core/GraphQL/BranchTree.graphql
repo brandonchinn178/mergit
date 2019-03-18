@@ -5,14 +5,14 @@ query BranchTree($repoOwner: String!, $repoName: String!, $name: String!) {
         ... on Commit {
           tree {
             oid
-            # entries {
-            #   name
-            #   object {
-            #     ... on Blob {
-            #       text
-            #     }
-            #   }
-            # }
+            entries {
+              name
+              object {
+                ... on Blob {
+                  text
+                }
+              }
+            }
           }
         }
       }
