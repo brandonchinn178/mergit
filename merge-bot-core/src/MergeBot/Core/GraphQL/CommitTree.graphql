@@ -1,0 +1,19 @@
+query CommitTree($repoOwner: String!, $repoName: String!, $sha: GitObjectID!) {
+  repository(owner: $repoOwner, name: $repoName) {
+    object(oid: $sha) {
+      ... on Commit {
+        tree {
+          oid
+          entries {
+            name
+            object {
+              ... on Blob {
+                text
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

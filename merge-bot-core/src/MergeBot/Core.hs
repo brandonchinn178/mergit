@@ -115,7 +115,7 @@ createCIBranch baseSHA prSHAs ciBranch message = do
       fail "Merge conflict" -- TODO: better error throwing
 
   -- get tree for temp branch
-  tree <- getTree ciBranch
+  tree <- getBranchTree ciBranch
 
   -- check missing/invalid .lymerge.yaml file
   when (isNothing $ extractConfig tree) $

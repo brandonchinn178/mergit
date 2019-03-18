@@ -16,7 +16,9 @@ This module defines functions for manipulating GitHub state.
 module MergeBot.Core.GitHub
   ( -- * GraphQL
     getCIParents
-  , getTree, Tree
+  , Tree
+  , getBranchTree
+  , getCommitTree
     -- * REST
   , createCheckRun
   , updateCheckRun
@@ -37,6 +39,7 @@ import GitHub.REST
     (GHEndpoint(..), GitHubData, KeyValue(..), StdMethod(..), githubTry, (.:))
 
 import qualified MergeBot.Core.GraphQL.BranchTree as BranchTree
+import qualified MergeBot.Core.GraphQL.CommitTree as CommitTree
 import qualified MergeBot.Core.GraphQL.ParentsStatus as ParentsStatus
 import MergeBot.Core.Monad (MonadMergeBot(..), queryGitHub')
 
@@ -66,17 +69,28 @@ getCIParents sha checkName = do
       , nextCursor = [get| info.endCursor |]
       }
 
-type Tree = [unwrap| (BranchTree.Schema).repository.ref!.target.tree! |]
+type Tree = [unwrap| (CommitTree.Schema).repository.object!.tree! |]
 
 -- | Get the git tree for the given branch.
-getTree :: MonadMergeBot m => Text -> m Tree
-getTree branch = do
+getBranchTree :: MonadMergeBot m => Text -> m Tree
+getBranchTree branch = do
   (repoOwner, repoName) <- getRepo
   [get| .repository.ref!.target.tree! |] <$>
     runQuery BranchTree.query BranchTree.Args
       { _repoOwner = Text.unpack repoOwner
       , _repoName = Text.unpack repoName
       , _name = Text.unpack branch
+      }
+
+-- | Get the git tree for the given commit.
+getCommitTree :: MonadMergeBot m => GitObjectID -> m Tree
+getCommitTree sha = do
+  (repoOwner, repoName) <- getRepo
+  [get| .repository.object!.tree! |] <$>
+    runQuery CommitTree.query CommitTree.Args
+      { _repoOwner = Text.unpack repoOwner
+      , _repoName = Text.unpack repoName
+      , _sha = sha
       }
 
 {- REST -}

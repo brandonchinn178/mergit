@@ -9,16 +9,6 @@ query ParentsStatus(
   repository(owner: $repoOwner, name: $repoName) {
     object(oid: $sha) {
       ... on Commit {
-        # tree {
-        #   entries {
-        #     name
-        #     object {
-        #       ... on Blob {
-        #         text
-        #       }
-        #     }
-        #   }
-        # }
         parents(first: 5, after: $after) {
           pageInfo {
             hasNextPage
