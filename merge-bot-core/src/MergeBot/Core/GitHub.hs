@@ -6,11 +6,15 @@ Portability :  portable
 
 This module defines functions for manipulating GitHub state.
 -}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DisambiguateRecordFields #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
 
 module MergeBot.Core.GitHub
-  ( createBranch
+  ( getTree
+  , createBranch
   , createCheckRun
   , createCommit
   , deleteBranch
@@ -20,12 +24,32 @@ module MergeBot.Core.GitHub
 
 import Control.Monad (void)
 import Data.Either (isRight)
+import Data.GraphQL (get, runQuery, unwrap)
 import Data.Text (Text)
+import qualified Data.Text as Text
 import GitHub.Data.GitObjectID (GitObjectID)
 import GitHub.REST
     (GHEndpoint(..), GitHubData, KeyValue(..), StdMethod(..), githubTry, (.:))
 
-import MergeBot.Core.Monad (MonadMergeBot, queryGitHub')
+import qualified MergeBot.Core.GraphQL.BranchTree as BranchTree
+import MergeBot.Core.Monad (MonadMergeBot(..), queryGitHub')
+
+{- GraphQL -}
+
+type Tree = [unwrap| (BranchTree.Schema).repository.ref!.target.tree! |]
+
+-- | Get the git tree for the given branch.
+getTree :: MonadMergeBot m => Text -> m Tree
+getTree branch = do
+  (repoOwner, repoName) <- getRepo
+  [get| .repository.ref!.target.tree! |] <$>
+    runQuery BranchTree.query BranchTree.Args
+      { _repoOwner = Text.unpack repoOwner
+      , _repoName = Text.unpack repoName
+      , _name = Text.unpack branch
+      }
+
+{- REST -}
 
 -- | Create a branch.
 --

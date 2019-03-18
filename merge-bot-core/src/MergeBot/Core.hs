@@ -7,7 +7,6 @@ Portability :  portable
 This module defines core MergeBot functionality.
 -}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DisambiguateRecordFields #-}
 {-# LANGUAGE ExtendedDefaultRules #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
@@ -20,14 +19,12 @@ module MergeBot.Core
   ) where
 
 import Control.Monad (forM_, unless)
-import Data.GraphQL (get, runQuery)
+import Data.GraphQL (get)
 import Data.Text (Text)
-import qualified Data.Text as Text
 import GitHub.Data.GitObjectID (GitObjectID)
 import GitHub.REST (KeyValue(..))
 
 import MergeBot.Core.GitHub
-import qualified MergeBot.Core.GraphQL.BranchTree as BranchTree
 import MergeBot.Core.Monad (MonadMergeBot(..))
 import MergeBot.Core.Text (toTryBranch, toTryMessage)
 
@@ -94,17 +91,13 @@ createCIBranch baseSHA prSHAs ciBranch message = do
     unless success $
       fail "Merge conflict" -- TODO: better error throwing
 
+  -- get tree for temp branch
+  tree <- getTree ciBranch
+
   -- TODO: fail if missing/invalid .lymerge.yaml
 
   -- create a new commit that merges all the PRs at once
-  (repoOwner, repoName) <- getRepo
-  treeSHA <- [get| .repository.ref!.target.tree!.oid |] <$>
-    runQuery BranchTree.query BranchTree.Args
-      { _repoOwner = Text.unpack repoOwner
-      , _repoName = Text.unpack repoName
-      , _name = Text.unpack ciBranch
-      }
-  mergeSHA <- createCommit message treeSHA (baseSHA : prSHAs)
+  mergeSHA <- createCommit message [get| tree.oid |] (baseSHA : prSHAs)
 
   -- forcibly update CI branch to point to new merge commit
   success <- updateBranch True ciBranch mergeSHA
