@@ -12,6 +12,10 @@ module GitHub.Data.GitObjectID where
 
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Text (Text)
+import qualified Data.Text as Text
 
 newtype GitObjectID = GitObjectID { unOID :: Text }
   deriving (Show,FromJSON,ToJSON)
+
+unOID' :: GitObjectID -> String
+unOID' = Text.unpack . unOID

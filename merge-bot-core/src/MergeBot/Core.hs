@@ -8,6 +8,7 @@ This module defines core MergeBot functionality.
 -}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE ExtendedDefaultRules #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
@@ -18,16 +19,16 @@ module MergeBot.Core
   , handleStatusUpdate
   ) where
 
-import Control.Monad (forM_, unless, when)
+import Control.Exception (displayException)
+import Control.Monad (forM_, unless, void)
 import Control.Monad.IO.Class (liftIO)
 import Data.GraphQL (get)
-import Data.Maybe (isNothing)
 import Data.Text (Text)
 import qualified Data.Text as Text
 import qualified Data.Text.Encoding as Text
 import Data.Time (getCurrentTime)
 import Data.Yaml (decodeThrow)
-import GitHub.Data.GitObjectID (GitObjectID)
+import GitHub.Data.GitObjectID (GitObjectID, unOID')
 import GitHub.REST (GitHubData, KeyValue(..))
 
 import MergeBot.Core.Config (BotConfig, configFileName)
@@ -118,8 +119,7 @@ createCIBranch baseSHA prSHAs ciBranch message = do
   tree <- getBranchTree ciBranch
 
   -- check missing/invalid .lymerge.yaml file
-  when (isNothing $ extractConfig tree) $
-    fail $ "Missing or invalid " ++ Text.unpack configFileName ++ " file."
+  void $ extractConfig tree
 
   -- create a new commit that merges all the PRs at once
   mergeSHA <- createCommit message [get| tree.oid |] (baseSHA : prSHAs)
@@ -134,12 +134,16 @@ createCIBranch baseSHA prSHAs ciBranch message = do
 -- | Update the check runs for the given CI commit, including any additional data provided.
 refreshCheckRuns :: MonadMergeBot m => GitHubData -> GitObjectID -> Text -> m ()
 refreshCheckRuns ghData sha checkName = do
-  -- TODO: get sha commit parents, 'tail' to ignore baseSHA and get prSHAs
-  checkRunId <- undefined sha checkName
+  -- get CI commit parents
+  parents <- getCIParents sha checkName >>= \case
+    [] -> fail $ "CI commit had no parents: " ++ unOID' sha -- should not happen
+    [_] -> fail $ "CI commit had only 1 parent: " ++ unOID' sha -- should not happen
+    _ : prSHAs -> return prSHAs -- ignore the base branch's SHA
 
-  -- TODO: get .lymerge.yaml config
+  config <- extractConfig =<< getCommitTree sha
 
   -- update the "Bot Try" check run
+  let checkRunId = undefined
   updateCheckRun checkRunId $ ghData ++
     [ "output" :=
       [ "title" := "Try Run"
@@ -148,11 +152,14 @@ refreshCheckRuns ghData sha checkName = do
     ]
 
 -- | Get the configuration file for the given tree.
-extractConfig :: Tree -> Maybe BotConfig
+extractConfig :: Monad m => Tree -> m BotConfig
 extractConfig tree =
   case filter isConfigFile [get| tree.entries![] |] of
-    [] -> Nothing
-    [entry] -> decodeThrow $ Text.encodeUtf8 [get| entry.object!.text! |]
-    _ -> error $ "Multiple '" ++ Text.unpack configFileName ++ "' files found?"
+    [] -> fail $ "Missing '" ++  configFile ++ "' file"
+    [entry] -> case decodeThrow $ Text.encodeUtf8 [get| entry.object!.text! |] of
+      Left e -> fail $ "Invalid '" ++ configFile ++ "' file: " ++ displayException e
+      Right c -> return c
+    _ -> fail $ "Multiple '" ++ configFile ++ "' files found?"
   where
     isConfigFile = (== configFileName) . [get| .name |]
+    configFile = Text.unpack configFileName
