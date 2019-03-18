@@ -46,6 +46,12 @@ type Schema = [schema|
         "target": {
           "tree": Maybe {
             "oid": GitObjectID,
+            "entries": Maybe List {
+              "name": Text,
+              "object": Maybe {
+                "text": Maybe Text,
+              },
+            },
           },
         },
       },

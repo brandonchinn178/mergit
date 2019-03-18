@@ -13,7 +13,7 @@ This module defines functions for manipulating GitHub state.
 {-# LANGUAGE QuasiQuotes #-}
 
 module MergeBot.Core.GitHub
-  ( getTree
+  ( getTree, Tree
   , createBranch
   , createCheckRun
   , createCommit

@@ -18,12 +18,17 @@ module MergeBot.Core
   , startTryJob
   ) where
 
-import Control.Monad (forM_, unless)
+import Control.Monad (forM_, unless, when)
 import Data.GraphQL (get)
+import Data.Maybe (isNothing)
 import Data.Text (Text)
+import qualified Data.Text as Text
+import qualified Data.Text.Encoding as Text
+import Data.Yaml (decodeThrow)
 import GitHub.Data.GitObjectID (GitObjectID)
 import GitHub.REST (KeyValue(..))
 
+import MergeBot.Core.Config (BotConfig, configFileName)
 import MergeBot.Core.GitHub
 import MergeBot.Core.Monad (MonadMergeBot(..))
 import MergeBot.Core.Text (toTryBranch, toTryMessage)
@@ -94,7 +99,9 @@ createCIBranch baseSHA prSHAs ciBranch message = do
   -- get tree for temp branch
   tree <- getTree ciBranch
 
-  -- TODO: fail if missing/invalid .lymerge.yaml
+  -- check missing/invalid .lymerge.yaml file
+  when (isNothing $ extractConfig tree) $
+    fail $ "Missing or invalid " ++ Text.unpack configFileName ++ " file."
 
   -- create a new commit that merges all the PRs at once
   mergeSHA <- createCommit message [get| tree.oid |] (baseSHA : prSHAs)
@@ -103,3 +110,13 @@ createCIBranch baseSHA prSHAs ciBranch message = do
   success <- updateBranch True ciBranch mergeSHA
   unless success $
     fail "Force update CI branch failed"
+
+-- | Get the configuration file for the given tree.
+extractConfig :: Tree -> Maybe BotConfig
+extractConfig tree =
+  case filter isConfigFile [get| tree.entries![] |] of
+    [] -> Nothing
+    [entry] -> decodeThrow $ Text.encodeUtf8 [get| entry.object!.text! |]
+    _ -> error $ "Multiple '" ++ Text.unpack configFileName ++ "' files found?"
+  where
+    isConfigFile = (== configFileName) . [get| .name |]

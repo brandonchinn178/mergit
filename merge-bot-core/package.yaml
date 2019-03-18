@@ -17,6 +17,7 @@ dependencies:
 - http-types
 - text
 - transformers
+- yaml
 
 library:
   source-dirs: src
