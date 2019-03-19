@@ -81,7 +81,7 @@ parseSchemaDef = choice
       , SchemaDefObjExtend <$> parseSchemaReference
       ] <* space -- allow any trailing spaces
     parseSchemaDefPair = do
-      key <- quotedJsonKey
+      key <- jsonKey
       lexeme ":"
       value <- parseSchemaDef
       return (key, value)
@@ -109,14 +109,13 @@ namespacedIdentifier start = choice [lexeme "(" *> namespaced <* lexeme ")", ide
       ]
 
 -- | A string that can be used as a JSON key.
---
--- Disallows any character that could cause ambiguity when parsing expressions; e.g. the 'get'
--- quasiquoter.
 jsonKey :: Parser String
-jsonKey = some $ noneOf "\"!?[](),. "
-
-quotedJsonKey :: Parser String
-quotedJsonKey = between (char '"') (char '"') jsonKey
+jsonKey = some $ noneOf $ " " ++ schemaChars ++ getChars
+  where
+    -- characters that cause ambiguity when parsing 'get' expressions
+    getChars = "!?[](),."
+    -- characters that should not indicate the start of a key when parsing 'schema' definitions
+    schemaChars = ":{}#"
 
 {- SchemaDef -}
 

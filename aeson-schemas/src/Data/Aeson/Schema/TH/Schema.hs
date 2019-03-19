@@ -45,14 +45,14 @@ import Data.Aeson.Schema.TH.Utils (fromTypeList, toTypeList)
 -- > --      ]
 -- > type MySchema = [schema|
 -- >   {
--- >     "foo": {
--- >        "a": Int,
--- >        "nodes": Maybe List {
--- >           "b": Maybe Bool,
--- >        },
--- >        "c": Text,
--- >        "d": Text,
--- >        "e": MyType,
+-- >     foo: {
+-- >       a: Int,
+-- >       nodes: Maybe List {
+-- >         b: Maybe Bool,
+-- >       },
+-- >       c: Text,
+-- >       d: Text,
+-- >       e: MyType,
 -- >     },
 -- >   }
 -- > |]
