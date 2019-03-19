@@ -143,14 +143,13 @@ refreshCheckRuns ghData sha checkName = do
   config <- extractConfig commitTree
   let ciStatus = displayCIStatus config commitContexts
 
-  -- update the "Bot Try" check run
-  let checkRunId = undefined
-  updateCheckRun checkRunId $ ghData ++
-    [ "output" :=
-      [ "title" := "Try Run"
-      , "summary" := "Try run is in progress (TODO: show CI details)"
+  forM_ checkRuns $ \checkRun ->
+    updateCheckRun checkRun $ ghData ++
+      [ "output" :=
+        [ "title" := "Try Run"
+        , "summary" := ciStatus
+        ]
       ]
-    ]
 
 -- | Get text containing Markdown showing a list of jobs required by the merge bot and their status
 -- in CI.
