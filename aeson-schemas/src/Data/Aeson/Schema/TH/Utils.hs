@@ -11,6 +11,7 @@ Portability :  portable
 
 module Data.Aeson.Schema.TH.Utils where
 
+import Control.Monad ((>=>))
 import Data.Bifunctor (second)
 import Language.Haskell.TH
 
@@ -67,3 +68,8 @@ stripSigs = \case
   UInfixT ty1 name ty2 -> UInfixT (stripSigs ty1) name (stripSigs ty2)
   ParensT ty -> ParensT (stripSigs ty)
   ty -> ty
+
+reifySchema :: Name -> TypeQ
+reifySchema = reify >=> \case
+  TyConI (TySynD _ _ ty) -> pure $ stripSigs ty
+  info -> fail $ "Unknown reified schema: " ++ show info
