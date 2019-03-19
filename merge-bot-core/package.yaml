@@ -16,7 +16,9 @@ dependencies:
 - http-client
 - http-types
 - text
+- time
 - transformers
+- unordered-containers
 - yaml
 
 library:

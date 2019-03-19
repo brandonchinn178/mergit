@@ -59,9 +59,12 @@ provide an access token to use for the duration of a request.
         * Repository contents: Read/Write
         * Repository metadata: Read-only
         * Pull requests: Read-only
+        * Commit statuses: Read-only
     1. Events:
         * Check run
         * Check suite
+        * Pull request
+        * Status
     1. Save the webhook secret you created and the App ID and Private key that
        GitHub generated for you.
 

@@ -52,7 +52,7 @@ import GitHub.REST
     )
 import GitHub.REST.Auth (Token, fromToken)
 import Network.HTTP.Client (Request(..))
-import Network.HTTP.Types (hAuthorization, hUserAgent)
+import Network.HTTP.Types (hAccept, hAuthorization, hUserAgent)
 
 import MergeBot.Core.GraphQL.API (API)
 
@@ -115,6 +115,7 @@ runBotAppT BotSettings{..} =
         { requestHeaders =
             (hAuthorization, fromToken token)
             : (hUserAgent, userAgent)
+            : (hAccept, "application/vnd.github.antiope-preview+json")
             : requestHeaders req
         }
       }

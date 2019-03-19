@@ -11,15 +11,23 @@ This module defines functions for manipulating GitHub state.
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module MergeBot.Core.GitHub
-  ( getTree, Tree
-  , createBranch
+  ( -- * GraphQL
+    CIContext
+  , CICommit(..)
+  , getCICommit
+  , Tree
+  , getBranchTree
+    -- * REST
   , createCheckRun
+  , updateCheckRun
   , createCommit
+  , createBranch
+  , updateBranch
   , deleteBranch
   , mergeBranches
-  , updateBranch
   ) where
 
 import Control.Monad (void)
@@ -32,15 +40,55 @@ import GitHub.REST
     (GHEndpoint(..), GitHubData, KeyValue(..), StdMethod(..), githubTry, (.:))
 
 import qualified MergeBot.Core.GraphQL.BranchTree as BranchTree
+import qualified MergeBot.Core.GraphQL.CICommit as CICommit
 import MergeBot.Core.Monad (MonadMergeBot(..), queryGitHub')
 
 {- GraphQL -}
 
+type CIContext = [unwrap| (CICommit.Schema).repository!.object!.status!.contexts[] |]
+
+data CICommit = CICommit
+  { commitTree     :: Tree
+  , commitContexts :: [CIContext]
+  , checkRuns      :: [Int]
+  }
+
+-- | Get details for the given CI commit.
+getCICommit :: MonadMergeBot m => GitObjectID -> Text -> m CICommit
+getCICommit sha checkName = do
+  (repoOwner, repoName) <- getRepo
+  appId <- getAppId
+  (result, checkRuns) <- queryAll $ \after -> do
+    result <- runQuery CICommit.query CICommit.Args
+      { _repoOwner = Text.unpack repoOwner
+      , _repoName = Text.unpack repoName
+      , _appId = appId
+      , _after = after
+      , _sha = sha
+      , _checkName = Just $ Text.unpack checkName
+      }
+    let payload = [get| result.repository!.object! |]
+        info = [get| payload.parents!.pageInfo |]
+        parents = [get| payload.parents!.nodes![]! |]
+        checkSuites = concatMap [get| .checkSuites!.nodes![]! |] parents
+        checkRuns = concatMap [get| .checkRuns!.nodes![]! |] checkSuites
+    return PaginatedResult
+      { payload
+      , chunk = map [get| .databaseId |] checkRuns
+      , hasNext = [get| info.hasNextPage |]
+      , nextCursor = [get| info.endCursor |]
+      }
+  return CICommit
+    { commitTree = [get| result.tree! |]
+    , commitContexts = [get| result.status!.contexts |]
+    , checkRuns
+    }
+
 type Tree = [unwrap| (BranchTree.Schema).repository.ref!.target.tree! |]
 
 -- | Get the git tree for the given branch.
-getTree :: MonadMergeBot m => Text -> m Tree
-getTree branch = do
+getBranchTree :: MonadMergeBot m => Text -> m Tree
+getBranchTree branch = do
   (repoOwner, repoName) <- getRepo
   [get| .repository.ref!.target.tree! |] <$>
     runQuery BranchTree.query BranchTree.Args
@@ -51,20 +99,6 @@ getTree branch = do
 
 {- REST -}
 
--- | Create a branch.
---
--- https://developer.github.com/v3/git/refs/#create-a-reference
-createBranch :: MonadMergeBot m => Text -> GitObjectID -> m ()
-createBranch name sha = void $ queryGitHub' GHEndpoint
-  { method = POST
-  , endpoint = "/repos/:owner/:repo/git/refs"
-  , endpointVals = []
-  , ghData =
-    [ "ref" := "refs/heads/" <> name
-    , "sha" := sha
-    ]
-  }
-
 -- | Create a check run.
 --
 -- https://developer.github.com/v3/checks/runs/#create-a-check-run
@@ -73,6 +107,17 @@ createCheckRun ghData = void $ queryGitHub' GHEndpoint
   { method = POST
   , endpoint = "/repos/:owner/:repo/check-runs"
   , endpointVals = []
+  , ghData
+  }
+
+-- | Update a check run.
+--
+-- https://developer.github.com/v3/checks/runs/#update-a-check-run
+updateCheckRun :: MonadMergeBot m => Int -> GitHubData -> m ()
+updateCheckRun checkRunId ghData = void $ queryGitHub' GHEndpoint
+  { method = PATCH
+  , endpoint = "/repos/:owner/:repo/check-runs/:check_run_id"
+  , endpointVals = ["check_run_id" := checkRunId]
   , ghData
   }
 
@@ -89,6 +134,33 @@ createCommit message tree parents = (.: "sha") <$> queryGitHub' GHEndpoint
     , "tree"    := tree
     , "parents" := parents
     ]
+  }
+
+-- | Create a branch.
+--
+-- https://developer.github.com/v3/git/refs/#create-a-reference
+createBranch :: MonadMergeBot m => Text -> GitObjectID -> m ()
+createBranch name sha = void $ queryGitHub' GHEndpoint
+  { method = POST
+  , endpoint = "/repos/:owner/:repo/git/refs"
+  , endpointVals = []
+  , ghData =
+    [ "ref" := "refs/heads/" <> name
+    , "sha" := sha
+    ]
+  }
+
+-- | Set the given branch to the given commit.
+--
+-- Returns False if update is not a fast-forward.
+--
+-- https://developer.github.com/v3/git/refs/#update-a-reference
+updateBranch :: MonadMergeBot m => Bool -> Text -> GitObjectID -> m Bool
+updateBranch force branch sha = fmap isRight $ githubTry $ queryGitHub' GHEndpoint
+  { method = PATCH
+  , endpoint = "/repos/:owner/:repo/git/refs/:ref"
+  , endpointVals = ["ref" := "heads/" <> branch]
+  , ghData = ["sha" := sha, "force" := force]
   }
 
 -- | Delete the given branch, ignoring the error if the branch doesn't exist.
@@ -113,21 +185,30 @@ mergeBranches base sha message = fmap isRight $ githubTry $ queryGitHub' GHEndpo
   , endpoint = "/repos/:owner/:repo/merges"
   , endpointVals = []
   , ghData =
-    [ "base"    := base
-    , "head"    := sha
-    , "message" := message
+    [ "base"           := base
+    , "head"           := sha
+    , "commit_message" := message
     ]
   }
 
--- | Set the given branch to the given commit.
---
--- Returns False if update is not a fast-forward.
---
--- https://developer.github.com/v3/git/refs/#update-a-reference
-updateBranch :: MonadMergeBot m => Bool -> Text -> GitObjectID -> m Bool
-updateBranch force branch sha = fmap isRight $ githubTry $ queryGitHub' GHEndpoint
-  { method = PATCH
-  , endpoint = "/repos/:owner/:repo/git/refs/:ref"
-  , endpointVals = ["ref" := "heads/" <> branch]
-  , ghData = ["sha" := sha, "force" := force]
-  }
+{- Helpers -}
+
+data PaginatedResult payload a = PaginatedResult
+  { payload    :: payload    -- ^ The full payload of the first page
+  , chunk      :: [a]        -- ^ The paginated part of the payload
+  , hasNext    :: Bool
+  , nextCursor :: Maybe Text
+  } deriving (Show)
+
+-- | Run a paginated query as many times as possible until all the results have been fetched.
+queryAll :: (Monad m, Show payload, Show a)
+  => (Maybe String -> m (PaginatedResult payload a)) -> m (payload, [a])
+queryAll doQuery = queryAll' Nothing
+  where
+    queryAll' cursor = do
+      result@PaginatedResult{..} <- doQuery cursor
+      (_, next) <- case (hasNext, nextCursor) of
+        (True, Just nextCursor') -> queryAll' . Just . Text.unpack $ nextCursor'
+        (True, Nothing) -> fail $ "Paginated result says it has next with no cursor: " ++ show result
+        (False, _) -> return (payload, [])
+      return (payload, chunk ++ next)
