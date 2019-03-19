@@ -50,6 +50,7 @@ type Schema = [schema|
     maybeListNull: Maybe List {
       text: Text,
     },
+    // this is a comment
     list: List {
       type: Text,
       maybeBool: Maybe Bool,
@@ -57,6 +58,7 @@ type Schema = [schema|
       maybeNull: Maybe Bool,
     },
     nonexistent: Maybe Text,
+    // future_key: Int,
   }
 |]
 

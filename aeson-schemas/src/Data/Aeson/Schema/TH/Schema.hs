@@ -47,6 +47,7 @@ import Data.Aeson.Schema.TH.Utils (fromTypeList, toTypeList)
 -- >   {
 -- >     foo: {
 -- >       a: Int,
+-- >       // you can add comments like this
 -- >       nodes: Maybe List {
 -- >         b: Maybe Bool,
 -- >       },

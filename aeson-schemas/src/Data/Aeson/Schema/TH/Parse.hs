@@ -91,7 +91,7 @@ identifier :: Parser Char -> Parser String
 identifier start = (:) <$> start <*> many (alphaNumChar <|> char '\'')
 
 lexeme :: String -> Parser ()
-lexeme = void . L.lexeme (L.space space1 empty empty) . string
+lexeme = void . L.lexeme (L.space space1 (L.skipLineComment "//") empty) . string
 
 -- | Parses `identifier`, but if parentheses are provided, parses a namespaced identifier.
 namespacedIdentifier :: Parser Char -> Parser String
