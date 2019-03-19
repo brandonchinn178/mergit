@@ -18,6 +18,7 @@ dependencies:
 - text
 - time
 - transformers
+- unordered-containers
 - yaml
 
 library:

@@ -8,9 +8,11 @@ This module defines core MergeBot functionality.
 -}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE ExtendedDefaultRules #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TupleSections #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
 module MergeBot.Core
@@ -22,16 +24,18 @@ module MergeBot.Core
 import Control.Exception (displayException)
 import Control.Monad (forM_, unless, void)
 import Control.Monad.IO.Class (liftIO)
-import Data.GraphQL (get)
+import Data.GraphQL (get, unwrap)
+import qualified Data.HashMap.Strict as HashMap
 import Data.Text (Text)
 import qualified Data.Text as Text
 import qualified Data.Text.Encoding as Text
 import Data.Time (getCurrentTime)
 import Data.Yaml (decodeThrow)
 import GitHub.Data.GitObjectID (GitObjectID, unOID')
+import qualified GitHub.Data.StatusState as StatusState
 import GitHub.REST (GitHubData, KeyValue(..))
 
-import MergeBot.Core.Config (BotConfig, configFileName)
+import MergeBot.Core.Config
 import MergeBot.Core.GitHub
 import MergeBot.Core.Monad
 import MergeBot.Core.Text
@@ -150,6 +154,35 @@ refreshCheckRuns ghData sha checkName = do
       , "summary" := "Try run is in progress (TODO: show CI details)"
       ]
     ]
+
+-- | Get text containing Markdown showing a list of jobs required by the merge bot and their status
+-- in CI.
+getCIStatus :: MonadMergeBot m => GitObjectID -> [unwrap| CommitStatus.status!.contexts |] -> m Text
+getCIStatus sha contexts = do
+  config <- getCommitTree sha >>= extractConfig
+  let initial = mkStatusMap $ requiredStatuses config
+      statuses = foldl (flip updateStatusMap) initial contexts
+  return $ Text.unlines $ HashMap.foldrWithKey (\k v -> (mkLine k v :)) header statuses
+  where
+    mkStatusMap = HashMap.fromList . map (, (StatusState.EXPECTED, Nothing))
+    updateStatusMap context = HashMap.adjust
+      (const [get| context.(state, targetUrl) |])
+      [get| context.context |]
+    header =
+      [ "Context | Status"
+      , "--------|-------"
+      ]
+    mkLine context (state, url) =
+      let emoji = case state of
+            StatusState.ERROR -> "❌"
+            StatusState.EXPECTED -> "💤"
+            StatusState.FAILURE -> "❗"
+            StatusState.PENDING -> "⏳"
+            StatusState.SUCCESS -> "✅"
+          link = case url of
+            Nothing -> context
+            Just url' -> "[" <> context <> "](" <> url' <> ")"
+      in link <> " | " <> emoji
 
 -- | Get the configuration file for the given tree.
 extractConfig :: Monad m => Tree -> m BotConfig

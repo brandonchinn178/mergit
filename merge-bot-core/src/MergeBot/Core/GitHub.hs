@@ -15,7 +15,8 @@ This module defines functions for manipulating GitHub state.
 
 module MergeBot.Core.GitHub
   ( -- * GraphQL
-    getCIParents
+    CommitStatus
+  , getCIParents
   , Tree
   , getBranchTree
   , getCommitTree
