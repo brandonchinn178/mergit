@@ -15,11 +15,11 @@ This module defines functions for manipulating GitHub state.
 
 module MergeBot.Core.GitHub
   ( -- * GraphQL
-    CommitStatus
-  , getCIParents
+    CIContext
+  , CICommit(..)
+  , getCICommit
   , Tree
   , getBranchTree
-  , getCommitTree
     -- * REST
   , createCheckRun
   , updateCheckRun
@@ -40,22 +40,26 @@ import GitHub.REST
     (GHEndpoint(..), GitHubData, KeyValue(..), StdMethod(..), githubTry, (.:))
 
 import qualified MergeBot.Core.GraphQL.BranchTree as BranchTree
-import qualified MergeBot.Core.GraphQL.CommitTree as CommitTree
-import qualified MergeBot.Core.GraphQL.ParentsStatus as ParentsStatus
+import qualified MergeBot.Core.GraphQL.CICommit as CICommit
 import MergeBot.Core.Monad (MonadMergeBot(..), queryGitHub')
 
 {- GraphQL -}
 
--- | A commit's CI statuses and check runs.
-type CommitStatus = [unwrap| (ParentsStatus.Schema).repository!.object!.parents!.nodes![]! |]
+type CIContext = [unwrap| (CICommit.Schema).repository!.object!.status!.contexts[] |]
 
--- | Get the parent commits for the given CI commit.
-getCIParents :: MonadMergeBot m => GitObjectID -> Text -> m [CommitStatus]
-getCIParents sha checkName = do
+data CICommit = CICommit
+  { commitTree     :: Tree
+  , commitContexts :: [CIContext]
+  , checkRuns      :: [Int]
+  }
+
+-- | Get details for the given CI commit.
+getCICommit :: MonadMergeBot m => GitObjectID -> Text -> m CICommit
+getCICommit sha checkName = do
   (repoOwner, repoName) <- getRepo
   appId <- getAppId
-  queryAll $ \after -> do
-    result <- runQuery ParentsStatus.query ParentsStatus.Args
+  (result, checkRuns) <- queryAll $ \after -> do
+    result <- runQuery CICommit.query CICommit.Args
       { _repoOwner = Text.unpack repoOwner
       , _repoName = Text.unpack repoName
       , _appId = appId
@@ -63,14 +67,24 @@ getCIParents sha checkName = do
       , _sha = sha
       , _checkName = Just $ Text.unpack checkName
       }
-    let info = [get| result.repository!.object!.parents!.pageInfo |]
+    let payload = [get| result.repository!.object! |]
+        info = [get| payload.parents!.pageInfo |]
+        parents = [get| payload.parents!.nodes![]! |]
+        checkSuites = concatMap [get| .checkSuites!.nodes![]! |] parents
+        checkRuns = concatMap [get| .checkRuns!.nodes![]! |] checkSuites
     return PaginatedResult
-      { chunk = [get| result.repository!.object!.parents!.nodes![]! |]
+      { payload
+      , chunk = map [get| .databaseId |] checkRuns
       , hasNext = [get| info.hasNextPage |]
       , nextCursor = [get| info.endCursor |]
       }
+  return CICommit
+    { commitTree = [get| result.tree! |]
+    , commitContexts = [get| result.status!.contexts |]
+    , checkRuns
+    }
 
-type Tree = [unwrap| (CommitTree.Schema).repository.object!.tree! |]
+type Tree = [unwrap| (BranchTree.Schema).repository.ref!.target.tree! |]
 
 -- | Get the git tree for the given branch.
 getBranchTree :: MonadMergeBot m => Text -> m Tree
@@ -81,17 +95,6 @@ getBranchTree branch = do
       { _repoOwner = Text.unpack repoOwner
       , _repoName = Text.unpack repoName
       , _name = Text.unpack branch
-      }
-
--- | Get the git tree for the given commit.
-getCommitTree :: MonadMergeBot m => GitObjectID -> m Tree
-getCommitTree sha = do
-  (repoOwner, repoName) <- getRepo
-  [get| .repository.object!.tree! |] <$>
-    runQuery CommitTree.query CommitTree.Args
-      { _repoOwner = Text.unpack repoOwner
-      , _repoName = Text.unpack repoName
-      , _sha = sha
       }
 
 {- REST -}
@@ -190,20 +193,22 @@ mergeBranches base sha message = fmap isRight $ githubTry $ queryGitHub' GHEndpo
 
 {- Helpers -}
 
-data PaginatedResult a = PaginatedResult
-  { chunk      :: [a]
+data PaginatedResult payload a = PaginatedResult
+  { payload    :: payload    -- ^ The full payload of the first page
+  , chunk      :: [a]        -- ^ The paginated part of the payload
   , hasNext    :: Bool
   , nextCursor :: Maybe Text
   } deriving (Show)
 
 -- | Run a paginated query as many times as possible until all the results have been fetched.
-queryAll :: (Monad m, Show a) => (Maybe String -> m (PaginatedResult a)) -> m [a]
+queryAll :: (Monad m, Show payload, Show a)
+  => (Maybe String -> m (PaginatedResult payload a)) -> m (payload, [a])
 queryAll doQuery = queryAll' Nothing
   where
     queryAll' cursor = do
       result@PaginatedResult{..} <- doQuery cursor
-      next <- case (hasNext, nextCursor) of
+      (_, next) <- case (hasNext, nextCursor) of
         (True, Just nextCursor') -> queryAll' . Just . Text.unpack $ nextCursor'
         (True, Nothing) -> fail $ "Paginated result says it has next with no cursor: " ++ show result
-        (False, _) -> return []
-      return $ chunk ++ next
+        (False, _) -> return (payload, [])
+      return (payload, chunk ++ next)

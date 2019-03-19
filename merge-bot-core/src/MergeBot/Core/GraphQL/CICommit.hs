@@ -1,17 +1,17 @@
 {-|
-Module      :  MergeBot.Core.GraphQL.ParentsStatus
+Module      :  MergeBot.Core.GraphQL.CICommit
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
 Portability :  portable
 
-Defines the ParentsStatus graphql query.
+Defines the CICommit graphql query.
 -}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-module MergeBot.Core.GraphQL.ParentsStatus where
+module MergeBot.Core.GraphQL.CICommit where
 
 import Data.Aeson.Schema (schema)
 import Data.GraphQL hiding (Query)
@@ -44,25 +44,34 @@ instance GraphQLArgs Args where
     ]
 
 query :: Query
-query = $(readGraphQLFile "ParentsStatus.graphql")
+query = $(readGraphQLFile "CICommit.graphql")
 
 type Schema = [schema|
   {
     "repository": Maybe {
       "object": Maybe {
+        "tree": Maybe {
+          "oid": GitObjectID,
+          "entries": Maybe List {
+            "name": Text,
+            "object": Maybe {
+              "text": Maybe Text,
+            },
+          },
+        },
+        "status": Maybe {
+          "contexts": List {
+            "context": Text,
+            "state": StatusState,
+            "targetUrl": Maybe Text,
+          },
+        },
         "parents": Maybe {
           "pageInfo": {
             "hasNextPage": Bool,
             "endCursor": Maybe Text,
           },
           "nodes": Maybe List Maybe {
-            "status": Maybe {
-              "contexts": List {
-                "context": Text,
-                "state": StatusState,
-                "targetUrl": Maybe Text,
-              },
-            },
             "checkSuites": Maybe {
               "nodes": Maybe List Maybe {
                 "checkRuns": Maybe {

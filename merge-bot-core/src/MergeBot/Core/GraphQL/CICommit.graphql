@@ -1,4 +1,4 @@
-query ParentsStatus(
+query CICommit(
   $repoOwner: String!,
   $repoName: String!,
   $sha: GitObjectID!,
@@ -9,19 +9,30 @@ query ParentsStatus(
   repository(owner: $repoOwner, name: $repoName) {
     object(oid: $sha) {
       ... on Commit {
+        tree {
+          oid
+          entries {
+            name
+            object {
+              ... on Blob {
+                text
+              }
+            }
+          }
+        }
+        status {
+          contexts {
+            context
+            state
+            targetUrl
+          }
+        }
         parents(first: 5, after: $after) {
           pageInfo {
             hasNextPage
             endCursor
           }
           nodes {
-            status {
-              contexts {
-                context
-                state
-                targetUrl
-              }
-            }
             checkSuites(filterBy: { appId: $appId }, first: 1) {
               nodes {
                 checkRuns(filterBy: { checkName: $checkName }, first: 2) {

@@ -9,9 +9,10 @@ This module defines core MergeBot functionality.
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE ExtendedDefaultRules #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TupleSections #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
@@ -24,14 +25,14 @@ module MergeBot.Core
 import Control.Exception (displayException)
 import Control.Monad (forM_, unless, void)
 import Control.Monad.IO.Class (liftIO)
-import Data.GraphQL (get, unwrap)
+import Data.GraphQL (get)
 import qualified Data.HashMap.Strict as HashMap
 import Data.Text (Text)
 import qualified Data.Text as Text
 import qualified Data.Text.Encoding as Text
 import Data.Time (getCurrentTime)
 import Data.Yaml (decodeThrow)
-import GitHub.Data.GitObjectID (GitObjectID, unOID')
+import GitHub.Data.GitObjectID (GitObjectID)
 import qualified GitHub.Data.StatusState as StatusState
 import GitHub.REST (GitHubData, KeyValue(..))
 
@@ -138,13 +139,9 @@ createCIBranch baseSHA prSHAs ciBranch message = do
 -- | Update the check runs for the given CI commit, including any additional data provided.
 refreshCheckRuns :: MonadMergeBot m => GitHubData -> GitObjectID -> Text -> m ()
 refreshCheckRuns ghData sha checkName = do
-  -- get CI commit parents
-  parents <- getCIParents sha checkName >>= \case
-    [] -> fail $ "CI commit had no parents: " ++ unOID' sha -- should not happen
-    [_] -> fail $ "CI commit had only 1 parent: " ++ unOID' sha -- should not happen
-    _ : prSHAs -> return prSHAs -- ignore the base branch's SHA
-
-  config <- extractConfig =<< getCommitTree sha
+  CICommit{..} <- getCICommit sha checkName
+  config <- extractConfig commitTree
+  let ciStatus = displayCIStatus config commitContexts
 
   -- update the "Bot Try" check run
   let checkRunId = undefined
@@ -157,21 +154,21 @@ refreshCheckRuns ghData sha checkName = do
 
 -- | Get text containing Markdown showing a list of jobs required by the merge bot and their status
 -- in CI.
-getCIStatus :: MonadMergeBot m => GitObjectID -> [unwrap| CommitStatus.status!.contexts |] -> m Text
-getCIStatus sha contexts = do
-  config <- getCommitTree sha >>= extractConfig
-  let initial = mkStatusMap $ requiredStatuses config
-      statuses = foldl (flip updateStatusMap) initial contexts
-  return $ Text.unlines $ HashMap.foldrWithKey (\k v -> (mkLine k v :)) header statuses
+displayCIStatus :: BotConfig -> [CIContext] -> Text
+displayCIStatus BotConfig{requiredStatuses} contexts =
+  let statuses = foldl updateStatusMap (mkStatusMap requiredStatuses) contexts
+  in Text.unlines $ header ++ fromStatusMap statuses
   where
-    mkStatusMap = HashMap.fromList . map (, (StatusState.EXPECTED, Nothing))
-    updateStatusMap context = HashMap.adjust
-      (const [get| context.(state, targetUrl) |])
-      [get| context.context |]
     header =
       [ "Context | Status"
       , "--------|-------"
       ]
+    mkStatusMap = HashMap.fromList . map (, (StatusState.EXPECTED, Nothing))
+    updateStatusMap statuses context = HashMap.adjust
+      (const [get| context.(state, targetUrl) |])
+      [get| context.context |]
+      statuses
+    fromStatusMap = HashMap.foldrWithKey (\k v -> (mkLine k v :)) []
     mkLine context (state, url) =
       let emoji = case state of
             StatusState.ERROR -> "❌"
