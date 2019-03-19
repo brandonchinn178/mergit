@@ -106,7 +106,7 @@ generateUnwrapSchema UnwrapSchema{..} = do
           GetterMapMaybe -> fail $ "Cannot use `?` operator on schema: " ++ showSchemaType schema
           GetterMapList | ty == 'SchemaList -> getType inner ops
           GetterMapList -> fail $ "Cannot use `[]` operator on schema: " ++ showSchemaType schema
-      _ -> fail $ unlines ["Cannot get type:", showSchemaType schema, show op]
+      _ -> fail $ unlines ["Cannot get type:", show schema, show op]
     getObjectSchema schema = case schema of
       AppT (AppT PromotedConsT t1) t2 ->
         case t1 of
