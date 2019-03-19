@@ -68,13 +68,12 @@ parseGetterOp = choice
 parseSchemaDef :: Parser SchemaDef
 parseSchemaDef = choice
   [ between (lexeme "{") (lexeme "}") $ SchemaDefObj <$> parseSchemaDefObjItems
-  , choice (map lexeme' mods) >>= parseSchemaDefMod
+  , lexeme "Maybe" *> (SchemaDefMaybe <$> parseSchemaDef)
+  , lexeme "List" *> (SchemaDefList <$> parseSchemaDef)
   , SchemaDefType <$> identifier upperChar
   , SchemaDefInclude <$> parseSchemaReference
   ]
   where
-    mods = ["Maybe", "List"]
-    parseSchemaDefMod s = SchemaDefMod s <$> parseSchemaDef
     parseSchemaDefObjItems = parseSchemaDefObjItem `sepEndBy1` lexeme ","
     parseSchemaDefObjItem = choice
       [ SchemaDefObjPair <$> parseSchemaDefPair
@@ -92,10 +91,7 @@ identifier :: Parser Char -> Parser String
 identifier start = (:) <$> start <*> many (alphaNumChar <|> char '\'')
 
 lexeme :: String -> Parser ()
-lexeme = void . lexeme'
-
-lexeme' :: String -> Parser String
-lexeme' = L.lexeme (L.space space1 empty empty) . string
+lexeme = void . L.lexeme (L.space space1 empty empty) . string
 
 -- | Parses `identifier`, but if parentheses are provided, parses a namespaced identifier.
 namespacedIdentifier :: Parser Char -> Parser String
@@ -121,7 +117,8 @@ jsonKey = some $ noneOf $ " " ++ schemaChars ++ getChars
 
 data SchemaDef
   = SchemaDefType String
-  | SchemaDefMod String SchemaDef
+  | SchemaDefMaybe SchemaDef
+  | SchemaDefList SchemaDef
   | SchemaDefInclude String
   | SchemaDefObj [SchemaDefObjItem]
   deriving (Show)

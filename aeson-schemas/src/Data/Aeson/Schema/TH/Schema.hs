@@ -81,16 +81,15 @@ schema = QuasiQuoter
 
 generateSchema :: SchemaDef -> TypeQ
 generateSchema = \case
-  SchemaDefType "Bool"       -> [t| 'SchemaBool |]
-  SchemaDefType "Int"        -> [t| 'SchemaInt |]
-  SchemaDefType "Double"     -> [t| 'SchemaDouble |]
-  SchemaDefType "Text"       -> [t| 'SchemaText |]
-  SchemaDefType other        -> [t| 'SchemaCustom $(getType other) |]
-  SchemaDefMod "Maybe" inner -> [t| 'SchemaMaybe $(generateSchema inner) |]
-  SchemaDefMod "List" inner  -> [t| 'SchemaList $(generateSchema inner) |]
-  SchemaDefMod other _       -> fail $ "Invalid schema modification: " ++ other
-  SchemaDefInclude other     -> getType other
-  SchemaDefObj items         -> [t| 'SchemaObject $(fromItems items) |]
+  SchemaDefType "Bool"   -> [t| 'SchemaBool |]
+  SchemaDefType "Int"    -> [t| 'SchemaInt |]
+  SchemaDefType "Double" -> [t| 'SchemaDouble |]
+  SchemaDefType "Text"   -> [t| 'SchemaText |]
+  SchemaDefType other    -> [t| 'SchemaCustom $(getType other) |]
+  SchemaDefMaybe inner   -> [t| 'SchemaMaybe $(generateSchema inner) |]
+  SchemaDefList inner    -> [t| 'SchemaList $(generateSchema inner) |]
+  SchemaDefInclude other -> getType other
+  SchemaDefObj items     -> [t| 'SchemaObject $(fromItems items) |]
 
 {- Helpers -}
 
