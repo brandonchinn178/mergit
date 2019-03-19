@@ -24,14 +24,14 @@ mkEnum "CommitCommentAction"
 
 type CommitCommentEvent = [schema|
   {
-    "action": CommitCommentAction,
-    "comment": {
+    action: CommitCommentAction,
+    comment: {
       #Comment,
-      "position": Maybe Int,
-      "line": Maybe Int,
-      "path": Maybe Text,
-      "commit_id": Text,
-      "author_association": Text,
+      position: Maybe Int,
+      line: Maybe Int,
+      path: Maybe Text,
+      commit_id: Text,
+      author_association: Text,
     },
     #BaseEvent,
   }

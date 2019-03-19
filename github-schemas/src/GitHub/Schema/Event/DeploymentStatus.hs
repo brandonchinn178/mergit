@@ -29,13 +29,13 @@ mkEnum "DeploymentState"
 
 type DeploymentStatusEvent = [schema|
   {
-    "deployment_status": {
-      "state": DeploymentState,
-      "target_url": Maybe URL,
-      "description": Maybe Text,
+    deployment_status: {
+      state: DeploymentState,
+      target_url: Maybe URL,
+      description: Maybe Text,
     },
-    "deployment": #Deployment,
-    "repository": #RepoWebhook,
+    deployment: #Deployment,
+    repository: #RepoWebhook,
     #BaseEvent,
   }
 |]

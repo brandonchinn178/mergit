@@ -48,36 +48,36 @@ query = $(readGraphQLFile "CICommit.graphql")
 
 type Schema = [schema|
   {
-    "repository": Maybe {
-      "object": Maybe {
-        "tree": Maybe {
-          "oid": GitObjectID,
-          "entries": Maybe List {
-            "name": Text,
-            "object": Maybe {
-              "text": Maybe Text,
+    repository: Maybe {
+      object: Maybe {
+        tree: Maybe {
+          oid: GitObjectID,
+          entries: Maybe List {
+            name: Text,
+            object: Maybe {
+              text: Maybe Text,
             },
           },
         },
-        "status": Maybe {
-          "contexts": List {
-            "context": Text,
-            "state": StatusState,
-            "targetUrl": Maybe Text,
+        status: Maybe {
+          contexts: List {
+            context: Text,
+            state: StatusState,
+            targetUrl: Maybe Text,
           },
         },
-        "parents": Maybe {
-          "pageInfo": {
-            "hasNextPage": Bool,
-            "endCursor": Maybe Text,
+        parents: Maybe {
+          pageInfo: {
+            hasNextPage: Bool,
+            endCursor: Maybe Text,
           },
-          "nodes": Maybe List Maybe {
-            "checkSuites": Maybe {
-              "nodes": Maybe List Maybe {
-                "checkRuns": Maybe {
-                  "nodes": Maybe List Maybe {
-                    "databaseId": Int,
-                    "name": Text,
+          nodes: Maybe List Maybe {
+            checkSuites: Maybe {
+              nodes: Maybe List Maybe {
+                checkRuns: Maybe {
+                  nodes: Maybe List Maybe {
+                    databaseId: Int,
+                    name: Text,
                   },
                 },
               },

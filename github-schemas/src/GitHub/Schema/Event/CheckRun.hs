@@ -36,19 +36,19 @@ mkEnum "CheckRunConclusion"
 
 type CheckRunEvent = [schema|
   {
-    "action": CheckRunAction,
-    "check_run": {
-      "id": Int,
-      "status": CheckRunStatus,
-      "conclusion": Maybe CheckRunConclusion,
-      "name": Text,
-      "check_suite": {
-        "id": Int,
+    action: CheckRunAction,
+    check_run: {
+      id: Int,
+      status: CheckRunStatus,
+      conclusion: Maybe CheckRunConclusion,
+      name: Text,
+      check_suite: {
+        id: Int,
       },
-      "pull_requests": List #PullRequestShort,
+      pull_requests: List #PullRequestShort,
     },
-    "requested_action": Maybe {
-      "identifier": Text,
+    requested_action: Maybe {
+      identifier: Text,
     },
     #BaseEvent,
   }

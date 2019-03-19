@@ -25,10 +25,10 @@ mkEnum "CreateRefType"
 
 type CreateEvent = [schema|
   {
-    "ref_type": CreateRefType,
-    "ref": Maybe Text,
-    "master_branch": Text,
-    "description": Maybe Text,
+    ref_type: CreateRefType,
+    ref: Maybe Text,
+    master_branch: Text,
+    description: Maybe Text,
     #BaseEvent,
   }
 |]

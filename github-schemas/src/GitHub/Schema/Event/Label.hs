@@ -26,14 +26,14 @@ mkEnum "LabelAction"
 
 type LabelEvent = [schema|
   {
-    "action": LabelAction,
-    "label": #Label,
-    "changes": Maybe {
-      "name": Maybe {
-        "from": Text,
+    action: LabelAction,
+    label: #Label,
+    changes: Maybe {
+      name: Maybe {
+        from: Text,
       },
-      "color": Maybe {
-        "from": Text,
+      color: Maybe {
+        from: Text,
       },
     },
     #BaseEvent,

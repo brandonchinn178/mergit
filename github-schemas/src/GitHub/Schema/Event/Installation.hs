@@ -27,9 +27,9 @@ mkEnum "InstallationAction"
 
 type InstallationEvent = [schema|
   {
-    "action": InstallationAction,
-    "installation": #Installation,
-    "repositories": List #RepositoryShort,
+    action: InstallationAction,
+    installation: #Installation,
+    repositories: List #RepositoryShort,
     #BaseEvent,
   }
 |]

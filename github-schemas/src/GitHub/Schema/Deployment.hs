@@ -20,24 +20,24 @@ import GitHub.Schema.User (UserWebhook)
 
 type Deployment = [schema|
   {
-    "url": URL,
-    "id": Int,
-    "node_id": Text,
-    "sha": GitObjectID,
-    "ref": Text,
-    "task": Text,
-    "payload": {
-      "deploy": Text,
+    url: URL,
+    id: Int,
+    node_id: Text,
+    sha: GitObjectID,
+    ref: Text,
+    task: Text,
+    payload: {
+      deploy: Text,
     },
-    "original_environment": Text,
-    "environment": Text,
-    "description": Maybe Text,
-    "creator": #UserWebhook,
-    "created_at": UTCTime,
-    "updated_at": UTCTime,
-    "statuses_url": URL,
-    "repository_url": URL,
-    "transient_environment": Bool,
-    "producation_environment": Bool,
+    original_environment: Text,
+    environment: Text,
+    description: Maybe Text,
+    creator: #UserWebhook,
+    created_at: UTCTime,
+    updated_at: UTCTime,
+    statuses_url: URL,
+    repository_url: URL,
+    transient_environment: Bool,
+    producation_environment: Bool,
   }
 |]

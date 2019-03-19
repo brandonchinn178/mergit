@@ -92,7 +92,7 @@ getToken signer userAgent appId installationId = do
   where
     expiry = 10 -- minutes
     createToken = AccessToken . Text.encodeUtf8 . [get| .token |] <$>
-      queryGitHub @_ @(Object [schema| { "token": Text } |]) GHEndpoint
+      queryGitHub @_ @(Object [schema| { token: Text } |]) GHEndpoint
         { method = POST
         , endpoint = "/app/installations/:installation_id/access_tokens"
         , endpointVals = ["installation_id" := installationId]

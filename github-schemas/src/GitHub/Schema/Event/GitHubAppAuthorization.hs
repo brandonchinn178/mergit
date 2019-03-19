@@ -23,7 +23,7 @@ mkEnum "GitHubAppAuthorizationAction"
 
 type GitHubAppAuthorizationEvent = [schema|
   {
-    "action": GitHubAppAuthorizationAction,
+    action: GitHubAppAuthorizationAction,
     #BaseEvent,
   }
 |]

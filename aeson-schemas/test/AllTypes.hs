@@ -31,32 +31,32 @@ instance FromJSON Coordinate where
 
 type Schema = [schema|
   {
-    "bool": Bool,
-    "int": Int,
-    "int2": Int,
-    "double": Double,
-    "text": Text,
-    "scalar": Coordinate,
-    "enum": Greeting,
-    "maybeObject": Maybe {
-      "text": Text,
+    bool: Bool,
+    int: Int,
+    int2: Int,
+    double: Double,
+    text: Text,
+    scalar: Coordinate,
+    enum: Greeting,
+    maybeObject: Maybe {
+      text: Text,
     },
-    "maybeObjectNull": Maybe {
-      "text": Text,
+    maybeObjectNull: Maybe {
+      text: Text,
     },
-    "maybeList": Maybe List {
-      "text": Text,
+    maybeList: Maybe List {
+      text: Text,
     },
-    "maybeListNull": Maybe List {
-      "text": Text,
+    maybeListNull: Maybe List {
+      text: Text,
     },
-    "list": List {
-      "type": Text,
-      "maybeBool": Maybe Bool,
-      "maybeInt": Maybe Int,
-      "maybeNull": Maybe Bool,
+    list: List {
+      type: Text,
+      maybeBool: Maybe Bool,
+      maybeInt: Maybe Int,
+      maybeNull: Maybe Bool,
     },
-    "nonexistent": Maybe Text,
+    nonexistent: Maybe Text,
   }
 |]
 

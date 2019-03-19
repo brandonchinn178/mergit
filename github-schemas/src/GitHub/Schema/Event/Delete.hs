@@ -24,8 +24,8 @@ mkEnum "DeleteRefType"
 
 type DeleteEvent = [schema|
   {
-    "ref_type": DeleteRefType,
-    "ref": Text,
+    ref_type: DeleteRefType,
+    ref: Text,
     #BaseEvent,
   }
 |]

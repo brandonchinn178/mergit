@@ -20,13 +20,13 @@ import GitHub.Schema.User (UserWebhook)
 -- | https://developer.github.com/v3/issues/comments/#get-a-single-comment
 type Comment = [schema|
   {
-    "id": Int,
-    "node_id": Text,
-    "url": Text,
-    "html_url": URL,
-    "body": Text,
-    "user": #UserWebhook,
-    "created_at": UTCTime,
-    "updated_at": UTCTime,
+    id: Int,
+    node_id: Text,
+    url: Text,
+    html_url: URL,
+    body: Text,
+    user: #UserWebhook,
+    created_at: UTCTime,
+    updated_at: UTCTime,
   }
 |]

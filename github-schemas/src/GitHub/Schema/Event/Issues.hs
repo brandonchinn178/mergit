@@ -39,18 +39,18 @@ mkEnum "IssuesAction"
 
 type IssuesEvent = [schema|
   {
-    "action": IssuesAction,
-    "issue": #Issue,
-    "changes": Maybe {
-      "title": {
-        "from": Text,
+    action: IssuesAction,
+    issue: #Issue,
+    changes: Maybe {
+      title: {
+        from: Text,
       },
-      "body": {
-        "from": Text,
+      body: {
+        from: Text,
       },
     },
-    "assignee": Maybe #UserWebhook,
-    "label": Maybe #Label,
+    assignee: Maybe #UserWebhook,
+    label: Maybe #Label,
     #BaseEvent,
   }
 |]

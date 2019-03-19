@@ -41,15 +41,15 @@ query = $(readGraphQLFile "BranchTree.graphql")
 
 type Schema = [schema|
   {
-    "repository": {
-      "ref": Maybe {
-        "target": {
-          "tree": Maybe {
-            "oid": GitObjectID,
-            "entries": Maybe List {
-              "name": Text,
-              "object": Maybe {
-                "text": Maybe Text,
+    repository: {
+      ref: Maybe {
+        target: {
+          tree: Maybe {
+            oid: GitObjectID,
+            entries: Maybe List {
+              name: Text,
+              object: Maybe {
+                text: Maybe Text,
               },
             },
           },

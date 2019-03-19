@@ -23,11 +23,11 @@ mkEnum "ContentReferenceAction"
 
 type ContentReferenceEvent = [schema|
   {
-    "action": ContentReferenceAction,
-    "content_reference": {
-      "id": Int,
-      "node_id": Text,
-      "reference": Text,
+    action: ContentReferenceAction,
+    content_reference: {
+      id: Int,
+      node_id: Text,
+      reference: Text,
     },
     #BaseEvent,
   }
