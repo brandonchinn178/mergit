@@ -29,6 +29,7 @@ main = defaultMain $ testGroup "aeson-schemas"
   , testFromObjectNamespaced
   , testUnwrapSchema
   , testSchemaDef
+  , testMkGetter
   ]
 
 goldens' :: String -> String -> TestTree
@@ -139,3 +140,15 @@ testSchemaDef = testGroup "Test generating schema definitions"
   , goldens' "schema_def_unknown_type" $(tryQErr' $ showSchema [r| HelloWorld |])
   , goldens' "schema_def_invalid_extend" $(tryQErr' $ showSchema [r| { #Int } |])
   ]
+
+testMkGetter :: TestTree
+testMkGetter = testGroup "Test the mkGetter helper"
+  [ goldens "getter_all_types_list" list
+  , goldens "getter_all_types_list_item" $ map getType list
+  ]
+  where
+    list :: [AllTypesListItem]
+    list = getList AllTypes.result
+
+    getType :: AllTypesListItem -> Text.Text
+    getType = [get| .type |]

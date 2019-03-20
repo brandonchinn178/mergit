@@ -7,7 +7,7 @@ module AllTypes where
 
 import Data.Aeson (FromJSON(..), withText)
 import Data.Aeson.Schema
-import Data.Aeson.Schema.TH (mkEnum)
+import Data.Aeson.Schema.TH (mkEnum, mkGetter)
 import qualified Data.Text as Text
 
 import Util (getMockedResult)
@@ -64,3 +64,7 @@ type Schema = [schema|
 
 result :: Object Schema
 result = $(getMockedResult "test/all_types.json")
+
+{- AllTypes getters -}
+
+mkGetter "AllTypesListItem" "getList" ''AllTypes.Schema ".list[]"

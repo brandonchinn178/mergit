@@ -9,7 +9,7 @@ The 'get' quasiquoter.
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-module Data.Aeson.Schema.TH.Get (get) where
+module Data.Aeson.Schema.TH.Get where
 
 import Control.Monad ((>=>))
 import qualified Data.Maybe as Maybe
