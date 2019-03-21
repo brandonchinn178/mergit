@@ -78,7 +78,7 @@ reifySchema = reify >=> \case
   TyConI (TySynD _ _ ty) -> pure $ stripSigs ty
   info -> fail $ "Unknown reified schema: " ++ show info
 
--- | Unwrap the given type using the given 'getter' operations.
+-- | Unwrap the given type using the given getter operations.
 --
 -- Accepts Bool for whether to maintain functor structure (True) or strip away functor applications
 -- (False).

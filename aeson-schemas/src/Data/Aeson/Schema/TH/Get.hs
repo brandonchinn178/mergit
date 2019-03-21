@@ -53,14 +53,15 @@ import Data.Aeson.Schema.TH.Utils (GetterOperation(..), showGetterOps)
 --     * @SchemaList schema@ returns a list of values, whose type is determined by the inner schema
 --     * @SchemaObject fields@ returns an 'Data.Aeson.Schema.Object'
 --
--- * @x.y@ is only valid if @x@ is a @SchemaObject@. Returns the value of the key @y@ in the 'Object'.
+-- * @x.y@ is only valid if @x@ is a @SchemaObject@. Returns the value of the key @y@ in the
+--   'Data.Aeson.Schema.Object'.
 --
 -- * @x.[y,z.a]@ is only valid if @x@ is a @SchemaObject@, and if @y@ and @z.a@ have the same schema.
---   Returns the value of the operations @y@ and @z.a@ in the 'Object' as a list. MUST be the last
---   operation.
+--   Returns the value of the operations @y@ and @z.a@ in the 'Data.Aeson.Schema.Object' as a list.
+--   MUST be the last operation.
 --
 -- * @x.(y,z.a)@ is only valid if @x@ is a @SchemaObject@. Returns the value of the operations @y@
---   and @z.a@ in the 'Object' as a tuple. MUST be the last operation.
+--   and @z.a@ in the 'Data.Aeson.Schema.Object' as a tuple. MUST be the last operation.
 --
 -- * @x!@ is only valid if @x@ is a @SchemaMaybe@. Unwraps the value of @x@ from a 'Just' value and
 --   errors (at runtime!) if @x@ is 'Nothing'.

@@ -4,7 +4,7 @@ Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
 Portability :  portable
 
-The 'get' quasiquoter.
+The 'unwrap' quasiquoter.
 -}
 {-# LANGUAGE RecordWildCards #-}
 
@@ -35,8 +35,11 @@ import Data.Aeson.Schema.TH.Utils (reifySchema, unwrapType)
 -- >
 -- > foo = map parseBar [get| result.foo.nodes[] |]
 --
--- The available operations mostly correspond to 'get', except the operations are on the schema
--- itself instead of the values:
+-- The available operations mostly correspond to 'Data.Aeson.Schema.TH.get', except the operations
+-- are on the schema itself instead of the values. The primary difference here is that operations
+-- that would be fmapped in a 'Data.Aeson.Schema.TH.get' expression strip out the functor type; e.g.
+-- @int_list[]@ would return @[Int]@ with 'Data.Aeson.Schema.TH.get', but would return @Int@ with
+-- 'unwrap'.
 --
 -- * @x@ returns the type of @x@ with the given schema:
 --
@@ -47,15 +50,16 @@ import Data.Aeson.Schema.TH.Utils (reifySchema, unwrapType)
 --     * @SchemaCustom name@ returns a value of the type associated with the given name
 --     * @SchemaMaybe schema@ returns a 'Maybe' value wrapping the value returned by the inner schema
 --     * @SchemaList schema@ returns a list of values, whose type is determined by the inner schema
---     * @SchemaObject fields@ returns an 'Data.Aeson.Schema.Object'
+--     * @SchemaObject fields@ returns an 'Data.Aeson.Schema.Object' with the given schema
 --
--- * @x.y@ is only valid if @x@ is a @SchemaObject@. Returns the type of the key @y@ in the 'Object'.
+-- * @x.y@ is only valid if @x@ is a @SchemaObject@. Returns the type of the key @y@ in the
+--   'Data.Aeson.Schema.Object'.
 --
 -- * @x.[y,z.a]@ is only valid if @x@ is a @SchemaObject@, and if @y@ and @z.a@ have the same schema.
---   Returns the type of the operations @y@ and @z.a@ in the 'Object' as a list.
+--   Returns the type of the operations @y@ and @z.a@ in the 'Data.Aeson.Schema.Object' as a list.
 --
 -- * @x.(y,z.a)@ is only valid if @x@ is a @SchemaObject@. Returns the type of the operations @y@
---   and @z.a@ in the 'Object' as a tuple.
+--   and @z.a@ in the 'Data.Aeson.Schema.Object' as a tuple.
 --
 -- * @x!@ is only valid if @x@ is a @SchemaMaybe a@. Returns @a@, the type wrapped in the 'Maybe'.
 --

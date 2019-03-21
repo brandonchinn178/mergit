@@ -20,7 +20,8 @@ import Data.Aeson.Schema.TH.Get (generateGetterExp)
 import Data.Aeson.Schema.TH.Parse (GetterExp(..), getterExp, parse)
 import Data.Aeson.Schema.TH.Utils (reifySchema, unwrapType)
 
--- | A helper that generates a 'get' expression and a type alias for the result of the expression.
+-- | A helper that generates a 'Data.Aeson.Schema.TH.get' expression and a type alias for the result
+-- of the expression.
 --
 -- > mkGetter "Node" "getNodes" ''MySchema ".nodes![]"
 -- >
@@ -39,12 +40,13 @@ import Data.Aeson.Schema.TH.Utils (reifySchema, unwrapType)
 --
 --   [@ops@] The operation to extract/unwrap from the schema
 --
--- @ops@ is passed to the 'unwrap' and 'get' quasiquoters to create the unwrapped schema and the
--- getter function. There is one subtlety that occurs from the use of the same @ops@ string for
--- both the 'unwrap' and 'get' quasiquoters: 'unwrap' strips out intermediate functors, while 'get'
--- applies within the functor. So in the above example, @".nodes![]"@ strips out the list when
--- saving the schema to @Node@, while in the below example, @".nodes!"@ doesn't strip out the list
--- when saving the schema to @Nodes@.
+-- @ops@ is passed to the 'Data.Aeson.Schema.TH.unwrap' and 'Data.Aeson.Schema.TH.get' quasiquoters
+-- to create the unwrapped schema and the getter function. There is one subtlety that occurs from
+-- the use of the same @ops@ string for both the 'Data.Aeson.Schema.TH.unwrap' and
+-- 'Data.Aeson.Schema.TH.get' quasiquoters: 'Data.Aeson.Schema.TH.unwrap' strips out intermediate
+-- functors, while 'Data.Aeson.Schema.TH.get' applies within the functor. So in the above example,
+-- @".nodes![]"@ strips out the list when saving the schema to @Node@, while in the below example,
+-- @".nodes!"@ doesn't strip out the list when saving the schema to @Nodes@.
 --
 -- > mkGetter "Nodes" "getNodes" ''MySchema ".nodes!"
 -- >
