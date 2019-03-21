@@ -116,7 +116,7 @@ unwrapType keepFunctor (op:ops) = \case
       GetterTuple elems | ty == 'SchemaObject ->
         foldl appT (tupleT $ length elems) $ map (`unwrapType'` schema) elems
       GetterTuple _ -> fail $ "Cannot get keys in schema: " ++ showSchemaType schema
-      GetterBang | ty == 'SchemaMaybe -> withFunctor [t| Maybe |] $ unwrapType' ops inner
+      GetterBang | ty == 'SchemaMaybe -> unwrapType' ops inner
       GetterBang -> fail $ "Cannot use `!` operator on schema: " ++ showSchemaType schema
       GetterMapMaybe | ty == 'SchemaMaybe -> withFunctor [t| Maybe |] $ unwrapType' ops inner
       GetterMapMaybe -> fail $ "Cannot use `?` operator on schema: " ++ showSchemaType schema
