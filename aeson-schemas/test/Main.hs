@@ -72,6 +72,12 @@ testGetterExp = testGroup "Test getter expressions"
   , goldens "list_maybeBool"           [get| allTypes.list[].maybeBool      |]
   , goldens "list_maybeInt"            [get| allTypes.list[].maybeInt       |]
   , goldens "nonexistent"              [get| allTypes.nonexistent           |]
+  -- bad 'get' expressions
+  , goldens' "maybeListNull_bang" $(getError [get| (AllTypes.result).maybeListNull! |])
+  , goldens' "get_empty" $(tryQErr' $ showGet "")
+  , goldens' "get_just_start" $(tryQErr' $ showGet "allTypes")
+  , goldens' "get_ops_after_tuple" $(tryQErr' $ showGet "allTypes.(bool,int).foo")
+  , goldens' "get_ops_after_list" $(tryQErr' $ showGet "allTypes.[int,int2].foo")
   ]
 
 testFromObjectAllTypes :: TestTree
