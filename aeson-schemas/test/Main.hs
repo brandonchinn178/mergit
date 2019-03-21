@@ -147,8 +147,8 @@ testMkGetter = testGroup "Test the mkGetter helper"
   , goldens "getter_all_types_list_item" $ map getType list
   ]
   where
-    list :: [AllTypesListItem]
-    list = getList AllTypes.result
+    list :: [AllTypes.ListItem]
+    list = AllTypes.getList AllTypes.result
 
-    getType :: AllTypesListItem -> Text.Text
+    getType :: AllTypes.ListItem -> Text.Text
     getType = [get| .type |]

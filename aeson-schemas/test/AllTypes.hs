@@ -67,4 +67,4 @@ result = $(getMockedResult "test/all_types.json")
 
 {- AllTypes getters -}
 
-mkGetter "AllTypesListItem" "getList" ''AllTypes.Schema ".list[]"
+mkGetter "ListItem" "getList" ''AllTypes.Schema ".list[]"
