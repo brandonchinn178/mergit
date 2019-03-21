@@ -30,7 +30,7 @@ mkGetter unwrapName funcName startSchemaName ops = do
   unless (isNothing start) $
     fail $ "Getter expression should start with '.': " ++ ops
 
-  let unwrapResult = getType startSchemaType getterOps
+  let unwrapResult = getType getterOps startSchemaType
       getterFunc = generateGetterExp getterExp'
       unwrapName' = mkName unwrapName
       funcName' = mkName funcName

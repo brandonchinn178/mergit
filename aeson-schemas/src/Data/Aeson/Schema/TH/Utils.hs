@@ -76,51 +76,52 @@ reifySchema = reify >=> \case
   TyConI (TySynD _ _ ty) -> pure $ stripSigs ty
   info -> fail $ "Unknown reified schema: " ++ show info
 
-getType :: Type -> GetterOps -> TypeQ
-getType schema [] = fromSchemaType schema
+getType :: GetterOps -> Type -> TypeQ
+getType [] = fromSchemaType
   where
-    fromSchemaType schema' = case schema' of
+    fromSchemaType schema = case schema of
       AppT (PromotedT ty) inner
-        | ty == 'SchemaCustom -> [t| SchemaResult $(pure schema') |]
+        | ty == 'SchemaCustom -> [t| SchemaResult $(pure schema) |]
         | ty == 'SchemaMaybe -> [t| Maybe $(fromSchemaType inner) |]
         | ty == 'SchemaList -> [t| [$(fromSchemaType inner)] |]
-        | ty == 'SchemaObject -> [t| Object $(pure schema') |]
+        | ty == 'SchemaObject -> [t| Object $(pure schema) |]
       PromotedT ty
         | ty == 'SchemaBool -> [t| Bool |]
         | ty == 'SchemaInt -> [t| Int |]
         | ty == 'SchemaDouble -> [t| Double |]
         | ty == 'SchemaText -> [t| Text |]
       AppT t1 t2 -> appT (fromSchemaType t1) (fromSchemaType t2)
-      TupleT _ -> pure schema'
-      _ -> fail $ "Could not convert schema: " ++ showSchemaType schema'
+      TupleT _ -> pure schema
+      _ -> fail $ "Could not convert schema: " ++ showSchemaType schema
 
-getType schema (op:ops) = case schema of
-  AppT (PromotedT ty) inner ->
+getType (op:ops) = \case
+  schema@(AppT (PromotedT ty) inner) ->
     case op of
       GetterKey key | ty == 'SchemaObject ->
         case lookup key (getObjectSchema inner) of
-          Just schema' -> getType schema' ops
+          Just schema' -> getType ops schema'
           Nothing -> fail $ "Key '" ++ key ++ "' does not exist in schema: " ++ showSchemaType schema
       GetterKey key -> fail $ "Cannot get key '" ++ key ++ "' in schema: " ++ showSchemaType schema
       GetterList elems | ty == 'SchemaObject -> do
-        (elem':rest) <- mapM (getType schema) elems
+        (elem':rest) <- mapM (getType' schema) elems
         if all (== elem') rest
-          then getType elem' ops
+          then getType ops elem'
           else fail $ "List contains different types with schema: " ++ showSchemaType schema
       GetterList _ -> fail $ "Cannot get keys in schema: " ++ showSchemaType schema
       GetterTuple elems | ty == 'SchemaObject ->
-        foldl appT (tupleT $ length elems) $ map (getType schema) elems
+        foldl appT (tupleT $ length elems) $ map (getType' schema) elems
       GetterTuple _ -> fail $ "Cannot get keys in schema: " ++ showSchemaType schema
-      GetterBang | ty == 'SchemaMaybe -> getType inner ops
+      GetterBang | ty == 'SchemaMaybe -> getType ops inner
       GetterBang -> fail $ "Cannot use `!` operator on schema: " ++ showSchemaType schema
-      GetterMapMaybe | ty == 'SchemaMaybe -> getType inner ops
+      GetterMapMaybe | ty == 'SchemaMaybe -> getType ops inner
       GetterMapMaybe -> fail $ "Cannot use `?` operator on schema: " ++ showSchemaType schema
-      GetterMapList | ty == 'SchemaList -> getType inner ops
+      GetterMapList | ty == 'SchemaList -> getType ops inner
       GetterMapList -> fail $ "Cannot use `[]` operator on schema: " ++ showSchemaType schema
   -- allow starting from (Object schema)
-  AppT (ConT ty) inner | ty == ''Object -> getType inner (op:ops)
-  _ -> fail $ unlines ["Cannot get type:", show schema, show op]
+  AppT (ConT ty) inner | ty == ''Object -> getType (op:ops) inner
+  schema -> fail $ unlines ["Cannot get type:", show schema, show op]
   where
+    getType' = flip getType
     getObjectSchema = \case
       AppT (AppT PromotedConsT t1) t2 ->
         case t1 of
