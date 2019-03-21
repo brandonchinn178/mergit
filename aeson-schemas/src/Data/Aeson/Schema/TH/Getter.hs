@@ -30,14 +30,14 @@ mkGetter unwrapName funcName startSchemaName ops = do
   unless (isNothing start) $
     fail $ "Getter expression should start with '.': " ++ ops
 
-  let unwrapResult = unwrapType getterOps startSchemaType
+  let unwrapResult = unwrapType False getterOps startSchemaType
+      funcResult = unwrapType True getterOps startSchemaType
       getterFunc = generateGetterExp getterExp'
       unwrapName' = mkName unwrapName
       funcName' = mkName funcName
 
   sequence
     [ tySynD unwrapName' [] unwrapResult
-    -- FIXME: unwrapResult should be result of unwrapping in context of 'get' function
-    , sigD funcName' [t| Object $(pure startSchemaType) -> $unwrapResult |]
+    , sigD funcName' [t| Object $(pure startSchemaType) -> $funcResult |]
     , funD funcName' [clause [] (normalB getterFunc) []]
     ]

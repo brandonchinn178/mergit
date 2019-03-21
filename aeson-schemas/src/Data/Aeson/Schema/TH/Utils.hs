@@ -79,8 +79,11 @@ reifySchema = reify >=> \case
   info -> fail $ "Unknown reified schema: " ++ show info
 
 -- | Unwrap the given type using the given 'getter' operations.
-unwrapType :: GetterOps -> Type -> TypeQ
-unwrapType [] = fromSchemaType
+--
+-- Accepts Bool for whether to maintain functor structure (True) or strip away functor applications
+-- (False).
+unwrapType :: Bool -> GetterOps -> Type -> TypeQ
+unwrapType _ [] = fromSchemaType
   where
     fromSchemaType schema = case schema of
       AppT (PromotedT ty) inner
@@ -96,35 +99,34 @@ unwrapType [] = fromSchemaType
       AppT t1 t2 -> appT (fromSchemaType t1) (fromSchemaType t2)
       TupleT _ -> pure schema
       _ -> fail $ "Could not convert schema: " ++ showSchemaType schema
-
-unwrapType (op:ops) = \case
+unwrapType keepFunctor (op:ops) = \case
   schema@(AppT (PromotedT ty) inner) ->
     case op of
       GetterKey key | ty == 'SchemaObject ->
         case lookup key (getObjectSchema inner) of
-          Just schema' -> unwrapType ops schema'
+          Just schema' -> unwrapType' ops schema'
           Nothing -> fail $ "Key '" ++ key ++ "' does not exist in schema: " ++ showSchemaType schema
       GetterKey key -> fail $ "Cannot get key '" ++ key ++ "' in schema: " ++ showSchemaType schema
       GetterList elems | ty == 'SchemaObject -> do
-        (elem':rest) <- mapM (unwrapType' schema) elems
+        (elem':rest) <- mapM (`unwrapType'` schema) elems
         if all (== elem') rest
-          then unwrapType ops elem'
+          then unwrapType' ops elem'
           else fail $ "List contains different types with schema: " ++ showSchemaType schema
       GetterList _ -> fail $ "Cannot get keys in schema: " ++ showSchemaType schema
       GetterTuple elems | ty == 'SchemaObject ->
-        foldl appT (tupleT $ length elems) $ map (unwrapType' schema) elems
+        foldl appT (tupleT $ length elems) $ map (`unwrapType'` schema) elems
       GetterTuple _ -> fail $ "Cannot get keys in schema: " ++ showSchemaType schema
-      GetterBang | ty == 'SchemaMaybe -> unwrapType ops inner
+      GetterBang | ty == 'SchemaMaybe -> withFunctor [t| Maybe |] $ unwrapType' ops inner
       GetterBang -> fail $ "Cannot use `!` operator on schema: " ++ showSchemaType schema
-      GetterMapMaybe | ty == 'SchemaMaybe -> unwrapType ops inner
+      GetterMapMaybe | ty == 'SchemaMaybe -> withFunctor [t| Maybe |] $ unwrapType' ops inner
       GetterMapMaybe -> fail $ "Cannot use `?` operator on schema: " ++ showSchemaType schema
-      GetterMapList | ty == 'SchemaList -> unwrapType ops inner
+      GetterMapList | ty == 'SchemaList -> withFunctor (pure ListT) $ unwrapType' ops inner
       GetterMapList -> fail $ "Cannot use `[]` operator on schema: " ++ showSchemaType schema
   -- allow starting from (Object schema)
-  AppT (ConT ty) inner | ty == ''Object -> unwrapType (op:ops) inner
+  AppT (ConT ty) inner | ty == ''Object -> unwrapType' (op:ops) inner
   schema -> fail $ unlines ["Cannot get type:", show schema, show op]
   where
-    unwrapType' = flip unwrapType
+    unwrapType' = unwrapType keepFunctor
     getObjectSchema = \case
       AppT (AppT PromotedConsT t1) t2 ->
         case t1 of
@@ -132,6 +134,7 @@ unwrapType (op:ops) = \case
           _ -> error $ "Could not parse a (key, schema) tuple: " ++ show t1
       PromotedNilT -> []
       t -> error $ "Could not get object schema: " ++ show t
+    withFunctor f = if keepFunctor then appT f else id
 
 {- GetterOps -}
 

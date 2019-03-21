@@ -74,6 +74,6 @@ generateUnwrapSchema :: UnwrapSchema -> TypeQ
 generateUnwrapSchema UnwrapSchema{..} = do
   startSchemaName <- maybe unknownSchema return =<< lookupTypeName startSchema
   startSchemaType <- reifySchema startSchemaName
-  unwrapType getterOps startSchemaType
+  unwrapType False getterOps startSchemaType
   where
     unknownSchema = fail $ "Unknown schema: " ++ startSchema
