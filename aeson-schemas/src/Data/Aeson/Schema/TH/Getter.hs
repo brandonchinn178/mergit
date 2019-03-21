@@ -17,9 +17,8 @@ import Data.Maybe (isNothing)
 import Language.Haskell.TH
 
 import Data.Aeson.Schema.TH.Get (generateGetterExp)
-import Data.Aeson.Schema.TH.Parse
-import Data.Aeson.Schema.TH.Unwrap (getType)
-import Data.Aeson.Schema.TH.Utils (reifySchema)
+import Data.Aeson.Schema.TH.Parse (GetterExp(..), getterExp, parse)
+import Data.Aeson.Schema.TH.Utils (getType, reifySchema)
 
 -- | TODO
 mkGetter :: String -> String -> Name -> String -> DecsQ

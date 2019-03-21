@@ -13,10 +13,12 @@ module Data.Aeson.Schema.TH.Utils where
 
 import Control.Monad ((>=>))
 import Data.Bifunctor (second)
+import Data.Text (Text)
 import Language.Haskell.TH
 
-import Data.Aeson.Schema.Internal (SchemaType(..))
+import Data.Aeson.Schema.Internal (Object, SchemaResult, SchemaType(..))
 import qualified Data.Aeson.Schema.Show as SchemaShow
+import Data.Aeson.Schema.TH.Parse (GetterOperation(..), GetterOps)
 
 -- | Show the given schema as a type.
 showSchemaType :: Type -> String
@@ -73,3 +75,56 @@ reifySchema :: Name -> TypeQ
 reifySchema = reify >=> \case
   TyConI (TySynD _ _ ty) -> pure $ stripSigs ty
   info -> fail $ "Unknown reified schema: " ++ show info
+
+getType :: Type -> GetterOps -> TypeQ
+getType schema [] = fromSchemaType schema
+  where
+    fromSchemaType schema' = case schema' of
+      AppT (PromotedT ty) inner
+        | ty == 'SchemaCustom -> [t| SchemaResult $(pure schema') |]
+        | ty == 'SchemaMaybe -> [t| Maybe $(fromSchemaType inner) |]
+        | ty == 'SchemaList -> [t| [$(fromSchemaType inner)] |]
+        | ty == 'SchemaObject -> [t| Object $(pure schema') |]
+      PromotedT ty
+        | ty == 'SchemaBool -> [t| Bool |]
+        | ty == 'SchemaInt -> [t| Int |]
+        | ty == 'SchemaDouble -> [t| Double |]
+        | ty == 'SchemaText -> [t| Text |]
+      AppT t1 t2 -> appT (fromSchemaType t1) (fromSchemaType t2)
+      TupleT _ -> pure schema'
+      _ -> fail $ "Could not convert schema: " ++ showSchemaType schema'
+
+getType schema (op:ops) = case schema of
+  AppT (PromotedT ty) inner ->
+    case op of
+      GetterKey key | ty == 'SchemaObject ->
+        case lookup key (getObjectSchema inner) of
+          Just schema' -> getType schema' ops
+          Nothing -> fail $ "Key '" ++ key ++ "' does not exist in schema: " ++ showSchemaType schema
+      GetterKey key -> fail $ "Cannot get key '" ++ key ++ "' in schema: " ++ showSchemaType schema
+      GetterList elems | ty == 'SchemaObject -> do
+        (elem':rest) <- mapM (getType schema) elems
+        if all (== elem') rest
+          then getType elem' ops
+          else fail $ "List contains different types with schema: " ++ showSchemaType schema
+      GetterList _ -> fail $ "Cannot get keys in schema: " ++ showSchemaType schema
+      GetterTuple elems | ty == 'SchemaObject ->
+        foldl appT (tupleT $ length elems) $ map (getType schema) elems
+      GetterTuple _ -> fail $ "Cannot get keys in schema: " ++ showSchemaType schema
+      GetterBang | ty == 'SchemaMaybe -> getType inner ops
+      GetterBang -> fail $ "Cannot use `!` operator on schema: " ++ showSchemaType schema
+      GetterMapMaybe | ty == 'SchemaMaybe -> getType inner ops
+      GetterMapMaybe -> fail $ "Cannot use `?` operator on schema: " ++ showSchemaType schema
+      GetterMapList | ty == 'SchemaList -> getType inner ops
+      GetterMapList -> fail $ "Cannot use `[]` operator on schema: " ++ showSchemaType schema
+  -- allow starting from (Object schema)
+  AppT (ConT ty) inner | ty == ''Object -> getType inner (op:ops)
+  _ -> fail $ unlines ["Cannot get type:", show schema, show op]
+  where
+    getObjectSchema = \case
+      AppT (AppT PromotedConsT t1) t2 ->
+        case t1 of
+          AppT (AppT (PromotedTupleT 2) (LitT (StrTyLit key))) ty -> (key, ty) : getObjectSchema t2
+          _ -> error $ "Could not parse a (key, schema) tuple: " ++ show t1
+      PromotedNilT -> []
+      t -> error $ "Could not get object schema: " ++ show t
