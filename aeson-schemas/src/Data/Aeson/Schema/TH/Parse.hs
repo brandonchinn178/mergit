@@ -122,7 +122,7 @@ getterExp :: Parser GetterExp
 getterExp = do
   space
   start <- optional $ namespacedIdentifier lowerChar
-  getterOps <- many parseGetterOp
+  getterOps <- some parseGetterOp
   space
   void eof
   return GetterExp{..}
@@ -138,7 +138,7 @@ unwrapSchema :: Parser UnwrapSchema
 unwrapSchema = do
   space
   startSchema <- namespacedIdentifier upperChar
-  getterOps <- many parseGetterOp
+  getterOps <- some parseGetterOp
   space
   void eof
   return UnwrapSchema{..}
