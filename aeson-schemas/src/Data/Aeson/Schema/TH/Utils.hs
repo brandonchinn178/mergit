@@ -5,6 +5,7 @@ Stability   :  experimental
 Portability :  portable
 -}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveLift #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeOperators #-}
@@ -13,12 +14,13 @@ module Data.Aeson.Schema.TH.Utils where
 
 import Control.Monad ((>=>))
 import Data.Bifunctor (second)
+import Data.List (intercalate)
 import Data.Text (Text)
 import Language.Haskell.TH
+import Language.Haskell.TH.Syntax (Lift)
 
 import Data.Aeson.Schema.Internal (Object, SchemaResult, SchemaType(..))
 import qualified Data.Aeson.Schema.Show as SchemaShow
-import Data.Aeson.Schema.TH.Parse (GetterOperation(..), GetterOps)
 
 -- | Show the given schema as a type.
 showSchemaType :: Type -> String
@@ -76,8 +78,9 @@ reifySchema = reify >=> \case
   TyConI (TySynD _ _ ty) -> pure $ stripSigs ty
   info -> fail $ "Unknown reified schema: " ++ show info
 
-getType :: GetterOps -> Type -> TypeQ
-getType [] = fromSchemaType
+-- | Unwrap the given type using the given 'getter' operations.
+unwrapType :: GetterOps -> Type -> TypeQ
+unwrapType [] = fromSchemaType
   where
     fromSchemaType schema = case schema of
       AppT (PromotedT ty) inner
@@ -94,34 +97,34 @@ getType [] = fromSchemaType
       TupleT _ -> pure schema
       _ -> fail $ "Could not convert schema: " ++ showSchemaType schema
 
-getType (op:ops) = \case
+unwrapType (op:ops) = \case
   schema@(AppT (PromotedT ty) inner) ->
     case op of
       GetterKey key | ty == 'SchemaObject ->
         case lookup key (getObjectSchema inner) of
-          Just schema' -> getType ops schema'
+          Just schema' -> unwrapType ops schema'
           Nothing -> fail $ "Key '" ++ key ++ "' does not exist in schema: " ++ showSchemaType schema
       GetterKey key -> fail $ "Cannot get key '" ++ key ++ "' in schema: " ++ showSchemaType schema
       GetterList elems | ty == 'SchemaObject -> do
-        (elem':rest) <- mapM (getType' schema) elems
+        (elem':rest) <- mapM (unwrapType' schema) elems
         if all (== elem') rest
-          then getType ops elem'
+          then unwrapType ops elem'
           else fail $ "List contains different types with schema: " ++ showSchemaType schema
       GetterList _ -> fail $ "Cannot get keys in schema: " ++ showSchemaType schema
       GetterTuple elems | ty == 'SchemaObject ->
-        foldl appT (tupleT $ length elems) $ map (getType' schema) elems
+        foldl appT (tupleT $ length elems) $ map (unwrapType' schema) elems
       GetterTuple _ -> fail $ "Cannot get keys in schema: " ++ showSchemaType schema
-      GetterBang | ty == 'SchemaMaybe -> getType ops inner
+      GetterBang | ty == 'SchemaMaybe -> unwrapType ops inner
       GetterBang -> fail $ "Cannot use `!` operator on schema: " ++ showSchemaType schema
-      GetterMapMaybe | ty == 'SchemaMaybe -> getType ops inner
+      GetterMapMaybe | ty == 'SchemaMaybe -> unwrapType ops inner
       GetterMapMaybe -> fail $ "Cannot use `?` operator on schema: " ++ showSchemaType schema
-      GetterMapList | ty == 'SchemaList -> getType ops inner
+      GetterMapList | ty == 'SchemaList -> unwrapType ops inner
       GetterMapList -> fail $ "Cannot use `[]` operator on schema: " ++ showSchemaType schema
   -- allow starting from (Object schema)
-  AppT (ConT ty) inner | ty == ''Object -> getType (op:ops) inner
+  AppT (ConT ty) inner | ty == ''Object -> unwrapType (op:ops) inner
   schema -> fail $ unlines ["Cannot get type:", show schema, show op]
   where
-    getType' = flip getType
+    unwrapType' = flip unwrapType
     getObjectSchema = \case
       AppT (AppT PromotedConsT t1) t2 ->
         case t1 of
@@ -129,3 +132,27 @@ getType (op:ops) = \case
           _ -> error $ "Could not parse a (key, schema) tuple: " ++ show t1
       PromotedNilT -> []
       t -> error $ "Could not get object schema: " ++ show t
+
+{- GetterOps -}
+
+type GetterOps = [GetterOperation]
+
+data GetterOperation
+  = GetterKey String
+  | GetterList [GetterOps]
+  | GetterTuple [GetterOps]
+  | GetterBang
+  | GetterMapList
+  | GetterMapMaybe
+  deriving (Show,Lift)
+
+showGetterOps :: GetterOps -> String
+showGetterOps = concatMap showGetterOp
+  where
+    showGetterOp = \case
+      GetterKey key -> '.':key
+      GetterList elems -> ".[" ++ intercalate "," (map showGetterOps elems) ++ "]"
+      GetterTuple elems -> ".(" ++ intercalate "," (map showGetterOps elems) ++ ")"
+      GetterBang -> "!"
+      GetterMapList -> "[]"
+      GetterMapMaybe -> "?"

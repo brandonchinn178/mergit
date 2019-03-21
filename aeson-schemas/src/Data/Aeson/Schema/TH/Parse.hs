@@ -6,9 +6,7 @@ Portability :  portable
 
 Definitions for parsing input text in QuasiQuoters.
 -}
-{-# LANGUAGE DeriveLift #-}
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE RecordWildCards #-}
 
 module Data.Aeson.Schema.TH.Parse where
@@ -17,39 +15,16 @@ import Control.Monad (void)
 import Data.Functor (($>))
 import Data.List (intercalate)
 import Data.Void (Void)
-import Language.Haskell.TH.Syntax (Lift)
 import Text.Megaparsec
 import Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer as L
+
+import Data.Aeson.Schema.TH.Utils (GetterOperation(..), GetterOps)
 
 type Parser = Parsec Void String
 
 parse :: Monad m => Parser a -> String -> m a
 parse parser s = either (fail . errorBundlePretty) return $ runParser parser s s
-
-{- GetterOps -}
-
-type GetterOps = [GetterOperation]
-
-data GetterOperation
-  = GetterKey String
-  | GetterList [GetterOps]
-  | GetterTuple [GetterOps]
-  | GetterBang
-  | GetterMapList
-  | GetterMapMaybe
-  deriving (Show,Lift)
-
-showGetterOps :: GetterOps -> String
-showGetterOps = concatMap showGetterOp
-  where
-    showGetterOp = \case
-      GetterKey key -> '.':key
-      GetterList elems -> ".[" ++ intercalate "," (map showGetterOps elems) ++ "]"
-      GetterTuple elems -> ".(" ++ intercalate "," (map showGetterOps elems) ++ ")"
-      GetterBang -> "!"
-      GetterMapList -> "[]"
-      GetterMapMaybe -> "?"
 
 {- Parser primitives -}
 

@@ -15,7 +15,7 @@ import Language.Haskell.TH
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
 
 import Data.Aeson.Schema.TH.Parse (UnwrapSchema(..), parse, unwrapSchema)
-import Data.Aeson.Schema.TH.Utils (getType, reifySchema)
+import Data.Aeson.Schema.TH.Utils (reifySchema, unwrapType)
 
 -- | Defines a QuasiQuoter to extract a schema within the given schema.
 --
@@ -74,6 +74,6 @@ generateUnwrapSchema :: UnwrapSchema -> TypeQ
 generateUnwrapSchema UnwrapSchema{..} = do
   startSchemaName <- maybe unknownSchema return =<< lookupTypeName startSchema
   startSchemaType <- reifySchema startSchemaName
-  getType getterOps startSchemaType
+  unwrapType getterOps startSchemaType
   where
     unknownSchema = fail $ "Unknown schema: " ++ startSchema

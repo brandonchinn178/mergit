@@ -18,7 +18,7 @@ import Language.Haskell.TH
 
 import Data.Aeson.Schema.TH.Get (generateGetterExp)
 import Data.Aeson.Schema.TH.Parse (GetterExp(..), getterExp, parse)
-import Data.Aeson.Schema.TH.Utils (getType, reifySchema)
+import Data.Aeson.Schema.TH.Utils (reifySchema, unwrapType)
 
 -- | TODO
 mkGetter :: String -> String -> Name -> String -> DecsQ
@@ -30,7 +30,7 @@ mkGetter unwrapName funcName startSchemaName ops = do
   unless (isNothing start) $
     fail $ "Getter expression should start with '.': " ++ ops
 
-  let unwrapResult = getType getterOps startSchemaType
+  let unwrapResult = unwrapType getterOps startSchemaType
       getterFunc = generateGetterExp getterExp'
       unwrapName' = mkName unwrapName
       funcName' = mkName funcName

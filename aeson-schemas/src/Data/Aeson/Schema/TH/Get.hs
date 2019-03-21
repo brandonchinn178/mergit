@@ -18,7 +18,8 @@ import Language.Haskell.TH.Quote (QuasiQuoter(..))
 import Language.Haskell.TH.Syntax (lift)
 
 import Data.Aeson.Schema.Internal (getKey)
-import Data.Aeson.Schema.TH.Parse
+import Data.Aeson.Schema.TH.Parse (GetterExp(..), getterExp, parse)
+import Data.Aeson.Schema.TH.Utils (GetterOperation(..), showGetterOps)
 
 -- | Defines a QuasiQuoter for expressions.
 --
