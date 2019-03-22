@@ -50,6 +50,11 @@ tryJobButton =
 tryJobOutput :: Text -> [KeyValue]
 tryJobOutput summary = [ "title" := tryJobTitle, "summary" := summary ]
 
+-- | The message when the try check run is completed.
+tryJobDoneMsg :: Text
+tryJobDoneMsg =
+  "To re-run try job, click the \"Run Try\" button again, **NOT** any of the \"Re-run\" links."
+
 -- | The label for the check run for merging PRs.
 checkRunMerge :: Text
 checkRunMerge = "Bot Merge"

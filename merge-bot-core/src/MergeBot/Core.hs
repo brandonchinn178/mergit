@@ -128,19 +128,23 @@ refreshCheckRuns ghData sha checkName = do
   config <- extractConfig commitTree
   now <- liftIO getCurrentTime
   let ciStatus = displayCIStatus config commitContexts
-      completeState = case StatusState.summarize $ map [get| .state |] commitContexts of
-        StatusState.SUCCESS -> Just "success"
-        StatusState.ERROR -> Just "failure"
-        StatusState.FAILURE -> Just "failure"
-        _ -> Nothing
-      checkRunData = ghData ++ [ "output" := tryJobOutput ciStatus ] ++
-        case completeState of
-          Nothing -> []
-          Just state ->
-            [ "status" := "completed"
-            , "conclusion" := state
-            , "completed_at" := now
-            ]
+      checkRunState = case StatusState.summarize $ map [get| .state |] commitContexts of
+        StatusState.SUCCESS -> Right "success"
+        StatusState.ERROR -> Right "failure"
+        StatusState.FAILURE -> Right "failure"
+        _ -> Left "in_progress"
+      checkRunData = ghData ++ case checkRunState of
+        Left status ->
+          [ "status" := status
+          , "output" := tryJobOutput ciStatus
+          ]
+        Right conclusion ->
+          [ "status"       := "completed"
+          , "conclusion"   := conclusion
+          , "completed_at" := now
+          , "output"       := tryJobOutput (Text.unlines [tryJobDoneMsg, "", ciStatus])
+          , "actions"      := [tryJobButton]
+          ]
 
   mapM_ (`updateCheckRun` checkRunData) checkRuns
 
