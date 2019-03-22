@@ -169,11 +169,11 @@ displayCIStatus BotConfig{requiredStatuses} contexts =
       map (\c -> mkLine c $ statuses HashMap.! c) requiredStatuses
     mkLine context (state, url) =
       let emoji = case state of
-            StatusState.ERROR -> "❌"
+            StatusState.ERROR    -> "❗"
             StatusState.EXPECTED -> "💤"
-            StatusState.FAILURE -> "❗"
-            StatusState.PENDING -> "⏳"
-            StatusState.SUCCESS -> "✅"
+            StatusState.FAILURE  -> "❌"
+            StatusState.PENDING  -> "⏳"
+            StatusState.SUCCESS  -> "✅"
           link = case url of
             Nothing -> context
             Just url' -> "[" <> context <> "](" <> url' <> ")"
