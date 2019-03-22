@@ -159,8 +159,8 @@ displayCIStatus BotConfig{requiredStatuses} contexts =
   in Text.unlines $ header ++ fromStatusMap statuses
   where
     header =
-      [ "Context | Status"
-      , "--------|-------"
+      [ "CI Job | Status"
+      , "-------|-------"
       ]
     mkStatusMap = HashMap.fromList . map (, (StatusState.EXPECTED, Nothing))
     updateStatusMap statuses context = HashMap.adjust
