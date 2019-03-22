@@ -34,6 +34,7 @@ module MergeBot.Core.GitHub
 import Control.Monad (void)
 import Data.Either (isRight)
 import Data.GraphQL (get, mkGetter, runQuery, unwrap)
+import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import qualified Data.Text as Text
 import GitHub.Data.GitObjectID (GitObjectID)
@@ -94,7 +95,7 @@ getCICommit sha checkName = do
       }
   return CICommit
     { commitTree = [get| result.tree! |]
-    , commitContexts = [get| result.status!.contexts |]
+    , commitContexts = fromMaybe [] [get| result.status?.contexts |]
     , checkRuns
     }
 
