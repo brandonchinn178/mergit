@@ -6,7 +6,9 @@ Portability :  portable
 
 This module defines labels and messages used in the MergeBot.
 -}
+{-# LANGUAGE ExtendedDefaultRules #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
 module MergeBot.Core.Text where
 
@@ -16,6 +18,8 @@ import Data.Text (Text)
 import qualified Data.Text as Text
 import GitHub.REST (KeyValue(..))
 import Text.Read (readMaybe)
+
+default (Text)
 
 {- Check runs -}
 
@@ -33,6 +37,14 @@ tryJobTitle = "Try Run"
 -- | The initial message when the try check run is created.
 tryJobInitialMsg :: Text
 tryJobInitialMsg = "No try run available. Click \"Run Try\" above to begin your try run."
+
+-- | The information for the button to start a try job.
+tryJobButton :: [KeyValue]
+tryJobButton =
+  [ "label"       := "Run Try"
+  , "description" := "Start a try run"
+  , "identifier"  := "lybot_run_try"
+  ]
 
 -- | The output object for the try check run.
 tryJobOutput :: Text -> [KeyValue]
@@ -52,6 +64,14 @@ mergeJobTitle = "Merge Run"
 -- | The initial message when the merge check run is created.
 mergeJobInitialMsg :: Text
 mergeJobInitialMsg = "Not queued. Click \"Queue\" above to queue this PR for the next merge run."
+
+-- | The information for the button to queue a PR.
+queueButton :: [KeyValue]
+queueButton =
+  [ "label"       := "Queue"
+  , "description" := "Queue this PR"
+  , "identifier"  := "lybot_queue"
+  ]
 
 -- | The output object for the merge check run.
 mergeJobOutput :: Text -> [KeyValue]

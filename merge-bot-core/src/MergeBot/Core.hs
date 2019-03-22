@@ -52,13 +52,8 @@ createTryCheckRun :: MonadMergeBot m => GitObjectID -> m ()
 createTryCheckRun sha = createCheckRun
   [ "name"     := checkRunTry
   , "head_sha" := sha
-  , "output" := tryJobOutput tryJobInitialMsg
-  , "actions" :=
-    [ [ "label"       := "Run Try"
-      , "description" := "Start a try run"
-      , "identifier"  := "lybot_run_try"
-      ]
-    ]
+  , "output"   := tryJobOutput tryJobInitialMsg
+  , "actions"  := [tryJobButton]
   ]
 
 -- | Create the check run for queuing/merging PRs.
@@ -66,13 +61,8 @@ createMergeCheckRun :: MonadMergeBot m => GitObjectID -> m ()
 createMergeCheckRun sha = createCheckRun
   [ "name"     := checkRunMerge
   , "head_sha" := sha
-  , "output" := mergeJobOutput mergeJobInitialMsg
-  , "actions" :=
-    [ [ "label"       := "Queue"
-      , "description" := "Queue this PR"
-      , "identifier"  := "lybot_queue"
-      ]
-    ]
+  , "output"   := mergeJobOutput mergeJobInitialMsg
+  , "actions"  := [queueButton]
   ]
 
 -- | Start a new try job.
