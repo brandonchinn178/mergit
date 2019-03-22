@@ -9,6 +9,7 @@ This module defines core MergeBot functionality.
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE ExtendedDefaultRules #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
@@ -135,8 +136,21 @@ refreshCheckRuns :: MonadMergeBot m => GitHubData -> GitObjectID -> Text -> m ()
 refreshCheckRuns ghData sha checkName = do
   CICommit{..} <- getCICommit sha checkName
   config <- extractConfig commitTree
+  now <- liftIO getCurrentTime
   let ciStatus = displayCIStatus config commitContexts
-      checkRunData = ghData ++ [ "output" := tryJobOutput ciStatus ]
+      completeState = case StatusState.summarize $ map [get| .state |] commitContexts of
+        StatusState.SUCCESS -> Just "success"
+        StatusState.ERROR -> Just "failure"
+        StatusState.FAILURE -> Just "failure"
+        _ -> Nothing
+      checkRunData = ghData ++ [ "output" := tryJobOutput ciStatus ] ++
+        case completeState of
+          Nothing -> []
+          Just state ->
+            [ "status" := "completed"
+            , "conclusion" := state
+            , "completed_at" := now
+            ]
 
   mapM_ (`updateCheckRun` checkRunData) checkRuns
 
