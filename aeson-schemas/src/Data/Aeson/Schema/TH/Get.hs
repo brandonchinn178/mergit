@@ -6,6 +6,7 @@ Portability :  portable
 
 The 'get' quasiquoter.
 -}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
@@ -14,6 +15,7 @@ module Data.Aeson.Schema.TH.Get where
 
 import Control.Monad (unless, (>=>))
 import qualified Data.Maybe as Maybe
+import GHC.Stack (HasCallStack)
 import Language.Haskell.TH
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
 import Language.Haskell.TH.Syntax (lift)
@@ -85,6 +87,9 @@ get = QuasiQuoter
 generateGetterExp :: GetterExp -> ExpQ
 generateGetterExp GetterExp{..} = maybe expr (appE expr . varE . mkName) start
   where
+    startDisplay = case start of
+      Nothing -> ""
+      Just s -> if '.' `elem` s then "(" ++ s ++ ")" else s
     expr = mkGetterExp [] getterOps
 
     applyToNext next = \case
@@ -102,7 +107,7 @@ generateGetterExp GetterExp{..} = maybe expr (appE expr . varE . mkName) start
         let applyToNext' = applyToNext $ mkGetterExp (op:history) ops
             applyToEach' = applyToEach history
             checkLast label = unless (null ops) $ fail $ label ++ " operation MUST be last."
-            fromJustMsg = Maybe.fromMaybe "" start ++ showGetterOps (reverse history)
+            fromJustMsg = startDisplay ++ showGetterOps (reverse history)
         in case op of
           GetterKey key     -> applyToNext' $ Right $ appTypeE [| getKey |] (litT $ strTyLit key)
           GetterList elems  -> checkLast ".[*]" >> applyToEach' listE elems
@@ -112,7 +117,7 @@ generateGetterExp GetterExp{..} = maybe expr (appE expr . varE . mkName) start
           GetterMapList     -> applyToNext' $ Left [| (<$:>) |]
 
 -- | fromJust with helpful error message
-fromJust :: String -> Maybe a -> a
+fromJust :: HasCallStack => String -> Maybe a -> a
 fromJust msg = Maybe.fromMaybe (error errMsg)
   where
     errMsg = "Called 'fromJust' on null expression" ++ if null msg then "" else ": " ++ msg
