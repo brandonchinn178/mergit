@@ -9,6 +9,7 @@ This module defines core MergeBot functionality.
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE ExtendedDefaultRules #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
@@ -51,16 +52,8 @@ createTryCheckRun :: MonadMergeBot m => GitObjectID -> m ()
 createTryCheckRun sha = createCheckRun
   [ "name"     := checkRunTry
   , "head_sha" := sha
-  , "output" :=
-    [ "title"   := "Try Run"
-    , "summary" := "No try run available. Click \"Run Try\" above to begin your try run."
-    ]
-  , "actions" :=
-    [ [ "label"       := "Run Try"
-      , "description" := "Start a try run"
-      , "identifier"  := "lybot_run_try"
-      ]
-    ]
+  , "output"   := tryJobOutput tryJobInitialMsg
+  , "actions"  := [tryJobButton]
   ]
 
 -- | Create the check run for queuing/merging PRs.
@@ -68,16 +61,8 @@ createMergeCheckRun :: MonadMergeBot m => GitObjectID -> m ()
 createMergeCheckRun sha = createCheckRun
   [ "name"     := checkRunMerge
   , "head_sha" := sha
-  , "output" :=
-    [ "title"   := "Merge Run"
-    , "summary" := "Not queued. Click \"Queue\" above to queue this PR for the next merge run."
-    ]
-  , "actions" :=
-    [ [ "label"       := "Queue"
-      , "description" := "Queue this PR"
-      , "identifier"  := "lybot_queue"
-      ]
-    ]
+  , "output"   := mergeJobOutput mergeJobInitialMsg
+  , "actions"  := [queueButton]
   ]
 
 -- | Start a new try job.
@@ -141,15 +126,27 @@ refreshCheckRuns :: MonadMergeBot m => GitHubData -> GitObjectID -> Text -> m ()
 refreshCheckRuns ghData sha checkName = do
   CICommit{..} <- getCICommit sha checkName
   config <- extractConfig commitTree
+  now <- liftIO getCurrentTime
   let ciStatus = displayCIStatus config commitContexts
+      checkRunState = case StatusState.summarize $ map [get| .state |] commitContexts of
+        StatusState.SUCCESS -> Right "success"
+        StatusState.ERROR -> Right "failure"
+        StatusState.FAILURE -> Right "failure"
+        _ -> Left "in_progress"
+      checkRunData = ghData ++ case checkRunState of
+        Left status ->
+          [ "status" := status
+          , "output" := tryJobOutput ciStatus
+          ]
+        Right conclusion ->
+          [ "status"       := "completed"
+          , "conclusion"   := conclusion
+          , "completed_at" := now
+          , "output"       := tryJobOutput (Text.unlines [tryJobDoneMsg, "", ciStatus])
+          , "actions"      := [tryJobButton]
+          ]
 
-  forM_ checkRuns $ \checkRun ->
-    updateCheckRun checkRun $ ghData ++
-      [ "output" :=
-        [ "title" := "Try Run"
-        , "summary" := ciStatus
-        ]
-      ]
+  mapM_ (`updateCheckRun` checkRunData) checkRuns
 
 -- | Get text containing Markdown showing a list of jobs required by the merge bot and their status
 -- in CI.
@@ -159,22 +156,24 @@ displayCIStatus BotConfig{requiredStatuses} contexts =
   in Text.unlines $ header ++ fromStatusMap statuses
   where
     header =
-      [ "Context | Status"
-      , "--------|-------"
+      [ "CI Job | Status"
+      , ":-----:|:-----:"
       ]
     mkStatusMap = HashMap.fromList . map (, (StatusState.EXPECTED, Nothing))
     updateStatusMap statuses context = HashMap.adjust
       (const [get| context.(state, targetUrl) |])
       [get| context.context |]
       statuses
-    fromStatusMap = HashMap.foldrWithKey (\k v -> (mkLine k v :)) []
+    fromStatusMap statuses =
+      -- iterate on requiredStatuses to keep order
+      map (\c -> mkLine c $ statuses HashMap.! c) requiredStatuses
     mkLine context (state, url) =
       let emoji = case state of
-            StatusState.ERROR -> "❌"
+            StatusState.ERROR    -> "❗"
             StatusState.EXPECTED -> "💤"
-            StatusState.FAILURE -> "❗"
-            StatusState.PENDING -> "⏳"
-            StatusState.SUCCESS -> "✅"
+            StatusState.FAILURE  -> "❌"
+            StatusState.PENDING  -> "⏳"
+            StatusState.SUCCESS  -> "✅"
           link = case url of
             Nothing -> context
             Just url' -> "[" <> context <> "](" <> url' <> ")"

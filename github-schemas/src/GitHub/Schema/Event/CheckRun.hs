@@ -23,6 +23,7 @@ mkEnum "CheckRunAction"
   [ "CREATED"
   , "REREQUESTED"
   , "REQUESTED_ACTION"
+  , "COMPLETED"
   ]
 
 mkEnum "CheckRunConclusion"

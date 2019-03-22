@@ -29,6 +29,7 @@ mkEnum "PullRequestAction"
   , "EDITED"
   , "CLOSED"
   , "REOPENED"
+  , "SYNCHRONIZE"
   ]
 
 type PullRequestEvent = [schema|
