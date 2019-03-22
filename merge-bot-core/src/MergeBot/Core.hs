@@ -167,7 +167,9 @@ displayCIStatus BotConfig{requiredStatuses} contexts =
       (const [get| context.(state, targetUrl) |])
       [get| context.context |]
       statuses
-    fromStatusMap = HashMap.foldrWithKey (\k v -> (mkLine k v :)) []
+    fromStatusMap statuses =
+      -- iterate on requiredStatuses to keep order
+      map (\c -> mkLine c $ statuses HashMap.! c) requiredStatuses
     mkLine context (state, url) =
       let emoji = case state of
             StatusState.ERROR -> "❌"
