@@ -163,7 +163,7 @@ displayCIStatus BotConfig{requiredStatuses} contexts =
   where
     header =
       [ "CI Job | Status"
-      , "-------|-------"
+      , ":-----:|:-----:"
       ]
     mkStatusMap = HashMap.fromList . map (, (StatusState.EXPECTED, Nothing))
     updateStatusMap statuses context = HashMap.adjust
