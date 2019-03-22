@@ -1,9 +1,11 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DisambiguateRecordFields #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeInType #-}
 
@@ -31,15 +33,13 @@ runApp = runQueryT querySettings . unApp
       { url = "https://graphbrainz.herokuapp.com/"
       }
 
-type Song = [unwrap| (Recordings.Schema).search!.recordings!.nodes![]! |]
+mkGetter "Song" "getSongs" ''Recordings.Schema ".search!.recordings!.nodes![]!"
 
 searchForSong :: MonadQuery API m => String -> m [Song]
-searchForSong song =
-  [get| .search!.recordings!.nodes![]! |] <$>
-    runQuery Recordings.query Recordings.Args
-      { Recordings._query = song
-      , Recordings._first = Just 5
-      }
+searchForSong song = getSongs <$> runQuery Recordings.query Recordings.Args
+  { _query = song
+  , _first = Just 5
+  }
 
 showRecording :: Song -> String
 showRecording song = Text.unpack $ Text.unlines $ map Text.unwords

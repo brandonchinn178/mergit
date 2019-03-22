@@ -18,22 +18,22 @@ import GitHub.Schema.User (UserWebhook)
 
 type Installation = [schema|
   {
-    "id": Int,
-    "account": #UserWebhook,
-    "repository_selection": Text,
-    "access_tokens_url": URL,
-    "repositories_url": URL,
-    "html_url": URL,
-    "app_id": Int,
-    "target_id": Int,
-    "target_type": Text,
-    "permissions": {
-      "checks": Text,
-      "metadata": Text,
+    id: Int,
+    account: #UserWebhook,
+    repository_selection: Text,
+    access_tokens_url: URL,
+    repositories_url: URL,
+    html_url: URL,
+    app_id: Int,
+    target_id: Int,
+    target_type: Text,
+    permissions: {
+      checks: Text,
+      metadata: Text,
     },
-    "events": List Text,
-    "created_at": Int,
-    "updated_at": Int,
-    "single_file_name": Maybe Text,
+    events: List Text,
+    created_at: Int,
+    updated_at: Int,
+    single_file_name: Maybe Text,
   }
 |]

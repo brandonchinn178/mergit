@@ -27,14 +27,14 @@ mkEnum "IssueCommentAction"
 
 type IssueCommentEvent = [schema|
   {
-    "action": IssueCommentAction,
-    "changes": Maybe {
-      "body": {
-        "from": Text,
+    action: IssueCommentAction,
+    changes: Maybe {
+      body: {
+        from: Text,
       },
     },
-    "issue": #Issue,
-    "comment": #Comment,
+    issue: #Issue,
+    comment: #Comment,
     #BaseEvent,
   }
 |]

@@ -18,7 +18,7 @@ import GitHub.Schema.Repository (RepoWebhook)
 
 type ForkEvent = [schema|
   {
-    "forkee": #RepoWebhook,
+    forkee: #RepoWebhook,
     #BaseEvent,
   }
 |]

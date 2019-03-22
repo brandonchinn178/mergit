@@ -28,14 +28,14 @@ mkEnum "StatusState"
 
 type StatusEvent = [schema|
   {
-    "id": Int,
-    "sha": GitObjectID,
-    "context": Text,
-    "description": Maybe Text,
-    "state": StatusState,
-    "target_url": Maybe URL,
-    "branches": List {
-      "name": Text,
+    id: Int,
+    sha: GitObjectID,
+    context: Text,
+    description: Maybe Text,
+    state: StatusState,
+    target_url: Maybe URL,
+    branches: List {
+      name: Text,
     },
     #BaseEvent,
   }

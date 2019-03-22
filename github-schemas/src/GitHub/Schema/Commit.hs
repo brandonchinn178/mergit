@@ -18,12 +18,12 @@ import GitHub.Data.URL (URL)
 
 type CommitShort = [schema|
   {
-    "ref": Text,
-    "sha": GitObjectID,
-    "repo": {
-      "id": Int,
-      "url": URL,
-      "name": Text,
+    ref: Text,
+    sha: GitObjectID,
+    repo: {
+      id: Int,
+      url: URL,
+      name: Text,
     },
   }
 |]

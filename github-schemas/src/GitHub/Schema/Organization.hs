@@ -18,17 +18,17 @@ import GitHub.Data.URL (URL)
 -- | An organization as returned by GitHub events.
 type OrgWebhook = [schema|
   {
-    "login": Text,
-    "id": Int,
-    "node_id": Text,
-    "url": URL,
-    "repos_url": URL,
-    "events_url": URL,
-    "hooks_url": URL,
-    "issues_url": URL,
-    "members_url": URL,
-    "public_members_url": URL,
-    "avatar_url": URL,
-    "description": Text,
+    login: Text,
+    id: Int,
+    node_id: Text,
+    url: URL,
+    repos_url: URL,
+    events_url: URL,
+    hooks_url: URL,
+    issues_url: URL,
+    members_url: URL,
+    public_members_url: URL,
+    avatar_url: URL,
+    description: Text,
   }
 |]

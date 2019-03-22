@@ -33,17 +33,17 @@ mkEnum "PullRequestAction"
 
 type PullRequestEvent = [schema|
   {
-    "action": PullRequestAction,
-    "number": Int,
-    "changes": Maybe {
-      "title": Maybe {
-        "from": Text,
+    action: PullRequestAction,
+    number: Int,
+    changes: Maybe {
+      title: Maybe {
+        from: Text,
       },
-      "body": Maybe {
-        "from": Text,
+      body: Maybe {
+        from: Text,
       },
     },
-    "pull_request": #PullRequestWebhook,
+    pull_request: #PullRequestWebhook,
     #BaseEvent,
   }
 |]

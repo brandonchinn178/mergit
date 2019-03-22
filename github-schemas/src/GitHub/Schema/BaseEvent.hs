@@ -22,11 +22,11 @@ import GitHub.Schema.User (UserWebhook)
 -- https://developer.github.com/webhooks/#payloads
 type BaseEvent = [schema|
   {
-    "sender": #UserWebhook,
-    "repository": Maybe #RepoWebhook,
-    "organization": Maybe #OrgWebhook,
-    "installation": Maybe {
-      "id": Int,
+    sender: #UserWebhook,
+    repository: Maybe #RepoWebhook,
+    organization: Maybe #OrgWebhook,
+    installation: Maybe {
+      id: Int,
     },
   }
 |]

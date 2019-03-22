@@ -12,14 +12,15 @@ This module defines functions for manipulating GitHub state.
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module MergeBot.Core.GitHub
   ( -- * GraphQL
-    CIContext
+    Tree
+  , getBranchTree
+  , CIContext
   , CICommit(..)
   , getCICommit
-  , Tree
-  , getBranchTree
     -- * REST
   , createCheckRun
   , updateCheckRun
@@ -32,7 +33,7 @@ module MergeBot.Core.GitHub
 
 import Control.Monad (void)
 import Data.Either (isRight)
-import Data.GraphQL (get, runQuery, unwrap)
+import Data.GraphQL (get, mkGetter, runQuery, unwrap)
 import Data.Text (Text)
 import qualified Data.Text as Text
 import GitHub.Data.GitObjectID (GitObjectID)
@@ -44,6 +45,19 @@ import qualified MergeBot.Core.GraphQL.CICommit as CICommit
 import MergeBot.Core.Monad (MonadMergeBot(..), queryGitHub')
 
 {- GraphQL -}
+
+mkGetter "Tree" "getTree" ''BranchTree.Schema ".repository.ref!.target.tree!"
+
+-- | Get the git tree for the given branch.
+getBranchTree :: MonadMergeBot m => Text -> m Tree
+getBranchTree branch = do
+  (repoOwner, repoName) <- getRepo
+  getTree <$>
+    runQuery BranchTree.query BranchTree.Args
+      { _repoOwner = Text.unpack repoOwner
+      , _repoName = Text.unpack repoName
+      , _name = Text.unpack branch
+      }
 
 type CIContext = [unwrap| (CICommit.Schema).repository!.object!.status!.contexts[] |]
 
@@ -83,19 +97,6 @@ getCICommit sha checkName = do
     , commitContexts = [get| result.status!.contexts |]
     , checkRuns
     }
-
-type Tree = [unwrap| (BranchTree.Schema).repository.ref!.target.tree! |]
-
--- | Get the git tree for the given branch.
-getBranchTree :: MonadMergeBot m => Text -> m Tree
-getBranchTree branch = do
-  (repoOwner, repoName) <- getRepo
-  [get| .repository.ref!.target.tree! |] <$>
-    runQuery BranchTree.query BranchTree.Args
-      { _repoOwner = Text.unpack repoOwner
-      , _repoName = Text.unpack repoName
-      , _name = Text.unpack branch
-      }
 
 {- REST -}
 

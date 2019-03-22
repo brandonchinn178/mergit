@@ -30,14 +30,14 @@ mkEnum "CheckSuiteAction"
 
 type CheckSuiteEvent = [schema|
   {
-    "action": CheckSuiteAction,
-    "check_suite": {
-      "head_branch": Text,
-      "head_sha": GitObjectID,
-      "status": CheckSuiteStatus,
-      "conclusion": Maybe CheckRunConclusion,
-      "url": URL,
-      "pull_requests": List #PullRequestShort,
+    action: CheckSuiteAction,
+    check_suite: {
+      head_branch: Text,
+      head_sha: GitObjectID,
+      status: CheckSuiteStatus,
+      conclusion: Maybe CheckRunConclusion,
+      url: URL,
+      pull_requests: List #PullRequestShort,
     },
     #BaseEvent,
   }

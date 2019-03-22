@@ -31,11 +31,11 @@ mkEnum "InstallationRepoSelection"
 
 type InstallationRepositoriesEvent = [schema|
   {
-    "action": InstallationRepoAction,
-    "installation": #Installation,
-    "repository_selection": InstallationRepoSelection,
-    "repositories_added": List #RepositoryShort,
-    "repositories_removed": List #RepositoryShort,
+    action: InstallationRepoAction,
+    installation: #Installation,
+    repository_selection: InstallationRepoSelection,
+    repositories_added: List #RepositoryShort,
+    repositories_removed: List #RepositoryShort,
     #BaseEvent,
   }
 |]

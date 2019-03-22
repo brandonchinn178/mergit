@@ -19,8 +19,8 @@ import GitHub.Schema.Repository (RepoWebhook)
 
 type DeploymentEvent = [schema|
   {
-    "deployment": #Deployment,
-    "repository": #RepoWebhook,
+    deployment: #Deployment,
+    repository: #RepoWebhook,
     #BaseEvent,
   }
 |]

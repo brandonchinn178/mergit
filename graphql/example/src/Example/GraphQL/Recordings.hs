@@ -34,26 +34,26 @@ query = $(readGraphQLFile "Recordings.graphql")
 
 type Schema = [schema|
   {
-    "search": Maybe {
-      "recordings": Maybe {
-        "nodes": Maybe List Maybe {
-          "title": Maybe Text,
-          "artists": Maybe {
-            "nodes": Maybe List Maybe {
-              "name": Maybe Text,
+    search: Maybe {
+      recordings: Maybe {
+        nodes: Maybe List Maybe {
+          title: Maybe Text,
+          artists: Maybe {
+            nodes: Maybe List Maybe {
+              name: Maybe Text,
             },
           },
-          "video": Maybe Bool,
-          "length": Maybe Duration,
-          "rating": Maybe {
-            "voteCount": Int,
-            "value": Maybe Double,
+          video: Maybe Bool,
+          length: Maybe Duration,
+          rating: Maybe {
+            voteCount: Int,
+            value: Maybe Double,
           },
-          "releases": Maybe {
-            "nodes": Maybe List Maybe {
-              "title": Maybe Text,
-              "date": Maybe Date,
-              "status": Maybe ReleaseStatus,
+          releases: Maybe {
+            nodes: Maybe List Maybe {
+              title: Maybe Text,
+              date: Maybe Date,
+              status: Maybe ReleaseStatus,
             },
           },
         },
