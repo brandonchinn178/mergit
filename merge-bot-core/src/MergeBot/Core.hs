@@ -51,10 +51,7 @@ createTryCheckRun :: MonadMergeBot m => GitObjectID -> m ()
 createTryCheckRun sha = createCheckRun
   [ "name"     := checkRunTry
   , "head_sha" := sha
-  , "output" :=
-    [ "title"   := "Try Run"
-    , "summary" := "No try run available. Click \"Run Try\" above to begin your try run."
-    ]
+  , "output" := tryJobOutput tryJobInitialMsg
   , "actions" :=
     [ [ "label"       := "Run Try"
       , "description" := "Start a try run"
@@ -68,10 +65,7 @@ createMergeCheckRun :: MonadMergeBot m => GitObjectID -> m ()
 createMergeCheckRun sha = createCheckRun
   [ "name"     := checkRunMerge
   , "head_sha" := sha
-  , "output" :=
-    [ "title"   := "Merge Run"
-    , "summary" := "Not queued. Click \"Queue\" above to queue this PR for the next merge run."
-    ]
+  , "output" := mergeJobOutput mergeJobInitialMsg
   , "actions" :=
     [ [ "label"       := "Queue"
       , "description" := "Queue this PR"
@@ -142,14 +136,9 @@ refreshCheckRuns ghData sha checkName = do
   CICommit{..} <- getCICommit sha checkName
   config <- extractConfig commitTree
   let ciStatus = displayCIStatus config commitContexts
+      checkRunData = ghData ++ [ "output" := tryJobOutput ciStatus ]
 
-  forM_ checkRuns $ \checkRun ->
-    updateCheckRun checkRun $ ghData ++
-      [ "output" :=
-        [ "title" := "Try Run"
-        , "summary" := ciStatus
-        ]
-      ]
+  mapM_ (`updateCheckRun` checkRunData) checkRuns
 
 -- | Get text containing Markdown showing a list of jobs required by the merge bot and their status
 -- in CI.
