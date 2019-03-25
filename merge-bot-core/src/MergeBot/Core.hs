@@ -52,7 +52,7 @@ createTryCheckRun :: MonadMergeBot m => GitObjectID -> m ()
 createTryCheckRun sha = createCheckRun
   [ "name"     := checkRunTry
   , "head_sha" := sha
-  , "output"   := tryJobOutput tryJobInitialMsg
+  , "output"   := output tryJobLabelInit tryJobSummaryInit
   , "actions"  := [tryJobButton]
   ]
 
@@ -61,7 +61,7 @@ createMergeCheckRun :: MonadMergeBot m => GitObjectID -> m ()
 createMergeCheckRun sha = createCheckRun
   [ "name"     := checkRunMerge
   , "head_sha" := sha
-  , "output"   := mergeJobOutput mergeJobInitialMsg
+  , "output"   := output mergeJobLabelInit mergeJobSummaryInit
   , "actions"  := [queueButton]
   ]
 
@@ -136,13 +136,15 @@ refreshCheckRuns ghData sha checkName = do
       checkRunData = ghData ++ case checkRunState of
         Left status ->
           [ "status" := status
-          , "output" := tryJobOutput ciStatus
+            -- TODO: handle merge check runs
+          , "output" := output tryJobLabelRunning ciStatus
           ]
         Right conclusion ->
           [ "status"       := "completed"
           , "conclusion"   := conclusion
           , "completed_at" := now
-          , "output"       := tryJobOutput (Text.unlines [tryJobDoneMsg, "", ciStatus])
+          -- TODO: handle merge check runs
+          , "output"       := output tryJobLabelDone (Text.unlines [tryJobSummaryDone, "", ciStatus])
           , "actions"      := [tryJobButton]
           ]
 
