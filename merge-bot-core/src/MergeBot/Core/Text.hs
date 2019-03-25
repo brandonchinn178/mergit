@@ -16,6 +16,7 @@ import Control.Monad ((<=<))
 import Data.Maybe (isJust)
 import Data.Text (Text)
 import qualified Data.Text as Text
+import Data.Time (UTCTime)
 import GitHub.REST (KeyValue(..))
 import Text.Read (readMaybe)
 
@@ -64,9 +65,26 @@ checkRunMerge = "Bot Merge"
 mergeJobLabelInit :: Text
 mergeJobLabelInit = "Not Queued"
 
+-- | The one-line label to display when the merge check run is queued.
+mergeJobLabelQueued :: Text
+mergeJobLabelQueued = "Queued for next merge run"
+
 -- | The summary text to display when the merge check run is initially created.
 mergeJobSummaryInit :: Text
 mergeJobSummaryInit = "Click \"Queue\" above to queue this PR for the next merge run."
+
+-- | The summary text to display when the merge check run is queued.
+mergeJobSummaryQueued :: Text
+mergeJobSummaryQueued = "Click \"Dequeue\" above to remove this PR from the queue."
+
+mergeJobInitData :: UTCTime -> [KeyValue]
+mergeJobInitData now =
+  [ "status"       := "completed"
+  , "conclusion"   := "action_required"
+  , "completed_at" := now
+  , "output"       := output mergeJobLabelInit mergeJobSummaryInit
+  , "actions"      := [queueButton]
+  ]
 
 -- | The information for the button to queue a PR.
 queueButton :: [KeyValue]
@@ -74,6 +92,14 @@ queueButton =
   [ "label"       := "Queue"
   , "description" := "Queue this PR"
   , "identifier"  := "lybot_queue"
+  ]
+
+-- | The information for the button to dequeue a PR.
+dequeueButton :: [KeyValue]
+dequeueButton =
+  [ "label"       := "Dequeue"
+  , "description" := "Dequeue this PR"
+  , "identifier"  := "lybot_dequeue"
   ]
 
 -- | The output object for check runs.
