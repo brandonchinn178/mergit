@@ -18,7 +18,6 @@ module MergeBot.Handlers
   ) where
 
 import Control.Monad (forM_, unless, when)
-import Control.Monad.IO.Class (liftIO)
 import Data.Aeson.Schema (Object, get)
 import qualified GitHub.Schema.Event.CheckRun as CheckRun
 import qualified GitHub.Schema.Event.CheckSuite as CheckSuite
@@ -61,7 +60,8 @@ handleCheckRun o = runBotApp repo $
             [get| pr.number |]
             [get| pr.head.sha |]
             [get| pr.base.sha |]
-        "lybot_queue" -> liftIO $ putStrLn "Queue PR"
+        "lybot_queue" -> Core.queuePR [get| o.check_run.id |]
+        "lybot_dequeue" -> Core.dequeuePR [get| o.check_run.id |]
         _ -> return ()
     _ -> return ()
   where

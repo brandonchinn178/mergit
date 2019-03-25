@@ -16,6 +16,7 @@ import Control.Monad ((<=<))
 import Data.Maybe (isJust)
 import Data.Text (Text)
 import qualified Data.Text as Text
+import Data.Time (UTCTime)
 import GitHub.REST (KeyValue(..))
 import Text.Read (readMaybe)
 
@@ -27,16 +28,26 @@ default (Text)
 checkRunTry :: Text
 checkRunTry = "Bot Try"
 
--- | The title of the try check run.
---
--- This is used for the title in the check run tab and also for the job
--- GitHub displays as "In progress".
-tryJobTitle :: Text
-tryJobTitle = "Try Run"
+-- | The one-line label to display when the try check run is initially created.
+tryJobLabelInit :: Text
+tryJobLabelInit = "Try run not started"
 
--- | The initial message when the try check run is created.
-tryJobInitialMsg :: Text
-tryJobInitialMsg = "No try run available. Click \"Run Try\" above to begin your try run."
+-- | The one-line label to display when the try check run is running.
+tryJobLabelRunning :: Text
+tryJobLabelRunning = "Try run in progress"
+
+-- | The one-line label to display when the try check run is completed.
+tryJobLabelDone :: Text
+tryJobLabelDone = "Try run finished"
+
+-- | The summary text to display when the try check run is initially created.
+tryJobSummaryInit :: Text
+tryJobSummaryInit = "Click \"Run Try\" above to begin your try run."
+
+-- | The summary text to display when the try check run is completed.
+tryJobSummaryDone :: Text
+tryJobSummaryDone =
+  "To re-run try job, click the \"Run Try\" button again, **NOT** any of the \"Re-run\" links."
 
 -- | The information for the button to start a try job.
 tryJobButton :: [KeyValue]
@@ -46,29 +57,34 @@ tryJobButton =
   , "identifier"  := "lybot_run_try"
   ]
 
--- | The output object for the try check run.
-tryJobOutput :: Text -> [KeyValue]
-tryJobOutput summary = [ "title" := tryJobTitle, "summary" := summary ]
-
--- | The message when the try check run is completed.
-tryJobDoneMsg :: Text
-tryJobDoneMsg =
-  "To re-run try job, click the \"Run Try\" button again, **NOT** any of the \"Re-run\" links."
-
 -- | The label for the check run for merging PRs.
 checkRunMerge :: Text
 checkRunMerge = "Bot Merge"
 
--- | The title of the merge check run.
---
--- This is used for the title in the check run tab and also for the job
--- GitHub displays as "In progress".
-mergeJobTitle :: Text
-mergeJobTitle = "Merge Run"
+-- | The one-line label to display when the merge check run is initially created.
+mergeJobLabelInit :: Text
+mergeJobLabelInit = "Not Queued"
 
--- | The initial message when the merge check run is created.
-mergeJobInitialMsg :: Text
-mergeJobInitialMsg = "Not queued. Click \"Queue\" above to queue this PR for the next merge run."
+-- | The one-line label to display when the merge check run is queued.
+mergeJobLabelQueued :: Text
+mergeJobLabelQueued = "Queued for next merge run"
+
+-- | The summary text to display when the merge check run is initially created.
+mergeJobSummaryInit :: Text
+mergeJobSummaryInit = "Click \"Queue\" above to queue this PR for the next merge run."
+
+-- | The summary text to display when the merge check run is queued.
+mergeJobSummaryQueued :: Text
+mergeJobSummaryQueued = "Click \"Dequeue\" above to remove this PR from the queue."
+
+mergeJobInitData :: UTCTime -> [KeyValue]
+mergeJobInitData now =
+  [ "status"       := "completed"
+  , "conclusion"   := "action_required"
+  , "completed_at" := now
+  , "output"       := output mergeJobLabelInit mergeJobSummaryInit
+  , "actions"      := [queueButton]
+  ]
 
 -- | The information for the button to queue a PR.
 queueButton :: [KeyValue]
@@ -78,9 +94,17 @@ queueButton =
   , "identifier"  := "lybot_queue"
   ]
 
--- | The output object for the merge check run.
-mergeJobOutput :: Text -> [KeyValue]
-mergeJobOutput summary = [ "title" := mergeJobTitle, "summary" := summary ]
+-- | The information for the button to dequeue a PR.
+dequeueButton :: [KeyValue]
+dequeueButton =
+  [ "label"       := "Dequeue"
+  , "description" := "Dequeue this PR"
+  , "identifier"  := "lybot_dequeue"
+  ]
+
+-- | The output object for check runs.
+output :: Text -> Text -> [KeyValue]
+output title summary = [ "title" := title, "summary" := summary ]
 
 {- CI branches -}
 

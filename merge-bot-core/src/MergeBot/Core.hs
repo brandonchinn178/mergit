@@ -20,6 +20,8 @@ This module defines core MergeBot functionality.
 module MergeBot.Core
   ( createCheckRuns
   , startTryJob
+  , queuePR
+  , dequeuePR
   , handleStatusUpdate
   ) where
 
@@ -49,21 +51,26 @@ createCheckRuns sha = createTryCheckRun sha >> createMergeCheckRun sha
 
 -- | Create the check run for trying PRs.
 createTryCheckRun :: MonadMergeBot m => GitObjectID -> m ()
-createTryCheckRun sha = createCheckRun
-  [ "name"     := checkRunTry
-  , "head_sha" := sha
-  , "output"   := tryJobOutput tryJobInitialMsg
-  , "actions"  := [tryJobButton]
-  ]
+createTryCheckRun sha = do
+  now <- liftIO getCurrentTime
+  createCheckRun
+    [ "name"         := checkRunTry
+    , "head_sha"     := sha
+    , "status"       := "completed"
+    , "conclusion"   := "neutral"
+    , "completed_at" := now
+    , "output"       := output tryJobLabelInit tryJobSummaryInit
+    , "actions"      := [tryJobButton]
+    ]
 
 -- | Create the check run for queuing/merging PRs.
 createMergeCheckRun :: MonadMergeBot m => GitObjectID -> m ()
-createMergeCheckRun sha = createCheckRun
-  [ "name"     := checkRunMerge
-  , "head_sha" := sha
-  , "output"   := mergeJobOutput mergeJobInitialMsg
-  , "actions"  := [queueButton]
-  ]
+createMergeCheckRun sha = do
+  now <- liftIO getCurrentTime
+  createCheckRun $
+    [ "name"         := checkRunMerge
+    , "head_sha"     := sha
+    ] ++ mergeJobInitData now
 
 -- | Start a new try job.
 startTryJob :: MonadMergeBot m => Int -> GitObjectID -> GitObjectID -> m ()
@@ -80,6 +87,23 @@ startTryJob prNum prSHA baseSHA = do
   where
     tryBranch = toTryBranch prNum
     tryMessage = toTryMessage prNum
+
+-- | Add a PR to the queue.
+queuePR :: MonadMergeBot m => Int -> m ()
+queuePR checkRunId =
+  -- TODO: start merge run if only PR in queue
+  -- TOOD: batching info
+  updateCheckRun checkRunId
+    [ "status"  := "queued"
+    , "output"  := output mergeJobLabelQueued mergeJobSummaryQueued
+    , "actions" := [dequeueButton]
+    ]
+
+-- | Remove a PR from the queue.
+dequeuePR :: MonadMergeBot m => Int -> m ()
+dequeuePR checkRunId = do
+  now <- liftIO getCurrentTime
+  updateCheckRun checkRunId $ mergeJobInitData now
 
 -- | Handle a notification that the given commit's status has been updated.
 handleStatusUpdate :: MonadMergeBot m => GitObjectID -> Text -> m ()
@@ -136,13 +160,15 @@ refreshCheckRuns ghData sha checkName = do
       checkRunData = ghData ++ case checkRunState of
         Left status ->
           [ "status" := status
-          , "output" := tryJobOutput ciStatus
+            -- TODO: handle merge check runs
+          , "output" := output tryJobLabelRunning ciStatus
           ]
         Right conclusion ->
           [ "status"       := "completed"
           , "conclusion"   := conclusion
           , "completed_at" := now
-          , "output"       := tryJobOutput (Text.unlines [tryJobDoneMsg, "", ciStatus])
+          -- TODO: handle merge check runs
+          , "output"       := output tryJobLabelDone (Text.unlines [tryJobSummaryDone, "", ciStatus])
           , "actions"      := [tryJobButton]
           ]
 
