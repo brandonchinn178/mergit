@@ -109,8 +109,8 @@ output title summary = [ "title" := title, "summary" := summary ]
 {- CI branches -}
 
 -- | Display the pull request number.
-toId :: Int -> Text
-toId = Text.pack . ('#':) . show
+fromId :: Int -> Text
+fromId = Text.pack . ('#':) . show
 
 -- | Get the name of the try branch for the given pull request.
 toTryBranch :: Int -> Text
@@ -126,7 +126,7 @@ fromTryBranch = readMaybe . Text.unpack <=< Text.stripPrefix "trying-"
 
 -- | Get the try commit message for the given pull request.
 toTryMessage :: Int -> Text
-toTryMessage prNum = Text.unwords ["Try", toId prNum]
+toTryMessage prNum = Text.unwords ["Try", fromId prNum]
 
 -- | Get the name of the staging branch for the given base branch.
 toStagingBranch :: Text -> Text
@@ -134,4 +134,4 @@ toStagingBranch = ("staging-" <>)
 
 -- | Get the commit message for the merge run for the given pull requests.
 toStagingMessage :: Text -> [Int] -> Text
-toStagingMessage base prs = Text.unwords $ ["Merge"] ++ map toId prs ++ ["into", base]
+toStagingMessage base prs = Text.unwords $ ["Merge"] ++ map fromId prs ++ ["into", base]
