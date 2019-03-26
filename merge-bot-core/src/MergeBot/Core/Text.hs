@@ -32,6 +32,10 @@ checkRunTry = "Bot Try"
 tryJobLabelInit :: Text
 tryJobLabelInit = "Try run not started"
 
+-- | The summary text to display when the try check run is initially created.
+tryJobSummaryInit :: Text
+tryJobSummaryInit = "Click \"Run Try\" above to begin your try run."
+
 -- | The one-line label to display when the try check run is running.
 tryJobLabelRunning :: Text
 tryJobLabelRunning = "Try run in progress"
@@ -39,10 +43,6 @@ tryJobLabelRunning = "Try run in progress"
 -- | The one-line label to display when the try check run is completed.
 tryJobLabelDone :: Text
 tryJobLabelDone = "Try run finished"
-
--- | The summary text to display when the try check run is initially created.
-tryJobSummaryInit :: Text
-tryJobSummaryInit = "Click \"Run Try\" above to begin your try run."
 
 -- | The summary text to display when the try check run is completed.
 tryJobSummaryDone :: Text
@@ -65,13 +65,13 @@ checkRunMerge = "Bot Merge"
 mergeJobLabelInit :: Text
 mergeJobLabelInit = "Not Queued"
 
--- | The one-line label to display when the merge check run is queued.
-mergeJobLabelQueued :: Text
-mergeJobLabelQueued = "Queued for next merge run"
-
 -- | The summary text to display when the merge check run is initially created.
 mergeJobSummaryInit :: Text
 mergeJobSummaryInit = "Click \"Queue\" above to queue this PR for the next merge run."
+
+-- | The one-line label to display when the merge check run is queued.
+mergeJobLabelQueued :: Text
+mergeJobLabelQueued = "Queued for next merge run"
 
 -- | The summary text to display when the merge check run is queued.
 mergeJobSummaryQueued :: Text
