@@ -32,6 +32,10 @@ checkRunTry = "Bot Try"
 tryJobLabelInit :: Text
 tryJobLabelInit = "Try run not started"
 
+-- | The summary text to display when the try check run is initially created.
+tryJobSummaryInit :: Text
+tryJobSummaryInit = "Click \"Run Try\" above to begin your try run."
+
 -- | The one-line label to display when the try check run is running.
 tryJobLabelRunning :: Text
 tryJobLabelRunning = "Try run in progress"
@@ -39,10 +43,6 @@ tryJobLabelRunning = "Try run in progress"
 -- | The one-line label to display when the try check run is completed.
 tryJobLabelDone :: Text
 tryJobLabelDone = "Try run finished"
-
--- | The summary text to display when the try check run is initially created.
-tryJobSummaryInit :: Text
-tryJobSummaryInit = "Click \"Run Try\" above to begin your try run."
 
 -- | The summary text to display when the try check run is completed.
 tryJobSummaryDone :: Text
@@ -65,13 +65,13 @@ checkRunMerge = "Bot Merge"
 mergeJobLabelInit :: Text
 mergeJobLabelInit = "Not Queued"
 
--- | The one-line label to display when the merge check run is queued.
-mergeJobLabelQueued :: Text
-mergeJobLabelQueued = "Queued for next merge run"
-
 -- | The summary text to display when the merge check run is initially created.
 mergeJobSummaryInit :: Text
 mergeJobSummaryInit = "Click \"Queue\" above to queue this PR for the next merge run."
+
+-- | The one-line label to display when the merge check run is queued.
+mergeJobLabelQueued :: Text
+mergeJobLabelQueued = "Queued for next merge run"
 
 -- | The summary text to display when the merge check run is queued.
 mergeJobSummaryQueued :: Text
@@ -109,8 +109,8 @@ output title summary = [ "title" := title, "summary" := summary ]
 {- CI branches -}
 
 -- | Display the pull request number.
-toId :: Int -> Text
-toId = Text.pack . ('#':) . show
+fromId :: Int -> Text
+fromId = Text.pack . ('#':) . show
 
 -- | Get the name of the try branch for the given pull request.
 toTryBranch :: Int -> Text
@@ -126,4 +126,12 @@ fromTryBranch = readMaybe . Text.unpack <=< Text.stripPrefix "trying-"
 
 -- | Get the try commit message for the given pull request.
 toTryMessage :: Int -> Text
-toTryMessage prNum = Text.unwords ["Try", toId prNum]
+toTryMessage prNum = Text.unwords ["Try", fromId prNum]
+
+-- | Get the name of the staging branch for the given base branch.
+toStagingBranch :: Text -> Text
+toStagingBranch = ("staging-" <>)
+
+-- | Get the commit message for the merge run for the given pull requests.
+toStagingMessage :: Text -> [Int] -> Text
+toStagingMessage base prs = Text.unwords $ ["Merge"] ++ map fromId prs ++ ["into", base]
