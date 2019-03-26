@@ -7,15 +7,16 @@ Portability :  portable
 Defines functions for ensuring secure communication with GitHub.
 -}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
-{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeApplications #-}
 
 module Servant.GitHub.Security
   ( loadSigner
   , parseSignature
   , doesSignatureMatch
+  , getJWTToken
   , getToken
   ) where
 
@@ -74,24 +75,34 @@ doesSignatureMatch key payload = constEq digest
   where
     digest = hmacGetDigest @SHA1 $ hmac key payload
 
--- | Create an installation token to use for API calls.
-getToken :: Signer -> ByteString -> Int -> Int -> IO Token
-getToken signer userAgent appId installationId = do
-  -- lose a second in the case of rounding
-  -- https://github.community/t5/GitHub-API-Development-and/quot-Expiration-time-claim-exp-is-too-far-in-the-future-quot/m-p/20457/highlight/true#M1127
-  now <- addUTCTime (-1) <$> getCurrentTime
-  let claims = mempty
-        { iat = numericDate $ utcTimeToPOSIXSeconds now
-        , exp = numericDate $ utcTimeToPOSIXSeconds now + (expiry * 60)
-        , iss = stringOrURI $ Text.pack $ show appId
-        }
-      jwt = encodeSigned signer claims
-      token = BearerToken $ Text.encodeUtf8 jwt
-      apiVersion = "machine-man-preview"
-  runGitHubT GitHubState{..} createToken
+-- | Create a JWT token that expires in 10 minutes.
+getJWTToken :: Signer -> Int -> IO Token
+getJWTToken signer appId = mkToken <$> getNow
   where
-    expiry = 10 -- minutes
-    createToken = AccessToken . Text.encodeUtf8 . [get| .token |] <$>
+    mkToken now =
+      let claims = mempty
+            { iat = numericDate $ utcTimeToPOSIXSeconds now
+            , exp = numericDate $ utcTimeToPOSIXSeconds now + (10 * 60)
+            , iss = stringOrURI $ Text.pack $ show appId
+            }
+          jwt = encodeSigned signer claims
+      in BearerToken $ Text.encodeUtf8 jwt
+    -- lose a second in the case of rounding
+    -- https://github.community/t5/GitHub-API-Development-and/quot-Expiration-time-claim-exp-is-too-far-in-the-future-quot/m-p/20457/highlight/true#M1127
+    getNow = addUTCTime (-1) <$> getCurrentTime
+
+-- | Create an installation token.
+getToken :: Signer -> Int -> ByteString -> Int -> IO Token
+getToken signer appId userAgent installationId = do
+  jwtToken <- getJWTToken signer appId
+  let state = GitHubState
+        { token = jwtToken
+        , apiVersion = "machine-man-preview"
+        , userAgent
+        }
+  runGitHubT state $ AccessToken . Text.encodeUtf8 . [get| .token |] <$> createToken
+  where
+    createToken =
       queryGitHub @_ @(Object [schema| { token: Text } |]) GHEndpoint
         { method = POST
         , endpoint = "/app/installations/:installation_id/access_tokens"

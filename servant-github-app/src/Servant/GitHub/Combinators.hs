@@ -127,7 +127,7 @@ mkTokenGenerator :: HasContextEntry context GitHubAppParams
   => Context context -> Request -> Servant.DelayedIO TokenGenerator
 mkTokenGenerator context request = do
   event <- decodeRequestBody @BaseEvent =<< getRequestBody request
-  return $ getToken ghSigner ghUserAgent ghAppId [get| event.installation!.id |]
+  return $ getToken ghSigner ghAppId ghUserAgent [get| event.installation!.id |]
   where
     GitHubAppParams{ghAppId, ghSigner, ghUserAgent} = getContextEntry context
 
