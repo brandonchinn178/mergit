@@ -9,6 +9,7 @@ dependencies:
 - base
 - github-rest
 - github-schemas
+- http-types
 - merge-bot-core
 - servant-github-app
 - servant-server

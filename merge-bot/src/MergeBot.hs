@@ -15,12 +15,10 @@ This module defines the entrypoint for the MergeBot GitHub application.
 module MergeBot (runMergeBot) where
 
 import Control.Concurrent (forkFinally, myThreadId, threadDelay, throwTo)
-import Control.Exception (throwIO)
-import Control.Monad (forever, void, (>=>))
-import Control.Monad.IO.Class (liftIO)
+import Control.Monad (forever, void)
 import Data.Proxy (Proxy(..))
 import Network.Wai.Handler.Warp (run)
-import Servant hiding (runHandler')
+import Servant
 import Servant.GitHub
 
 import qualified MergeBot.Core as Core
@@ -48,12 +46,11 @@ initApp = do
   return $ serveWithContext (Proxy @MergeBotApp) (params :. EmptyContext) server
 
 pollQueues :: IO ()
-pollQueues = runHandler' $ forever $ do
-  runBotAppForAllInstalls Core.pollQueues
-  liftIO $ threadDelay tenMinutes
+pollQueues = forever $ do
+  void $ runBotAppForAllInstalls Core.pollQueues
+  threadDelay tenMinutes
   where
     tenMinutes = 10 * 60e6
-    runHandler' = runHandler >=> either throwIO return
 
 runMergeBot :: IO ()
 runMergeBot = do
