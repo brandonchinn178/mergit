@@ -127,3 +127,11 @@ fromTryBranch = readMaybe . Text.unpack <=< Text.stripPrefix "trying-"
 -- | Get the try commit message for the given pull request.
 toTryMessage :: Int -> Text
 toTryMessage prNum = Text.unwords ["Try", toId prNum]
+
+-- | Get the name of the staging branch for the given base branch.
+toStagingBranch :: Text -> Text
+toStagingBranch = ("staging-" <>)
+
+-- | Get the commit message for the merge run for the given pull requests.
+toStagingMessage :: Text -> [Int] -> Text
+toStagingMessage base prs = Text.unwords $ ["Merge"] ++ map toId prs ++ ["into", base]
