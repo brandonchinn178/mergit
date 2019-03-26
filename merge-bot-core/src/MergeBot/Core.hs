@@ -38,7 +38,7 @@ import Data.Time (getCurrentTime)
 import Data.Yaml (decodeThrow)
 import GitHub.Data.GitObjectID (GitObjectID)
 import qualified GitHub.Data.StatusState as StatusState
-import GitHub.REST (GitHubData, KeyValue(..))
+import GitHub.REST (KeyValue(..))
 
 import MergeBot.Core.Config
 import MergeBot.Core.GitHub
@@ -78,13 +78,7 @@ startTryJob :: MonadMergeBot m => Int -> GitObjectID -> GitObjectID -> m ()
 startTryJob prNum prSHA baseSHA = do
   mergeSHA <- createCIBranch baseSHA [prSHA] tryBranch tryMessage
 
-  now <- liftIO getCurrentTime
-  let ghData =
-        [ "started_at" := now
-        , "status"     := "in_progress"
-        , "actions"    := []
-        ]
-  refreshCheckRuns ghData mergeSHA checkRunTry
+  refreshCheckRuns True mergeSHA checkRunTry
   where
     tryBranch = toTryBranch prNum
     tryMessage = toTryMessage prNum
@@ -107,7 +101,7 @@ dequeuePR checkRunId = do
 
 -- | Handle a notification that the given commit's status has been updated.
 handleStatusUpdate :: MonadMergeBot m => GitObjectID -> Text -> m ()
-handleStatusUpdate = refreshCheckRuns []
+handleStatusUpdate = refreshCheckRuns False
 
 -- | Load all queues and start a merge run if one is not already running.
 pollQueues :: MonadMergeBot m => m ()
@@ -150,8 +144,8 @@ createCIBranch baseSHA prSHAs ciBranch message = do
   return mergeSHA
 
 -- | Update the check runs for the given CI commit, including any additional data provided.
-refreshCheckRuns :: MonadMergeBot m => GitHubData -> GitObjectID -> Text -> m ()
-refreshCheckRuns ghData sha checkName = do
+refreshCheckRuns :: MonadMergeBot m => Bool -> GitObjectID -> Text -> m ()
+refreshCheckRuns isStart sha checkName = do
   CICommit{..} <- getCICommit sha checkName
   config <- extractConfig commitTree
   now <- liftIO getCurrentTime
@@ -161,11 +155,12 @@ refreshCheckRuns ghData sha checkName = do
         StatusState.ERROR -> Right "failure"
         StatusState.FAILURE -> Right "failure"
         _ -> Left "in_progress"
-      checkRunData = ghData ++ case checkRunState of
+      checkRunData = (if isStart then [ "started_at" := now ] else []) ++ case checkRunState of
         Left status ->
-          [ "status" := status
+          [ "status"  := status
             -- TODO: handle merge check runs
-          , "output" := output tryJobLabelRunning ciStatus
+          , "output"  := output tryJobLabelRunning ciStatus
+          , "actions" := []
           ]
         Right conclusion ->
           [ "status"       := "completed"
