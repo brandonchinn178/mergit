@@ -13,6 +13,7 @@ This module defines functions for running GitHubT actions.
 
 module MergeBot.Monad
   ( runBotApp
+  , runBotAppForAllInstalls
   ) where
 
 import Control.Monad.IO.Class (liftIO)
@@ -37,3 +38,6 @@ runBotApp repo action token = do
     }
   where
     (repoOwner, repoName) = parseRepo [get| repo.full_name |]
+
+runBotAppForAllInstalls :: BotApp a -> Handler a
+runBotAppForAllInstalls = undefined

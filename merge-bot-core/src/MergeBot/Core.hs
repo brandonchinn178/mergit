@@ -23,6 +23,7 @@ module MergeBot.Core
   , queuePR
   , dequeuePR
   , handleStatusUpdate
+  , pollQueues
   ) where
 
 import Control.Exception (displayException)
@@ -108,6 +109,10 @@ dequeuePR checkRunId = do
 -- | Handle a notification that the given commit's status has been updated.
 handleStatusUpdate :: MonadMergeBot m => GitObjectID -> Text -> m ()
 handleStatusUpdate = refreshCheckRuns []
+
+-- | Load all queues and start a merge run if one is not already running.
+pollQueues :: MonadMergeBot m => m ()
+pollQueues = undefined
 
 {- Helpers -}
 
