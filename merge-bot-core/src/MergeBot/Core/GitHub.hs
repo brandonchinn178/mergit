@@ -44,7 +44,9 @@ import GitHub.REST
 
 import qualified MergeBot.Core.GraphQL.BranchTree as BranchTree
 import qualified MergeBot.Core.GraphQL.CICommit as CICommit
+import qualified MergeBot.Core.GraphQL.QueuedPRs as QueuedPRs
 import MergeBot.Core.Monad (MonadMergeBot(..), queryGitHub')
+import MergeBot.Core.Text (checkRunMerge)
 
 type CheckRunId = Int
 
@@ -104,7 +106,29 @@ getCICommit sha checkName = do
 
 -- | Get the queue for the given base branch.
 getQueue :: MonadMergeBot m => Text -> m [CheckRunId]
-getQueue = undefined
+getQueue base = do
+  (repoOwner, repoName) <- getRepo
+  appId <- getAppId
+  queryAll_ $ \after -> do
+    result <- runQuery QueuedPRs.query QueuedPRs.Args
+      { _repoOwner = Text.unpack repoOwner
+      , _repoName = Text.unpack repoName
+      , _base = Text.unpack base
+      , _after = after
+      , _appId = appId
+      , _checkName = Text.unpack checkRunMerge
+      }
+    let payload = [get| result.repository!.pullRequests! |]
+        info = [get| payload.pageInfo |]
+        prs = [get| payload.nodes![]! |]
+        checkSuites = concatMap [get| .headRef!.target.checkSuites!.nodes![]! |] prs
+        checkRuns = concatMap [get| .checkRuns!.nodes![]! |] checkSuites
+    return PaginatedResult
+      { payload = ()
+      , chunk = map [get| .databaseId |] checkRuns
+      , hasNext = [get| info.hasNextPage |]
+      , nextCursor = [get| info.endCursor |]
+      }
 
 {- REST -}
 
@@ -221,3 +245,7 @@ queryAll doQuery = queryAll' Nothing
         (True, Nothing) -> fail $ "Paginated result says it has next with no cursor: " ++ show result
         (False, _) -> return (payload, [])
       return (payload, chunk ++ next)
+
+queryAll_ :: (Monad m, Show a)
+  => (Maybe String -> m (PaginatedResult () a)) -> m [a]
+queryAll_ = fmap snd . queryAll
