@@ -15,11 +15,10 @@ module Servant.GitHub.Context
 
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as Char8
+import GitHub.REST.Auth (loadSigner)
 import System.Environment (getEnv)
 import Text.Read (readMaybe)
 import Web.JWT (Signer)
-
-import Servant.GitHub.Security
 
 -- | Parameters loaded from the environment that specify parameters required to make GitHub App
 -- functionality work correctly and securely.

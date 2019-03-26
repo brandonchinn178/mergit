@@ -19,7 +19,6 @@ dependencies:
 - memory
 - servant-server
 - text
-- time
 - wai
 
 library:

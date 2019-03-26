@@ -13,10 +13,8 @@ Defines functions for ensuring secure communication with GitHub.
 {-# LANGUAGE TypeApplications #-}
 
 module Servant.GitHub.Security
-  ( loadSigner
-  , parseSignature
+  ( parseSignature
   , doesSignatureMatch
-  , getJWTToken
   , getToken
   ) where
 
@@ -27,11 +25,8 @@ import Data.Aeson.Schema (Object, get, schema)
 import Data.ByteArray (constEq)
 import Data.ByteArray.Encoding (Base(..), convertFromBase)
 import Data.ByteString (ByteString)
-import qualified Data.ByteString as ByteString
 import qualified Data.Text as Text
 import qualified Data.Text.Encoding as Text
-import Data.Time (addUTCTime, getCurrentTime)
-import Data.Time.Clock.POSIX (utcTimeToPOSIXSeconds)
 import GitHub.REST
     ( GHEndpoint(..)
     , GitHubState(..)
@@ -40,23 +35,9 @@ import GitHub.REST
     , queryGitHub
     , runGitHubT
     )
+import GitHub.REST.Auth (getJWTToken)
 import Network.HTTP.Types (StdMethod(..))
-import Prelude hiding (exp)
-import Web.JWT
-    ( JWTClaimsSet(..)
-    , Signer(..)
-    , encodeSigned
-    , numericDate
-    , readRsaSecret
-    , stringOrURI
-    )
-
--- | Load a RSA private key as a Signer from the given file path.
-loadSigner :: FilePath -> IO Signer
-loadSigner file = maybe badSigner return . readSigner =<< ByteString.readFile file
-  where
-    badSigner = fail $ "Not a valid RSA private key file: " ++ file
-    readSigner = fmap RSAPrivateKey . readRsaSecret
+import Web.JWT (Signer)
 
 -- | Parse the signature from the given request.
 parseSignature :: ByteString -> Maybe (Digest SHA1)
@@ -74,22 +55,6 @@ doesSignatureMatch :: ByteString -> ByteString -> Digest SHA1 -> Bool
 doesSignatureMatch key payload = constEq digest
   where
     digest = hmacGetDigest @SHA1 $ hmac key payload
-
--- | Create a JWT token that expires in 10 minutes.
-getJWTToken :: Signer -> Int -> IO Token
-getJWTToken signer appId = mkToken <$> getNow
-  where
-    mkToken now =
-      let claims = mempty
-            { iat = numericDate $ utcTimeToPOSIXSeconds now
-            , exp = numericDate $ utcTimeToPOSIXSeconds now + (10 * 60)
-            , iss = stringOrURI $ Text.pack $ show appId
-            }
-          jwt = encodeSigned signer claims
-      in BearerToken $ Text.encodeUtf8 jwt
-    -- lose a second in the case of rounding
-    -- https://github.community/t5/GitHub-API-Development-and/quot-Expiration-time-claim-exp-is-too-far-in-the-future-quot/m-p/20457/highlight/true#M1127
-    getNow = addUTCTime (-1) <$> getCurrentTime
 
 -- | Create an installation token.
 getToken :: Signer -> Int -> ByteString -> Int -> IO Token

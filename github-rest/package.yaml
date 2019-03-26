@@ -12,9 +12,11 @@ dependencies:
 - http-client
 - http-client-tls
 - http-types
+- jwt
 - mtl
 - scientific
 - text
+- time
 
 library:
   source-dirs: src
