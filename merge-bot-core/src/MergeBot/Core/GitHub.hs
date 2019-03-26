@@ -21,6 +21,7 @@ module MergeBot.Core.GitHub
   , CIContext
   , CICommit(..)
   , getCICommit
+  , getQueue
     -- * REST
   , createCheckRun
   , updateCheckRun
@@ -45,6 +46,8 @@ import qualified MergeBot.Core.GraphQL.BranchTree as BranchTree
 import qualified MergeBot.Core.GraphQL.CICommit as CICommit
 import MergeBot.Core.Monad (MonadMergeBot(..), queryGitHub')
 
+type CheckRunId = Int
+
 {- GraphQL -}
 
 mkGetter "Tree" "getTree" ''BranchTree.Schema ".repository.ref!.target.tree!"
@@ -65,7 +68,7 @@ type CIContext = [unwrap| (CICommit.Schema).repository!.object!.status!.contexts
 data CICommit = CICommit
   { commitTree     :: Tree
   , commitContexts :: [CIContext]
-  , checkRuns      :: [Int]
+  , checkRuns      :: [CheckRunId]
   }
 
 -- | Get details for the given CI commit.
@@ -99,6 +102,10 @@ getCICommit sha checkName = do
     , checkRuns
     }
 
+-- | Get the queue for the given base branch.
+getQueue :: MonadMergeBot m => Text -> m [CheckRunId]
+getQueue = undefined
+
 {- REST -}
 
 -- | Create a check run.
@@ -115,7 +122,7 @@ createCheckRun ghData = void $ queryGitHub' GHEndpoint
 -- | Update a check run.
 --
 -- https://developer.github.com/v3/checks/runs/#update-a-check-run
-updateCheckRun :: MonadMergeBot m => Int -> GitHubData -> m ()
+updateCheckRun :: MonadMergeBot m => CheckRunId -> GitHubData -> m ()
 updateCheckRun checkRunId ghData = void $ queryGitHub' GHEndpoint
   { method = PATCH
   , endpoint = "/repos/:owner/:repo/check-runs/:check_run_id"
