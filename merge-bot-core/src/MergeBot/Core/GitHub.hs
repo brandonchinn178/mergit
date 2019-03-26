@@ -13,6 +13,7 @@ This module defines functions for manipulating GitHub state.
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TupleSections #-}
 
 module MergeBot.Core.GitHub
   ( -- * GraphQL
@@ -21,7 +22,7 @@ module MergeBot.Core.GitHub
   , CIContext
   , CICommit(..)
   , getCICommit
-  , getQueue
+  , getQueues
     -- * REST
   , createCheckRun
   , updateCheckRun
@@ -35,7 +36,9 @@ module MergeBot.Core.GitHub
 import Control.Monad (void)
 import Data.Either (isRight)
 import Data.GraphQL (get, mkGetter, runQuery, unwrap)
-import Data.Maybe (fromMaybe)
+import Data.HashMap.Strict (HashMap)
+import qualified Data.HashMap.Strict as HashMap
+import Data.Maybe (fromMaybe, listToMaybe, mapMaybe)
 import Data.Text (Text)
 import qualified Data.Text as Text
 import GitHub.Data.GitObjectID (GitObjectID)
@@ -104,31 +107,30 @@ getCICommit sha checkName = do
     , checkRuns
     }
 
--- | Get the queue for the given base branch.
-getQueue :: MonadMergeBot m => Text -> m [CheckRunId]
-getQueue base = do
+-- | Get all queued PRs, by base branch.
+getQueues :: MonadMergeBot m => m (HashMap Text [CheckRunId])
+getQueues  = do
   (repoOwner, repoName) <- getRepo
   appId <- getAppId
-  queryAll_ $ \after -> do
+  prs <- queryAll_ $ \after -> do
     result <- runQuery QueuedPRs.query QueuedPRs.Args
       { _repoOwner = Text.unpack repoOwner
       , _repoName = Text.unpack repoName
-      , _base = Text.unpack base
       , _after = after
       , _appId = appId
       , _checkName = Text.unpack checkRunMerge
       }
     let payload = [get| result.repository!.pullRequests! |]
         info = [get| payload.pageInfo |]
-        prs = [get| payload.nodes![]! |]
-        checkSuites = concatMap [get| .headRef!.target.checkSuites!.nodes![]! |] prs
-        checkRuns = concatMap [get| .checkRuns!.nodes![]! |] checkSuites
+        prs = [get| payload.nodes![]!.(baseRefName,headRef!.target) |]
+        getCheckRun = listToMaybe . concat . [get| .checkSuites!.nodes![]!.checkRuns!.nodes![]!.databaseId |]
     return PaginatedResult
       { payload = ()
-      , chunk = map [get| .databaseId |] checkRuns
+      , chunk = mapMaybe (traverse getCheckRun) prs
       , hasNext = [get| info.hasNextPage |]
       , nextCursor = [get| info.endCursor |]
       }
+  return $ HashMap.fromListWith (++) [ (k, [v]) | (k, v) <- prs ]
 
 {- REST -}
 

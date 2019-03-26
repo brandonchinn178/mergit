@@ -1,20 +1,18 @@
 query QueuedPRs(
   $repoOwner: String!,
   $repoName: String!,
-  $base: String!,
   $after: String,
   $appId: Int!,
   $checkName: String!,
 ) {
   repository(owner: $repoOwner, name: $repoName) {
-    pullRequests(first: 100, after: $after, baseRefName: $base, states: OPEN) {
+    pullRequests(first: 100, after: $after, states: OPEN) {
       pageInfo {
         hasNextPage
         endCursor
       }
       nodes {
-        number
-        title
+        baseRefName
         headRef {
           target {
             ... on Commit {

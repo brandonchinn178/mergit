@@ -25,7 +25,6 @@ type Query = GraphQL.Query API Args Schema
 data Args = Args
   { _repoOwner :: String
   , _repoName  :: String
-  , _base      :: String
   , _after     :: Maybe String
   , _appId     :: Int
   , _checkName :: String
@@ -35,7 +34,6 @@ instance GraphQLArgs Args where
   fromArgs args = object
     [ "repoOwner" .= _repoOwner args
     , "repoName"  .= _repoName args
-    , "base"      .= _base args
     , "after"     .= _after args
     , "appId"     .= _appId args
     , "checkName" .= _checkName args
@@ -53,8 +51,7 @@ type Schema = [schema|
           endCursor: Maybe Text,
         },
         nodes: Maybe List Maybe {
-          number: Int,
-          title: Text,
+          baseRefName: Text,
           headRef: Maybe {
             target: {
               checkSuites: Maybe {

@@ -92,7 +92,6 @@ startTryJob prNum prSHA baseSHA = do
 -- | Add a PR to the queue.
 queuePR :: MonadMergeBot m => Int -> m ()
 queuePR checkRunId =
-  -- TODO: start merge run if only PR in queue
   -- TOOD: batching info
   updateCheckRun checkRunId
     [ "status"  := "queued"
