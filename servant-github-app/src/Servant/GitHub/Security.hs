@@ -7,14 +7,13 @@ Portability :  portable
 Defines functions for ensuring secure communication with GitHub.
 -}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
-{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeApplications #-}
 
 module Servant.GitHub.Security
-  ( loadSigner
-  , parseSignature
+  ( parseSignature
   , doesSignatureMatch
   , getToken
   ) where
@@ -26,11 +25,8 @@ import Data.Aeson.Schema (Object, get, schema)
 import Data.ByteArray (constEq)
 import Data.ByteArray.Encoding (Base(..), convertFromBase)
 import Data.ByteString (ByteString)
-import qualified Data.ByteString as ByteString
 import qualified Data.Text as Text
 import qualified Data.Text.Encoding as Text
-import Data.Time (addUTCTime, getCurrentTime)
-import Data.Time.Clock.POSIX (utcTimeToPOSIXSeconds)
 import GitHub.REST
     ( GHEndpoint(..)
     , GitHubState(..)
@@ -39,23 +35,9 @@ import GitHub.REST
     , queryGitHub
     , runGitHubT
     )
+import GitHub.REST.Auth (getJWTToken)
 import Network.HTTP.Types (StdMethod(..))
-import Prelude hiding (exp)
-import Web.JWT
-    ( JWTClaimsSet(..)
-    , Signer(..)
-    , encodeSigned
-    , numericDate
-    , readRsaSecret
-    , stringOrURI
-    )
-
--- | Load a RSA private key as a Signer from the given file path.
-loadSigner :: FilePath -> IO Signer
-loadSigner file = maybe badSigner return . readSigner =<< ByteString.readFile file
-  where
-    badSigner = fail $ "Not a valid RSA private key file: " ++ file
-    readSigner = fmap RSAPrivateKey . readRsaSecret
+import Web.JWT (Signer)
 
 -- | Parse the signature from the given request.
 parseSignature :: ByteString -> Maybe (Digest SHA1)
@@ -74,24 +56,18 @@ doesSignatureMatch key payload = constEq digest
   where
     digest = hmacGetDigest @SHA1 $ hmac key payload
 
--- | Create an installation token to use for API calls.
-getToken :: Signer -> ByteString -> Int -> Int -> IO Token
-getToken signer userAgent appId installationId = do
-  -- lose a second in the case of rounding
-  -- https://github.community/t5/GitHub-API-Development-and/quot-Expiration-time-claim-exp-is-too-far-in-the-future-quot/m-p/20457/highlight/true#M1127
-  now <- addUTCTime (-1) <$> getCurrentTime
-  let claims = mempty
-        { iat = numericDate $ utcTimeToPOSIXSeconds now
-        , exp = numericDate $ utcTimeToPOSIXSeconds now + (expiry * 60)
-        , iss = stringOrURI $ Text.pack $ show appId
+-- | Create an installation token.
+getToken :: Signer -> Int -> ByteString -> Int -> IO Token
+getToken signer appId userAgent installationId = do
+  jwtToken <- getJWTToken signer appId
+  let state = GitHubState
+        { token = jwtToken
+        , apiVersion = "machine-man-preview"
+        , userAgent
         }
-      jwt = encodeSigned signer claims
-      token = BearerToken $ Text.encodeUtf8 jwt
-      apiVersion = "machine-man-preview"
-  runGitHubT GitHubState{..} createToken
+  runGitHubT state $ AccessToken . Text.encodeUtf8 . [get| .token |] <$> createToken
   where
-    expiry = 10 -- minutes
-    createToken = AccessToken . Text.encodeUtf8 . [get| .token |] <$>
+    createToken =
       queryGitHub @_ @(Object [schema| { token: Text } |]) GHEndpoint
         { method = POST
         , endpoint = "/app/installations/:installation_id/access_tokens"
