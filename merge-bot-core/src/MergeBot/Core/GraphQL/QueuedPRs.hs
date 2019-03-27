@@ -17,6 +17,7 @@ import Data.Aeson.Schema (schema)
 import Data.GraphQL hiding (Query)
 import qualified Data.GraphQL as GraphQL
 import Data.GraphQL.Aeson (object, (.=))
+import GitHub.Data.GitObjectID (GitObjectID)
 
 import MergeBot.Core.GraphQL.API (API)
 
@@ -51,7 +52,9 @@ type Schema = [schema|
           endCursor: Maybe Text,
         },
         nodes: Maybe List Maybe {
+          number: Int,
           baseRefName: Text,
+          headRefOid: GitObjectID,
           headRef: Maybe {
             target: {
               checkSuites: Maybe {

@@ -12,7 +12,9 @@ query QueuedPRs(
         endCursor
       }
       nodes {
+        number
         baseRefName
+        headRefOid
         headRef {
           target {
             ... on Commit {

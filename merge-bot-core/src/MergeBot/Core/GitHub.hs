@@ -8,12 +8,14 @@ This module defines functions for manipulating GitHub state.
 -}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DisambiguateRecordFields #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module MergeBot.Core.GitHub
   ( -- * GraphQL
@@ -38,7 +40,7 @@ import Data.Either (isRight)
 import Data.GraphQL (get, mkGetter, runQuery, unwrap)
 import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HashMap
-import Data.Maybe (fromMaybe, listToMaybe, mapMaybe)
+import Data.Maybe (fromMaybe, mapMaybe)
 import Data.Text (Text)
 import qualified Data.Text as Text
 import GitHub.Data.GitObjectID (GitObjectID)
@@ -108,11 +110,11 @@ getCICommit sha checkName = do
     }
 
 -- | Get all queued PRs, by base branch.
-getQueues :: MonadMergeBot m => m (HashMap Text [CheckRunId])
+getQueues :: MonadMergeBot m => m (HashMap Text [(Int, GitObjectID)])
 getQueues  = do
   (repoOwner, repoName) <- getRepo
   appId <- getAppId
-  prs <- queryAll_ $ \after -> do
+  fmap (HashMap.fromListWith (++)) $ queryAll_ $ \after -> do
     result <- runQuery QueuedPRs.query QueuedPRs.Args
       { _repoOwner = Text.unpack repoOwner
       , _repoName = Text.unpack repoName
@@ -122,15 +124,19 @@ getQueues  = do
       }
     let payload = [get| result.repository!.pullRequests! |]
         info = [get| payload.pageInfo |]
-        prs = [get| payload.nodes![]!.(baseRefName,headRef!.target) |]
-        getCheckRun = listToMaybe . concat . [get| .checkSuites!.nodes![]!.checkRuns!.nodes![]!.databaseId |]
     return PaginatedResult
       { payload = ()
-      , chunk = mapMaybe (traverse getCheckRun) prs
+      , chunk = mapMaybe getQueuedPR [get| payload.nodes![]! |]
       , hasNext = [get| info.hasNextPage |]
       , nextCursor = [get| info.endCursor |]
       }
-  return $ HashMap.fromListWith (++) [ (k, [v]) | (k, v) <- prs ]
+  where
+    getQueuedPR pr = case concat [get| pr.headRef!.target.checkSuites!.nodes![]!.checkRuns!.nodes! |] of
+      [] -> Nothing -- PR has no merge check run in the "queued" state
+      _ -> Just
+        ( [get| pr.baseRefName |]
+        , [ [get| pr.(number, headRefOid) |] ]
+        )
 
 {- REST -}
 
