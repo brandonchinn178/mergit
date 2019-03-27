@@ -26,7 +26,7 @@ import Servant (Handler)
 import Servant.GitHub
 
 import qualified MergeBot.Core as Core
-import MergeBot.Core.Text (checkRunTry, isTryBranch)
+import MergeBot.Core.Text (isTryBranch)
 import MergeBot.Monad (runBotApp)
 
 -- | Handle the 'pull_request' GitHub event.
@@ -73,6 +73,6 @@ handleStatus :: Object StatusEvent -> Token -> Handler ()
 handleStatus o = runBotApp repo $
   -- TODO: also allow merge branches
   when (any isTryBranch [get| o.branches[].name |]) $
-    Core.handleStatusUpdate [get| o.sha |] checkRunTry
+    Core.handleStatusUpdate True [get| o.sha |]
   where
     repo = [get| o.repository! |]
