@@ -29,10 +29,11 @@ module MergeBot.Core
   ) where
 
 import Control.Exception (displayException)
-import Control.Monad (forM_, unless, void)
+import Control.Monad (forM_, unless, void, when)
 import Control.Monad.IO.Class (liftIO)
 import Data.GraphQL (get)
 import qualified Data.HashMap.Strict as HashMap
+import Data.Maybe (isJust)
 import Data.Text (Text)
 import qualified Data.Text as Text
 import qualified Data.Text.Encoding as Text
@@ -189,10 +190,11 @@ refreshCheckRuns isStart isTry ciBranchName sha = do
           , "output"       := output jobLabelDone (unlines2 $ jobSummaryDone isSuccess ciStatus)
           , "actions"      := doneActions isSuccess
           ]
-          -- TODO: delete ci branch
-          -- TODO: if merge and success, run merge
 
   mapM_ (`updateCheckRun` checkRunData) checkRuns
+
+  when (isJust checkRunState) $ deleteBranch ciBranchName
+  -- TODO: if merge and success, run merge
   where
     checkName = if isTry then checkRunTry else checkRunMerge
     jobLabelRunning = if isTry then tryJobLabelRunning else mergeJobLabelRunning
