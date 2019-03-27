@@ -7,6 +7,7 @@ Portability :  portable
 This module defines handlers for the MergeBot.
 -}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE QuasiQuotes #-}
 
 module MergeBot.Handlers
@@ -16,7 +17,7 @@ module MergeBot.Handlers
   , handleStatus
   ) where
 
-import Control.Monad (forM_, unless, when)
+import Control.Monad (forM_, unless)
 import Data.Aeson.Schema (Object, get)
 import qualified GitHub.Schema.Event.CheckRun as CheckRun
 import qualified GitHub.Schema.Event.CheckSuite as CheckSuite
@@ -70,10 +71,14 @@ handleCheckRun o = runBotApp repo $
 
 -- | Handle the 'status' GitHub event.
 handleStatus :: Object StatusEvent -> Token -> Handler ()
-handleStatus o = runBotApp repo $ do
-  when (any isTryBranch branches) $ Core.handleStatusUpdate True sha
-  when (any isStagingBranch branches) $ Core.handleStatusUpdate False sha
+handleStatus o = runBotApp repo $
+  case [get| o.branches[].name |] of
+    [branch] ->
+      let handleStatus' isTry = Core.handleStatusUpdate isTry branch [get| o.sha |]
+      in if
+        | isTryBranch branch -> handleStatus' True
+        | isStagingBranch branch -> handleStatus' False
+        | otherwise -> return ()
+    _ -> return ()
   where
     repo = [get| o.repository! |]
-    branches = [get| o.branches[].name |]
-    sha = [get| o.sha |]

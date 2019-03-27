@@ -81,7 +81,7 @@ startTryJob :: MonadMergeBot m => Int -> GitObjectID -> GitObjectID -> m ()
 startTryJob prNum prSHA baseSHA = do
   mergeSHA <- createCIBranch baseSHA [prSHA] tryBranch tryMessage
 
-  refreshCheckRuns True True mergeSHA
+  refreshCheckRuns True True tryBranch mergeSHA
   where
     tryBranch = toTryBranch prNum
     tryMessage = toTryMessage prNum
@@ -103,7 +103,7 @@ dequeuePR checkRunId = do
   updateCheckRun checkRunId $ mergeJobInitData now
 
 -- | Handle a notification that the given commit's status has been updated.
-handleStatusUpdate :: MonadMergeBot m => Bool -> GitObjectID -> m ()
+handleStatusUpdate :: MonadMergeBot m => Bool -> Text -> GitObjectID -> m ()
 handleStatusUpdate = refreshCheckRuns False
 
 -- | Load all queues and start a merge run if one is not already running.
@@ -121,7 +121,7 @@ pollQueues = do
           stagingMessage = toStagingMessage base prNums
       mergeSHA <- createCIBranch baseSHA prSHAs stagingBranch stagingMessage
 
-      refreshCheckRuns True False mergeSHA
+      refreshCheckRuns True False stagingBranch mergeSHA
 
 {- Helpers -}
 
@@ -160,8 +160,8 @@ createCIBranch baseSHA prSHAs ciBranch message = do
   return mergeSHA
 
 -- | Update the check runs for the given CI commit, including any additional data provided.
-refreshCheckRuns :: MonadMergeBot m => Bool -> Bool -> GitObjectID -> m ()
-refreshCheckRuns isStart isTry sha = do
+refreshCheckRuns :: MonadMergeBot m => Bool -> Bool -> Text -> GitObjectID -> m ()
+refreshCheckRuns isStart isTry ciBranchName sha = do
   CICommit{..} <- getCICommit sha checkName
   config <- extractConfig commitTree
   now <- liftIO getCurrentTime
@@ -174,7 +174,7 @@ refreshCheckRuns isStart isTry sha = do
       checkRunData = (if isStart then [ "started_at" := now ] else []) ++ case checkRunState of
         Nothing ->
           [ "status"  := "in_progress"
-          , "output"  := output jobLabelRunning ciStatus
+          , "output"  := output jobLabelRunning (unlines2 [ciInfo, ciStatus])
           , "actions" := []
           ]
         Just isSuccess ->
@@ -184,11 +184,13 @@ refreshCheckRuns isStart isTry sha = do
           , "output"       := output jobLabelDone (unlines2 $ jobSummaryDone isSuccess ciStatus)
           , "actions"      := doneActions isSuccess
           ]
+          -- TODO: delete ci branch
           -- TODO: if merge and success, run merge
 
   mapM_ (`updateCheckRun` checkRunData) checkRuns
   where
     checkName = if isTry then checkRunTry else checkRunMerge
+    ciInfo = "CI running in the [" <> ciBranchName <> "](#) branch."
     jobLabelRunning = if isTry then tryJobLabelRunning else mergeJobLabelRunning
     jobLabelDone = if isTry then tryJobLabelDone else mergeJobLabelDone
     jobSummaryDone isSuccess ciStatus
