@@ -132,6 +132,14 @@ toTryMessage prNum = Text.unwords ["Try", fromId prNum]
 toStagingBranch :: Text -> Text
 toStagingBranch = ("staging-" <>)
 
+-- | Return True if the given branch is a staging branch.
+isStagingBranch :: Text -> Bool
+isStagingBranch = isJust . fromStagingBranch
+
+-- | Get the base branch for the given staging branch.
+fromStagingBranch :: Text -> Maybe Text
+fromStagingBranch = Text.stripPrefix "staging-"
+
 -- | Get the commit message for the merge run for the given pull requests.
 toStagingMessage :: Text -> [Int] -> Text
 toStagingMessage base prs = Text.unwords $ ["Merge"] ++ map fromId prs ++ ["into", base]
