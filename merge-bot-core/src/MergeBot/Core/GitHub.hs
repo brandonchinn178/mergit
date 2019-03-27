@@ -8,11 +8,14 @@ This module defines functions for manipulating GitHub state.
 -}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DisambiguateRecordFields #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module MergeBot.Core.GitHub
   ( -- * GraphQL
@@ -21,6 +24,8 @@ module MergeBot.Core.GitHub
   , CIContext
   , CICommit(..)
   , getCICommit
+  , getQueues
+  , getStagingAndSHA
     -- * REST
   , createCheckRun
   , updateCheckRun
@@ -32,9 +37,12 @@ module MergeBot.Core.GitHub
   ) where
 
 import Control.Monad (void)
+import Data.Bifunctor (first)
 import Data.Either (isRight)
 import Data.GraphQL (get, mkGetter, runQuery, unwrap)
-import Data.Maybe (fromMaybe)
+import Data.HashMap.Strict (HashMap)
+import qualified Data.HashMap.Strict as HashMap
+import Data.Maybe (fromMaybe, isJust, mapMaybe)
 import Data.Text (Text)
 import qualified Data.Text as Text
 import GitHub.Data.GitObjectID (GitObjectID)
@@ -43,7 +51,12 @@ import GitHub.REST
 
 import qualified MergeBot.Core.GraphQL.BranchTree as BranchTree
 import qualified MergeBot.Core.GraphQL.CICommit as CICommit
+import qualified MergeBot.Core.GraphQL.GetBaseAndCIBranches as GetBaseAndCIBranches
+import qualified MergeBot.Core.GraphQL.QueuedPRs as QueuedPRs
 import MergeBot.Core.Monad (MonadMergeBot(..), queryGitHub')
+import MergeBot.Core.Text (checkRunMerge, toStagingBranch)
+
+type CheckRunId = Int
 
 {- GraphQL -}
 
@@ -65,7 +78,7 @@ type CIContext = [unwrap| (CICommit.Schema).repository!.object!.status!.contexts
 data CICommit = CICommit
   { commitTree     :: Tree
   , commitContexts :: [CIContext]
-  , checkRuns      :: [Int]
+  , checkRuns      :: [CheckRunId]
   }
 
 -- | Get details for the given CI commit.
@@ -99,6 +112,47 @@ getCICommit sha checkName = do
     , checkRuns
     }
 
+-- | Get all queued PRs, by base branch.
+getQueues :: MonadMergeBot m => m (HashMap Text [(Int, GitObjectID)])
+getQueues  = do
+  (repoOwner, repoName) <- getRepo
+  appId <- getAppId
+  fmap (HashMap.fromListWith (++)) $ queryAll_ $ \after -> do
+    result <- runQuery QueuedPRs.query QueuedPRs.Args
+      { _repoOwner = Text.unpack repoOwner
+      , _repoName = Text.unpack repoName
+      , _after = after
+      , _appId = appId
+      , _checkName = Text.unpack checkRunMerge
+      }
+    let payload = [get| result.repository!.pullRequests! |]
+        info = [get| payload.pageInfo |]
+    return PaginatedResult
+      { payload = ()
+      , chunk = mapMaybe getQueuedPR [get| payload.nodes![]! |]
+      , hasNext = [get| info.hasNextPage |]
+      , nextCursor = [get| info.endCursor |]
+      }
+  where
+    getQueuedPR pr = case concat [get| pr.headRef!.target.checkSuites!.nodes![]!.checkRuns!.nodes! |] of
+      [] -> Nothing -- PR has no merge check run in the "queued" state
+      _ -> Just
+        ( [get| pr.baseRefName |]
+        , [ [get| pr.(number, headRefOid) |] ]
+        )
+
+-- | Get whether the staging branch exists for the given base branch and HEAD for the base branch.
+getStagingAndSHA :: MonadMergeBot m => Text -> m (Bool, GitObjectID)
+getStagingAndSHA baseBranch = do
+  (repoOwner, repoName) <- getRepo
+  result <- runQuery GetBaseAndCIBranches.query GetBaseAndCIBranches.Args
+    { _repoOwner = Text.unpack repoOwner
+    , _repoName = Text.unpack repoName
+    , _baseBranch = Text.unpack baseBranch
+    , _ciBranch = Text.unpack $ toStagingBranch baseBranch
+    }
+  return $ first isJust [get| result.repository!.(ciBranch, baseBranch!.target.oid) |]
+
 {- REST -}
 
 -- | Create a check run.
@@ -115,7 +169,7 @@ createCheckRun ghData = void $ queryGitHub' GHEndpoint
 -- | Update a check run.
 --
 -- https://developer.github.com/v3/checks/runs/#update-a-check-run
-updateCheckRun :: MonadMergeBot m => Int -> GitHubData -> m ()
+updateCheckRun :: MonadMergeBot m => CheckRunId -> GitHubData -> m ()
 updateCheckRun checkRunId ghData = void $ queryGitHub' GHEndpoint
   { method = PATCH
   , endpoint = "/repos/:owner/:repo/check-runs/:check_run_id"
@@ -214,3 +268,7 @@ queryAll doQuery = queryAll' Nothing
         (True, Nothing) -> fail $ "Paginated result says it has next with no cursor: " ++ show result
         (False, _) -> return (payload, [])
       return (payload, chunk ++ next)
+
+queryAll_ :: (Monad m, Show a)
+  => (Maybe String -> m (PaginatedResult () a)) -> m [a]
+queryAll_ = fmap snd . queryAll

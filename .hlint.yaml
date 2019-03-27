@@ -6,6 +6,8 @@
 - ignore:
     name: Eta reduce
 - ignore:
+    name: Use list comprehension
+- ignore:
     name: Use newtype instead of data
 - ignore:
     name: Reduce duplication

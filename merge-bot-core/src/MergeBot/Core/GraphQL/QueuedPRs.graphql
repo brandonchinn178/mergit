@@ -1,0 +1,36 @@
+query QueuedPRs(
+  $repoOwner: String!,
+  $repoName: String!,
+  $after: String,
+  $appId: Int!,
+  $checkName: String!,
+) {
+  repository(owner: $repoOwner, name: $repoName) {
+    pullRequests(first: 100, after: $after, states: OPEN) {
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+      nodes {
+        number
+        baseRefName
+        headRefOid
+        headRef {
+          target {
+            ... on Commit {
+              checkSuites(filterBy: { appId: $appId }, first: 1) {
+                nodes {
+                  checkRuns(filterBy: { checkName: $checkName, status: QUEUED }, first: 1) {
+                    nodes {
+                      databaseId
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
