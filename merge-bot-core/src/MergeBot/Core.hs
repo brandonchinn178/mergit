@@ -42,6 +42,7 @@ import GitHub.Data.GitObjectID (GitObjectID)
 import qualified GitHub.Data.StatusState as StatusState
 import GitHub.REST (KeyValue(..))
 
+import MergeBot.Core.Actions
 import MergeBot.Core.Config
 import MergeBot.Core.GitHub
 import MergeBot.Core.Monad
@@ -63,7 +64,7 @@ createTryCheckRun sha = do
     , "conclusion"   := "neutral"
     , "completed_at" := now
     , "output"       := output tryJobLabelInit tryJobSummaryInit
-    , "actions"      := [tryJobButton]
+    , "actions"      := [renderAction BotTry]
     ]
 
 -- | Create the check run for queuing/merging PRs.
@@ -80,7 +81,7 @@ startTryJob :: MonadMergeBot m => Int -> GitObjectID -> GitObjectID -> m ()
 startTryJob prNum prSHA baseSHA = do
   mergeSHA <- createCIBranch baseSHA [prSHA] tryBranch tryMessage
 
-  refreshCheckRuns True mergeSHA checkRunTry
+  refreshCheckRuns True True tryBranch mergeSHA
   where
     tryBranch = toTryBranch prNum
     tryMessage = toTryMessage prNum
@@ -92,7 +93,7 @@ queuePR checkRunId =
   updateCheckRun checkRunId
     [ "status"  := "queued"
     , "output"  := output mergeJobLabelQueued mergeJobSummaryQueued
-    , "actions" := [dequeueButton]
+    , "actions" := [renderAction BotDequeue]
     ]
 
 -- | Remove a PR from the queue.
@@ -102,7 +103,7 @@ dequeuePR checkRunId = do
   updateCheckRun checkRunId $ mergeJobInitData now
 
 -- | Handle a notification that the given commit's status has been updated.
-handleStatusUpdate :: MonadMergeBot m => GitObjectID -> Text -> m ()
+handleStatusUpdate :: MonadMergeBot m => Bool -> Text -> GitObjectID -> m ()
 handleStatusUpdate = refreshCheckRuns False
 
 -- | Load all queues and start a merge run if one is not already running.
@@ -120,7 +121,7 @@ pollQueues = do
           stagingMessage = toStagingMessage base prNums
       mergeSHA <- createCIBranch baseSHA prSHAs stagingBranch stagingMessage
 
-      refreshCheckRuns True mergeSHA checkRunMerge
+      refreshCheckRuns True False stagingBranch mergeSHA
 
 {- Helpers -}
 
@@ -159,34 +160,52 @@ createCIBranch baseSHA prSHAs ciBranch message = do
   return mergeSHA
 
 -- | Update the check runs for the given CI commit, including any additional data provided.
-refreshCheckRuns :: MonadMergeBot m => Bool -> GitObjectID -> Text -> m ()
-refreshCheckRuns isStart sha checkName = do
+refreshCheckRuns :: MonadMergeBot m => Bool -> Bool -> Text -> GitObjectID -> m ()
+refreshCheckRuns isStart isTry ciBranchName sha = do
   CICommit{..} <- getCICommit sha checkName
   config <- extractConfig commitTree
   now <- liftIO getCurrentTime
+  (repoOwner, repoName) <- getRepo
   let ciStatus = displayCIStatus config commitContexts
       checkRunState = case StatusState.summarize $ map [get| .state |] commitContexts of
-        StatusState.SUCCESS -> Right "success"
-        StatusState.ERROR -> Right "failure"
-        StatusState.FAILURE -> Right "failure"
-        _ -> Left "in_progress"
+        StatusState.SUCCESS -> Just True
+        StatusState.ERROR -> Just False
+        StatusState.FAILURE -> Just False
+        _ -> Nothing
       checkRunData = (if isStart then [ "started_at" := now ] else []) ++ case checkRunState of
-        Left status ->
-          [ "status"  := status
-            -- TODO: handle merge check runs
-          , "output"  := output tryJobLabelRunning ciStatus
+        Nothing ->
+          [ "status"  := "in_progress"
+          , "output"  :=
+              let repoUrl = "https://github.com/" <> repoOwner <> "/" <> repoName
+                  ciBranchUrl = repoUrl <> "/commits/" <> ciBranchName
+                  ciInfo = "CI running in the [" <> ciBranchName <> "](" <> ciBranchUrl <> ") branch."
+              in output jobLabelRunning (unlines2 [ciInfo, ciStatus])
           , "actions" := []
           ]
-        Right conclusion ->
+        Just isSuccess ->
           [ "status"       := "completed"
-          , "conclusion"   := conclusion
+          , "conclusion"   := if isSuccess then "success" else "failure"
           , "completed_at" := now
-          -- TODO: handle merge check runs
-          , "output"       := output tryJobLabelDone (Text.unlines [tryJobSummaryDone, "", ciStatus])
-          , "actions"      := [tryJobButton]
+          , "output"       := output jobLabelDone (unlines2 $ jobSummaryDone isSuccess ciStatus)
+          , "actions"      := doneActions isSuccess
           ]
+          -- TODO: delete ci branch
+          -- TODO: if merge and success, run merge
 
   mapM_ (`updateCheckRun` checkRunData) checkRuns
+  where
+    checkName = if isTry then checkRunTry else checkRunMerge
+    jobLabelRunning = if isTry then tryJobLabelRunning else mergeJobLabelRunning
+    jobLabelDone = if isTry then tryJobLabelDone else mergeJobLabelDone
+    jobSummaryDone isSuccess ciStatus
+      | isTry = [tryJobSummaryDone, ciStatus]
+      | not isSuccess = [mergeJobSummaryFailed, ciStatus]
+      | otherwise = [ciStatus]
+    doneActions isSuccess
+      | isTry = [renderAction BotTry]
+      | not isSuccess = [renderAction BotQueue]
+      | otherwise = []
+    unlines2 = Text.concat . map (<> "\n\n")
 
 -- | Get text containing Markdown showing a list of jobs required by the merge bot and their status
 -- in CI.

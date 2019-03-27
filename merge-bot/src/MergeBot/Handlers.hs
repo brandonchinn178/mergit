@@ -7,7 +7,7 @@ Portability :  portable
 This module defines handlers for the MergeBot.
 -}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE QuasiQuotes #-}
 
 module MergeBot.Handlers
@@ -17,7 +17,7 @@ module MergeBot.Handlers
   , handleStatus
   ) where
 
-import Control.Monad (forM_, unless, when)
+import Control.Monad (forM_, unless)
 import Data.Aeson.Schema (Object, get)
 import qualified GitHub.Schema.Event.CheckRun as CheckRun
 import qualified GitHub.Schema.Event.CheckSuite as CheckSuite
@@ -26,7 +26,8 @@ import Servant (Handler)
 import Servant.GitHub
 
 import qualified MergeBot.Core as Core
-import MergeBot.Core.Text (checkRunTry, isTryBranch)
+import MergeBot.Core.Actions (MergeBotAction(..), parseAction)
+import MergeBot.Core.Text (isStagingBranch, isTryBranch)
 import MergeBot.Monad (runBotApp)
 
 -- | Handle the 'pull_request' GitHub event.
@@ -54,15 +55,15 @@ handleCheckRun :: Object CheckRunEvent -> Token -> Handler ()
 handleCheckRun o = runBotApp repo $
   case [get| o.action |] of
     CheckRun.REQUESTED_ACTION ->
-      case [get| o.requested_action!.identifier |] of
-        "lybot_run_try" -> forM_ prs $ \pr ->
+      case parseAction [get| o.requested_action!.identifier |] of
+        Just BotTry -> forM_ prs $ \pr ->
           Core.startTryJob
             [get| pr.number |]
             [get| pr.head.sha |]
             [get| pr.base.sha |]
-        "lybot_queue" -> Core.queuePR [get| o.check_run.id |]
-        "lybot_dequeue" -> Core.dequeuePR [get| o.check_run.id |]
-        _ -> return ()
+        Just BotQueue -> Core.queuePR [get| o.check_run.id |]
+        Just BotDequeue -> Core.dequeuePR [get| o.check_run.id |]
+        Nothing -> return ()
     _ -> return ()
   where
     repo = [get| o.repository! |]
@@ -71,8 +72,13 @@ handleCheckRun o = runBotApp repo $
 -- | Handle the 'status' GitHub event.
 handleStatus :: Object StatusEvent -> Token -> Handler ()
 handleStatus o = runBotApp repo $
-  -- TODO: also allow merge branches
-  when (any isTryBranch [get| o.branches[].name |]) $
-    Core.handleStatusUpdate [get| o.sha |] checkRunTry
+  case [get| o.branches[].name |] of
+    [branch] ->
+      let handleStatus' isTry = Core.handleStatusUpdate isTry branch [get| o.sha |]
+      in if
+        | isTryBranch branch -> handleStatus' True
+        | isStagingBranch branch -> handleStatus' False
+        | otherwise -> return ()
+    _ -> return ()
   where
     repo = [get| o.repository! |]

@@ -20,6 +20,8 @@ import Data.Time (UTCTime)
 import GitHub.REST (KeyValue(..))
 import Text.Read (readMaybe)
 
+import MergeBot.Core.Actions (MergeBotAction(..), renderAction)
+
 default (Text)
 
 {- Check runs -}
@@ -49,14 +51,6 @@ tryJobSummaryDone :: Text
 tryJobSummaryDone =
   "To re-run try job, click the \"Run Try\" button again, **NOT** any of the \"Re-run\" links."
 
--- | The information for the button to start a try job.
-tryJobButton :: [KeyValue]
-tryJobButton =
-  [ "label"       := "Run Try"
-  , "description" := "Start a try run"
-  , "identifier"  := "lybot_run_try"
-  ]
-
 -- | The label for the check run for merging PRs.
 checkRunMerge :: Text
 checkRunMerge = "Bot Merge"
@@ -77,29 +71,28 @@ mergeJobLabelQueued = "Queued for next merge run"
 mergeJobSummaryQueued :: Text
 mergeJobSummaryQueued = "Click \"Dequeue\" above to remove this PR from the queue."
 
+-- | The one-line label to display when the merge check run is running.
+mergeJobLabelRunning :: Text
+mergeJobLabelRunning = "Merge run in progress"
+
+-- | The one-line label to display when the merge check run is completed.
+mergeJobLabelDone :: Text
+mergeJobLabelDone = "Merge run finished"
+
+-- | The summary text to display when the merge check run failed.
+mergeJobSummaryFailed :: Text
+mergeJobSummaryFailed = Text.unwords
+  [ "Merge run failed. Fix the failures, or click \"Queue\" above to re-queue the PR if the"
+  , "failures are unrelated to your PR. (Do **NOT** click any of the \"Re-run\" links)"
+  ]
+
 mergeJobInitData :: UTCTime -> [KeyValue]
 mergeJobInitData now =
   [ "status"       := "completed"
   , "conclusion"   := "action_required"
   , "completed_at" := now
   , "output"       := output mergeJobLabelInit mergeJobSummaryInit
-  , "actions"      := [queueButton]
-  ]
-
--- | The information for the button to queue a PR.
-queueButton :: [KeyValue]
-queueButton =
-  [ "label"       := "Queue"
-  , "description" := "Queue this PR"
-  , "identifier"  := "lybot_queue"
-  ]
-
--- | The information for the button to dequeue a PR.
-dequeueButton :: [KeyValue]
-dequeueButton =
-  [ "label"       := "Dequeue"
-  , "description" := "Dequeue this PR"
-  , "identifier"  := "lybot_dequeue"
+  , "actions"      := [renderAction BotQueue]
   ]
 
 -- | The output object for check runs.
@@ -131,6 +124,14 @@ toTryMessage prNum = Text.unwords ["Try", fromId prNum]
 -- | Get the name of the staging branch for the given base branch.
 toStagingBranch :: Text -> Text
 toStagingBranch = ("staging-" <>)
+
+-- | Return True if the given branch is a staging branch.
+isStagingBranch :: Text -> Bool
+isStagingBranch = isJust . fromStagingBranch
+
+-- | Get the base branch for the given staging branch.
+fromStagingBranch :: Text -> Maybe Text
+fromStagingBranch = Text.stripPrefix "staging-"
 
 -- | Get the commit message for the merge run for the given pull requests.
 toStagingMessage :: Text -> [Int] -> Text
