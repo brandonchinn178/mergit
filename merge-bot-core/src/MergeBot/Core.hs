@@ -174,22 +174,29 @@ refreshCheckRuns isStart isTry sha = do
       checkRunData = (if isStart then [ "started_at" := now ] else []) ++ case checkRunState of
         Left status ->
           [ "status"  := status
-            -- TODO: handle merge check runs
-          , "output"  := output tryJobLabelRunning ciStatus
+          , "output"  := output jobLabelRunning ciStatus
           , "actions" := []
           ]
         Right conclusion ->
           [ "status"       := "completed"
           , "conclusion"   := conclusion
           , "completed_at" := now
-          -- TODO: handle merge check runs
-          , "output"       := output tryJobLabelDone (Text.unlines [tryJobSummaryDone, "", ciStatus])
-          , "actions"      := [renderAction BotTry]
+          , "output"       := output jobLabelDone (jobSummaryDone ciStatus)
+          , "actions"      := doneActions
           ]
+          -- TODO: if merge and success, run merge
 
   mapM_ (`updateCheckRun` checkRunData) checkRuns
   where
     checkName = if isTry then checkRunTry else checkRunMerge
+    jobLabelRunning = if isTry then tryJobLabelRunning else mergeJobLabelRunning
+    jobLabelDone = if isTry then tryJobLabelDone else mergeJobLabelDone
+    jobSummaryDone ciStatus = if isTry
+      then Text.unlines [tryJobSummaryDone, "", ciStatus]
+      else ciStatus -- TODO: show message if (merge + failed)
+    doneActions = if isTry
+      then [renderAction BotTry]
+      else [] -- TODO: show queue action again if (merge + failed)
 
 -- | Get text containing Markdown showing a list of jobs required by the merge bot and their status
 -- in CI.

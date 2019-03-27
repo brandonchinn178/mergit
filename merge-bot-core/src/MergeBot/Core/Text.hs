@@ -71,6 +71,14 @@ mergeJobLabelQueued = "Queued for next merge run"
 mergeJobSummaryQueued :: Text
 mergeJobSummaryQueued = "Click \"Dequeue\" above to remove this PR from the queue."
 
+-- | The one-line label to display when the merge check run is running.
+mergeJobLabelRunning :: Text
+mergeJobLabelRunning = "Merge run in progress"
+
+-- | The one-line label to display when the merge check run is completed.
+mergeJobLabelDone :: Text
+mergeJobLabelDone = "Merge run finished"
+
 mergeJobInitData :: UTCTime -> [KeyValue]
 mergeJobInitData now =
   [ "status"       := "completed"
