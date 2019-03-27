@@ -33,7 +33,6 @@ import Control.Monad (forM_, unless, void, when)
 import Control.Monad.IO.Class (liftIO)
 import Data.GraphQL (get)
 import qualified Data.HashMap.Strict as HashMap
-import Data.Maybe (isJust)
 import Data.Text (Text)
 import qualified Data.Text as Text
 import qualified Data.Text.Encoding as Text
@@ -165,48 +164,56 @@ refreshCheckRuns :: MonadMergeBot m => Bool -> Bool -> Text -> GitObjectID -> m 
 refreshCheckRuns isStart isTry ciBranchName sha = do
   CICommit{..} <- getCICommit sha checkName
   config <- extractConfig commitTree
+
   now <- liftIO getCurrentTime
   (repoOwner, repoName) <- getRepo
-  let ciStatus = displayCIStatus config commitContexts
-      checkRunState = case StatusState.summarize $ map [get| .state |] commitContexts of
-        StatusState.SUCCESS -> Just True
-        StatusState.ERROR -> Just False
-        StatusState.FAILURE -> Just False
-        _ -> Nothing
-      checkRunData = (if isStart then [ "started_at" := now ] else []) ++ case checkRunState of
-        Nothing ->
-          [ "status"  := "in_progress"
-          , "output"  :=
-              let repoUrl = "https://github.com/" <> repoOwner <> "/" <> repoName
-                  ciBranchUrl = repoUrl <> "/commits/" <> ciBranchName
-                  ciInfo = "CI running in the [" <> ciBranchName <> "](" <> ciBranchUrl <> ") branch."
-              in output jobLabelRunning (unlines2 [ciInfo, ciStatus])
-          , "actions" := []
-          ]
-        Just isSuccess ->
-          [ "status"       := "completed"
-          , "conclusion"   := if isSuccess then "success" else "failure"
-          , "completed_at" := now
-          , "output"       := output jobLabelDone (unlines2 $ jobSummaryDone isSuccess ciStatus)
-          , "actions"      := doneActions isSuccess
-          ]
+
+  let checkRunState = StatusState.summarize $ map [get| .state |] commitContexts
+      (isComplete, isSuccess) = case checkRunState of
+        StatusState.SUCCESS -> (True, True)
+        StatusState.ERROR -> (True, False)
+        StatusState.FAILURE -> (True, False)
+        _ -> (False, False)
+
+      checkRunData = concat
+        [ if isStart then [ "started_at" := now ] else []
+        , if isComplete
+            then
+              [ "status"       := "completed"
+              , "conclusion"   := if isSuccess then "success" else "failure"
+              , "completed_at" := now
+              ]
+            else
+              [ "status" := "in_progress"
+              ]
+        , let doneActions
+                | isComplete && isTry = [renderAction BotTry]
+                | isComplete && not isSuccess = [renderAction BotQueue]
+                | otherwise = []
+          in [ "actions" := doneActions ]
+        , let repoUrl = "https://github.com/" <> repoOwner <> "/" <> repoName
+              ciBranchUrl = repoUrl <> "/commits/" <> ciBranchName
+              ciInfo = "CI running in the [" <> ciBranchName <> "](" <> ciBranchUrl <> ") branch."
+              ciStatus = displayCIStatus config commitContexts
+              jobLabel = case (isComplete, isTry) of
+                (False, True) -> tryJobLabelRunning
+                (False, False) -> mergeJobLabelRunning
+                (True, True) -> tryJobLabelDone
+                (True, False) -> mergeJobLabelDone
+              jobSummary
+                | not isComplete = [ciInfo, ciStatus]
+                | isTry = [tryJobSummaryDone, ciStatus]
+                | not isSuccess = [mergeJobSummaryFailed, ciStatus]
+                | otherwise = [ciStatus]
+          in [ "output" := output jobLabel (unlines2 jobSummary) ]
+        ]
 
   mapM_ (`updateCheckRun` checkRunData) checkRuns
 
-  when (isJust checkRunState) $ deleteBranch ciBranchName
+  when isSuccess $ deleteBranch ciBranchName
   -- TODO: if merge and success, run merge
   where
     checkName = if isTry then checkRunTry else checkRunMerge
-    jobLabelRunning = if isTry then tryJobLabelRunning else mergeJobLabelRunning
-    jobLabelDone = if isTry then tryJobLabelDone else mergeJobLabelDone
-    jobSummaryDone isSuccess ciStatus
-      | isTry = [tryJobSummaryDone, ciStatus]
-      | not isSuccess = [mergeJobSummaryFailed, ciStatus]
-      | otherwise = [ciStatus]
-    doneActions isSuccess
-      | isTry = [renderAction BotTry]
-      | not isSuccess = [renderAction BotQueue]
-      | otherwise = []
     unlines2 = Text.concat . map (<> "\n\n")
 
 -- | Get text containing Markdown showing a list of jobs required by the merge bot and their status
