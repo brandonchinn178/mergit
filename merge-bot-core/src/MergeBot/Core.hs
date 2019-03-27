@@ -167,22 +167,22 @@ refreshCheckRuns isStart isTry sha = do
   now <- liftIO getCurrentTime
   let ciStatus = displayCIStatus config commitContexts
       checkRunState = case StatusState.summarize $ map [get| .state |] commitContexts of
-        StatusState.SUCCESS -> Right "success"
-        StatusState.ERROR -> Right "failure"
-        StatusState.FAILURE -> Right "failure"
-        _ -> Left "in_progress"
+        StatusState.SUCCESS -> Just True
+        StatusState.ERROR -> Just False
+        StatusState.FAILURE -> Just False
+        _ -> Nothing
       checkRunData = (if isStart then [ "started_at" := now ] else []) ++ case checkRunState of
-        Left status ->
-          [ "status"  := status
+        Nothing ->
+          [ "status"  := "in_progress"
           , "output"  := output jobLabelRunning ciStatus
           , "actions" := []
           ]
-        Right conclusion ->
+        Just isSuccess ->
           [ "status"       := "completed"
-          , "conclusion"   := conclusion
+          , "conclusion"   := if isSuccess then "success" else "failure"
           , "completed_at" := now
-          , "output"       := output jobLabelDone (jobSummaryDone ciStatus)
-          , "actions"      := doneActions
+          , "output"       := output jobLabelDone (jobSummaryDone isSuccess ciStatus)
+          , "actions"      := doneActions isSuccess
           ]
           -- TODO: if merge and success, run merge
 
@@ -191,12 +191,14 @@ refreshCheckRuns isStart isTry sha = do
     checkName = if isTry then checkRunTry else checkRunMerge
     jobLabelRunning = if isTry then tryJobLabelRunning else mergeJobLabelRunning
     jobLabelDone = if isTry then tryJobLabelDone else mergeJobLabelDone
-    jobSummaryDone ciStatus = if isTry
-      then Text.unlines [tryJobSummaryDone, "", ciStatus]
-      else ciStatus -- TODO: show message if (merge + failed)
-    doneActions = if isTry
-      then [renderAction BotTry]
-      else [] -- TODO: show queue action again if (merge + failed)
+    jobSummaryDone isSuccess ciStatus
+      | isTry = Text.unlines [tryJobSummaryDone, "", ciStatus]
+      | not isSuccess = Text.unlines [mergeJobSummaryFailed, "", ciStatus]
+      | otherwise = ciStatus
+    doneActions isSuccess
+      | isTry = [renderAction BotTry]
+      | not isSuccess = [renderAction BotQueue]
+      | otherwise = []
 
 -- | Get text containing Markdown showing a list of jobs required by the merge bot and their status
 -- in CI.

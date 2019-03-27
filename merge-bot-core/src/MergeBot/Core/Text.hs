@@ -79,6 +79,13 @@ mergeJobLabelRunning = "Merge run in progress"
 mergeJobLabelDone :: Text
 mergeJobLabelDone = "Merge run finished"
 
+-- | The summary text to display when the merge check run failed.
+mergeJobSummaryFailed :: Text
+mergeJobSummaryFailed = Text.unwords
+  [ "Merge run failed. Fix the failures, or click \"Queue\" above to re-queue the PR if the"
+  , "failures are unrelated to your PR. (Do **NOT** click any of the \"Re-run\" links)"
+  ]
+
 mergeJobInitData :: UTCTime -> [KeyValue]
 mergeJobInitData now =
   [ "status"       := "completed"
