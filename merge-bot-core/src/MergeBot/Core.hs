@@ -9,12 +9,14 @@ This module defines core MergeBot functionality.
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE ExtendedDefaultRules #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
 module MergeBot.Core
@@ -105,7 +107,20 @@ handleStatusUpdate = refreshCheckRuns False
 
 -- | Load all queues and start a merge run if one is not already running.
 pollQueues :: MonadMergeBot m => m ()
-pollQueues = undefined
+pollQueues = do
+  queues <- getQueues
+  void $ flip HashMap.traverseWithKey queues $ \base prs ->
+    undefined base >>= \case
+      Nothing -> return ()
+      Just baseSHA -> startMergeJob prs base baseSHA
+  where
+    startMergeJob prs base baseSHA = do
+      let (prNums, prSHAs) = unzip prs
+          stagingBranch = toStagingBranch base
+          stagingMessage = toStagingMessage base prNums
+      mergeSHA <- createCIBranch baseSHA prSHAs stagingBranch stagingMessage
+
+      refreshCheckRuns True mergeSHA checkRunMerge
 
 {- Helpers -}
 
