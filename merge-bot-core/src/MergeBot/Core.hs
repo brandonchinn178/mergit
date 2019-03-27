@@ -181,7 +181,7 @@ refreshCheckRuns isStart isTry sha = do
           [ "status"       := "completed"
           , "conclusion"   := if isSuccess then "success" else "failure"
           , "completed_at" := now
-          , "output"       := output jobLabelDone (jobSummaryDone isSuccess ciStatus)
+          , "output"       := output jobLabelDone (unlines2 $ jobSummaryDone isSuccess ciStatus)
           , "actions"      := doneActions isSuccess
           ]
           -- TODO: if merge and success, run merge
@@ -192,13 +192,14 @@ refreshCheckRuns isStart isTry sha = do
     jobLabelRunning = if isTry then tryJobLabelRunning else mergeJobLabelRunning
     jobLabelDone = if isTry then tryJobLabelDone else mergeJobLabelDone
     jobSummaryDone isSuccess ciStatus
-      | isTry = Text.unlines [tryJobSummaryDone, "", ciStatus]
-      | not isSuccess = Text.unlines [mergeJobSummaryFailed, "", ciStatus]
-      | otherwise = ciStatus
+      | isTry = [tryJobSummaryDone, ciStatus]
+      | not isSuccess = [mergeJobSummaryFailed, ciStatus]
+      | otherwise = [ciStatus]
     doneActions isSuccess
       | isTry = [renderAction BotTry]
       | not isSuccess = [renderAction BotQueue]
       | otherwise = []
+    unlines2 = Text.concat . map (<> "\n\n")
 
 -- | Get text containing Markdown showing a list of jobs required by the merge bot and their status
 -- in CI.
