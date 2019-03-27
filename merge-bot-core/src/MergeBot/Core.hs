@@ -165,6 +165,7 @@ refreshCheckRuns isStart isTry ciBranchName sha = do
   CICommit{..} <- getCICommit sha checkName
   config <- extractConfig commitTree
   now <- liftIO getCurrentTime
+  (repoOwner, repoName) <- getRepo
   let ciStatus = displayCIStatus config commitContexts
       checkRunState = case StatusState.summarize $ map [get| .state |] commitContexts of
         StatusState.SUCCESS -> Just True
@@ -174,7 +175,11 @@ refreshCheckRuns isStart isTry ciBranchName sha = do
       checkRunData = (if isStart then [ "started_at" := now ] else []) ++ case checkRunState of
         Nothing ->
           [ "status"  := "in_progress"
-          , "output"  := output jobLabelRunning (unlines2 [ciInfo, ciStatus])
+          , "output"  :=
+              let repoUrl = "https://github.com/" <> repoOwner <> "/" <> repoName
+                  ciBranchUrl = repoUrl <> "/commits/" <> ciBranchName
+                  ciInfo = "CI running in the [" <> ciBranchName <> "](" <> ciBranchUrl <> ") branch."
+              in output jobLabelRunning (unlines2 [ciInfo, ciStatus])
           , "actions" := []
           ]
         Just isSuccess ->
@@ -190,7 +195,6 @@ refreshCheckRuns isStart isTry ciBranchName sha = do
   mapM_ (`updateCheckRun` checkRunData) checkRuns
   where
     checkName = if isTry then checkRunTry else checkRunMerge
-    ciInfo = "CI running in the [" <> ciBranchName <> "](#) branch."
     jobLabelRunning = if isTry then tryJobLabelRunning else mergeJobLabelRunning
     jobLabelDone = if isTry then tryJobLabelDone else mergeJobLabelDone
     jobSummaryDone isSuccess ciStatus
