@@ -7,7 +7,6 @@ Portability :  portable
 This module defines handlers for the MergeBot.
 -}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 
 module MergeBot.Handlers
@@ -26,6 +25,7 @@ import Servant (Handler)
 import Servant.GitHub
 
 import qualified MergeBot.Core as Core
+import MergeBot.Core.Actions (MergeBotAction(..), parseAction)
 import MergeBot.Core.Text (isStagingBranch, isTryBranch)
 import MergeBot.Monad (runBotApp)
 
@@ -54,15 +54,15 @@ handleCheckRun :: Object CheckRunEvent -> Token -> Handler ()
 handleCheckRun o = runBotApp repo $
   case [get| o.action |] of
     CheckRun.REQUESTED_ACTION ->
-      case [get| o.requested_action!.identifier |] of
-        "lybot_run_try" -> forM_ prs $ \pr ->
+      case parseAction [get| o.requested_action!.identifier |] of
+        Just BotTry -> forM_ prs $ \pr ->
           Core.startTryJob
             [get| pr.number |]
             [get| pr.head.sha |]
             [get| pr.base.sha |]
-        "lybot_queue" -> Core.queuePR [get| o.check_run.id |]
-        "lybot_dequeue" -> Core.dequeuePR [get| o.check_run.id |]
-        _ -> return ()
+        Just BotQueue -> Core.queuePR [get| o.check_run.id |]
+        Just BotDequeue -> Core.dequeuePR [get| o.check_run.id |]
+        Nothing -> return ()
     _ -> return ()
   where
     repo = [get| o.repository! |]

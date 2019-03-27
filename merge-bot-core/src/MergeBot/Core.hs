@@ -42,6 +42,7 @@ import GitHub.Data.GitObjectID (GitObjectID)
 import qualified GitHub.Data.StatusState as StatusState
 import GitHub.REST (KeyValue(..))
 
+import MergeBot.Core.Actions
 import MergeBot.Core.Config
 import MergeBot.Core.GitHub
 import MergeBot.Core.Monad
@@ -63,7 +64,7 @@ createTryCheckRun sha = do
     , "conclusion"   := "neutral"
     , "completed_at" := now
     , "output"       := output tryJobLabelInit tryJobSummaryInit
-    , "actions"      := [tryJobButton]
+    , "actions"      := [renderAction BotTry]
     ]
 
 -- | Create the check run for queuing/merging PRs.
@@ -92,7 +93,7 @@ queuePR checkRunId =
   updateCheckRun checkRunId
     [ "status"  := "queued"
     , "output"  := output mergeJobLabelQueued mergeJobSummaryQueued
-    , "actions" := [dequeueButton]
+    , "actions" := [renderAction BotDequeue]
     ]
 
 -- | Remove a PR from the queue.
@@ -183,7 +184,7 @@ refreshCheckRuns isStart isTry sha = do
           , "completed_at" := now
           -- TODO: handle merge check runs
           , "output"       := output tryJobLabelDone (Text.unlines [tryJobSummaryDone, "", ciStatus])
-          , "actions"      := [tryJobButton]
+          , "actions"      := [renderAction BotTry]
           ]
 
   mapM_ (`updateCheckRun` checkRunData) checkRuns
