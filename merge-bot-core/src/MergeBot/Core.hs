@@ -110,9 +110,9 @@ pollQueues :: MonadMergeBot m => m ()
 pollQueues = do
   queues <- getQueues
   void $ flip HashMap.traverseWithKey queues $ \base prs ->
-    undefined base >>= \case
-      Nothing -> return ()
-      Just baseSHA -> startMergeJob prs base baseSHA
+    getStagingAndSHA base >>= \case
+      (False, _) -> return ()
+      (True, baseSHA) -> startMergeJob prs base baseSHA
   where
     startMergeJob prs base baseSHA = do
       let (prNums, prSHAs) = unzip prs
