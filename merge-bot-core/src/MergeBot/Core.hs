@@ -212,8 +212,15 @@ refreshCheckRuns isStart isTry ciBranchName sha = do
 
   mapM_ (`updateCheckRun` checkRunData) checkRuns
 
+  -- if successful merge run, merge into base
+  when (isComplete && isSuccess && not isTry) $ do
+    let invalidStagingBranch = fail $ "Not staging branch: " ++ Text.unpack ciBranchName
+    base <- maybe invalidStagingBranch return $ fromStagingBranch ciBranchName
+    success <- updateBranch False base sha
+    unless success $ fail $ "Could not update '" ++ Text.unpack base ++ "' -- not a fast-forward"
+
+  -- if successful, delete the CI branch
   when isSuccess $ deleteBranch ciBranchName
-  -- TODO: if merge and success, run merge
   where
     checkName = if isTry then checkRunTry else checkRunMerge
     unlines2 = Text.concat . map (<> "\n\n")
