@@ -9,7 +9,6 @@ This module defines core MergeBot functionality.
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE ExtendedDefaultRules #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -33,6 +32,7 @@ import Control.Monad (forM_, unless, void, when)
 import Control.Monad.IO.Class (liftIO)
 import Data.GraphQL (get)
 import qualified Data.HashMap.Strict as HashMap
+import Data.Maybe (isNothing)
 import Data.Text (Text)
 import qualified Data.Text as Text
 import qualified Data.Text.Encoding as Text
@@ -110,10 +110,12 @@ handleStatusUpdate = refreshCheckRuns False
 pollQueues :: MonadMergeBot m => m ()
 pollQueues = do
   queues <- getQueues
-  void $ flip HashMap.traverseWithKey queues $ \base prs ->
-    getStagingAndSHA base >>= \case
-      (False, _) -> return ()
-      (True, baseSHA) -> startMergeJob prs base baseSHA
+  void $ flip HashMap.traverseWithKey queues $ \base prs -> do
+    staging <- getBranchSHA $ toStagingBranch base
+    when (isNothing staging) $ do
+      let baseMissing = fail $ "Base branch does not exist: " ++ Text.unpack base
+      baseSHA <- maybe baseMissing return =<< getBranchSHA base
+      startMergeJob prs base baseSHA
   where
     startMergeJob prs base baseSHA = do
       let (prNums, prSHAs) = unzip prs

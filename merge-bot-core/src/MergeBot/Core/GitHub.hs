@@ -21,11 +21,11 @@ module MergeBot.Core.GitHub
   ( -- * GraphQL
     Tree
   , getBranchTree
+  , getBranchSHA
   , CIContext
   , CICommit(..)
   , getCICommit
   , getQueues
-  , getStagingAndSHA
     -- * REST
   , createCheckRun
   , updateCheckRun
@@ -37,24 +37,23 @@ module MergeBot.Core.GitHub
   ) where
 
 import Control.Monad (void)
-import Data.Bifunctor (first)
 import Data.Either (isRight)
 import Data.GraphQL (get, mkGetter, runQuery, unwrap)
 import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HashMap
-import Data.Maybe (fromMaybe, isJust, mapMaybe)
+import Data.Maybe (fromMaybe, mapMaybe)
 import Data.Text (Text)
 import qualified Data.Text as Text
 import GitHub.Data.GitObjectID (GitObjectID)
 import GitHub.REST
     (GHEndpoint(..), GitHubData, KeyValue(..), StdMethod(..), githubTry, (.:))
 
+import qualified MergeBot.Core.GraphQL.BranchSHA as BranchSHA
 import qualified MergeBot.Core.GraphQL.BranchTree as BranchTree
 import qualified MergeBot.Core.GraphQL.CICommit as CICommit
-import qualified MergeBot.Core.GraphQL.GetBaseAndCIBranches as GetBaseAndCIBranches
 import qualified MergeBot.Core.GraphQL.QueuedPRs as QueuedPRs
 import MergeBot.Core.Monad (MonadMergeBot(..), queryGitHub')
-import MergeBot.Core.Text (checkRunMerge, toStagingBranch)
+import MergeBot.Core.Text (checkRunMerge)
 
 type CheckRunId = Int
 
@@ -71,6 +70,17 @@ getBranchTree branch = do
       { _repoOwner = Text.unpack repoOwner
       , _repoName = Text.unpack repoName
       , _name = Text.unpack branch
+      }
+
+-- | Get the git hash for the given branch, if it exists.
+getBranchSHA :: MonadMergeBot m => Text -> m (Maybe GitObjectID)
+getBranchSHA branch = do
+  (repoOwner, repoName) <- getRepo
+  [get| .repository!.ref?.target.oid |] <$>
+    runQuery BranchSHA.query BranchSHA.Args
+      { _repoOwner = Text.unpack repoOwner
+      , _repoName = Text.unpack repoName
+      , _branch = Text.unpack branch
       }
 
 type CIContext = [unwrap| (CICommit.Schema).repository!.object!.status!.contexts[] |]
@@ -140,18 +150,6 @@ getQueues  = do
         ( [get| pr.baseRefName |]
         , [ [get| pr.(number, headRefOid) |] ]
         )
-
--- | Get whether the staging branch exists for the given base branch and HEAD for the base branch.
-getStagingAndSHA :: MonadMergeBot m => Text -> m (Bool, GitObjectID)
-getStagingAndSHA baseBranch = do
-  (repoOwner, repoName) <- getRepo
-  result <- runQuery GetBaseAndCIBranches.query GetBaseAndCIBranches.Args
-    { _repoOwner = Text.unpack repoOwner
-    , _repoName = Text.unpack repoName
-    , _baseBranch = Text.unpack baseBranch
-    , _ciBranch = Text.unpack $ toStagingBranch baseBranch
-    }
-  return $ first isJust [get| result.repository!.(ciBranch, baseBranch!.target.oid) |]
 
 {- REST -}
 
