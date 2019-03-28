@@ -78,7 +78,7 @@ provide an access token to use for the duration of a request.
         * Checks: Read/Write
         * Repository contents: Read/Write
         * Repository metadata: Read-only
-        * Pull requests: Read-only
+        * Pull requests: Read/Write
         * Commit statuses: Read-only
     1. Events:
         * Check run

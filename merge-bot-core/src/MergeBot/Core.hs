@@ -165,7 +165,7 @@ createCIBranch baseSHA prSHAs ciBranch message = do
 refreshCheckRuns :: MonadMergeBot m => Bool -> Bool -> Text -> GitObjectID -> m ()
 refreshCheckRuns isStart isTry ciBranchName sha = do
   CICommit{..} <- getCICommit sha checkName
-  let (_, checkRuns) = unzip parents
+  let (parentSHAs, checkRuns) = unzip parents
   config <- extractConfig commitTree
 
   now <- liftIO getCurrentTime
@@ -215,10 +215,19 @@ refreshCheckRuns isStart isTry ciBranchName sha = do
 
   -- if successful merge run, merge into base
   when (isComplete && isSuccess && not isTry) $ do
+    -- get pr information for parent commits
+    prs <- mapM getPRForCommit parentSHAs
+
+    -- merge into base
     let invalidStagingBranch = fail $ "Not staging branch: " ++ Text.unpack ciBranchName
     base <- maybe invalidStagingBranch return $ fromStagingBranch ciBranchName
     success <- updateBranch False base sha
     unless success $ fail $ "Could not update '" ++ Text.unpack base ++ "' -- not a fast-forward"
+
+    -- close PRs and delete branches
+    forM_ prs $ \(prNum, branch) -> do
+      closePR prNum
+      deleteBranch branch
 
   -- if successful, delete the CI branch
   when isSuccess $ deleteBranch ciBranchName

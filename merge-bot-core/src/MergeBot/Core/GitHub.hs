@@ -8,6 +8,7 @@ This module defines functions for manipulating GitHub state.
 -}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DisambiguateRecordFields #-}
+{-# LANGUAGE ExtendedDefaultRules #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -16,6 +17,7 @@ This module defines functions for manipulating GitHub state.
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
 module MergeBot.Core.GitHub
   ( -- * GraphQL
@@ -25,6 +27,7 @@ module MergeBot.Core.GitHub
   , CIContext
   , CICommit(..)
   , getCICommit
+  , getPRForCommit
   , getQueues
     -- * REST
   , createCheckRun
@@ -34,6 +37,7 @@ module MergeBot.Core.GitHub
   , updateBranch
   , deleteBranch
   , mergeBranches
+  , closePR
   ) where
 
 import Control.Monad (void)
@@ -51,9 +55,12 @@ import GitHub.REST
 import qualified MergeBot.Core.GraphQL.BranchSHA as BranchSHA
 import qualified MergeBot.Core.GraphQL.BranchTree as BranchTree
 import qualified MergeBot.Core.GraphQL.CICommit as CICommit
+import qualified MergeBot.Core.GraphQL.PRForCommit as PRForCommit
 import qualified MergeBot.Core.GraphQL.QueuedPRs as QueuedPRs
 import MergeBot.Core.Monad (MonadMergeBot(..), queryGitHub')
 import MergeBot.Core.Text (checkRunMerge)
+
+default (Text)
 
 type CheckRunId = Int
 
@@ -132,6 +139,30 @@ getCICommit sha checkName = do
     , commitContexts = fromMaybe [] [get| result.status?.contexts |]
     , parents
     }
+
+-- | Get the PR number and branch name for the given commit.
+getPRForCommit :: MonadMergeBot m => GitObjectID -> m (Int, Text)
+getPRForCommit sha = do
+  (repoOwner, repoName) <- getRepo
+  result <- queryAll_ $ \after -> do
+    result <- runQuery PRForCommit.query PRForCommit.Args
+      { _repoOwner = Text.unpack repoOwner
+      , _repoName = Text.unpack repoName
+      , _sha = sha
+      , _after = after
+      }
+    let payload = [get| result.repository!.object!.associatedPullRequests! |]
+        info = [get| payload.pageInfo |]
+    return PaginatedResult
+      { payload = ()
+      , chunk = [get| payload.nodes![]! |]
+      , hasNext = [get| info.hasNextPage |]
+      , nextCursor = [get| info.endCursor |]
+      }
+  case filter ((== sha) . [get| .headRefOid |]) result of
+    [] -> fail $ "Commit does not have associated PR: " ++ unOID' sha
+    [pr] -> return [get| pr.(number, headRef!.name) |]
+    _ -> fail $ "Commit found as HEAD for multiple PRs: " ++ unOID' sha
 
 -- | Get all queued PRs, by base branch.
 getQueues :: MonadMergeBot m => m (HashMap Text [(Int, GitObjectID)])
@@ -254,6 +285,17 @@ mergeBranches base sha message = fmap isRight $ githubTry $ queryGitHub' GHEndpo
     , "head"           := sha
     , "commit_message" := message
     ]
+  }
+
+-- | Close the given PR.
+--
+-- https://developer.github.com/v3/pulls/#update-a-pull-request
+closePR :: MonadMergeBot m => Int -> m ()
+closePR prNum = void $ queryGitHub' GHEndpoint
+  { method = PATCH
+  , endpoint = "/repos/:owner/:repo/pulls/:number"
+  , endpointVals = [ "number" := prNum ]
+  , ghData = [ "state" := "closed" ]
   }
 
 {- Helpers -}
