@@ -44,7 +44,7 @@ import qualified Data.HashMap.Strict as HashMap
 import Data.Maybe (fromMaybe, mapMaybe)
 import Data.Text (Text)
 import qualified Data.Text as Text
-import GitHub.Data.GitObjectID (GitObjectID)
+import GitHub.Data.GitObjectID (GitObjectID, unOID')
 import GitHub.REST
     (GHEndpoint(..), GitHubData, KeyValue(..), StdMethod(..), githubTry, (.:))
 
@@ -88,15 +88,16 @@ type CIContext = [unwrap| (CICommit.Schema).repository!.object!.status!.contexts
 data CICommit = CICommit
   { commitTree     :: Tree
   , commitContexts :: [CIContext]
-  , checkRuns      :: [CheckRunId]
+  , parents        :: [(GitObjectID, CheckRunId)]
+    -- ^ The parent commits of a CI commit, not including the base branch
   }
 
--- | Get details for the given CI commit.
+-- | Get details for the given CI commit; that is, a commit created by 'createCIBranch'.
 getCICommit :: MonadMergeBot m => GitObjectID -> Text -> m CICommit
 getCICommit sha checkName = do
   (repoOwner, repoName) <- getRepo
   appId <- getAppId
-  (result, checkRuns) <- queryAll $ \after -> do
+  (result, parents) <- queryAll $ \after -> do
     result <- runQuery CICommit.query CICommit.Args
       { _repoOwner = Text.unpack repoOwner
       , _repoName = Text.unpack repoName
@@ -108,18 +109,28 @@ getCICommit sha checkName = do
     let payload = [get| result.repository!.object! |]
         info = [get| payload.parents!.pageInfo |]
         parents = [get| payload.parents!.nodes![]! |]
-        checkSuites = concatMap [get| .checkSuites!.nodes![]! |] parents
-        checkRuns = concatMap [get| .checkRuns!.nodes![]! |] checkSuites
+        getParent parent =
+          let getCheckRuns = [get| .checkSuites!.nodes![]!.checkRuns!.nodes![]!.databaseId |]
+          in case concat $ getCheckRuns parent of
+            [checkRun] -> ([get| parent.oid |], checkRun)
+            _ -> error $ concat
+              [ "CI Commit '"
+              , unOID' sha
+              , "' contains a parent that does not have exactly one check run named '"
+              , Text.unpack checkName
+              , "': "
+              , show parent
+              ]
     return PaginatedResult
       { payload
-      , chunk = map [get| .databaseId |] checkRuns
+      , chunk = map getParent $ tail parents -- base branch is always first
       , hasNext = [get| info.hasNextPage |]
       , nextCursor = [get| info.endCursor |]
       }
   return CICommit
     { commitTree = [get| result.tree! |]
     , commitContexts = fromMaybe [] [get| result.status?.contexts |]
-    , checkRuns
+    , parents
     }
 
 -- | Get all queued PRs, by base branch.

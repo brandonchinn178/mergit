@@ -165,6 +165,7 @@ createCIBranch baseSHA prSHAs ciBranch message = do
 refreshCheckRuns :: MonadMergeBot m => Bool -> Bool -> Text -> GitObjectID -> m ()
 refreshCheckRuns isStart isTry ciBranchName sha = do
   CICommit{..} <- getCICommit sha checkName
+  let (_, checkRuns) = unzip parents
   config <- extractConfig commitTree
 
   now <- liftIO getCurrentTime

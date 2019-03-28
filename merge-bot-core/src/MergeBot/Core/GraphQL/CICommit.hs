@@ -72,6 +72,7 @@ type Schema = [schema|
             endCursor: Maybe Text,
           },
           nodes: Maybe List Maybe {
+            oid: GitObjectID,
             checkSuites: Maybe {
               nodes: Maybe List Maybe {
                 checkRuns: Maybe {
