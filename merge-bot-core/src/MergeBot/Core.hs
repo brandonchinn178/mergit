@@ -30,6 +30,7 @@ module MergeBot.Core
 import Control.Exception (displayException)
 import Control.Monad (forM_, unless, void, when)
 import Control.Monad.IO.Class (liftIO)
+import Control.Monad.Loops (whileM_)
 import Data.GraphQL (get)
 import qualified Data.HashMap.Strict as HashMap
 import Data.Maybe (isNothing)
@@ -77,9 +78,9 @@ createMergeCheckRun sha = do
     ] ++ mergeJobInitData now
 
 -- | Start a new try job.
-startTryJob :: MonadMergeBot m => Int -> GitObjectID -> GitObjectID -> m ()
-startTryJob prNum prSHA baseSHA = do
-  mergeSHA <- createCIBranch baseSHA [prSHA] tryBranch tryMessage
+startTryJob :: MonadMergeBot m => Int -> GitObjectID -> Text -> m ()
+startTryJob prNum prSHA base = do
+  mergeSHA <- createCIBranch base [prSHA] tryBranch tryMessage
 
   refreshCheckRuns True True tryBranch mergeSHA
   where
@@ -88,7 +89,8 @@ startTryJob prNum prSHA baseSHA = do
 
 -- | Add a PR to the queue.
 queuePR :: MonadMergeBot m => Int -> m ()
-queuePR checkRunId =
+queuePR prNum = do
+  checkRunId <- getCheckRun prNum checkRunMerge
   -- TOOD: batching info
   updateCheckRun checkRunId
     [ "status"  := "queued"
@@ -98,7 +100,8 @@ queuePR checkRunId =
 
 -- | Remove a PR from the queue.
 dequeuePR :: MonadMergeBot m => Int -> m ()
-dequeuePR checkRunId = do
+dequeuePR prNum = do
+  checkRunId <- getCheckRun prNum checkRunMerge
   now <- liftIO getCurrentTime
   updateCheckRun checkRunId $ mergeJobInitData now
 
@@ -112,16 +115,13 @@ pollQueues = do
   queues <- getQueues
   void $ flip HashMap.traverseWithKey queues $ \base prs -> do
     staging <- getBranchSHA $ toStagingBranch base
-    when (isNothing staging) $ do
-      let baseMissing = fail $ "Base branch does not exist: " ++ Text.unpack base
-      baseSHA <- maybe baseMissing return =<< getBranchSHA base
-      startMergeJob prs base baseSHA
+    when (isNothing staging) $ startMergeJob prs base
   where
-    startMergeJob prs base baseSHA = do
+    startMergeJob prs base = do
       let (prNums, prSHAs) = unzip prs
           stagingBranch = toStagingBranch base
           stagingMessage = toStagingMessage base prNums
-      mergeSHA <- createCIBranch baseSHA prSHAs stagingBranch stagingMessage
+      mergeSHA <- createCIBranch base prSHAs stagingBranch stagingMessage
 
       refreshCheckRuns True False stagingBranch mergeSHA
 
@@ -132,9 +132,12 @@ pollQueues = do
 -- * Deletes the existing try or merge branch, if one exists.
 -- * Errors if merge conflict
 -- * Errors if the .lymerge.yaml file is missing or invalid
-createCIBranch :: MonadMergeBot m => GitObjectID -> [GitObjectID] -> Text -> Text -> m GitObjectID
-createCIBranch baseSHA prSHAs ciBranch message = do
+createCIBranch :: MonadMergeBot m => Text -> [GitObjectID] -> Text -> Text -> m GitObjectID
+createCIBranch base prSHAs ciBranch message = do
   deleteBranch ciBranch
+
+  baseSHA <- getBranchSHA base >>=
+    maybe (fail $ "Base branch does not exist: " ++ Text.unpack base) return
 
   -- create CI branch off base
   createBranch ciBranch baseSHA
@@ -226,6 +229,9 @@ refreshCheckRuns isStart isTry ciBranchName sha = do
 
     -- close PRs and delete branches
     forM_ prs $ \(prNum, branch) -> do
+      -- wait until PR is marked "merged"
+      whileM_ (not <$> isPRMerged prNum) $ return ()
+
       closePR prNum
       deleteBranch branch
 

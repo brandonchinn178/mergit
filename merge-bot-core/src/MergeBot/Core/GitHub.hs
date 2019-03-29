@@ -27,7 +27,9 @@ module MergeBot.Core.GitHub
   , CIContext
   , CICommit(..)
   , getCICommit
+  , getCheckRun
   , getPRForCommit
+  , isPRMerged
   , getQueues
     -- * REST
   , createCheckRun
@@ -55,7 +57,9 @@ import GitHub.REST
 import qualified MergeBot.Core.GraphQL.BranchSHA as BranchSHA
 import qualified MergeBot.Core.GraphQL.BranchTree as BranchTree
 import qualified MergeBot.Core.GraphQL.CICommit as CICommit
+import qualified MergeBot.Core.GraphQL.PRCheckRun as PRCheckRun
 import qualified MergeBot.Core.GraphQL.PRForCommit as PRForCommit
+import qualified MergeBot.Core.GraphQL.PRIsMerged as PRIsMerged
 import qualified MergeBot.Core.GraphQL.QueuedPRs as QueuedPRs
 import MergeBot.Core.Monad (MonadMergeBot(..), queryGitHub')
 import MergeBot.Core.Text (checkRunMerge)
@@ -140,6 +144,26 @@ getCICommit sha checkName = do
     , parents
     }
 
+-- | Get the check run for the given PR and check run name.
+getCheckRun :: MonadMergeBot m => Int -> Text -> m CheckRunId
+getCheckRun prNum checkName = do
+  (repoOwner, repoName) <- getRepo
+  appId <- getAppId
+  result <- runQuery PRCheckRun.query PRCheckRun.Args
+    { _repoOwner = Text.unpack repoOwner
+    , _repoName = Text.unpack repoName
+    , _prNum = prNum
+    , _appId = appId
+    , _checkName = Text.unpack checkName
+    }
+  commit <- case [get| result.repository!.pullRequest!.commits.nodes![]!.commit |] of
+    [] -> fail $ "PR #" ++ show prNum ++ " has no commits: " ++ show result
+    [c] -> return c
+    _ -> fail $ "PRCheckRun query returned more than one 'last' commit: " ++ show result
+  case [get| commit.checkSuites!.nodes![]!.checkRuns!.nodes![]!.databaseId |] of
+    [[checkRunId]] -> return checkRunId
+    _ -> fail $ "No check run found for PR #" ++ show prNum ++ ": " ++ show result
+
 -- | Get the PR number and branch name for the given commit.
 getPRForCommit :: MonadMergeBot m => GitObjectID -> m (Int, Text)
 getPRForCommit sha = do
@@ -163,6 +187,17 @@ getPRForCommit sha = do
     [] -> fail $ "Commit does not have associated PR: " ++ unOID' sha
     [pr] -> return [get| pr.(number, headRef!.name) |]
     _ -> fail $ "Commit found as HEAD for multiple PRs: " ++ unOID' sha
+
+-- | Return True if the given PR is merged.
+isPRMerged :: MonadMergeBot m => Int -> m Bool
+isPRMerged prNum = do
+  (repoOwner, repoName) <- getRepo
+  [get| .repository!.pullRequest!.merged |] <$>
+    runQuery PRIsMerged.query PRIsMerged.Args
+      { _repoOwner = Text.unpack repoOwner
+      , _repoName = Text.unpack repoName
+      , _prNum = prNum
+      }
 
 -- | Get all queued PRs, by base branch.
 getQueues :: MonadMergeBot m => m (HashMap Text [(Int, GitObjectID)])
