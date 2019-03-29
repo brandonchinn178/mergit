@@ -29,6 +29,7 @@ module MergeBot.Core
 
 import Control.Exception (displayException)
 import Control.Monad (forM_, unless, void, when)
+import Control.Monad.Catch (finally)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Loops (whileM_)
 import Data.GraphQL (get)
@@ -225,27 +226,29 @@ refreshCheckRuns isStart isTry ciBranchName sha = do
 
   mapM_ (`updateCheckRun` checkRunData) checkRuns
 
-  -- if successful merge run, merge into base
-  when (isComplete && isSuccess && not isTry) $ do
-    -- get pr information for parent commits
-    prs <- mapM getPRForCommit parentSHAs
+  when isComplete $
+    -- if complete, make sure the CI branch is deleted at the end
+    (`finally` deleteBranch ciBranchName) $
+      -- if successful merge run, merge into base
+      when (isSuccess && not isTry) $ do
+        -- get pr information for parent commits
+        prs <- mapM getPRForCommit parentSHAs
 
-    -- merge into base
-    let invalidStagingBranch = fail $ "Not staging branch: " ++ Text.unpack ciBranchName
-    base <- maybe invalidStagingBranch return $ fromStagingBranch ciBranchName
-    success <- updateBranch False base sha
-    unless success $ fail $ "Could not update '" ++ Text.unpack base ++ "' -- not a fast-forward"
+        -- merge into base
+        let invalidStagingBranch = fail $ "Not staging branch: " ++ Text.unpack ciBranchName
+        base <- maybe invalidStagingBranch return $ fromStagingBranch ciBranchName
+        success <- updateBranch False base sha
+        unless success $
+          -- TODO: better error handling
+          fail $ "Could not update '" ++ Text.unpack base ++ "' -- not a fast-forward"
 
-    -- close PRs and delete branches
-    forM_ prs $ \(prNum, branch) -> do
-      -- wait until PR is marked "merged"
-      whileM_ (not <$> isPRMerged prNum) $ return ()
+        -- close PRs and delete branches
+        forM_ prs $ \(prNum, branch) -> do
+          -- wait until PR is marked "merged"
+          whileM_ (not <$> isPRMerged prNum) $ return ()
 
-      closePR prNum
-      deleteBranch branch
-
-  -- if successful, delete the CI branch
-  when isSuccess $ deleteBranch ciBranchName
+          closePR prNum
+          deleteBranch branch
   where
     checkName = if isTry then checkRunTry else checkRunMerge
     unlines2 = Text.concat . map (<> "\n\n")
