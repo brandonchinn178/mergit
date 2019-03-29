@@ -19,11 +19,3 @@ mkEnum "StatusState"
   , "PENDING"
   , "SUCCESS"
   ]
-
--- | Summarize the given StatusStates as a single StatusState.
-summarize :: [StatusState] -> StatusState
-summarize states
-  | not (null states) && all (== SUCCESS) states = SUCCESS
-  | ERROR `elem` states = ERROR
-  | FAILURE `elem` states = FAILURE
-  | otherwise = PENDING

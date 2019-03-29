@@ -29,6 +29,7 @@ module MergeBot.Core.GitHub
   , getCICommit
   , getCheckRun
   , getPRForCommit
+  , getPRReviews
   , isPRMerged
   , getQueues
     -- * REST
@@ -51,6 +52,9 @@ import Data.Maybe (fromMaybe, mapMaybe)
 import Data.Text (Text)
 import qualified Data.Text as Text
 import GitHub.Data.GitObjectID (GitObjectID, unOID')
+import GitHub.Data.PullRequestReviewState (PullRequestReviewState(..))
+import GitHub.Data.StatusState (StatusState)
+import qualified GitHub.Data.StatusState as StatusState
 import GitHub.REST
     (GHEndpoint(..), GitHubData, KeyValue(..), StdMethod(..), githubTry, (.:))
 
@@ -60,6 +64,7 @@ import qualified MergeBot.Core.GraphQL.CICommit as CICommit
 import qualified MergeBot.Core.GraphQL.PRCheckRun as PRCheckRun
 import qualified MergeBot.Core.GraphQL.PRForCommit as PRForCommit
 import qualified MergeBot.Core.GraphQL.PRIsMerged as PRIsMerged
+import qualified MergeBot.Core.GraphQL.PRReviews as PRReviews
 import qualified MergeBot.Core.GraphQL.QueuedPRs as QueuedPRs
 import MergeBot.Core.Monad (MonadMergeBot(..), queryGitHub')
 import MergeBot.Core.Text (checkRunMerge)
@@ -99,6 +104,7 @@ type CIContext = [unwrap| (CICommit.Schema).repository!.object!.status!.contexts
 data CICommit = CICommit
   { commitTree     :: Tree
   , commitContexts :: [CIContext]
+  , ciState        :: StatusState
   , parents        :: [(GitObjectID, CheckRunId)]
     -- ^ The parent commits of a CI commit, not including the base branch
   }
@@ -141,6 +147,7 @@ getCICommit sha checkName = do
   return CICommit
     { commitTree = [get| result.tree! |]
     , commitContexts = fromMaybe [] [get| result.status?.contexts |]
+    , ciState = fromMaybe StatusState.EXPECTED [get| result.status?.state |]
     , parents
     }
 
@@ -187,6 +194,35 @@ getPRForCommit sha = do
     [] -> fail $ "Commit does not have associated PR: " ++ unOID' sha
     [pr] -> return [get| pr.(number, headRef!.name) |]
     _ -> fail $ "Commit found as HEAD for multiple PRs: " ++ unOID' sha
+
+-- | Return the reviews for the given PR as a map from reviewer to review state.
+getPRReviews :: MonadMergeBot m => Int -> m (HashMap Text PullRequestReviewState)
+getPRReviews prNum = do
+  (repoOwner, repoName) <- getRepo
+  fmap (HashMap.fromListWith resolve) $ queryAll_ $ \after -> do
+    result <- runQuery PRReviews.query PRReviews.Args
+      { _repoOwner = Text.unpack repoOwner
+      , _repoName = Text.unpack repoName
+      , _prNum = prNum
+      , _after = after
+      }
+    let payload = [get| result.repository!.pullRequest!.reviews! |]
+        info = [get| payload.pageInfo |]
+    return PaginatedResult
+      { payload = ()
+      , chunk = [get| payload.nodes![]!.(author!.login, state) |]
+      , hasNext = [get| info.hasNextPage |]
+      , nextCursor = [get| info.endCursor |]
+      }
+  where
+    -- NB: The final review state is the last review state a reviewer submitted, except prior
+    -- APPROVED, DISMISSED, or CHANGES_REQUESTED states take precendence over later PENDING or
+    -- COMMENTED states.
+    resolve new old =
+      let relevantStates = [APPROVED, DISMISSED, CHANGES_REQUESTED]
+      in if old `elem` relevantStates && new `notElem` relevantStates
+        then old
+        else new
 
 -- | Return True if the given PR is merged.
 isPRMerged :: MonadMergeBot m => Int -> m Bool

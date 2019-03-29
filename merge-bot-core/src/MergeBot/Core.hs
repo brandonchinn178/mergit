@@ -40,6 +40,7 @@ import qualified Data.Text.Encoding as Text
 import Data.Time (getCurrentTime)
 import Data.Yaml (decodeThrow)
 import GitHub.Data.GitObjectID (GitObjectID)
+import qualified GitHub.Data.PullRequestReviewState as PullRequestReviewState
 import qualified GitHub.Data.StatusState as StatusState
 import GitHub.REST (KeyValue(..))
 
@@ -90,13 +91,18 @@ startTryJob prNum prSHA base = do
 -- | Add a PR to the queue.
 queuePR :: MonadMergeBot m => Int -> m ()
 queuePR prNum = do
-  checkRunId <- getCheckRun prNum checkRunMerge
-  -- TOOD: batching info
-  updateCheckRun checkRunId
-    [ "status"  := "queued"
-    , "output"  := output mergeJobLabelQueued mergeJobSummaryQueued
-    , "actions" := [renderAction BotDequeue]
-    ]
+  -- TODO: lookup how many approvals are required
+  reviews <- getPRReviews prNum
+  if PullRequestReviewState.APPROVED `elem` reviews
+    then do
+      checkRunId <- getCheckRun prNum checkRunMerge
+      -- TOOD: batching info
+      updateCheckRun checkRunId
+        [ "status"  := "queued"
+        , "output"  := output mergeJobLabelQueued mergeJobSummaryQueued
+        , "actions" := [renderAction BotDequeue]
+        ]
+    else undefined
 
 -- | Remove a PR from the queue.
 dequeuePR :: MonadMergeBot m => Int -> m ()
@@ -135,21 +141,22 @@ pollQueues = do
 createCIBranch :: MonadMergeBot m => Text -> [GitObjectID] -> Text -> Text -> m GitObjectID
 createCIBranch base prSHAs ciBranch message = do
   deleteBranch ciBranch
+  deleteBranch tempBranch
 
   baseSHA <- getBranchSHA base >>=
     maybe (fail $ "Base branch does not exist: " ++ Text.unpack base) return
 
-  -- create CI branch off base
-  createBranch ciBranch baseSHA
+  -- create temp branch off base
+  createBranch tempBranch baseSHA
 
   -- merge prs into temp branch
   forM_ prSHAs $ \prSHA -> do
-    success <- mergeBranches ciBranch prSHA "[ci skip] merge into temp"
+    success <- mergeBranches tempBranch prSHA "[ci skip] merge into temp"
     unless success $
       fail "Merge conflict" -- TODO: better error throwing
 
   -- get tree for temp branch
-  tree <- getBranchTree ciBranch
+  tree <- getBranchTree tempBranch
 
   -- check missing/invalid .lymerge.yaml file
   void $ extractConfig tree
@@ -158,11 +165,12 @@ createCIBranch base prSHAs ciBranch message = do
   mergeSHA <- createCommit message [get| tree.oid |] (baseSHA : prSHAs)
 
   -- forcibly update CI branch to point to new merge commit
-  success <- updateBranch True ciBranch mergeSHA
-  unless success $
-    fail "Force update CI branch failed"
+  createBranch ciBranch mergeSHA
+  deleteBranch tempBranch
 
   return mergeSHA
+  where
+    tempBranch = "temp-" <> ciBranch
 
 -- | Update the check runs for the given CI commit, including any additional data provided.
 refreshCheckRuns :: MonadMergeBot m => Bool -> Bool -> Text -> GitObjectID -> m ()
@@ -174,8 +182,7 @@ refreshCheckRuns isStart isTry ciBranchName sha = do
   now <- liftIO getCurrentTime
   (repoOwner, repoName) <- getRepo
 
-  let checkRunState = StatusState.summarize $ map [get| .state |] commitContexts
-      (isComplete, isSuccess) = case checkRunState of
+  let (isComplete, isSuccess) = case ciState of
         StatusState.SUCCESS -> (True, True)
         StatusState.ERROR -> (True, False)
         StatusState.FAILURE -> (True, False)
