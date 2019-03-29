@@ -92,8 +92,8 @@ startTryJob prNum prSHA base = do
 queuePR :: MonadMergeBot m => Int -> m ()
 queuePR prNum = do
   -- TODO: lookup how many approvals are required
-  isApproved <- (PullRequestReviewState.APPROVED `elem`) <$> getPRReviews prNum
-  if isApproved
+  reviews <- getPRReviews prNum
+  if PullRequestReviewState.APPROVED `elem` reviews
     then do
       checkRunId <- getCheckRun prNum checkRunMerge
       -- TOOD: batching info

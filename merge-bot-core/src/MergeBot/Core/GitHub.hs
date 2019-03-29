@@ -52,7 +52,7 @@ import Data.Maybe (fromMaybe, mapMaybe)
 import Data.Text (Text)
 import qualified Data.Text as Text
 import GitHub.Data.GitObjectID (GitObjectID, unOID')
-import GitHub.Data.PullRequestReviewState (PullRequestReviewState)
+import GitHub.Data.PullRequestReviewState (PullRequestReviewState(..))
 import GitHub.REST
     (GHEndpoint(..), GitHubData, KeyValue(..), StdMethod(..), githubTry, (.:))
 
@@ -191,7 +191,7 @@ getPRForCommit sha = do
     [pr] -> return [get| pr.(number, headRef!.name) |]
     _ -> fail $ "Commit found as HEAD for multiple PRs: " ++ unOID' sha
 
--- | Return the reviews for the given PR.
+-- | Return the reviews for the given PR as a map from reviewer to review state.
 getPRReviews :: MonadMergeBot m => Int -> m (HashMap Text PullRequestReviewState)
 getPRReviews prNum = do
   (repoOwner, repoName) <- getRepo
@@ -211,7 +211,14 @@ getPRReviews prNum = do
       , nextCursor = [get| info.endCursor |]
       }
   where
-    resolve = undefined
+    -- NB: The final review state is the last review state a reviewer submitted, except prior
+    -- APPROVED, DISMISSED, or CHANGES_REQUESTED states take precendence over later PENDING or
+    -- COMMENTED states.
+    resolve new old =
+      let relevantStates = [APPROVED, DISMISSED, CHANGES_REQUESTED]
+      in if old `elem` relevantStates && new `notElem` relevantStates
+        then old
+        else new
 
 -- | Return True if the given PR is merged.
 isPRMerged :: MonadMergeBot m => Int -> m Bool
