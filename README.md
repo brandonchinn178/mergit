@@ -21,7 +21,6 @@ The merge bot includes the following features:
 
 The merge bot currently makes the following assumptions:
 
-* Try runs should not be attempted on commits that are not HEAD of a PR
 * Additional commits should not be pushed after queueing
 * Base branch should not be pushed to while a merge job is running
 * A given commit is HEAD for at most one PR

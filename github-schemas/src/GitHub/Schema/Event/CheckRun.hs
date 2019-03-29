@@ -16,6 +16,7 @@ import Data.Aeson.Schema (schema)
 import Data.Aeson.Schema.TH (mkEnum)
 
 import GitHub.Data.CheckRunStatus (CheckRunStatus)
+import GitHub.Data.GitObjectID (GitObjectID)
 import GitHub.Schema.BaseEvent (BaseEvent)
 import GitHub.Schema.PullRequest (PullRequestShort)
 
@@ -40,6 +41,7 @@ type CheckRunEvent = [schema|
     action: CheckRunAction,
     check_run: {
       id: Int,
+      head_sha: GitObjectID,
       status: CheckRunStatus,
       conclusion: Maybe CheckRunConclusion,
       name: Text,
