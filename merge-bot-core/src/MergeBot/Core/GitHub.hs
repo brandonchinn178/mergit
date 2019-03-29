@@ -27,6 +27,7 @@ module MergeBot.Core.GitHub
   , CIContext
   , CICommit(..)
   , getCICommit
+  , getCheckRun
   , getPRForCommit
   , getQueues
     -- * REST
@@ -55,6 +56,7 @@ import GitHub.REST
 import qualified MergeBot.Core.GraphQL.BranchSHA as BranchSHA
 import qualified MergeBot.Core.GraphQL.BranchTree as BranchTree
 import qualified MergeBot.Core.GraphQL.CICommit as CICommit
+import qualified MergeBot.Core.GraphQL.PRCheckRun as PRCheckRun
 import qualified MergeBot.Core.GraphQL.PRForCommit as PRForCommit
 import qualified MergeBot.Core.GraphQL.QueuedPRs as QueuedPRs
 import MergeBot.Core.Monad (MonadMergeBot(..), queryGitHub')
@@ -139,6 +141,26 @@ getCICommit sha checkName = do
     , commitContexts = fromMaybe [] [get| result.status?.contexts |]
     , parents
     }
+
+-- | Get the check run for the given PR and check run name.
+getCheckRun :: MonadMergeBot m => Int -> Text -> m CheckRunId
+getCheckRun prNum checkName = do
+  (repoOwner, repoName) <- getRepo
+  appId <- getAppId
+  result <- runQuery PRCheckRun.query PRCheckRun.Args
+    { _repoOwner = Text.unpack repoOwner
+    , _repoName = Text.unpack repoName
+    , _prNum = prNum
+    , _appId = appId
+    , _checkName = Text.unpack checkName
+    }
+  commit <- case [get| result.repository!.pullRequest!.commits.nodes![]!.commit |] of
+    [] -> fail $ "PR #" ++ show prNum ++ " has no commits: " ++ show result
+    [c] -> return c
+    _ -> fail $ "PRCheckRun query returned more than one 'last' commit: " ++ show result
+  case [get| commit.checkSuites!.nodes![]!.checkRuns!.nodes![]!.databaseId |] of
+    [[checkRunId]] -> return checkRunId
+    _ -> fail $ "No check run found for PR #" ++ show prNum ++ ": " ++ show result
 
 -- | Get the PR number and branch name for the given commit.
 getPRForCommit :: MonadMergeBot m => GitObjectID -> m (Int, Text)

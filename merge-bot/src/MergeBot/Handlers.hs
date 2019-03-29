@@ -17,7 +17,7 @@ module MergeBot.Handlers
   , handleStatus
   ) where
 
-import Control.Monad (forM_, unless)
+import Control.Monad (unless)
 import Data.Aeson.Schema (Object, get)
 import qualified GitHub.Schema.Event.CheckRun as CheckRun
 import qualified GitHub.Schema.Event.CheckSuite as CheckSuite
@@ -56,18 +56,21 @@ handleCheckRun o = runBotApp repo $
   case [get| o.action |] of
     CheckRun.REQUESTED_ACTION ->
       case parseAction [get| o.requested_action!.identifier |] of
-        Just BotTry -> forM_ prs $ \pr ->
+        Just BotTry ->
           Core.startTryJob
             [get| pr.number |]
             [get| pr.head.sha |]
             [get| pr.base.ref |]
-        Just BotQueue -> Core.queuePR [get| o.check_run.id |]
-        Just BotDequeue -> Core.dequeuePR [get| o.check_run.id |]
+        Just BotQueue -> Core.queuePR [get| pr.number |]
+        Just BotDequeue -> Core.dequeuePR [get| pr.number |]
         Nothing -> return ()
     _ -> return ()
   where
     repo = [get| o.repository! |]
-    prs = [get| o.check_run.pull_requests[] |]
+    pr = case [get| o.check_run.pull_requests[] |] of
+      [] -> error $ "No PRs found in check run: " ++ show o
+      [pr'] -> pr'
+      _ -> error $ "Multiple PRs found for check run: " ++ show o
 
 -- | Handle the 'status' GitHub event.
 handleStatus :: Object StatusEvent -> Token -> Handler ()

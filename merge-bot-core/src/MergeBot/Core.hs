@@ -88,7 +88,8 @@ startTryJob prNum prSHA base = do
 
 -- | Add a PR to the queue.
 queuePR :: MonadMergeBot m => Int -> m ()
-queuePR checkRunId =
+queuePR prNum = do
+  checkRunId <- getCheckRun prNum checkRunMerge
   -- TOOD: batching info
   updateCheckRun checkRunId
     [ "status"  := "queued"
@@ -98,7 +99,8 @@ queuePR checkRunId =
 
 -- | Remove a PR from the queue.
 dequeuePR :: MonadMergeBot m => Int -> m ()
-dequeuePR checkRunId = do
+dequeuePR prNum = do
+  checkRunId <- getCheckRun prNum checkRunMerge
   now <- liftIO getCurrentTime
   updateCheckRun checkRunId $ mergeJobInitData now
 
