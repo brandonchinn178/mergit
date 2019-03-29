@@ -141,21 +141,22 @@ pollQueues = do
 createCIBranch :: MonadMergeBot m => Text -> [GitObjectID] -> Text -> Text -> m GitObjectID
 createCIBranch base prSHAs ciBranch message = do
   deleteBranch ciBranch
+  deleteBranch tempBranch
 
   baseSHA <- getBranchSHA base >>=
     maybe (fail $ "Base branch does not exist: " ++ Text.unpack base) return
 
-  -- create CI branch off base
-  createBranch ciBranch baseSHA
+  -- create temp branch off base
+  createBranch tempBranch baseSHA
 
   -- merge prs into temp branch
   forM_ prSHAs $ \prSHA -> do
-    success <- mergeBranches ciBranch prSHA "[ci skip] merge into temp"
+    success <- mergeBranches tempBranch prSHA "[ci skip] merge into temp"
     unless success $
       fail "Merge conflict" -- TODO: better error throwing
 
   -- get tree for temp branch
-  tree <- getBranchTree ciBranch
+  tree <- getBranchTree tempBranch
 
   -- check missing/invalid .lymerge.yaml file
   void $ extractConfig tree
@@ -164,11 +165,12 @@ createCIBranch base prSHAs ciBranch message = do
   mergeSHA <- createCommit message [get| tree.oid |] (baseSHA : prSHAs)
 
   -- forcibly update CI branch to point to new merge commit
-  success <- updateBranch True ciBranch mergeSHA
-  unless success $
-    fail "Force update CI branch failed"
+  createBranch ciBranch mergeSHA
+  deleteBranch tempBranch
 
   return mergeSHA
+  where
+    tempBranch = "temp-" <> ciBranch
 
 -- | Update the check runs for the given CI commit, including any additional data provided.
 refreshCheckRuns :: MonadMergeBot m => Bool -> Bool -> Text -> GitObjectID -> m ()
