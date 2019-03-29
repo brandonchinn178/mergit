@@ -1,0 +1,26 @@
+query PRForCommit(
+  $repoOwner: String!,
+  $repoName: String!,
+  $sha: GitObjectID!,
+  $after: String,
+) {
+  repository(owner: $repoOwner, name: $repoName) {
+    object(oid: $sha) {
+      ... on Commit {
+        associatedPullRequests(first: 10, after: $after) {
+          pageInfo {
+            hasNextPage
+            endCursor
+          }
+          nodes {
+            headRefOid
+            number
+            headRef {
+              name
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -15,7 +15,7 @@ import Data.Text (Text)
 import qualified Data.Text as Text
 
 newtype GitObjectID = GitObjectID { unOID :: Text }
-  deriving (Show,FromJSON,ToJSON)
+  deriving (Show,Eq,FromJSON,ToJSON)
 
 unOID' :: GitObjectID -> String
 unOID' = Text.unpack . unOID

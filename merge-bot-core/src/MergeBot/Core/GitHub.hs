@@ -8,6 +8,7 @@ This module defines functions for manipulating GitHub state.
 -}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DisambiguateRecordFields #-}
+{-# LANGUAGE ExtendedDefaultRules #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -16,16 +17,18 @@ This module defines functions for manipulating GitHub state.
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
 module MergeBot.Core.GitHub
   ( -- * GraphQL
     Tree
   , getBranchTree
+  , getBranchSHA
   , CIContext
   , CICommit(..)
   , getCICommit
+  , getPRForCommit
   , getQueues
-  , getStagingAndSHA
     -- * REST
   , createCheckRun
   , updateCheckRun
@@ -34,27 +37,30 @@ module MergeBot.Core.GitHub
   , updateBranch
   , deleteBranch
   , mergeBranches
+  , closePR
   ) where
 
 import Control.Monad (void)
-import Data.Bifunctor (first)
 import Data.Either (isRight)
 import Data.GraphQL (get, mkGetter, runQuery, unwrap)
 import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HashMap
-import Data.Maybe (fromMaybe, isJust, mapMaybe)
+import Data.Maybe (fromMaybe, mapMaybe)
 import Data.Text (Text)
 import qualified Data.Text as Text
-import GitHub.Data.GitObjectID (GitObjectID)
+import GitHub.Data.GitObjectID (GitObjectID, unOID')
 import GitHub.REST
     (GHEndpoint(..), GitHubData, KeyValue(..), StdMethod(..), githubTry, (.:))
 
+import qualified MergeBot.Core.GraphQL.BranchSHA as BranchSHA
 import qualified MergeBot.Core.GraphQL.BranchTree as BranchTree
 import qualified MergeBot.Core.GraphQL.CICommit as CICommit
-import qualified MergeBot.Core.GraphQL.GetBaseAndCIBranches as GetBaseAndCIBranches
+import qualified MergeBot.Core.GraphQL.PRForCommit as PRForCommit
 import qualified MergeBot.Core.GraphQL.QueuedPRs as QueuedPRs
 import MergeBot.Core.Monad (MonadMergeBot(..), queryGitHub')
-import MergeBot.Core.Text (checkRunMerge, toStagingBranch)
+import MergeBot.Core.Text (checkRunMerge)
+
+default (Text)
 
 type CheckRunId = Int
 
@@ -73,20 +79,32 @@ getBranchTree branch = do
       , _name = Text.unpack branch
       }
 
+-- | Get the git hash for the given branch, if it exists.
+getBranchSHA :: MonadMergeBot m => Text -> m (Maybe GitObjectID)
+getBranchSHA branch = do
+  (repoOwner, repoName) <- getRepo
+  [get| .repository!.ref?.target.oid |] <$>
+    runQuery BranchSHA.query BranchSHA.Args
+      { _repoOwner = Text.unpack repoOwner
+      , _repoName = Text.unpack repoName
+      , _branch = Text.unpack branch
+      }
+
 type CIContext = [unwrap| (CICommit.Schema).repository!.object!.status!.contexts[] |]
 
 data CICommit = CICommit
   { commitTree     :: Tree
   , commitContexts :: [CIContext]
-  , checkRuns      :: [CheckRunId]
+  , parents        :: [(GitObjectID, CheckRunId)]
+    -- ^ The parent commits of a CI commit, not including the base branch
   }
 
--- | Get details for the given CI commit.
+-- | Get details for the given CI commit; that is, a commit created by 'createCIBranch'.
 getCICommit :: MonadMergeBot m => GitObjectID -> Text -> m CICommit
 getCICommit sha checkName = do
   (repoOwner, repoName) <- getRepo
   appId <- getAppId
-  (result, checkRuns) <- queryAll $ \after -> do
+  (result, parents) <- queryAll $ \after -> do
     result <- runQuery CICommit.query CICommit.Args
       { _repoOwner = Text.unpack repoOwner
       , _repoName = Text.unpack repoName
@@ -98,19 +116,53 @@ getCICommit sha checkName = do
     let payload = [get| result.repository!.object! |]
         info = [get| payload.parents!.pageInfo |]
         parents = [get| payload.parents!.nodes![]! |]
-        checkSuites = concatMap [get| .checkSuites!.nodes![]! |] parents
-        checkRuns = concatMap [get| .checkRuns!.nodes![]! |] checkSuites
+        getParent parent =
+          let getCheckRuns = [get| .checkSuites!.nodes![]!.checkRuns!.nodes![]!.databaseId |]
+          in case concat $ getCheckRuns parent of
+            [checkRun] -> ([get| parent.oid |], checkRun)
+            _ -> error $ concat
+              [ "CI Commit '"
+              , unOID' sha
+              , "' contains a parent that does not have exactly one check run named '"
+              , Text.unpack checkName
+              , "': "
+              , show parent
+              ]
     return PaginatedResult
       { payload
-      , chunk = map [get| .databaseId |] checkRuns
+      , chunk = map getParent $ tail parents -- base branch is always first
       , hasNext = [get| info.hasNextPage |]
       , nextCursor = [get| info.endCursor |]
       }
   return CICommit
     { commitTree = [get| result.tree! |]
     , commitContexts = fromMaybe [] [get| result.status?.contexts |]
-    , checkRuns
+    , parents
     }
+
+-- | Get the PR number and branch name for the given commit.
+getPRForCommit :: MonadMergeBot m => GitObjectID -> m (Int, Text)
+getPRForCommit sha = do
+  (repoOwner, repoName) <- getRepo
+  result <- queryAll_ $ \after -> do
+    result <- runQuery PRForCommit.query PRForCommit.Args
+      { _repoOwner = Text.unpack repoOwner
+      , _repoName = Text.unpack repoName
+      , _sha = sha
+      , _after = after
+      }
+    let payload = [get| result.repository!.object!.associatedPullRequests! |]
+        info = [get| payload.pageInfo |]
+    return PaginatedResult
+      { payload = ()
+      , chunk = [get| payload.nodes![]! |]
+      , hasNext = [get| info.hasNextPage |]
+      , nextCursor = [get| info.endCursor |]
+      }
+  case filter ((== sha) . [get| .headRefOid |]) result of
+    [] -> fail $ "Commit does not have associated PR: " ++ unOID' sha
+    [pr] -> return [get| pr.(number, headRef!.name) |]
+    _ -> fail $ "Commit found as HEAD for multiple PRs: " ++ unOID' sha
 
 -- | Get all queued PRs, by base branch.
 getQueues :: MonadMergeBot m => m (HashMap Text [(Int, GitObjectID)])
@@ -140,18 +192,6 @@ getQueues  = do
         ( [get| pr.baseRefName |]
         , [ [get| pr.(number, headRefOid) |] ]
         )
-
--- | Get whether the staging branch exists for the given base branch and HEAD for the base branch.
-getStagingAndSHA :: MonadMergeBot m => Text -> m (Bool, GitObjectID)
-getStagingAndSHA baseBranch = do
-  (repoOwner, repoName) <- getRepo
-  result <- runQuery GetBaseAndCIBranches.query GetBaseAndCIBranches.Args
-    { _repoOwner = Text.unpack repoOwner
-    , _repoName = Text.unpack repoName
-    , _baseBranch = Text.unpack baseBranch
-    , _ciBranch = Text.unpack $ toStagingBranch baseBranch
-    }
-  return $ first isJust [get| result.repository!.(ciBranch, baseBranch!.target.oid) |]
 
 {- REST -}
 
@@ -245,6 +285,17 @@ mergeBranches base sha message = fmap isRight $ githubTry $ queryGitHub' GHEndpo
     , "head"           := sha
     , "commit_message" := message
     ]
+  }
+
+-- | Close the given PR.
+--
+-- https://developer.github.com/v3/pulls/#update-a-pull-request
+closePR :: MonadMergeBot m => Int -> m ()
+closePR prNum = void $ queryGitHub' GHEndpoint
+  { method = PATCH
+  , endpoint = "/repos/:owner/:repo/pulls/:number"
+  , endpointVals = [ "number" := prNum ]
+  , ghData = [ "state" := "closed" ]
   }
 
 {- Helpers -}

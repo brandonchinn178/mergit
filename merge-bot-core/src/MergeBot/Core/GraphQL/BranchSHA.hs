@@ -1,17 +1,17 @@
 {-|
-Module      :  MergeBot.Core.GraphQL.GetBaseAndCIBranches
+Module      :  MergeBot.Core.GraphQL.BranchSHA
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
 Portability :  portable
 
-Defines the GetBaseAndCIBranches graphql query.
+Defines the BranchSHA graphql query.
 -}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-module MergeBot.Core.GraphQL.GetBaseAndCIBranches where
+module MergeBot.Core.GraphQL.BranchSHA where
 
 import Data.Aeson.Schema (schema)
 import Data.GraphQL hiding (Query)
@@ -24,32 +24,25 @@ import MergeBot.Core.GraphQL.API (API)
 type Query = GraphQL.Query API Args Schema
 
 data Args = Args
-  { _repoOwner  :: String
-  , _repoName   :: String
-  , _baseBranch :: String
-  , _ciBranch   :: String
+  { _repoOwner :: String
+  , _repoName  :: String
+  , _branch    :: String
   } deriving (Show)
 
 instance GraphQLArgs Args where
   fromArgs args = object
-    [ "repoOwner"  .= _repoOwner args
-    , "repoName"   .= _repoName args
-    , "baseBranch" .= _baseBranch args
-    , "ciBranch"   .= _ciBranch args
+    [ "repoOwner" .= _repoOwner args
+    , "repoName"  .= _repoName args
+    , "branch"    .= _branch args
     ]
 
 query :: Query
-query = $(readGraphQLFile "GetBaseAndCIBranches.graphql")
+query = $(readGraphQLFile "BranchSHA.graphql")
 
 type Schema = [schema|
   {
     repository: Maybe {
-      baseBranch: Maybe {
-        target: {
-          oid: GitObjectID,
-        },
-      },
-      ciBranch: Maybe {
+      ref: Maybe {
         target: {
           oid: GitObjectID,
         },

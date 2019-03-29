@@ -9,7 +9,6 @@ This module defines core MergeBot functionality.
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE ExtendedDefaultRules #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -29,10 +28,11 @@ module MergeBot.Core
   ) where
 
 import Control.Exception (displayException)
-import Control.Monad (forM_, unless, void)
+import Control.Monad (forM_, unless, void, when)
 import Control.Monad.IO.Class (liftIO)
 import Data.GraphQL (get)
 import qualified Data.HashMap.Strict as HashMap
+import Data.Maybe (isNothing)
 import Data.Text (Text)
 import qualified Data.Text as Text
 import qualified Data.Text.Encoding as Text
@@ -110,10 +110,12 @@ handleStatusUpdate = refreshCheckRuns False
 pollQueues :: MonadMergeBot m => m ()
 pollQueues = do
   queues <- getQueues
-  void $ flip HashMap.traverseWithKey queues $ \base prs ->
-    getStagingAndSHA base >>= \case
-      (False, _) -> return ()
-      (True, baseSHA) -> startMergeJob prs base baseSHA
+  void $ flip HashMap.traverseWithKey queues $ \base prs -> do
+    staging <- getBranchSHA $ toStagingBranch base
+    when (isNothing staging) $ do
+      let baseMissing = fail $ "Base branch does not exist: " ++ Text.unpack base
+      baseSHA <- maybe baseMissing return =<< getBranchSHA base
+      startMergeJob prs base baseSHA
   where
     startMergeJob prs base baseSHA = do
       let (prNums, prSHAs) = unzip prs
@@ -163,48 +165,74 @@ createCIBranch baseSHA prSHAs ciBranch message = do
 refreshCheckRuns :: MonadMergeBot m => Bool -> Bool -> Text -> GitObjectID -> m ()
 refreshCheckRuns isStart isTry ciBranchName sha = do
   CICommit{..} <- getCICommit sha checkName
+  let (parentSHAs, checkRuns) = unzip parents
   config <- extractConfig commitTree
+
   now <- liftIO getCurrentTime
   (repoOwner, repoName) <- getRepo
-  let ciStatus = displayCIStatus config commitContexts
-      checkRunState = case StatusState.summarize $ map [get| .state |] commitContexts of
-        StatusState.SUCCESS -> Just True
-        StatusState.ERROR -> Just False
-        StatusState.FAILURE -> Just False
-        _ -> Nothing
-      checkRunData = (if isStart then [ "started_at" := now ] else []) ++ case checkRunState of
-        Nothing ->
-          [ "status"  := "in_progress"
-          , "output"  :=
-              let repoUrl = "https://github.com/" <> repoOwner <> "/" <> repoName
-                  ciBranchUrl = repoUrl <> "/commits/" <> ciBranchName
-                  ciInfo = "CI running in the [" <> ciBranchName <> "](" <> ciBranchUrl <> ") branch."
-              in output jobLabelRunning (unlines2 [ciInfo, ciStatus])
-          , "actions" := []
-          ]
-        Just isSuccess ->
-          [ "status"       := "completed"
-          , "conclusion"   := if isSuccess then "success" else "failure"
-          , "completed_at" := now
-          , "output"       := output jobLabelDone (unlines2 $ jobSummaryDone isSuccess ciStatus)
-          , "actions"      := doneActions isSuccess
-          ]
-          -- TODO: delete ci branch
-          -- TODO: if merge and success, run merge
+
+  let checkRunState = StatusState.summarize $ map [get| .state |] commitContexts
+      (isComplete, isSuccess) = case checkRunState of
+        StatusState.SUCCESS -> (True, True)
+        StatusState.ERROR -> (True, False)
+        StatusState.FAILURE -> (True, False)
+        _ -> (False, False)
+
+      checkRunData = concat
+        [ if isStart then [ "started_at" := now ] else []
+        , if isComplete
+            then
+              [ "status"       := "completed"
+              , "conclusion"   := if isSuccess then "success" else "failure"
+              , "completed_at" := now
+              ]
+            else
+              [ "status" := "in_progress"
+              ]
+        , let doneActions
+                | isComplete && isTry = [renderAction BotTry]
+                | isComplete && not isSuccess = [renderAction BotQueue]
+                | otherwise = []
+          in [ "actions" := doneActions ]
+        , let repoUrl = "https://github.com/" <> repoOwner <> "/" <> repoName
+              ciBranchUrl = repoUrl <> "/commits/" <> ciBranchName
+              ciInfo = "CI running in the [" <> ciBranchName <> "](" <> ciBranchUrl <> ") branch."
+              ciStatus = displayCIStatus config commitContexts
+              jobLabel = case (isComplete, isTry) of
+                (False, True) -> tryJobLabelRunning
+                (False, False) -> mergeJobLabelRunning
+                (True, True) -> tryJobLabelDone
+                (True, False) -> mergeJobLabelDone
+              jobSummary
+                | not isComplete = [ciInfo, ciStatus]
+                | isTry = [tryJobSummaryDone, ciStatus]
+                | not isSuccess = [mergeJobSummaryFailed, ciStatus]
+                | otherwise = [ciStatus]
+          in [ "output" := output jobLabel (unlines2 jobSummary) ]
+        ]
 
   mapM_ (`updateCheckRun` checkRunData) checkRuns
+
+  -- if successful merge run, merge into base
+  when (isComplete && isSuccess && not isTry) $ do
+    -- get pr information for parent commits
+    prs <- mapM getPRForCommit parentSHAs
+
+    -- merge into base
+    let invalidStagingBranch = fail $ "Not staging branch: " ++ Text.unpack ciBranchName
+    base <- maybe invalidStagingBranch return $ fromStagingBranch ciBranchName
+    success <- updateBranch False base sha
+    unless success $ fail $ "Could not update '" ++ Text.unpack base ++ "' -- not a fast-forward"
+
+    -- close PRs and delete branches
+    forM_ prs $ \(prNum, branch) -> do
+      closePR prNum
+      deleteBranch branch
+
+  -- if successful, delete the CI branch
+  when isSuccess $ deleteBranch ciBranchName
   where
     checkName = if isTry then checkRunTry else checkRunMerge
-    jobLabelRunning = if isTry then tryJobLabelRunning else mergeJobLabelRunning
-    jobLabelDone = if isTry then tryJobLabelDone else mergeJobLabelDone
-    jobSummaryDone isSuccess ciStatus
-      | isTry = [tryJobSummaryDone, ciStatus]
-      | not isSuccess = [mergeJobSummaryFailed, ciStatus]
-      | otherwise = [ciStatus]
-    doneActions isSuccess
-      | isTry = [renderAction BotTry]
-      | not isSuccess = [renderAction BotQueue]
-      | otherwise = []
     unlines2 = Text.concat . map (<> "\n\n")
 
 -- | Get text containing Markdown showing a list of jobs required by the merge bot and their status

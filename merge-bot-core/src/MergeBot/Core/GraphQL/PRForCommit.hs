@@ -1,24 +1,23 @@
 {-|
-Module      :  MergeBot.Core.GraphQL.CICommit
+Module      :  MergeBot.Core.GraphQL.PRForCommit
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
 Portability :  portable
 
-Defines the CICommit graphql query.
+Defines the PRForCommit graphql query.
 -}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-module MergeBot.Core.GraphQL.CICommit where
+module MergeBot.Core.GraphQL.PRForCommit where
 
 import Data.Aeson.Schema (schema)
 import Data.GraphQL hiding (Query)
 import qualified Data.GraphQL as GraphQL
 import Data.GraphQL.Aeson (object, (.=))
 import GitHub.Data.GitObjectID (GitObjectID)
-import GitHub.Data.StatusState (StatusState)
 
 import MergeBot.Core.GraphQL.API (API)
 
@@ -29,8 +28,6 @@ data Args = Args
   , _repoName  :: String
   , _sha       :: GitObjectID
   , _after     :: Maybe String
-  , _appId     :: Int
-  , _checkName :: Maybe String
   } deriving (Show)
 
 instance GraphQLArgs Args where
@@ -39,49 +36,25 @@ instance GraphQLArgs Args where
     , "repoName"  .= _repoName args
     , "sha"       .= _sha args
     , "after"     .= _after args
-    , "appId"     .= _appId args
-    , "checkName" .= _checkName args
     ]
 
 query :: Query
-query = $(readGraphQLFile "CICommit.graphql")
+query = $(readGraphQLFile "PRForCommit.graphql")
 
 type Schema = [schema|
   {
     repository: Maybe {
       object: Maybe {
-        tree: Maybe {
-          oid: GitObjectID,
-          entries: Maybe List {
-            name: Text,
-            object: Maybe {
-              text: Maybe Text,
-            },
-          },
-        },
-        status: Maybe {
-          contexts: List {
-            context: Text,
-            state: StatusState,
-            targetUrl: Maybe Text,
-          },
-        },
-        parents: Maybe {
+        associatedPullRequests: Maybe {
           pageInfo: {
             hasNextPage: Bool,
             endCursor: Maybe Text,
           },
           nodes: Maybe List Maybe {
-            oid: GitObjectID,
-            checkSuites: Maybe {
-              nodes: Maybe List Maybe {
-                checkRuns: Maybe {
-                  nodes: Maybe List Maybe {
-                    databaseId: Int,
-                    name: Text,
-                  },
-                },
-              },
+            headRefOid: GitObjectID,
+            number: Int,
+            headRef: Maybe {
+              name: Text,
             },
           },
         },
