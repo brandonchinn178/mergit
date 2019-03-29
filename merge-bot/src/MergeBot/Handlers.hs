@@ -60,7 +60,7 @@ handleCheckRun o = runBotApp repo $
           Core.startTryJob
             [get| pr.number |]
             [get| pr.head.sha |]
-            [get| pr.base.sha |]
+            [get| pr.base.ref |]
         Just BotQueue -> Core.queuePR [get| o.check_run.id |]
         Just BotDequeue -> Core.dequeuePR [get| o.check_run.id |]
         Nothing -> return ()

@@ -77,9 +77,9 @@ createMergeCheckRun sha = do
     ] ++ mergeJobInitData now
 
 -- | Start a new try job.
-startTryJob :: MonadMergeBot m => Int -> GitObjectID -> GitObjectID -> m ()
-startTryJob prNum prSHA baseSHA = do
-  mergeSHA <- createCIBranch baseSHA [prSHA] tryBranch tryMessage
+startTryJob :: MonadMergeBot m => Int -> GitObjectID -> Text -> m ()
+startTryJob prNum prSHA base = do
+  mergeSHA <- createCIBranch base [prSHA] tryBranch tryMessage
 
   refreshCheckRuns True True tryBranch mergeSHA
   where
@@ -112,16 +112,13 @@ pollQueues = do
   queues <- getQueues
   void $ flip HashMap.traverseWithKey queues $ \base prs -> do
     staging <- getBranchSHA $ toStagingBranch base
-    when (isNothing staging) $ do
-      let baseMissing = fail $ "Base branch does not exist: " ++ Text.unpack base
-      baseSHA <- maybe baseMissing return =<< getBranchSHA base
-      startMergeJob prs base baseSHA
+    when (isNothing staging) $ startMergeJob prs base
   where
-    startMergeJob prs base baseSHA = do
+    startMergeJob prs base = do
       let (prNums, prSHAs) = unzip prs
           stagingBranch = toStagingBranch base
           stagingMessage = toStagingMessage base prNums
-      mergeSHA <- createCIBranch baseSHA prSHAs stagingBranch stagingMessage
+      mergeSHA <- createCIBranch base prSHAs stagingBranch stagingMessage
 
       refreshCheckRuns True False stagingBranch mergeSHA
 
@@ -132,9 +129,12 @@ pollQueues = do
 -- * Deletes the existing try or merge branch, if one exists.
 -- * Errors if merge conflict
 -- * Errors if the .lymerge.yaml file is missing or invalid
-createCIBranch :: MonadMergeBot m => GitObjectID -> [GitObjectID] -> Text -> Text -> m GitObjectID
-createCIBranch baseSHA prSHAs ciBranch message = do
+createCIBranch :: MonadMergeBot m => Text -> [GitObjectID] -> Text -> Text -> m GitObjectID
+createCIBranch base prSHAs ciBranch message = do
   deleteBranch ciBranch
+
+  baseSHA <- getBranchSHA base >>=
+    maybe (fail $ "Base branch does not exist: " ++ Text.unpack base) return
 
   -- create CI branch off base
   createBranch ciBranch baseSHA
