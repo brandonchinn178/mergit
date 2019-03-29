@@ -40,6 +40,7 @@ import qualified Data.Text.Encoding as Text
 import Data.Time (getCurrentTime)
 import Data.Yaml (decodeThrow)
 import GitHub.Data.GitObjectID (GitObjectID)
+import qualified GitHub.Data.PullRequestReviewState as PullRequestReviewState
 import qualified GitHub.Data.StatusState as StatusState
 import GitHub.REST (KeyValue(..))
 
@@ -90,13 +91,18 @@ startTryJob prNum prSHA base = do
 -- | Add a PR to the queue.
 queuePR :: MonadMergeBot m => Int -> m ()
 queuePR prNum = do
-  checkRunId <- getCheckRun prNum checkRunMerge
-  -- TOOD: batching info
-  updateCheckRun checkRunId
-    [ "status"  := "queued"
-    , "output"  := output mergeJobLabelQueued mergeJobSummaryQueued
-    , "actions" := [renderAction BotDequeue]
-    ]
+  -- TODO: lookup how many approvals are required
+  isApproved <- (PullRequestReviewState.APPROVED `elem`) <$> getPRReviews prNum
+  if isApproved
+    then do
+      checkRunId <- getCheckRun prNum checkRunMerge
+      -- TOOD: batching info
+      updateCheckRun checkRunId
+        [ "status"  := "queued"
+        , "output"  := output mergeJobLabelQueued mergeJobSummaryQueued
+        , "actions" := [renderAction BotDequeue]
+        ]
+    else undefined
 
 -- | Remove a PR from the queue.
 dequeuePR :: MonadMergeBot m => Int -> m ()

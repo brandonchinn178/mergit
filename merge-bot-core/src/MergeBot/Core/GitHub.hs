@@ -29,6 +29,7 @@ module MergeBot.Core.GitHub
   , getCICommit
   , getCheckRun
   , getPRForCommit
+  , getPRReviews
   , isPRMerged
   , getQueues
     -- * REST
@@ -51,6 +52,7 @@ import Data.Maybe (fromMaybe, mapMaybe)
 import Data.Text (Text)
 import qualified Data.Text as Text
 import GitHub.Data.GitObjectID (GitObjectID, unOID')
+import GitHub.Data.PullRequestReviewState (PullRequestReviewState)
 import GitHub.REST
     (GHEndpoint(..), GitHubData, KeyValue(..), StdMethod(..), githubTry, (.:))
 
@@ -60,6 +62,7 @@ import qualified MergeBot.Core.GraphQL.CICommit as CICommit
 import qualified MergeBot.Core.GraphQL.PRCheckRun as PRCheckRun
 import qualified MergeBot.Core.GraphQL.PRForCommit as PRForCommit
 import qualified MergeBot.Core.GraphQL.PRIsMerged as PRIsMerged
+import qualified MergeBot.Core.GraphQL.PRReviews as PRReviews
 import qualified MergeBot.Core.GraphQL.QueuedPRs as QueuedPRs
 import MergeBot.Core.Monad (MonadMergeBot(..), queryGitHub')
 import MergeBot.Core.Text (checkRunMerge)
@@ -187,6 +190,28 @@ getPRForCommit sha = do
     [] -> fail $ "Commit does not have associated PR: " ++ unOID' sha
     [pr] -> return [get| pr.(number, headRef!.name) |]
     _ -> fail $ "Commit found as HEAD for multiple PRs: " ++ unOID' sha
+
+-- | Return the reviews for the given PR.
+getPRReviews :: MonadMergeBot m => Int -> m (HashMap Text PullRequestReviewState)
+getPRReviews prNum = do
+  (repoOwner, repoName) <- getRepo
+  fmap (HashMap.fromListWith resolve) $ queryAll_ $ \after -> do
+    result <- runQuery PRReviews.query PRReviews.Args
+      { _repoOwner = Text.unpack repoOwner
+      , _repoName = Text.unpack repoName
+      , _prNum = prNum
+      , _after = after
+      }
+    let payload = [get| result.repository!.pullRequest!.reviews! |]
+        info = [get| payload.pageInfo |]
+    return PaginatedResult
+      { payload = ()
+      , chunk = [get| payload.nodes![]!.(author!.login, state) |]
+      , hasNext = [get| info.hasNextPage |]
+      , nextCursor = [get| info.endCursor |]
+      }
+  where
+    resolve = undefined
 
 -- | Return True if the given PR is merged.
 isPRMerged :: MonadMergeBot m => Int -> m Bool
