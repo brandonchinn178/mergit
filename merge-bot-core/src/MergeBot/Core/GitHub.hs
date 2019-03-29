@@ -53,6 +53,8 @@ import Data.Text (Text)
 import qualified Data.Text as Text
 import GitHub.Data.GitObjectID (GitObjectID, unOID')
 import GitHub.Data.PullRequestReviewState (PullRequestReviewState(..))
+import GitHub.Data.StatusState (StatusState)
+import qualified GitHub.Data.StatusState as StatusState
 import GitHub.REST
     (GHEndpoint(..), GitHubData, KeyValue(..), StdMethod(..), githubTry, (.:))
 
@@ -102,6 +104,7 @@ type CIContext = [unwrap| (CICommit.Schema).repository!.object!.status!.contexts
 data CICommit = CICommit
   { commitTree     :: Tree
   , commitContexts :: [CIContext]
+  , ciState        :: StatusState
   , parents        :: [(GitObjectID, CheckRunId)]
     -- ^ The parent commits of a CI commit, not including the base branch
   }
@@ -144,6 +147,7 @@ getCICommit sha checkName = do
   return CICommit
     { commitTree = [get| result.tree! |]
     , commitContexts = fromMaybe [] [get| result.status?.contexts |]
+    , ciState = fromMaybe StatusState.EXPECTED [get| result.status?.state |]
     , parents
     }
 

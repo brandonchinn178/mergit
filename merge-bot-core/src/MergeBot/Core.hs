@@ -180,8 +180,7 @@ refreshCheckRuns isStart isTry ciBranchName sha = do
   now <- liftIO getCurrentTime
   (repoOwner, repoName) <- getRepo
 
-  let checkRunState = StatusState.summarize $ map [get| .state |] commitContexts
-      (isComplete, isSuccess) = case checkRunState of
+  let (isComplete, isSuccess) = case ciState of
         StatusState.SUCCESS -> (True, True)
         StatusState.ERROR -> (True, False)
         StatusState.FAILURE -> (True, False)
