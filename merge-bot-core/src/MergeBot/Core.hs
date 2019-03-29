@@ -93,16 +93,18 @@ queuePR :: MonadMergeBot m => Int -> m ()
 queuePR prNum = do
   -- TODO: lookup how many approvals are required
   reviews <- getPRReviews prNum
-  if PullRequestReviewState.APPROVED `elem` reviews
-    then do
-      checkRunId <- getCheckRun prNum checkRunMerge
-      -- TOOD: batching info
-      updateCheckRun checkRunId
-        [ "status"  := "queued"
-        , "output"  := output mergeJobLabelQueued mergeJobSummaryQueued
-        , "actions" := [renderAction BotDequeue]
-        ]
-    else undefined
+
+  unless (PullRequestReviewState.APPROVED `elem` reviews) $
+    -- TODO: better error handling
+    fail "PR is not approved"
+
+  checkRunId <- getCheckRun prNum checkRunMerge
+  -- TOOD: batching info
+  updateCheckRun checkRunId
+    [ "status"  := "queued"
+    , "output"  := output mergeJobLabelQueued mergeJobSummaryQueued
+    , "actions" := [renderAction BotDequeue]
+    ]
 
 -- | Remove a PR from the queue.
 dequeuePR :: MonadMergeBot m => Int -> m ()
