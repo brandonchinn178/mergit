@@ -27,9 +27,14 @@ default (Text)
 
 -- | An action that renders as a button in the check run and runs a given merge bot action.
 data MergeBotAction
-  = BotTry     -- ^ Available in the try check run. Starts a try job.
-  | BotQueue   -- ^ Available in the merge check run. Queues a PR.
-  | BotDequeue -- ^ Available in the merge check run. Dequeues a PR.
+  = BotTry
+    -- ^ Available in the try check run. Starts a try job.
+  | BotQueue
+    -- ^ Available in the merge check run. Queues a PR.
+  | BotDequeue
+    -- ^ Available in the merge check run. Dequeues a PR.
+  | BotResetMerge
+    -- ^ Available in the merge check run. Resets check run to initial state.
   deriving (Show,Eq)
 
 parseAction :: Text -> Maybe MergeBotAction
@@ -37,6 +42,7 @@ parseAction = \case
   "lybot_run_try" -> Just BotTry
   "lybot_queue" -> Just BotQueue
   "lybot_dequeue" -> Just BotDequeue
+  "lybot_reset_merge" -> Just BotResetMerge
   _ -> Nothing
 
 renderAction :: MergeBotAction -> [KeyValue]
@@ -54,4 +60,9 @@ renderAction BotDequeue =
   [ "label"       := "Dequeue"
   , "description" := "Dequeue this PR"
   , "identifier"  := "lybot_dequeue"
+  ]
+renderAction BotResetMerge =
+  [ "label"       := "Reset"
+  , "description" := "Reset this check run"
+  , "identifier"  := "lybot_reset_merge"
   ]

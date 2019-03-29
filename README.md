@@ -21,7 +21,6 @@ The merge bot includes the following features:
 
 The merge bot currently makes the following assumptions:
 
-* Base branch should not be pushed to while a merge job is running
 * A given commit is HEAD for at most one PR
 * People can manually create "staging-" branch that will get merged into base
 

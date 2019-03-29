@@ -69,6 +69,7 @@ handleCheckRun o = runBotApp repo $
             [get| pr.base.ref |]
         Just BotQueue -> Core.queuePR prNum
         Just BotDequeue -> Core.dequeuePR prNum
+        Just BotResetMerge -> Core.resetMerge prNum
         Nothing -> return ()
     _ -> return ()
   where

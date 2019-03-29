@@ -23,6 +23,7 @@ module MergeBot.Core
   , startTryJob
   , queuePR
   , dequeuePR
+  , resetMerge
   , handleStatusUpdate
   , pollQueues
   ) where
@@ -109,7 +110,11 @@ queuePR prNum = do
 
 -- | Remove a PR from the queue.
 dequeuePR :: MonadMergeBot m => Int -> m ()
-dequeuePR prNum = do
+dequeuePR = resetMerge
+
+-- | Remove a PR from the queue.
+resetMerge :: MonadMergeBot m => Int -> m ()
+resetMerge prNum = do
   checkRunId <- getCheckRun prNum checkRunMerge
   now <- liftIO getCurrentTime
   updateCheckRun checkRunId $ mergeJobInitData now
@@ -205,6 +210,7 @@ refreshCheckRuns isStart isTry ciBranchName sha = do
         , let doneActions
                 | isComplete && isTry = [renderAction BotTry]
                 | isComplete && not isSuccess = [renderAction BotQueue]
+                | isComplete && not isTry && isSuccess = [renderAction BotResetMerge]
                 | otherwise = []
           in [ "actions" := doneActions ]
         , let repoUrl = "https://github.com/" <> repoOwner <> "/" <> repoName
@@ -220,7 +226,7 @@ refreshCheckRuns isStart isTry ciBranchName sha = do
                 | not isComplete = [ciInfo, ciStatus]
                 | isTry = [tryJobSummaryDone, ciStatus]
                 | not isSuccess = [mergeJobSummaryFailed, ciStatus]
-                | otherwise = [ciStatus]
+                | otherwise = [mergeJobSummarySuccess, ciStatus]
           in [ "output" := output jobLabel (unlines2 jobSummary) ]
         ]
 
