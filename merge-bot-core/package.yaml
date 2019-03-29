@@ -15,6 +15,7 @@ dependencies:
 - graphql-client
 - http-client
 - http-types
+- monad-loops
 - text
 - time
 - transformers

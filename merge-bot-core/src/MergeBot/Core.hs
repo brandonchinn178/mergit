@@ -30,6 +30,7 @@ module MergeBot.Core
 import Control.Exception (displayException)
 import Control.Monad (forM_, unless, void, when)
 import Control.Monad.IO.Class (liftIO)
+import Control.Monad.Loops (whileM_)
 import Data.GraphQL (get)
 import qualified Data.HashMap.Strict as HashMap
 import Data.Maybe (isNothing)
@@ -228,6 +229,9 @@ refreshCheckRuns isStart isTry ciBranchName sha = do
 
     -- close PRs and delete branches
     forM_ prs $ \(prNum, branch) -> do
+      -- wait until PR is marked "merged"
+      whileM_ (not <$> isPRMerged prNum) $ return ()
+
       closePR prNum
       deleteBranch branch
 

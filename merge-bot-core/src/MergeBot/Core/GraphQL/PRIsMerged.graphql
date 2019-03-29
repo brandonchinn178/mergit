@@ -1,0 +1,11 @@
+query PRIsMerged(
+  $repoOwner: String!,
+  $repoName: String!,
+  $prNum:Int!,
+) {
+  repository(owner: $repoOwner, name: $repoName) {
+    pullRequest(number: $prNum) {
+      merged
+    }
+  }
+}
