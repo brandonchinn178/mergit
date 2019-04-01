@@ -8,6 +8,7 @@ This module defines handlers for the MergeBot.
 -}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE MultiWayIf #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 
 module MergeBot.Handlers
@@ -15,10 +16,12 @@ module MergeBot.Handlers
   , handleCheckSuite
   , handleCheckRun
   , handleStatus
+  , handlePush
   ) where
 
-import Control.Monad (unless)
+import Control.Monad (unless, when)
 import Data.Aeson.Schema (Object, get)
+import qualified Data.Text as Text
 import GitHub.Data.GitObjectID (unOID')
 import qualified GitHub.Schema.Event.CheckRun as CheckRun
 import qualified GitHub.Schema.Event.CheckSuite as CheckSuite
@@ -28,6 +31,7 @@ import Servant.GitHub
 
 import qualified MergeBot.Core as Core
 import MergeBot.Core.Actions (MergeBotAction(..), parseAction)
+import qualified MergeBot.Core.GitHub as Core
 import MergeBot.Core.Text (isStagingBranch, isTryBranch)
 import MergeBot.Monad (runBotApp)
 
@@ -93,3 +97,18 @@ handleStatus o = runBotApp repo $
     _ -> return ()
   where
     repo = [get| o.repository! |]
+
+-- | Handle the 'push' GitHub event.
+handlePush :: Object PushEvent -> Token -> Handler ()
+handlePush o = runBotApp repo $
+  when (isCreated && isCIBranch && not isBot) $ do
+    Core.deleteBranch branch
+    fail $ "User tried to manually create CI branch: " ++ show o
+  where
+    repo = [get| o.repository! |]
+    isCreated = [get| o.created |]
+    isCIBranch = isStagingBranch branch || isTryBranch branch
+    isBot = [get| o.sender.type |] == "Bot"
+    branch = case Text.splitOn "/" [get| o.ref |] of
+      [] -> error $ "Bad ref: " ++ Text.unpack [get| o.ref |]
+      l -> last l

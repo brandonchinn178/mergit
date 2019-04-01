@@ -20,16 +20,18 @@ import GitHub.Schema.BaseEvent (BaseEvent)
 type PushEvent = [schema|
   {
     ref: Text,
-    head: Text,
-    before: Text,
-    size: Int,
-    distinct_size: Int,
+    base_ref: Maybe Text,
+    after: GitObjectID,
+    before: GitObjectID,
+    created: Bool,
+    deleted: Bool,
     commits: List {
-      sha: GitObjectID,
+      id: GitObjectID,
       message: Text,
       author: {
         name: Text,
         email: Text,
+        username: Text,
       },
       url: URL,
       distinct: Bool,

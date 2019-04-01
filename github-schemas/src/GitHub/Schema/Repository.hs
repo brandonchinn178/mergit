@@ -12,7 +12,7 @@ Defines schemas related to repositories.
 module GitHub.Schema.Repository where
 
 import Data.Aeson.Schema (schema)
-import Data.Time (UTCTime)
+-- import Data.Time (UTCTime)
 
 import GitHub.Data.URL (URL)
 import GitHub.Schema.User (UserWebhook)
@@ -66,9 +66,10 @@ type RepoWebhook = [schema|
     labels_url: URL,
     releases_url: URL,
     deployments_url: URL,
-    created_at: UTCTime,
-    updated_at: UTCTime,
-    pushed_at: UTCTime,
+    // https://github.com/isaacs/github/issues/1534
+    // created_at: UTCTime,
+    // updated_at: UTCTime,
+    // pushed_at: UTCTime,
     git_url: URL,
     ssh_url: URL,
     clone_url: URL,
