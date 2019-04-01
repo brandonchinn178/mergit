@@ -54,7 +54,15 @@ import qualified Data.Text as Text
 import GitHub.Data.GitObjectID (GitObjectID, unOID')
 import GitHub.Data.PullRequestReviewState (PullRequestReviewState(..))
 import GitHub.REST
-    (GHEndpoint(..), GitHubData, KeyValue(..), StdMethod(..), githubTry, (.:))
+    ( GHEndpoint(..)
+    , GitHubData
+    , KeyValue(..)
+    , StdMethod(..)
+    , githubTry
+    , githubTry'
+    , (.:)
+    )
+import Network.HTTP.Types (status409)
 
 import qualified MergeBot.Core.GraphQL.BranchSHA as BranchSHA
 import qualified MergeBot.Core.GraphQL.BranchTree as BranchTree
@@ -343,7 +351,7 @@ deleteBranch branch = void $ githubTry $ queryGitHub' GHEndpoint
 --
 -- https://developer.github.com/v3/repos/merging/#perform-a-merge
 mergeBranches :: MonadMergeBot m => Text -> GitObjectID -> Text -> m Bool
-mergeBranches base sha message = fmap isRight $ githubTry $ queryGitHub' GHEndpoint
+mergeBranches base sha message = fmap isRight $ githubTry' status409 $ queryGitHub' GHEndpoint
   { method = POST
   , endpoint = "/repos/:owner/:repo/merges"
   , endpointVals = []
