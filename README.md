@@ -19,19 +19,6 @@ The merge bot includes the following features:
 * Run CI for PRs on command for testing, to not waste CI cycles on spurious
   pushes
 
-The merge bot currently makes the following assumptions:
-
-* Try runs should not be attempted on commits that are not HEAD of a PR
-* Additional commits should not be pushed after queueing
-* Base branch should not be pushed to while a merge job is running
-* A given commit is HEAD for at most one PR
-* People can manually create "staging-" branch that will get merged into base
-
-If any of the above assumptions are violated, the merge bot will throw an error
-and be left in a bad state. Each of the assumptions above should either be
-handled as an edge case or fail gracefully without putting the merge bot in a
-bad state.
-
 See the Feature home page [on Notion][feature-home-page] for more details.
 
 [feature-home-page]: https://www.notion.so/leapyear/Merge-Bot-4c28d412fa7b414fb02e5e3264507b44
@@ -84,6 +71,7 @@ provide an access token to use for the duration of a request.
         * Check run
         * Check suite
         * Pull request
+        * Push
         * Status
     1. Save the webhook secret you created and the App ID and Private key that
        GitHub generated for you.

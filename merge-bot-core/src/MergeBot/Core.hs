@@ -23,12 +23,14 @@ module MergeBot.Core
   , startTryJob
   , queuePR
   , dequeuePR
+  , resetMerge
   , handleStatusUpdate
   , pollQueues
   ) where
 
 import Control.Exception (displayException)
 import Control.Monad (forM_, unless, void, when)
+import Control.Monad.Catch (finally)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Loops (whileM_)
 import Data.GraphQL (get)
@@ -108,7 +110,11 @@ queuePR prNum = do
 
 -- | Remove a PR from the queue.
 dequeuePR :: MonadMergeBot m => Int -> m ()
-dequeuePR prNum = do
+dequeuePR = resetMerge
+
+-- | Remove a PR from the queue.
+resetMerge :: MonadMergeBot m => Int -> m ()
+resetMerge prNum = do
   checkRunId <- getCheckRun prNum checkRunMerge
   now <- liftIO getCurrentTime
   updateCheckRun checkRunId $ mergeJobInitData now
@@ -184,7 +190,8 @@ refreshCheckRuns isStart isTry ciBranchName sha = do
   now <- liftIO getCurrentTime
   (repoOwner, repoName) <- getRepo
 
-  let (isComplete, isSuccess) = case ciState of
+  let checkRunState = StatusState.summarize $ map [get| .state |] commitContexts
+      (isComplete, isSuccess) = case checkRunState of
         StatusState.SUCCESS -> (True, True)
         StatusState.ERROR -> (True, False)
         StatusState.FAILURE -> (True, False)
@@ -204,6 +211,7 @@ refreshCheckRuns isStart isTry ciBranchName sha = do
         , let doneActions
                 | isComplete && isTry = [renderAction BotTry]
                 | isComplete && not isSuccess = [renderAction BotQueue]
+                | isComplete && not isTry && isSuccess = [renderAction BotResetMerge]
                 | otherwise = []
           in [ "actions" := doneActions ]
         , let repoUrl = "https://github.com/" <> repoOwner <> "/" <> repoName
@@ -219,33 +227,35 @@ refreshCheckRuns isStart isTry ciBranchName sha = do
                 | not isComplete = [ciInfo, ciStatus]
                 | isTry = [tryJobSummaryDone, ciStatus]
                 | not isSuccess = [mergeJobSummaryFailed, ciStatus]
-                | otherwise = [ciStatus]
+                | otherwise = [mergeJobSummarySuccess, ciStatus]
           in [ "output" := output jobLabel (unlines2 jobSummary) ]
         ]
 
   mapM_ (`updateCheckRun` checkRunData) checkRuns
 
-  -- if successful merge run, merge into base
-  when (isComplete && isSuccess && not isTry) $ do
-    -- get pr information for parent commits
-    prs <- mapM getPRForCommit parentSHAs
+  when isComplete $
+    -- if complete, make sure the CI branch is deleted at the end
+    (`finally` deleteBranch ciBranchName) $
+      -- if successful merge run, merge into base
+      when (isSuccess && not isTry) $ do
+        -- get pr information for parent commits
+        prs <- mapM getPRForCommit parentSHAs
 
-    -- merge into base
-    let invalidStagingBranch = fail $ "Not staging branch: " ++ Text.unpack ciBranchName
-    base <- maybe invalidStagingBranch return $ fromStagingBranch ciBranchName
-    success <- updateBranch False base sha
-    unless success $ fail $ "Could not update '" ++ Text.unpack base ++ "' -- not a fast-forward"
+        -- merge into base
+        let invalidStagingBranch = fail $ "Not staging branch: " ++ Text.unpack ciBranchName
+        base <- maybe invalidStagingBranch return $ fromStagingBranch ciBranchName
+        success <- updateBranch False base sha
+        unless success $
+          -- TODO: better error handling
+          fail $ "Could not update '" ++ Text.unpack base ++ "' -- not a fast-forward"
 
-    -- close PRs and delete branches
-    forM_ prs $ \(prNum, branch) -> do
-      -- wait until PR is marked "merged"
-      whileM_ (not <$> isPRMerged prNum) $ return ()
+        -- close PRs and delete branches
+        forM_ prs $ \(prNum, branch) -> do
+          -- wait until PR is marked "merged"
+          whileM_ (not <$> isPRMerged prNum) $ return ()
 
-      closePR prNum
-      deleteBranch branch
-
-  -- if successful, delete the CI branch
-  when isSuccess $ deleteBranch ciBranchName
+          closePR prNum
+          deleteBranch branch
   where
     checkName = if isTry then checkRunTry else checkRunMerge
     unlines2 = Text.concat . map (<> "\n\n")

@@ -60,7 +60,6 @@ type Schema = [schema|
           },
         },
         status: Maybe {
-          state: StatusState,
           contexts: List {
             context: Text,
             state: StatusState,

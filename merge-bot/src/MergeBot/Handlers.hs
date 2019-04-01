@@ -8,6 +8,7 @@ This module defines handlers for the MergeBot.
 -}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE MultiWayIf #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 
 module MergeBot.Handlers
@@ -15,10 +16,13 @@ module MergeBot.Handlers
   , handleCheckSuite
   , handleCheckRun
   , handleStatus
+  , handlePush
   ) where
 
-import Control.Monad (unless)
+import Control.Monad (unless, when)
 import Data.Aeson.Schema (Object, get)
+import qualified Data.Text as Text
+import GitHub.Data.GitObjectID (unOID')
 import qualified GitHub.Schema.Event.CheckRun as CheckRun
 import qualified GitHub.Schema.Event.CheckSuite as CheckSuite
 import qualified GitHub.Schema.Event.PullRequest as PullRequest
@@ -27,6 +31,7 @@ import Servant.GitHub
 
 import qualified MergeBot.Core as Core
 import MergeBot.Core.Actions (MergeBotAction(..), parseAction)
+import qualified MergeBot.Core.GitHub as Core
 import MergeBot.Core.Text (isStagingBranch, isTryBranch)
 import MergeBot.Monad (runBotApp)
 
@@ -54,15 +59,21 @@ handleCheckSuite o = runBotApp repo $
 handleCheckRun :: Object CheckRunEvent -> Token -> Handler ()
 handleCheckRun o = runBotApp repo $
   case [get| o.action |] of
-    CheckRun.REQUESTED_ACTION ->
+    CheckRun.REQUESTED_ACTION -> do
+      let sha = [get| o.check_run.head_sha |]
+      unless (sha == [get| pr.head.sha |]) $
+        -- TODO: better error handling
+        fail $ "Commit '" ++ unOID' sha ++ "' is not HEAD for PR #" ++ show prNum
+
       case parseAction [get| o.requested_action!.identifier |] of
         Just BotTry ->
           Core.startTryJob
-            [get| pr.number |]
+            prNum
             [get| pr.head.sha |]
             [get| pr.base.ref |]
-        Just BotQueue -> Core.queuePR [get| pr.number |]
-        Just BotDequeue -> Core.dequeuePR [get| pr.number |]
+        Just BotQueue -> Core.queuePR prNum
+        Just BotDequeue -> Core.dequeuePR prNum
+        Just BotResetMerge -> Core.resetMerge prNum
         Nothing -> return ()
     _ -> return ()
   where
@@ -71,6 +82,7 @@ handleCheckRun o = runBotApp repo $
       [] -> error $ "No PRs found in check run: " ++ show o
       [pr'] -> pr'
       _ -> error $ "Multiple PRs found for check run: " ++ show o
+    prNum = [get| pr.number |]
 
 -- | Handle the 'status' GitHub event.
 handleStatus :: Object StatusEvent -> Token -> Handler ()
@@ -85,3 +97,18 @@ handleStatus o = runBotApp repo $
     _ -> return ()
   where
     repo = [get| o.repository! |]
+
+-- | Handle the 'push' GitHub event.
+handlePush :: Object PushEvent -> Token -> Handler ()
+handlePush o = runBotApp repo $
+  when (isCreated && isCIBranch && not isBot) $ do
+    Core.deleteBranch branch
+    fail $ "User tried to manually create CI branch: " ++ show o
+  where
+    repo = [get| o.repository! |]
+    isCreated = [get| o.created |]
+    isCIBranch = isStagingBranch branch || isTryBranch branch
+    isBot = [get| o.sender.type |] == "Bot"
+    branch = case Text.splitOn "/" [get| o.ref |] of
+      [] -> error $ "Bad ref: " ++ Text.unpack [get| o.ref |]
+      l -> last l

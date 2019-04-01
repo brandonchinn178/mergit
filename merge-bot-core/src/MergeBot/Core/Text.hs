@@ -86,6 +86,13 @@ mergeJobSummaryFailed = Text.unwords
   , "failures are unrelated to your PR. (Do **NOT** click any of the \"Re-run\" links)"
   ]
 
+-- | The summary text to display when the merge check run is successful.
+mergeJobSummarySuccess :: Text
+mergeJobSummarySuccess = Text.unwords
+  [ "Merge run successful. If something went wrong and you need to reset this check run, click"
+  , "\"Reset\" above."
+  ]
+
 mergeJobInitData :: UTCTime -> [KeyValue]
 mergeJobInitData now =
   [ "status"       := "completed"

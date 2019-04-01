@@ -21,7 +21,6 @@ query CICommit(
           }
         }
         status {
-          state
           contexts {
             context
             state
