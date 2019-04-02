@@ -12,6 +12,7 @@ dependencies:
 - github-schemas
 - http-types
 - merge-bot-core
+- monad-logger
 - servant-github-app
 - servant-server
 - text
