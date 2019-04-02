@@ -28,9 +28,8 @@ module MergeBot.Core
   , pollQueues
   ) where
 
-import Control.Exception (displayException)
 import Control.Monad (forM_, unless, void, when)
-import Control.Monad.Catch (finally)
+import Control.Monad.Catch (MonadThrow, finally)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Loops (whileM_)
 import Data.GraphQL (get)
@@ -48,6 +47,7 @@ import GitHub.REST (KeyValue(..))
 
 import MergeBot.Core.Actions
 import MergeBot.Core.Config
+import MergeBot.Core.Error
 import MergeBot.Core.GitHub
 import MergeBot.Core.Monad
 import MergeBot.Core.Text
@@ -97,8 +97,7 @@ queuePR prNum = do
   reviews <- getPRReviews prNum
 
   unless (PullRequestReviewState.APPROVED `elem` reviews) $
-    -- TODO: better error handling
-    fail "PR is not approved"
+    throwM $ UnapprovedPR prNum
 
   checkRunId <- getCheckRun prNum checkRunMerge
   -- TOOD: batching info
@@ -150,9 +149,9 @@ createCIBranch :: MonadMergeBot m => Text -> [GitObjectID] -> Text -> Text -> m 
 createCIBranch base prSHAs ciBranch message = do
   deleteBranch ciBranch
   deleteBranch tempBranch
+  prNums <- mapM (fmap fst . getPRForCommit) prSHAs
 
-  baseSHA <- getBranchSHA base >>=
-    maybe (fail $ "Base branch does not exist: " ++ Text.unpack base) return
+  baseSHA <- maybe (throwM $ MissingBaseBranch prNums base) return =<< getBranchSHA base
 
   -- create temp branch off base
   createBranch tempBranch baseSHA
@@ -160,14 +159,13 @@ createCIBranch base prSHAs ciBranch message = do
   -- merge prs into temp branch
   forM_ prSHAs $ \prSHA -> do
     success <- mergeBranches tempBranch prSHA "[ci skip] merge into temp"
-    unless success $
-      fail "Merge conflict" -- TODO: better error throwing
+    unless success $ throwM $ MergeConflict prNums
 
   -- get tree for temp branch
   tree <- getBranchTree tempBranch
 
   -- check missing/invalid .lymerge.yaml file
-  void $ extractConfig tree
+  void $ extractConfig prNums tree
 
   -- create a new commit that merges all the PRs at once
   mergeSHA <- createCommit message [get| tree.oid |] (baseSHA : prSHAs)
@@ -185,7 +183,9 @@ refreshCheckRuns :: MonadMergeBot m => Bool -> Bool -> Text -> GitObjectID -> m 
 refreshCheckRuns isStart isTry ciBranchName sha = do
   CICommit{..} <- getCICommit sha checkName
   let (parentSHAs, checkRuns) = unzip parents
-  config <- extractConfig commitTree
+
+  -- since we check the config in 'createCIBranch', we know that 'extractConfig' here will not fail
+  config <- maybe (fail "extractConfig failed in refreshCheckRuns") return $ extractConfig [] commitTree
 
   now <- liftIO getCurrentTime
   (repoOwner, repoName) <- getRepo
@@ -240,14 +240,13 @@ refreshCheckRuns isStart isTry ciBranchName sha = do
       when (isSuccess && not isTry) $ do
         -- get pr information for parent commits
         prs <- mapM getPRForCommit parentSHAs
+        let prNums = map fst prs
 
         -- merge into base
-        let invalidStagingBranch = fail $ "Not staging branch: " ++ Text.unpack ciBranchName
+        let invalidStagingBranch = throwM $ InvalidStaging prNums ciBranchName
         base <- maybe invalidStagingBranch return $ fromStagingBranch ciBranchName
         success <- updateBranch False base sha
-        unless success $
-          -- TODO: better error handling
-          fail $ "Could not update '" ++ Text.unpack base ++ "' -- not a fast-forward"
+        unless success $ throwM $ NotFastForward prNums base
 
         -- close PRs and delete branches
         forM_ prs $ \(prNum, branch) -> do
@@ -292,14 +291,13 @@ displayCIStatus BotConfig{requiredStatuses} contexts =
       in link <> " | " <> emoji
 
 -- | Get the configuration file for the given tree.
-extractConfig :: Monad m => Tree -> m BotConfig
-extractConfig tree =
+extractConfig :: MonadThrow m => [Int] -> Tree -> m BotConfig
+extractConfig prs tree =
   case filter isConfigFile [get| tree.entries![] |] of
-    [] -> fail $ "Missing '" ++  configFile ++ "' file"
+    [] -> throwM $ ConfigFileMissing prs
     [entry] -> case decodeThrow $ Text.encodeUtf8 [get| entry.object!.text! |] of
-      Left e -> fail $ "Invalid '" ++ configFile ++ "' file: " ++ displayException e
+      Left e -> throwM $ ConfigFileInvalid prs e
       Right c -> return c
-    _ -> fail $ "Multiple '" ++ configFile ++ "' files found?"
+    _ -> fail $ "Multiple '" ++ Text.unpack configFileName ++ "' files found?"
   where
     isConfigFile = (== configFileName) . [get| .name |]
-    configFile = Text.unpack configFileName

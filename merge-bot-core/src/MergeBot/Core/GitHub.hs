@@ -43,7 +43,7 @@ module MergeBot.Core.GitHub
   , closePR
   ) where
 
-import Control.Monad (void)
+import Control.Monad (forM, void)
 import Data.Either (isRight)
 import Data.GraphQL (get, mkGetter, runQuery, unwrap)
 import Data.HashMap.Strict (HashMap)
@@ -51,7 +51,7 @@ import qualified Data.HashMap.Strict as HashMap
 import Data.Maybe (fromMaybe, mapMaybe)
 import Data.Text (Text)
 import qualified Data.Text as Text
-import GitHub.Data.GitObjectID (GitObjectID, unOID')
+import GitHub.Data.GitObjectID (GitObjectID)
 import GitHub.Data.PullRequestReviewState (PullRequestReviewState(..))
 import GitHub.REST
     ( GHEndpoint(..)
@@ -64,6 +64,7 @@ import GitHub.REST
     )
 import Network.HTTP.Types (status409)
 
+import MergeBot.Core.Error (BotError(..), throwM)
 import qualified MergeBot.Core.GraphQL.BranchSHA as BranchSHA
 import qualified MergeBot.Core.GraphQL.BranchTree as BranchTree
 import qualified MergeBot.Core.GraphQL.CICommit as CICommit
@@ -130,25 +131,24 @@ getCICommit sha checkName = do
       }
     let payload = [get| result.repository!.object! |]
         info = [get| payload.parents!.pageInfo |]
-        parents = [get| payload.parents!.nodes![]! |]
-        getParent parent =
-          let getCheckRuns = [get| .checkSuites!.nodes![]!.checkRuns!.nodes![]!.databaseId |]
-          in case concat $ getCheckRuns parent of
-            [checkRun] -> ([get| parent.oid |], checkRun)
-            _ -> error $ concat
-              [ "CI Commit '"
-              , unOID' sha
-              , "' contains a parent that does not have exactly one check run named '"
-              , Text.unpack checkName
-              , "': "
-              , show parent
-              ]
+        -- ignore base branch, which is always first
+        parents = tail [get| payload.parents!.nodes![]! |]
+
+    chunk <- forM (tail parents) $ \parent -> do
+      let getCheckRuns = [get| .checkSuites!.nodes![]!.checkRuns!.nodes![]!.databaseId |]
+          parentSHA = [get| parent.oid |]
+      case concat $ getCheckRuns parent of
+        [] -> throwM $ MissingCheckRun parentSHA checkName
+        [checkRun] -> return (parentSHA, checkRun)
+        _ -> fail $ "Commit has multiple check runs named '" ++ Text.unpack checkName ++ "': " ++ show parent
+
     return PaginatedResult
       { payload
-      , chunk = map getParent $ tail parents -- base branch is always first
+      , chunk
       , hasNext = [get| info.hasNextPage |]
       , nextCursor = [get| info.endCursor |]
       }
+
   return CICommit
     { commitTree = [get| result.tree! |]
     , commitContexts = fromMaybe [] [get| result.status?.contexts |]
@@ -173,7 +173,7 @@ getCheckRun prNum checkName = do
     _ -> fail $ "PRCheckRun query returned more than one 'last' commit: " ++ show result
   case [get| commit.checkSuites!.nodes![]!.checkRuns!.nodes![]!.databaseId |] of
     [[checkRunId]] -> return checkRunId
-    _ -> fail $ "No check run found for PR #" ++ show prNum ++ ": " ++ show result
+    _ -> throwM $ MissingCheckRunPR prNum checkName
 
 -- | Get the PR number and branch name for the given commit.
 getPRForCommit :: MonadMergeBot m => GitObjectID -> m (Int, Text)
@@ -195,9 +195,9 @@ getPRForCommit sha = do
       , nextCursor = [get| info.endCursor |]
       }
   case filter ((== sha) . [get| .headRefOid |]) result of
-    [] -> fail $ "Commit does not have associated PR: " ++ unOID' sha
+    [] -> throwM $ CommitLacksPR sha
     [pr] -> return [get| pr.(number, headRef!.name) |]
-    _ -> fail $ "Commit found as HEAD for multiple PRs: " ++ unOID' sha
+    prs -> throwM $ CommitForManyPRs sha $ map [get| .number |] prs
 
 -- | Return the reviews for the given PR as a map from reviewer to review state.
 getPRReviews :: MonadMergeBot m => Int -> m (HashMap Text PullRequestReviewState)
