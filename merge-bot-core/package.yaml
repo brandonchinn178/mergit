@@ -9,12 +9,16 @@ dependencies:
 - aeson-schemas
 - base
 - bytestring
+- directory
 - exceptions
+- fast-logger
+- filepath
 - github-rest
 - github-schemas
 - graphql-client
 - http-client
 - http-types
+- monad-logger
 - monad-loops
 - text
 - time
