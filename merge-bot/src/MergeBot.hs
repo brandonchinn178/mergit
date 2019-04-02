@@ -54,7 +54,6 @@ pollQueues :: IO ()
 pollQueues = do
   withAsync (runBotAppForAllInstalls Core.pollQueues) $ waitCatch >=> \case
     Right _ -> return ()
-    -- TODO: better logging
     Left e -> putStrLn $ displayException e
 
   -- wait 10 minutes

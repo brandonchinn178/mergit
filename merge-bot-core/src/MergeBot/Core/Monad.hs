@@ -27,8 +27,10 @@ module MergeBot.Core.Monad
   , parseRepo
   ) where
 
-import Control.Monad.Catch (MonadCatch, MonadMask, MonadThrow)
+import Control.Exception (displayException)
+import Control.Monad.Catch (MonadCatch, MonadMask, MonadThrow, catch)
 import Control.Monad.IO.Class (MonadIO)
+import Control.Monad.Logger (LoggingT, MonadLogger)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Reader (ReaderT, asks, runReaderT)
 import Data.Aeson (Value)
@@ -54,7 +56,9 @@ import GitHub.REST.Auth (Token, fromToken)
 import Network.HTTP.Client (Request(..))
 import Network.HTTP.Types (hAccept, hAuthorization, hUserAgent)
 
+import MergeBot.Core.Error (getRelevantPRs)
 import MergeBot.Core.GraphQL.API (API)
+import MergeBot.Core.Logging (runMergeBotLogging)
 
 -- | The monadic state in BotAppT.
 data BotState = BotState
@@ -65,21 +69,23 @@ data BotState = BotState
 
 newtype BotAppT m a = BotAppT
   { unBotApp ::
-      ReaderT BotState
-        ( GitHubT
-          ( QueryT API
-              m
+      LoggingT
+        ( ReaderT BotState
+          ( GitHubT
+            ( QueryT API
+                m
+            )
           )
         )
         a
   }
-  deriving (Functor,Applicative,Monad,MonadCatch,MonadIO,MonadMask,MonadThrow)
+  deriving (Functor,Applicative,Monad,MonadCatch,MonadIO,MonadLogger,MonadMask,MonadThrow)
 
 instance MonadIO m => MonadGitHubREST (BotAppT m) where
-  queryGitHub = BotAppT . lift . queryGitHub
+  queryGitHub = BotAppT . lift . lift . queryGitHub
 
 instance MonadIO m => MonadQuery API (BotAppT m) where
-  runQuerySafe query = BotAppT . lift . lift . runQuerySafe query
+  runQuerySafe query = BotAppT . lift . lift . lift . runQuerySafe query
 
 class (MonadMask m, MonadGitHubREST m, MonadQuery API m) => MonadMergeBot m where
   getRepo :: m (Text, Text)
@@ -87,7 +93,7 @@ class (MonadMask m, MonadGitHubREST m, MonadQuery API m) => MonadMergeBot m wher
 
 -- | 'asks' specialized to 'BotAppT'.
 botAsks :: Monad m => (BotState -> a) -> BotAppT m a
-botAsks = BotAppT . asks
+botAsks = BotAppT . lift . asks
 
 instance (MonadMask m, MonadIO m) => MonadMergeBot (BotAppT m) where
   getRepo = (,) <$> botAsks repoOwner <*> botAsks repoName
@@ -101,11 +107,12 @@ data BotSettings = BotSettings
   , appId     :: Int
   } deriving (Show)
 
-runBotAppT :: MonadIO m => BotSettings -> BotAppT m a -> m a
+runBotAppT :: (MonadCatch m, MonadIO m) => BotSettings -> BotAppT m a -> m a
 runBotAppT BotSettings{..} =
   runQueryT graphqlSettings
   . runGitHubT state
   . (`runReaderT` botState)
+  . runLoggingT
   . unBotApp
   where
     state = GitHubState { token, userAgent, apiVersion = "antiope-preview" }
@@ -119,6 +126,10 @@ runBotAppT BotSettings{..} =
             : requestHeaders req
         }
       }
+    runLoggingT action = runMergeBotLogging $ action `catch` \e -> do
+      -- TODO: post comment to PRs with error message
+      mapM_ undefined $ getRelevantPRs e
+      fail $ "[MergeBot Error] " ++ displayException e
 
 queryGitHub' :: MonadMergeBot m => GHEndpoint -> m Value
 queryGitHub' endpoint = do

@@ -11,6 +11,7 @@ This module defines the errors thrown by the MergeBot.
 
 module MergeBot.Core.Error
   ( BotError(..)
+  , getRelevantPRs
   , throwM
   ) where
 
@@ -63,3 +64,21 @@ instance Show BotError where
     UnapprovedPR prNum -> "PR #" <> show prNum <> " is not approved"
     where
       fromPRs = unwords . map (('#':) . show)
+
+-- | Get the PRs relevant to the given BotError.
+getRelevantPRs :: BotError -> [PullRequestId]
+getRelevantPRs = \case
+  CIBranchPushed _ -> []
+  CommitForManyPRs _ prs -> prs
+  CommitLacksPR _ -> []
+  CommitNotPRHead pr _ -> [pr]
+  ConfigFileMissing prs -> prs
+  ConfigFileInvalid prs _ -> prs
+  InvalidStaging prs _ -> prs
+  MergeConflict prs -> prs
+  MissingBaseBranch prs _ -> prs
+  MissingCheckRun _ _ -> []
+  MissingCheckRunPR pr _ -> [pr]
+  NotFastForward prs _ -> prs
+  NotOnePRInCheckRun _ -> []
+  UnapprovedPR pr -> [pr]
