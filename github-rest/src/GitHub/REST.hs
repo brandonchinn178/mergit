@@ -62,6 +62,7 @@ module GitHub.REST
   , KeyValue(..)
   -- * Helpers
   , githubTry
+  , githubTry'
   , (.:)
   -- * Re-exports
   , StdMethod(..)
@@ -74,7 +75,7 @@ import qualified Data.ByteString.Lazy as ByteStringL
 import Data.Text (Text)
 import Network.HTTP.Client
     (HttpException(..), HttpExceptionContent(..), Response(..))
-import Network.HTTP.Types (StdMethod(..), status422)
+import Network.HTTP.Types (Status, StdMethod(..), status422)
 
 import GitHub.REST.Auth
 import GitHub.REST.Endpoint
@@ -83,15 +84,21 @@ import GitHub.REST.Monad
 
 {- HTTP exception handling -}
 
--- | Handle any exceptions thrown by the GitHub REST API.
+-- | Handle 422 exceptions thrown by the GitHub REST API.
 --
--- Assuming that all client errors will be error 422, since we should always be sending valid JSON.
+-- Most client errors are 422, since we should always be sending valid JSON. If an endpoint
+-- throws different error codes, use githubTry'.
+--
 -- https://developer.github.com/v3/#client-errors
 githubTry :: MonadCatch m => m a -> m (Either Value a)
-githubTry = handleJust statusException (return . Left) . fmap Right
+githubTry = githubTry' status422
+
+-- | Handle the given exception thrown by the GitHub REST API.
+githubTry' :: MonadCatch m => Status -> m a -> m (Either Value a)
+githubTry' status = handleJust statusException (return . Left) . fmap Right
   where
     statusException (HttpExceptionRequest _ (StatusCodeException r body))
-      | responseStatus r == status422 = decode $ ByteStringL.fromStrict body
+      | responseStatus r == status = decode $ ByteStringL.fromStrict body
     statusException _ = Nothing
 
 {- Aeson helpers -}

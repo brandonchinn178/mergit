@@ -7,6 +7,7 @@ Portability :  portable
 This module defines the entrypoint for the MergeBot GitHub application.
 -}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NumDecimals #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
@@ -14,8 +15,10 @@ This module defines the entrypoint for the MergeBot GitHub application.
 
 module MergeBot (runMergeBot) where
 
-import Control.Concurrent (forkFinally, myThreadId, threadDelay, throwTo)
-import Control.Monad (forever, void)
+import Control.Concurrent (threadDelay)
+import Control.Concurrent.Async (concurrently_, waitCatch, withAsync)
+import Control.Exception (displayException)
+import Control.Monad (forever, (>=>))
 import Data.Proxy (Proxy(..))
 import Network.Wai.Handler.Warp (run)
 import Servant
@@ -48,14 +51,13 @@ initApp = do
   return $ serveWithContext (Proxy @MergeBotApp) (params :. EmptyContext) server
 
 pollQueues :: IO ()
-pollQueues = forever $ do
-  void $ runBotAppForAllInstalls Core.pollQueues
-  threadDelay tenMinutes
-  where
-    tenMinutes = 10 * 60e6
+pollQueues = do
+  withAsync (runBotAppForAllInstalls Core.pollQueues) $ waitCatch >=> \case
+    Right _ -> return ()
+    Left e -> putStrLn $ displayException e
+
+  -- wait 10 minutes
+  threadDelay $ 10 * 60e6
 
 runMergeBot :: IO ()
-runMergeBot = do
-  threadId <- myThreadId
-  void $ pollQueues `forkFinally` either (throwTo threadId) return
-  run 3000 =<< initApp
+runMergeBot = concurrently_ (forever pollQueues) (run 3000 =<< initApp)
