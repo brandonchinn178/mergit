@@ -28,9 +28,10 @@ module MergeBot.Core.Monad
   ) where
 
 import Control.Exception (displayException)
-import Control.Monad.Catch (MonadCatch, MonadMask, MonadThrow, catch)
+import Control.Monad (void)
+import Control.Monad.Catch (MonadCatch, MonadMask, MonadThrow, handle)
 import Control.Monad.IO.Class (MonadIO)
-import Control.Monad.Logger (LoggingT, MonadLogger)
+import Control.Monad.Logger (LoggingT, MonadLogger, logErrorN)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Reader (ReaderT, asks, runReaderT)
 import Data.Aeson (Value)
@@ -45,7 +46,7 @@ import Data.GraphQL
 import Data.Text (Text)
 import qualified Data.Text as Text
 import GitHub.REST
-    ( GHEndpoint(endpointVals)
+    ( GHEndpoint(..)
     , GitHubState(..)
     , GitHubT
     , KeyValue(..)
@@ -54,7 +55,7 @@ import GitHub.REST
     )
 import GitHub.REST.Auth (Token, fromToken)
 import Network.HTTP.Client (Request(..))
-import Network.HTTP.Types (hAccept, hAuthorization, hUserAgent)
+import Network.HTTP.Types (StdMethod(..), hAccept, hAuthorization, hUserAgent)
 
 import MergeBot.Core.Error (getRelevantPRs)
 import MergeBot.Core.GraphQL.API (API)
@@ -107,13 +108,14 @@ data BotSettings = BotSettings
   , appId     :: Int
   } deriving (Show)
 
-runBotAppT :: (MonadCatch m, MonadIO m) => BotSettings -> BotAppT m a -> m a
+runBotAppT :: (MonadMask m, MonadIO m) => BotSettings -> BotAppT m a -> m a
 runBotAppT BotSettings{..} =
   runQueryT graphqlSettings
   . runGitHubT state
   . (`runReaderT` botState)
-  . runLoggingT
+  . runMergeBotLogging
   . unBotApp
+  . handle handleBotErr
   where
     state = GitHubState { token, userAgent, apiVersion = "antiope-preview" }
     botState = BotState{..}
@@ -126,10 +128,11 @@ runBotAppT BotSettings{..} =
             : requestHeaders req
         }
       }
-    runLoggingT action = runMergeBotLogging $ action `catch` \e -> do
-      -- TODO: post comment to PRs with error message
-      mapM_ undefined $ getRelevantPRs e
-      fail $ "[MergeBot Error] " ++ displayException e
+    handleBotErr e = do
+      let msg = displayException e
+      mapM_ (`commentOnPR` msg) $ getRelevantPRs e
+      logErrorN $ Text.pack msg
+      fail $ "[MergeBot Error] " ++ msg
 
 queryGitHub' :: MonadMergeBot m => GHEndpoint -> m Value
 queryGitHub' endpoint = do
@@ -153,3 +156,14 @@ parseRepo :: Text -> (Text, Text)
 parseRepo repo = case Text.splitOn "/" repo of
   [repoOwner, repoName] -> (repoOwner, repoName)
   _ -> error $ "Invalid repo: " ++ Text.unpack repo
+
+-- | Add a comment to the given PR.
+--
+-- https://developer.github.com/v3/issues/comments/#create-a-comment
+commentOnPR :: MonadMergeBot m => Int -> String -> m ()
+commentOnPR prNum comment = void $ queryGitHub' GHEndpoint
+  { method = POST
+  , endpoint = "/repos/:owner/:repo/issues/:number/comments"
+  , endpointVals = [ "number" := prNum ]
+  , ghData = [ "body" := comment ]
+  }
