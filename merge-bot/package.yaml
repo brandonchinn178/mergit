@@ -6,7 +6,6 @@ version: 0.1.0
 
 dependencies:
 - aeson-schemas
-- async
 - base
 - github-rest
 - github-schemas

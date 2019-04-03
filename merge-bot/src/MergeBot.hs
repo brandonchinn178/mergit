@@ -16,13 +16,13 @@ This module defines the entrypoint for the MergeBot GitHub application.
 module MergeBot (runMergeBot) where
 
 import Control.Concurrent (threadDelay)
-import Control.Concurrent.Async (concurrently_, waitCatch, withAsync)
 import Control.Exception (displayException)
 import Control.Monad (forever, (>=>))
 import Data.Proxy (Proxy(..))
 import Network.Wai.Handler.Warp (run)
 import Servant
 import Servant.GitHub
+import UnliftIO.Async (concurrently_, waitCatch, withAsync)
 
 import qualified MergeBot.Core as Core
 import MergeBot.Handlers
