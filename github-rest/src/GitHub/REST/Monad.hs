@@ -19,8 +19,8 @@ module GitHub.REST.Monad
   , runGitHubT
   ) where
 
-import Control.Monad.Catch (MonadCatch, MonadMask, MonadThrow)
 import Control.Monad.IO.Class (MonadIO(..))
+import Control.Monad.IO.Unlift (MonadUnliftIO(..), UnliftIO(..), withUnliftIO)
 import Control.Monad.Reader (ReaderT, ask, runReaderT)
 import Control.Monad.Trans (MonadTrans)
 import Data.Aeson (eitherDecode, encode, object)
@@ -61,12 +61,14 @@ newtype GitHubT m a = GitHubT
     ( Functor
     , Applicative
     , Monad
-    , MonadCatch
     , MonadIO
-    , MonadMask
-    , MonadThrow
     , MonadTrans
     )
+
+instance MonadUnliftIO m => MonadUnliftIO (GitHubT m) where
+  askUnliftIO = GitHubT $
+    withUnliftIO $ \u ->
+      return $ UnliftIO (unliftIO u . unGitHubT)
 
 instance MonadIO m => MonadGitHubREST (GitHubT m) where
   queryGitHub ghEndpoint = do

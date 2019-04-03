@@ -68,7 +68,7 @@ module GitHub.REST
   , StdMethod(..)
   ) where
 
-import Control.Monad.Catch (MonadCatch, handleJust)
+import Control.Monad.IO.Unlift (MonadUnliftIO)
 import Data.Aeson (FromJSON, Value(..), decode, withObject)
 import Data.Aeson.Types (parseEither, parseField)
 import qualified Data.ByteString.Lazy as ByteStringL
@@ -76,6 +76,7 @@ import Data.Text (Text)
 import Network.HTTP.Client
     (HttpException(..), HttpExceptionContent(..), Response(..))
 import Network.HTTP.Types (Status, StdMethod(..), status422)
+import UnliftIO.Exception (handleJust)
 
 import GitHub.REST.Auth
 import GitHub.REST.Endpoint
@@ -90,11 +91,11 @@ import GitHub.REST.Monad
 -- throws different error codes, use githubTry'.
 --
 -- https://developer.github.com/v3/#client-errors
-githubTry :: MonadCatch m => m a -> m (Either Value a)
+githubTry :: MonadUnliftIO m => m a -> m (Either Value a)
 githubTry = githubTry' status422
 
 -- | Handle the given exception thrown by the GitHub REST API.
-githubTry' :: MonadCatch m => Status -> m a -> m (Either Value a)
+githubTry' :: MonadUnliftIO m => Status -> m a -> m (Either Value a)
 githubTry' status = handleJust statusException (return . Left) . fmap Right
   where
     statusException (HttpExceptionRequest _ (StatusCodeException r body))
