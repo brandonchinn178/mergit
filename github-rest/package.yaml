@@ -16,6 +16,7 @@ dependencies:
 - scientific
 - text
 - time
+- transformers
 - unliftio
 - unliftio-core
 
