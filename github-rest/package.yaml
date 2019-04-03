@@ -8,7 +8,6 @@ dependencies:
 - aeson
 - base
 - bytestring
-- exceptions
 - http-client
 - http-client-tls
 - http-types
@@ -17,6 +16,8 @@ dependencies:
 - scientific
 - text
 - time
+- unliftio
+- unliftio-core
 
 library:
   source-dirs: src

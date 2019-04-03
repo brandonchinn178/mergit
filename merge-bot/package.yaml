@@ -16,6 +16,7 @@ dependencies:
 - servant-github-app
 - servant-server
 - text
+- unliftio
 - warp
 
 library:

@@ -29,9 +29,9 @@ module MergeBot.Core
   ) where
 
 import Control.Monad (forM_, unless, void, when)
-import Control.Monad.Catch (MonadThrow, finally)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Loops (whileM_)
+import Data.Bifunctor (first)
 import Data.GraphQL (get)
 import qualified Data.HashMap.Strict as HashMap
 import Data.Maybe (isNothing)
@@ -44,6 +44,7 @@ import GitHub.Data.GitObjectID (GitObjectID)
 import qualified GitHub.Data.PullRequestReviewState as PullRequestReviewState
 import qualified GitHub.Data.StatusState as StatusState
 import GitHub.REST (KeyValue(..))
+import UnliftIO.Exception (finally, fromEither, throwIO)
 
 import MergeBot.Core.Actions
 import MergeBot.Core.Config
@@ -97,7 +98,7 @@ queuePR prNum = do
   reviews <- getPRReviews prNum
 
   unless (PullRequestReviewState.APPROVED `elem` reviews) $
-    throwM $ UnapprovedPR prNum
+    throwIO $ UnapprovedPR prNum
 
   checkRunId <- getCheckRun prNum checkRunMerge
   -- TOOD: batching info
@@ -151,7 +152,7 @@ createCIBranch base prSHAs ciBranch message = do
   deleteBranch tempBranch
   prNums <- mapM (fmap fst . getPRForCommit) prSHAs
 
-  baseSHA <- maybe (throwM $ MissingBaseBranch prNums base) return =<< getBranchSHA base
+  baseSHA <- maybe (throwIO $ MissingBaseBranch prNums base) return =<< getBranchSHA base
 
   -- create temp branch off base
   createBranch tempBranch baseSHA
@@ -159,13 +160,13 @@ createCIBranch base prSHAs ciBranch message = do
   -- merge prs into temp branch
   forM_ prSHAs $ \prSHA -> do
     success <- mergeBranches tempBranch prSHA "[ci skip] merge into temp"
-    unless success $ throwM $ MergeConflict prNums
+    unless success $ throwIO $ MergeConflict prNums
 
   -- get tree for temp branch
   tree <- getBranchTree tempBranch
 
   -- check missing/invalid .lymerge.yaml file
-  void $ extractConfig prNums tree
+  void $ fromEither $ extractConfig prNums tree
 
   -- create a new commit that merges all the PRs at once
   mergeSHA <- createCommit message [get| tree.oid |] (baseSHA : prSHAs)
@@ -185,7 +186,9 @@ refreshCheckRuns isStart isTry ciBranchName sha = do
   let (parentSHAs, checkRuns) = unzip parents
 
   -- since we check the config in 'createCIBranch', we know that 'extractConfig' here will not fail
-  config <- maybe (fail "extractConfig failed in refreshCheckRuns") return $ extractConfig [] commitTree
+  config <-
+    either (error "extractConfig failed in refreshCheckRuns") return $
+      extractConfig [] commitTree
 
   now <- liftIO getCurrentTime
   (repoOwner, repoName) <- getRepo
@@ -243,10 +246,10 @@ refreshCheckRuns isStart isTry ciBranchName sha = do
         let prNums = map fst prs
 
         -- merge into base
-        let invalidStagingBranch = throwM $ InvalidStaging prNums ciBranchName
+        let invalidStagingBranch = throwIO $ InvalidStaging prNums ciBranchName
         base <- maybe invalidStagingBranch return $ fromStagingBranch ciBranchName
         success <- updateBranch False base sha
-        unless success $ throwM $ NotFastForward prNums base
+        unless success $ throwIO $ NotFastForward prNums base
 
         -- close PRs and delete branches
         forM_ prs $ \(prNum, branch) -> do
@@ -291,13 +294,13 @@ displayCIStatus BotConfig{requiredStatuses} contexts =
       in link <> " | " <> emoji
 
 -- | Get the configuration file for the given tree.
-extractConfig :: MonadThrow m => [Int] -> Tree -> m BotConfig
+extractConfig :: [Int] -> Tree -> Either BotError BotConfig
 extractConfig prs tree =
   case filter isConfigFile [get| tree.entries![] |] of
-    [] -> throwM $ ConfigFileMissing prs
-    [entry] -> case decodeThrow $ Text.encodeUtf8 [get| entry.object!.text! |] of
-      Left e -> throwM $ ConfigFileInvalid prs e
-      Right c -> return c
-    _ -> fail $ "Multiple '" ++ Text.unpack configFileName ++ "' files found?"
+    [] -> Left $ ConfigFileMissing prs
+    [entry] ->
+      let configText = Text.encodeUtf8 [get| entry.object!.text! |]
+      in first (ConfigFileInvalid prs) . decodeThrow $ configText
+    _ -> error $ "Multiple '" ++ Text.unpack configFileName ++ "' files found?"
   where
     isConfigFile = (== configFileName) . [get| .name |]

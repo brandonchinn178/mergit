@@ -29,10 +29,11 @@ import qualified GitHub.Schema.Event.CheckSuite as CheckSuite
 import qualified GitHub.Schema.Event.PullRequest as PullRequest
 import Servant (Handler)
 import Servant.GitHub
+import UnliftIO.Exception (throwIO)
 
 import qualified MergeBot.Core as Core
 import MergeBot.Core.Actions (MergeBotAction(..), parseAction)
-import MergeBot.Core.Error (BotError(..), throwM)
+import MergeBot.Core.Error (BotError(..))
 import qualified MergeBot.Core.GitHub as Core
 import MergeBot.Core.Text (isStagingBranch, isTryBranch)
 import MergeBot.Monad (runBotApp)
@@ -67,7 +68,7 @@ handleCheckRun o = runBotApp repo $
     CheckRun.REQUESTED_ACTION -> do
       pr <- case [get| o.check_run.pull_requests[] |] of
         [pr'] -> return pr'
-        _ -> throwM $ NotOnePRInCheckRun o
+        _ -> throwIO $ NotOnePRInCheckRun o
 
       let prNum = [get| pr.number |]
           prNum' = Text.pack $ show prNum
@@ -76,7 +77,7 @@ handleCheckRun o = runBotApp repo $
 
       unless (sha == [get| pr.head.sha |]) $ do
         logInfoN $ "Received action `" <> action <> "` for commit `" <> unOID sha <> "` on PR #" <> prNum'
-        throwM $ CommitNotPRHead prNum sha
+        throwIO $ CommitNotPRHead prNum sha
 
       case parseAction action of
         Just BotTry -> do
@@ -115,7 +116,7 @@ handlePush :: Object PushEvent -> Token -> Handler ()
 handlePush o = runBotApp repo $
   when (isCreated && isCIBranch && not isBot) $ do
     Core.deleteBranch branch
-    throwM $ CIBranchPushed o
+    throwIO $ CIBranchPushed o
   where
     repo = [get| o.repository! |]
     isCreated = [get| o.created |]

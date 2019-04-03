@@ -12,11 +12,9 @@ This module defines the errors thrown by the MergeBot.
 module MergeBot.Core.Error
   ( BotError(..)
   , getRelevantPRs
-  , throwM
   ) where
 
 import Control.Exception (Exception, SomeException, displayException)
-import Control.Monad.Catch (throwM)
 import Data.Aeson.Schema (Object)
 import Data.Text (Text)
 import qualified Data.Text as Text

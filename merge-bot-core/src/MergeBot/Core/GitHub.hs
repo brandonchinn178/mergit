@@ -63,8 +63,9 @@ import GitHub.REST
     , (.:)
     )
 import Network.HTTP.Types (status409)
+import UnliftIO.Exception (throwIO)
 
-import MergeBot.Core.Error (BotError(..), throwM)
+import MergeBot.Core.Error (BotError(..))
 import qualified MergeBot.Core.GraphQL.BranchSHA as BranchSHA
 import qualified MergeBot.Core.GraphQL.BranchTree as BranchTree
 import qualified MergeBot.Core.GraphQL.CICommit as CICommit
@@ -138,9 +139,9 @@ getCICommit sha checkName = do
       let getCheckRuns = [get| .checkSuites!.nodes![]!.checkRuns!.nodes![]!.databaseId |]
           parentSHA = [get| parent.oid |]
       case concat $ getCheckRuns parent of
-        [] -> throwM $ MissingCheckRun parentSHA checkName
+        [] -> throwIO $ MissingCheckRun parentSHA checkName
         [checkRun] -> return (parentSHA, checkRun)
-        _ -> fail $ "Commit has multiple check runs named '" ++ Text.unpack checkName ++ "': " ++ show parent
+        _ -> error $ "Commit has multiple check runs named '" ++ Text.unpack checkName ++ "': " ++ show parent
 
     return PaginatedResult
       { payload
@@ -168,12 +169,12 @@ getCheckRun prNum checkName = do
     , _checkName = Text.unpack checkName
     }
   commit <- case [get| result.repository!.pullRequest!.commits.nodes![]!.commit |] of
-    [] -> fail $ "PR #" ++ show prNum ++ " has no commits: " ++ show result
+    [] -> error $ "PR #" ++ show prNum ++ " has no commits: " ++ show result
     [c] -> return c
-    _ -> fail $ "PRCheckRun query returned more than one 'last' commit: " ++ show result
+    _ -> error $ "PRCheckRun query returned more than one 'last' commit: " ++ show result
   case [get| commit.checkSuites!.nodes![]!.checkRuns!.nodes![]!.databaseId |] of
     [[checkRunId]] -> return checkRunId
-    _ -> throwM $ MissingCheckRunPR prNum checkName
+    _ -> throwIO $ MissingCheckRunPR prNum checkName
 
 -- | Get the PR number and branch name for the given commit.
 getPRForCommit :: MonadMergeBot m => GitObjectID -> m (Int, Text)
@@ -195,9 +196,9 @@ getPRForCommit sha = do
       , nextCursor = [get| info.endCursor |]
       }
   case filter ((== sha) . [get| .headRefOid |]) result of
-    [] -> throwM $ CommitLacksPR sha
+    [] -> throwIO $ CommitLacksPR sha
     [pr] -> return [get| pr.(number, headRef!.name) |]
-    prs -> throwM $ CommitForManyPRs sha $ map [get| .number |] prs
+    prs -> throwIO $ CommitForManyPRs sha $ map [get| .number |] prs
 
 -- | Return the reviews for the given PR as a map from reviewer to review state.
 getPRReviews :: MonadMergeBot m => Int -> m (HashMap Text PullRequestReviewState)
@@ -391,7 +392,7 @@ queryAll doQuery = queryAll' Nothing
       result@PaginatedResult{..} <- doQuery cursor
       (_, next) <- case (hasNext, nextCursor) of
         (True, Just nextCursor') -> queryAll' . Just . Text.unpack $ nextCursor'
-        (True, Nothing) -> fail $ "Paginated result says it has next with no cursor: " ++ show result
+        (True, Nothing) -> error $ "Paginated result says it has next with no cursor: " ++ show result
         (False, _) -> return (payload, [])
       return (payload, chunk ++ next)
 

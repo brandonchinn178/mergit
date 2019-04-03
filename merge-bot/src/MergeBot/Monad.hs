@@ -19,7 +19,6 @@ module MergeBot.Monad
   , runBotAppForAllInstalls
   ) where
 
-import Control.Exception (throwIO)
 import Control.Monad (forM)
 import Control.Monad.IO.Class (liftIO)
 import Data.Aeson.Schema (Object, get, schema)
@@ -32,10 +31,11 @@ import Network.HTTP.Types (StdMethod(..))
 import Servant (Handler, runHandler)
 import Servant.GitHub (GitHubAppParams(..), loadGitHubAppParams)
 import Servant.GitHub.Security (getToken)
+import UnliftIO.Exception (throwIO)
 
 import MergeBot.Core.Monad (BotAppT, BotSettings(..), parseRepo, runBotAppT)
 
-type BotApp = BotAppT Handler
+type BotApp = BotAppT IO
 
 -- | A helper around 'runBotAppT' for easy use by the Servant handlers.
 runBotApp :: Object RepoWebhook -> BotApp a -> Token -> Handler a
@@ -43,8 +43,8 @@ runBotApp = runBotApp' . [get| .full_name |]
 
 -- | A helper around 'runBotAppT'.
 runBotApp' :: Text -> BotApp a -> Token -> Handler a
-runBotApp' repo action token = do
-  GitHubAppParams{ghUserAgent, ghAppId} <- liftIO loadGitHubAppParams
+runBotApp' repo action token = liftIO $ do
+  GitHubAppParams{ghUserAgent, ghAppId} <- loadGitHubAppParams
   (`runBotAppT` action) BotSettings
     { userAgent = ghUserAgent
     , appId = ghAppId
