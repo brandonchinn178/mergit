@@ -12,17 +12,17 @@ This module defines the errors thrown by the MergeBot.
 module MergeBot.Core.Error
   ( BotError(..)
   , getRelevantPRs
-  , throwM
+  , throwIO
   ) where
 
 import Control.Exception (Exception, SomeException, displayException)
-import Control.Monad.Catch (throwM)
 import Data.Aeson.Schema (Object)
 import Data.Text (Text)
 import qualified Data.Text as Text
 import GitHub.Data.GitObjectID (GitObjectID, unOID')
 import GitHub.Schema.Event.CheckRun (CheckRunEvent)
 import GitHub.Schema.Event.Push (PushEvent)
+import UnliftIO.Exception (throwIO)
 
 import MergeBot.Core.Config (configFileName)
 

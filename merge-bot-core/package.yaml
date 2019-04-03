@@ -10,7 +10,6 @@ dependencies:
 - base
 - bytestring
 - directory
-- exceptions
 - fast-logger
 - filepath
 - github-rest
@@ -23,6 +22,8 @@ dependencies:
 - text
 - time
 - transformers
+- unliftio
+- unliftio-core
 - unordered-containers
 - yaml
 
