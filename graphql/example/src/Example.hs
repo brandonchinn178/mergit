@@ -11,6 +11,7 @@
 
 module Example where
 
+import Control.Monad.IO.Class (MonadIO)
 import Data.Bool (bool)
 import Data.GraphQL
 import Data.Maybe (fromMaybe)
