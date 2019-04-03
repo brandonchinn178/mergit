@@ -23,6 +23,7 @@ import Control.Monad (forM)
 import Control.Monad.IO.Class (liftIO)
 import Data.Aeson.Schema (Object, get, schema)
 import Data.Text (Text)
+import qualified Data.Text as Text
 import GitHub.REST
     (GHEndpoint(..), GitHubState(..), Token, queryGitHub, runGitHubT)
 import GitHub.REST.Auth (getJWTToken)
@@ -33,7 +34,7 @@ import Servant.GitHub (GitHubAppParams(..), loadGitHubAppParams)
 import Servant.GitHub.Security (getToken)
 import UnliftIO.Exception (throwIO)
 
-import MergeBot.Core.Monad (BotAppT, BotSettings(..), parseRepo, runBotAppT)
+import MergeBot.Core.Monad (BotAppT, BotSettings(..), runBotAppT)
 
 type BotApp = BotAppT IO
 
@@ -91,3 +92,11 @@ runBotAppForAllInstalls action = do
       , endpointVals = []
       , ghData = []
       }
+
+{- Helpers -}
+
+-- | Separate a repo name of the format "owner/repo" into a tuple @(owner, repo)@.
+parseRepo :: Text -> (Text, Text)
+parseRepo repo = case Text.splitOn "/" repo of
+  [repoOwner, repoName] -> (repoOwner, repoName)
+  _ -> error $ "Invalid repo: " ++ Text.unpack repo
