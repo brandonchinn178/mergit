@@ -63,8 +63,9 @@ import GitHub.REST
     , (.:)
     )
 import Network.HTTP.Types (status409)
+import UnliftIO.Exception (throwIO)
 
-import MergeBot.Core.Error (BotError(..), throwIO)
+import MergeBot.Core.Error (BotError(..))
 import qualified MergeBot.Core.GraphQL.BranchSHA as BranchSHA
 import qualified MergeBot.Core.GraphQL.BranchTree as BranchTree
 import qualified MergeBot.Core.GraphQL.CICommit as CICommit

@@ -44,7 +44,7 @@ import GitHub.Data.GitObjectID (GitObjectID)
 import qualified GitHub.Data.PullRequestReviewState as PullRequestReviewState
 import qualified GitHub.Data.StatusState as StatusState
 import GitHub.REST (KeyValue(..))
-import UnliftIO.Exception (finally, fromEitherM)
+import UnliftIO.Exception (finally, fromEither, throwIO)
 
 import MergeBot.Core.Actions
 import MergeBot.Core.Config

@@ -29,10 +29,11 @@ import qualified GitHub.Schema.Event.CheckSuite as CheckSuite
 import qualified GitHub.Schema.Event.PullRequest as PullRequest
 import Servant (Handler)
 import Servant.GitHub
+import UnliftIO.Exception (throwIO)
 
 import qualified MergeBot.Core as Core
 import MergeBot.Core.Actions (MergeBotAction(..), parseAction)
-import MergeBot.Core.Error (BotError(..), throwIO)
+import MergeBot.Core.Error (BotError(..))
 import qualified MergeBot.Core.GitHub as Core
 import MergeBot.Core.Text (isStagingBranch, isTryBranch)
 import MergeBot.Monad (runBotApp)
