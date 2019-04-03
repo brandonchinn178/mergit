@@ -141,7 +141,7 @@ getCICommit sha checkName = do
       case concat $ getCheckRuns parent of
         [] -> throwIO $ MissingCheckRun parentSHA checkName
         [checkRun] -> return (parentSHA, checkRun)
-        _ -> fail $ "Commit has multiple check runs named '" ++ Text.unpack checkName ++ "': " ++ show parent
+        _ -> error $ "Commit has multiple check runs named '" ++ Text.unpack checkName ++ "': " ++ show parent
 
     return PaginatedResult
       { payload
@@ -169,9 +169,9 @@ getCheckRun prNum checkName = do
     , _checkName = Text.unpack checkName
     }
   commit <- case [get| result.repository!.pullRequest!.commits.nodes![]!.commit |] of
-    [] -> fail $ "PR #" ++ show prNum ++ " has no commits: " ++ show result
+    [] -> error $ "PR #" ++ show prNum ++ " has no commits: " ++ show result
     [c] -> return c
-    _ -> fail $ "PRCheckRun query returned more than one 'last' commit: " ++ show result
+    _ -> error $ "PRCheckRun query returned more than one 'last' commit: " ++ show result
   case [get| commit.checkSuites!.nodes![]!.checkRuns!.nodes![]!.databaseId |] of
     [[checkRunId]] -> return checkRunId
     _ -> throwIO $ MissingCheckRunPR prNum checkName
@@ -392,7 +392,7 @@ queryAll doQuery = queryAll' Nothing
       result@PaginatedResult{..} <- doQuery cursor
       (_, next) <- case (hasNext, nextCursor) of
         (True, Just nextCursor') -> queryAll' . Just . Text.unpack $ nextCursor'
-        (True, Nothing) -> fail $ "Paginated result says it has next with no cursor: " ++ show result
+        (True, Nothing) -> error $ "Paginated result says it has next with no cursor: " ++ show result
         (False, _) -> return (payload, [])
       return (payload, chunk ++ next)
 

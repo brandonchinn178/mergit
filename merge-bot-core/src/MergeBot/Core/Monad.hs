@@ -56,7 +56,7 @@ import GitHub.REST
 import GitHub.REST.Auth (Token, fromToken)
 import Network.HTTP.Client (Request(..))
 import Network.HTTP.Types (StdMethod(..), hAccept, hAuthorization, hUserAgent)
-import UnliftIO.Exception (handle)
+import UnliftIO.Exception (handle, throwString)
 
 import MergeBot.Core.Error (getRelevantPRs)
 import MergeBot.Core.GraphQL.API (API)
@@ -138,7 +138,7 @@ runBotAppT BotSettings{..} =
       let msg = displayException e
       mapM_ (`commentOnPR` msg) $ getRelevantPRs e
       logErrorN $ Text.pack msg
-      fail $ "[MergeBot Error] " ++ msg
+      throwString $ "[MergeBot Error] " ++ msg
 
 queryGitHub' :: MonadMergeBot m => GHEndpoint -> m Value
 queryGitHub' endpoint = do

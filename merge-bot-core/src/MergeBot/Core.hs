@@ -166,7 +166,7 @@ createCIBranch base prSHAs ciBranch message = do
   tree <- getBranchTree tempBranch
 
   -- check missing/invalid .lymerge.yaml file
-  void $ fromEitherM $ extractConfig prNums tree
+  void $ fromEither $ extractConfig prNums tree
 
   -- create a new commit that merges all the PRs at once
   mergeSHA <- createCommit message [get| tree.oid |] (baseSHA : prSHAs)
@@ -186,8 +186,9 @@ refreshCheckRuns isStart isTry ciBranchName sha = do
   let (parentSHAs, checkRuns) = unzip parents
 
   -- since we check the config in 'createCIBranch', we know that 'extractConfig' here will not fail
-  config <- extractConfig [] commitTree >>=
-    either (\_ -> fail "extractConfig failed in refreshCheckRuns") return
+  config <-
+    either (error "extractConfig failed in refreshCheckRuns") return $
+      extractConfig [] commitTree
 
   now <- liftIO getCurrentTime
   (repoOwner, repoName) <- getRepo
@@ -293,13 +294,13 @@ displayCIStatus BotConfig{requiredStatuses} contexts =
       in link <> " | " <> emoji
 
 -- | Get the configuration file for the given tree.
-extractConfig :: Monad m => [Int] -> Tree -> m (Either BotError BotConfig)
+extractConfig :: [Int] -> Tree -> Either BotError BotConfig
 extractConfig prs tree =
   case filter isConfigFile [get| tree.entries![] |] of
-    [] -> return $ Left $ ConfigFileMissing prs
+    [] -> Left $ ConfigFileMissing prs
     [entry] ->
       let configText = Text.encodeUtf8 [get| entry.object!.text! |]
-      in return . first (ConfigFileInvalid prs) . decodeThrow $ configText
-    _ -> fail $ "Multiple '" ++ Text.unpack configFileName ++ "' files found?"
+      in first (ConfigFileInvalid prs) . decodeThrow $ configText
+    _ -> error $ "Multiple '" ++ Text.unpack configFileName ++ "' files found?"
   where
     isConfigFile = (== configFileName) . [get| .name |]
