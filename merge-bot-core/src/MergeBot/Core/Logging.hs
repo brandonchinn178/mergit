@@ -47,6 +47,6 @@ runMergeBotLogging = flip runLoggingT $ \loc src lvl str -> do
 
   withFile dest AppendMode doLog
 
-  -- error logs are already sent to stderr via 'throwString' (see 'handleBotErr')
+  -- error logs are already sent to stderr via 'fail' (see 'handleBotErr')
   unless (lvl == LevelError) $
     doLog stderr
