@@ -9,11 +9,9 @@ dependencies:
   - aeson-schemas
   - base
   - bytestring
-  - exceptions
   - http-client
   - http-client-tls
   - http-types
-  - monad-control
   - mtl
   - path
   - path-io
@@ -21,7 +19,7 @@ dependencies:
   - template-haskell
   - text
   - transformers
-  - transformers-base
+  - unliftio-core
   - unordered-containers
 
 library:
