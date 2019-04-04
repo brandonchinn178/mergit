@@ -185,6 +185,7 @@ refreshCheckRuns :: MonadMergeBot m => Bool -> Text -> GitObjectID -> m ()
 refreshCheckRuns isStart ciBranchName sha = do
   CICommit{..} <- getCICommit sha checkName
   let (parentSHAs, checkRuns) = unzip parents
+  when (null parents) $ throwIO $ CICommitMissingParents isStart ciBranchName sha
 
   -- since we check the config in 'createCIBranch', we know that 'extractConfig' here will not fail
   config <-
