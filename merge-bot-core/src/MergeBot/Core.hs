@@ -42,6 +42,7 @@ import Data.Time (getCurrentTime)
 import Data.Yaml (decodeThrow)
 import GitHub.Data.GitObjectID (GitObjectID)
 import qualified GitHub.Data.PullRequestReviewState as PullRequestReviewState
+import GitHub.Data.StatusState (StatusState)
 import qualified GitHub.Data.StatusState as StatusState
 import GitHub.REST (KeyValue(..))
 import UnliftIO.Exception (finally, fromEither, throwIO)
@@ -191,11 +192,12 @@ refreshCheckRuns isStart ciBranchName sha = do
   config <-
     either (error "extractConfig failed in refreshCheckRuns") return $
       extractConfig [] commitTree
+  let ciStatus = getCIStatus config commitContexts
 
   now <- liftIO getCurrentTime
   (repoOwner, repoName) <- getRepo
 
-  let checkRunState = StatusState.summarize $ map [get| .state |] commitContexts
+  let checkRunState = StatusState.summarize $ map (fst . snd) ciStatus
       -- NB: isComplete means that the merge bot should consider a check run "done"; it does not
       -- necessarily mean that CI is done. Meaning we should not clean up yet, since more CI jobs
       -- could start and fail to checkout.
@@ -225,17 +227,17 @@ refreshCheckRuns isStart ciBranchName sha = do
         , let repoUrl = "https://github.com/" <> repoOwner <> "/" <> repoName
               ciBranchUrl = repoUrl <> "/commits/" <> ciBranchName
               ciInfo = "CI running in the [" <> ciBranchName <> "](" <> ciBranchUrl <> ") branch."
-              ciStatus = displayCIStatus config commitContexts
+              ciStatusInfo = displayCIStatus ciStatus
               jobLabel = case (isComplete, isTry) of
                 (False, True) -> tryJobLabelRunning
                 (False, False) -> mergeJobLabelRunning
                 (True, True) -> tryJobLabelDone
                 (True, False) -> mergeJobLabelDone
               jobSummary
-                | not isComplete = [ciInfo, ciStatus]
-                | isTry = [tryJobSummaryDone, ciStatus]
-                | not isSuccess = [mergeJobSummaryFailed, ciStatus]
-                | otherwise = [mergeJobSummarySuccess, ciStatus]
+                | not isComplete = [ciInfo, ciStatusInfo]
+                | isTry = [tryJobSummaryDone, ciStatusInfo]
+                | not isSuccess = [mergeJobSummaryFailed, ciStatusInfo]
+                | otherwise = [mergeJobSummarySuccess, ciStatusInfo]
           in [ "output" := output jobLabel (unlines2 jobSummary) ]
         ]
 
@@ -272,25 +274,31 @@ refreshCheckRuns isStart ciBranchName sha = do
     checkName = if isTry then checkRunTry else checkRunMerge
     unlines2 = Text.concat . map (<> "\n\n")
 
--- | Get text containing Markdown showing a list of jobs required by the merge bot and their status
--- in CI.
-displayCIStatus :: BotConfig -> [CIContext] -> Text
-displayCIStatus BotConfig{requiredStatuses} contexts =
-  let statuses = foldl updateStatusMap (mkStatusMap requiredStatuses) contexts
-  in Text.unlines $ header ++ fromStatusMap statuses
+type CIStatus = [(Text, (StatusState, Maybe Text))]
+
+-- | Get CI statuses compiled from the merge bot config and the contexts for a commit.
+--
+-- Returns a map from context name to the state of the context and the associated URL.
+getCIStatus :: BotConfig -> [CIContext] -> CIStatus
+getCIStatus BotConfig{requiredStatuses} = fromStatusMap . foldl updateStatusMap empty
   where
-    header =
-      [ "CI Job | Status"
-      , ":-----:|:-----:"
-      ]
-    mkStatusMap = HashMap.fromList . map (, (StatusState.EXPECTED, Nothing))
+    empty = HashMap.fromList . map (, (StatusState.EXPECTED, Nothing)) $ requiredStatuses
     updateStatusMap statuses context = HashMap.adjust
       (const [get| context.(state, targetUrl) |])
       [get| context.context |]
       statuses
     fromStatusMap statuses =
       -- iterate on requiredStatuses to keep order
-      map (\c -> mkLine c $ statuses HashMap.! c) requiredStatuses
+      map (\context -> (context, statuses HashMap.! context)) requiredStatuses
+
+-- | Get text containing Markdown to display the given CIStatus.
+displayCIStatus :: CIStatus -> Text
+displayCIStatus status = Text.unlines $ header ++ map (uncurry mkLine) status
+  where
+    header =
+      [ "CI Job | Status"
+      , ":-----:|:-----:"
+      ]
     mkLine context (state, url) =
       let emoji = case state of
             StatusState.ERROR    -> "❗"
