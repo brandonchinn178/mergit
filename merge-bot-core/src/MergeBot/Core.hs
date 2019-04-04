@@ -86,7 +86,7 @@ startTryJob :: MonadMergeBot m => Int -> GitObjectID -> Text -> m ()
 startTryJob prNum prSHA base = do
   mergeSHA <- createCIBranch base [prSHA] tryBranch tryMessage
 
-  refreshCheckRuns True True tryBranch mergeSHA
+  refreshCheckRuns True tryBranch mergeSHA
   where
     tryBranch = toTryBranch prNum
     tryMessage = toTryMessage prNum
@@ -120,7 +120,7 @@ resetMerge prNum = do
   updateCheckRun checkRunId $ mergeJobInitData now
 
 -- | Handle a notification that the given commit's status has been updated.
-handleStatusUpdate :: MonadMergeBot m => Bool -> Text -> GitObjectID -> m ()
+handleStatusUpdate :: MonadMergeBot m => Text -> GitObjectID -> m ()
 handleStatusUpdate = refreshCheckRuns False
 
 -- | Load all queues and start a merge run if one is not already running.
@@ -137,7 +137,7 @@ pollQueues = do
           stagingMessage = toStagingMessage base prNums
       mergeSHA <- createCIBranch base prSHAs stagingBranch stagingMessage
 
-      refreshCheckRuns True False stagingBranch mergeSHA
+      refreshCheckRuns True stagingBranch mergeSHA
 
 {- Helpers -}
 
@@ -181,8 +181,8 @@ createCIBranch base prSHAs ciBranch message = do
     tempBranch = "temp-" <> ciBranch
 
 -- | Update the check runs for the given CI commit, including any additional data provided.
-refreshCheckRuns :: MonadMergeBot m => Bool -> Bool -> Text -> GitObjectID -> m ()
-refreshCheckRuns isStart isTry ciBranchName sha = do
+refreshCheckRuns :: MonadMergeBot m => Bool -> Text -> GitObjectID -> m ()
+refreshCheckRuns isStart ciBranchName sha = do
   CICommit{..} <- getCICommit sha checkName
   let (parentSHAs, checkRuns) = unzip parents
 
@@ -260,6 +260,7 @@ refreshCheckRuns isStart isTry ciBranchName sha = do
           closePR prNum
           deleteBranch branch
   where
+    isTry = isTryBranch ciBranchName
     checkName = if isTry then checkRunTry else checkRunMerge
     unlines2 = Text.concat . map (<> "\n\n")
 
