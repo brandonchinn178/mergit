@@ -187,12 +187,12 @@ refreshCheckRuns isStart ciBranchName sha = do
   config <-
     either (error "extractConfig failed in refreshCheckRuns") return $
       extractConfig [] commitTree
-  let ciStatus = getCIStatus config commitContexts
 
   now <- liftIO getCurrentTime
   (repoOwner, repoName) <- getRepo
 
-  let checkRunState = StatusState.summarize $ map (fst . snd) ciStatus
+  let ciStatus = getCIStatus config commitContexts
+      checkRunState = resolveCIStatus ciStatus
       -- NB: isComplete means that the merge bot should consider a check run "done"; it does not
       -- necessarily mean that CI is done. Meaning we should not clean up yet, since more CI jobs
       -- could start and fail to checkout.
