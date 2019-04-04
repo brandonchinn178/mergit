@@ -4,46 +4,32 @@ Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
 Portability :  portable
 
-Definitions for monads that can run GraphQL queries.
+Defines the 'QueryT' monad transformer, which implements
+'MonadQuery' to allow querying GraphQL APIs.
 -}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeFamilyDependencies #-}
-{-# LANGUAGE TypeInType #-}
-{-# LANGUAGE UndecidableInstances #-}
 
 module Data.GraphQL.Monad
-  ( MonadQuery(..)
-  , runQuery
-  , runQuerySafeMocked
+  ( module Data.GraphQL.Monad.Class
   , QueryT
+  , runQueryT
   , QuerySettings(..)
   , defaultQuerySettings
   , mockedQuerySettings
-  , runQueryT
-  -- * Re-exports
-  , MonadIO
   ) where
 
-import Control.Exception (throwIO)
 import Control.Monad.IO.Class (MonadIO(..))
 import Control.Monad.IO.Unlift (MonadUnliftIO(..), UnliftIO(..), withUnliftIO)
 import Control.Monad.Reader (MonadReader, ReaderT, ask, runReaderT)
 import Control.Monad.Trans.Class (MonadTrans)
 import Data.Aeson ((.=))
 import qualified Data.Aeson as Aeson
-import Data.Aeson.Schema (IsSchemaObject, Object, SchemaType)
-import qualified Data.Aeson.Types as Aeson
-import Data.Maybe (fromJust)
 import Network.HTTP.Client
     ( Manager
     , ManagerSettings
@@ -57,28 +43,17 @@ import Network.HTTP.Client
 import Network.HTTP.Client.TLS (tlsManagerSettings)
 import Network.HTTP.Types (hContentType)
 
-import Data.GraphQL.Error (GraphQLError, GraphQLException(..))
-import Data.GraphQL.Query (GraphQLArgs(..), Query, fromQuery, queryName)
-import Data.GraphQL.Result (GraphQLResult, getErrors, getResult)
-import Data.GraphQL.TestUtils (MockedEndpoints, MocksApi(..), lookupMock)
+import Data.GraphQL.Monad.Class
+import Data.GraphQL.Query (GraphQLArgs(..), fromQuery)
+import Data.GraphQL.TestUtils (MockedEndpoints, MocksApi(..))
 
--- | A type class for monads that can run queries.
-class MonadIO m => MonadQuery api m where
-  runQuerySafe
-    :: forall args (schema :: SchemaType)
-     . (GraphQLArgs args, IsSchemaObject schema)
-    => Query api args schema -> args -> m (GraphQLResult (Object schema))
-
--- | Runs the given query and returns the result, erroring if the query returned errors.
-runQuery
-  :: forall api m args (schema :: SchemaType)
-   . (MonadQuery api m, GraphQLArgs args, IsSchemaObject schema)
-  => Query api args schema -> args -> m (Object schema)
-runQuery query args = do
-  result <- runQuerySafe query args
-  case getErrors result of
-    [] -> return $ fromJust $ getResult result
-    errors -> liftIO $ throwIO $ GraphQLException errors
+-- | The state for running QueryT.
+data QueryState api
+  = QueryState
+      { manager :: Manager
+      , baseReq :: Request
+      }
+  | QueryMockState (MockedEndpoints api)
 
 -- | The monad transformer type that should be used to run GraphQL queries.
 --
@@ -96,7 +71,7 @@ runQuery query args = do
 --           }
 --       }
 -- @
-newtype QueryT api m a = QueryT { unQueryT :: ReaderT (QueryState api) m a }
+newtype QueryT (api :: k) m a = QueryT { unQueryT :: ReaderT (QueryState api) m a }
   deriving
     ( Functor
     , Applicative
@@ -123,19 +98,23 @@ instance MonadIO m => MonadQuery api (QueryT api m) where
       in liftIO $ either fail return . Aeson.eitherDecode . responseBody =<< httpLbs request manager
     QueryMockState endpoints -> runQuerySafeMocked query args endpoints
 
--- | An implementation for mocked GraphQL endpoints using MockedEndpoints and MocksApi.
-runQuerySafeMocked
-  :: forall api m args (schema :: SchemaType)
-   . (Monad m, GraphQLArgs args, IsSchemaObject schema)
-  => Query api args schema -> args -> MockedEndpoints api -> m (GraphQLResult (Object schema))
-runQuerySafeMocked query args endpoints =
-  case lookupMock query (fromArgs args) endpoints of
-    Nothing -> fail $ "Endpoint missing mocked data: " ++ queryName query
-    Just mockData ->
-      either fail return $ Aeson.parseEither Aeson.parseJSON $ Aeson.object
-        [ "errors" .= ([] :: [GraphQLError])
-        , "data" .= Just mockData
-        ]
+-- | Run a QueryT stack.
+runQueryT :: MonadIO m => QuerySettings api -> QueryT api m a -> m a
+runQueryT QuerySettings{..} query = do
+  state <- case mockResponse of
+    Nothing -> liftIO $ do
+      manager <- newManager managerSettings
+      baseReq <- modifyReq . modifyReq' <$> parseUrlThrow url
+      return QueryState{..}
+    Just mockResp -> return $ QueryMockState mockResp
+  (`runReaderT` state)
+    . unQueryT
+    $ query
+  where
+    modifyReq' req = req
+      { method = "POST"
+      , requestHeaders = (hContentType, "application/json") : requestHeaders req
+      }
 
 -- | The settings for running QueryT.
 data QuerySettings api = QuerySettings
@@ -159,29 +138,3 @@ defaultQuerySettings = QuerySettings
 -- | Query settings for mocking endpoints.
 mockedQuerySettings :: MocksApi api mock => mock -> QuerySettings api
 mockedQuerySettings mock = defaultQuerySettings { mockResponse = Just $ mockWith mock }
-
--- | The state for running QueryT.
-data QueryState api
-  = QueryState
-      { manager :: Manager
-      , baseReq :: Request
-      }
-  | QueryMockState (MockedEndpoints api)
-
--- | Run a QueryT stack.
-runQueryT :: MonadIO m => QuerySettings api -> QueryT api m a -> m a
-runQueryT QuerySettings{..} query = do
-  state <- case mockResponse of
-    Nothing -> liftIO $ do
-      manager <- newManager managerSettings
-      baseReq <- modifyReq . modifyReq' <$> parseUrlThrow url
-      return QueryState{..}
-    Just mockResp -> return $ QueryMockState mockResp
-  (`runReaderT` state)
-    . unQueryT
-    $ query
-  where
-    modifyReq' req = req
-      { method = "POST"
-      , requestHeaders = (hContentType, "application/json") : requestHeaders req
-      }

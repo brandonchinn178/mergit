@@ -19,12 +19,10 @@ This module defines the monad used by the MergeBot.
 
 module MergeBot.Core.Monad
   ( BotAppT
+  , runBotAppT
   , MonadMergeBot(..)
   , BotSettings(..)
-  , runBotAppT
   , queryGitHub'
-  -- * Helpers
-  , parseRepo
   ) where
 
 import Control.Exception (displayException)
@@ -56,7 +54,7 @@ import GitHub.REST
 import GitHub.REST.Auth (Token, fromToken)
 import Network.HTTP.Client (Request(..))
 import Network.HTTP.Types (StdMethod(..), hAccept, hAuthorization, hUserAgent)
-import UnliftIO.Exception (handle, throwString)
+import UnliftIO.Exception (handle)
 
 import MergeBot.Core.Error (getRelevantPRs)
 import MergeBot.Core.GraphQL.API (API)
@@ -80,8 +78,13 @@ newtype BotAppT m a = BotAppT
           )
         )
         a
-  }
-  deriving (Functor,Applicative,Monad,MonadIO,MonadLogger)
+  } deriving
+    ( Functor
+    , Applicative
+    , Monad
+    , MonadIO
+    , MonadLogger
+    )
 
 instance MonadIO m => MonadGitHubREST (BotAppT m) where
   queryGitHub = BotAppT . lift . lift . queryGitHub
@@ -93,18 +96,6 @@ instance MonadUnliftIO m => MonadUnliftIO (BotAppT m) where
   askUnliftIO = BotAppT $
     withUnliftIO $ \u ->
       return $ UnliftIO (unliftIO u . unBotAppT)
-
-class (MonadGitHubREST m, MonadQuery API m, MonadUnliftIO m) => MonadMergeBot m where
-  getRepo :: m (Text, Text)
-  getAppId :: m Int
-
--- | 'asks' specialized to 'BotAppT'.
-botAsks :: Monad m => (BotState -> a) -> BotAppT m a
-botAsks = BotAppT . lift . asks
-
-instance (MonadIO m, MonadUnliftIO m) => MonadMergeBot (BotAppT m) where
-  getRepo = (,) <$> botAsks repoOwner <*> botAsks repoName
-  getAppId = botAsks appId
 
 data BotSettings = BotSettings
   { token     :: Token
@@ -138,7 +129,21 @@ runBotAppT BotSettings{..} =
       let msg = displayException e
       mapM_ (`commentOnPR` msg) $ getRelevantPRs e
       logErrorN $ Text.pack msg
-      throwString $ "[MergeBot Error] " ++ msg
+      fail $ "[MergeBot Error] " ++ msg
+
+{- MonadMergeBot class -}
+
+class (MonadGitHubREST m, MonadQuery API m, MonadUnliftIO m) => MonadMergeBot m where
+  getRepo :: m (Text, Text)
+  getAppId :: m Int
+
+-- | 'asks' specialized to 'BotAppT'.
+botAsks :: Monad m => (BotState -> a) -> BotAppT m a
+botAsks = BotAppT . lift . asks
+
+instance (MonadIO m, MonadUnliftIO m) => MonadMergeBot (BotAppT m) where
+  getRepo = (,) <$> botAsks repoOwner <*> botAsks repoName
+  getAppId = botAsks appId
 
 queryGitHub' :: MonadMergeBot m => GHEndpoint -> m Value
 queryGitHub' endpoint = do
@@ -156,12 +161,6 @@ githubQuerySettings :: QuerySettings API
 githubQuerySettings = defaultQuerySettings
   { url = "https://api.github.com/graphql"
   }
-
--- | Separate a repo name of the format "owner/repo" into a tuple @(owner, repo)@.
-parseRepo :: Text -> (Text, Text)
-parseRepo repo = case Text.splitOn "/" repo of
-  [repoOwner, repoName] -> (repoOwner, repoName)
-  _ -> error $ "Invalid repo: " ++ Text.unpack repo
 
 -- | Add a comment to the given PR.
 --

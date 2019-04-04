@@ -150,32 +150,33 @@ createCIBranch :: MonadMergeBot m => Text -> [GitObjectID] -> Text -> Text -> m 
 createCIBranch base prSHAs ciBranch message = do
   deleteBranch ciBranch
   deleteBranch tempBranch
-  prNums <- mapM (fmap fst . getPRForCommit) prSHAs
 
-  baseSHA <- maybe (throwIO $ MissingBaseBranch prNums base) return =<< getBranchSHA base
+  (`finally` deleteBranch tempBranch) $ do
+    prNums <- mapM (fmap fst . getPRForCommit) prSHAs
 
-  -- create temp branch off base
-  createBranch tempBranch baseSHA
+    baseSHA <- maybe (throwIO $ MissingBaseBranch prNums base) return =<< getBranchSHA base
 
-  -- merge prs into temp branch
-  forM_ prSHAs $ \prSHA -> do
-    success <- mergeBranches tempBranch prSHA "[ci skip] merge into temp"
-    unless success $ throwIO $ MergeConflict prNums
+    -- create temp branch off base
+    createBranch tempBranch baseSHA
 
-  -- get tree for temp branch
-  tree <- getBranchTree tempBranch
+    -- merge prs into temp branch
+    forM_ prSHAs $ \prSHA -> do
+      success <- mergeBranches tempBranch prSHA "[ci skip] merge into temp"
+      unless success $ throwIO $ MergeConflict prNums
 
-  -- check missing/invalid .lymerge.yaml file
-  void $ fromEither $ extractConfig prNums tree
+    -- get tree for temp branch
+    tree <- getBranchTree tempBranch
 
-  -- create a new commit that merges all the PRs at once
-  mergeSHA <- createCommit message [get| tree.oid |] (baseSHA : prSHAs)
+    -- check missing/invalid .lymerge.yaml file
+    void $ fromEither $ extractConfig prNums tree
 
-  -- forcibly update CI branch to point to new merge commit
-  createBranch ciBranch mergeSHA
-  deleteBranch tempBranch
+    -- create a new commit that merges all the PRs at once
+    mergeSHA <- createCommit message [get| tree.oid |] (baseSHA : prSHAs)
 
-  return mergeSHA
+    -- forcibly update CI branch to point to new merge commit
+    createBranch ciBranch mergeSHA
+
+    return mergeSHA
   where
     tempBranch = "temp-" <> ciBranch
 

@@ -14,6 +14,17 @@ module GitHub.REST.Monad.Class
 
 import Control.Monad (void)
 import Control.Monad.IO.Class (MonadIO)
+import Control.Monad.Trans.Class (lift)
+import Control.Monad.Trans.Except (ExceptT)
+import Control.Monad.Trans.Identity (IdentityT)
+import Control.Monad.Trans.Maybe (MaybeT)
+import Control.Monad.Trans.Reader (ReaderT)
+import qualified Control.Monad.Trans.RWS.Lazy as Lazy
+import qualified Control.Monad.Trans.RWS.Strict as Strict
+import qualified Control.Monad.Trans.State.Lazy as Lazy
+import qualified Control.Monad.Trans.State.Strict as Strict
+import qualified Control.Monad.Trans.Writer.Lazy as Lazy
+import qualified Control.Monad.Trans.Writer.Strict as Strict
 import Data.Aeson (FromJSON, Value)
 
 import GitHub.REST.Endpoint
@@ -53,3 +64,35 @@ class MonadIO m => MonadGitHubREST m where
 
   queryGitHub_ :: GHEndpoint -> m ()
   queryGitHub_ = void . queryGitHub @_ @Value
+
+{- Instances for common monad transformers -}
+
+instance MonadGitHubREST m => MonadGitHubREST (ReaderT r m) where
+  queryGitHub = lift . queryGitHub
+
+instance MonadGitHubREST m => MonadGitHubREST (ExceptT e m) where
+  queryGitHub = lift . queryGitHub
+
+instance MonadGitHubREST m => MonadGitHubREST (IdentityT m) where
+  queryGitHub = lift . queryGitHub
+
+instance MonadGitHubREST m => MonadGitHubREST (MaybeT m) where
+  queryGitHub = lift . queryGitHub
+
+instance (Monoid w, MonadGitHubREST m) => MonadGitHubREST (Lazy.RWST r w s m) where
+  queryGitHub = lift . queryGitHub
+
+instance (Monoid w, MonadGitHubREST m) => MonadGitHubREST (Strict.RWST r w s m) where
+  queryGitHub = lift . queryGitHub
+
+instance MonadGitHubREST m => MonadGitHubREST (Lazy.StateT s m) where
+  queryGitHub = lift . queryGitHub
+
+instance MonadGitHubREST m => MonadGitHubREST (Strict.StateT s m) where
+  queryGitHub = lift . queryGitHub
+
+instance (Monoid w, MonadGitHubREST m) => MonadGitHubREST (Lazy.WriterT w m) where
+  queryGitHub = lift . queryGitHub
+
+instance (Monoid w, MonadGitHubREST m) => MonadGitHubREST (Strict.WriterT w m) where
+  queryGitHub = lift . queryGitHub
