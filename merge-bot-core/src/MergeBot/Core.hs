@@ -196,6 +196,9 @@ refreshCheckRuns isStart ciBranchName sha = do
   (repoOwner, repoName) <- getRepo
 
   let checkRunState = StatusState.summarize $ map [get| .state |] commitContexts
+      -- NB: isComplete means that the merge bot should consider a check run "done"; it does not
+      -- necessarily mean that CI is done. Meaning we should not clean up yet, since more CI jobs
+      -- could start and fail to checkout.
       (isComplete, isSuccess) = case checkRunState of
         StatusState.SUCCESS -> (True, True)
         StatusState.ERROR -> (True, False)
@@ -238,28 +241,32 @@ refreshCheckRuns isStart ciBranchName sha = do
 
   mapM_ (`updateCheckRun` checkRunData) checkRuns
 
-  when isComplete $
-    -- if complete, make sure the CI branch is deleted at the end
-    (`finally` deleteBranch ciBranchName) $
-      -- if successful merge run, merge into base
-      when (isSuccess && not isTry) $ do
-        -- get pr information for parent commits
-        prs <- mapM getPRForCommit parentSHAs
-        let prNums = map fst prs
+  -- when merge run is complete (success/fail), the staging branch should always be deleted to
+  -- allow for the next merge run
+  --
+  -- try branch should not be deleted until the PR is closed, so that any still-running CI jobs
+  -- can still use the try branch
+  when (not isTry && isComplete) $ (`finally` deleteBranch ciBranchName) $ do
+    -- if successful merge run, merge into base
+    when isSuccess $ do
+      -- get pr information for parent commits
+      prs <- mapM getPRForCommit parentSHAs
+      let prNums = map fst prs
 
-        -- merge into base
-        let invalidStagingBranch = throwIO $ InvalidStaging prNums ciBranchName
-        base <- maybe invalidStagingBranch return $ fromStagingBranch ciBranchName
-        success <- updateBranch False base sha
-        unless success $ throwIO $ NotFastForward prNums base
+      -- merge into base
+      let invalidStagingBranch = throwIO $ InvalidStaging prNums ciBranchName
+      base <- maybe invalidStagingBranch return $ fromStagingBranch ciBranchName
+      success <- updateBranch False base sha
+      unless success $ throwIO $ NotFastForward prNums base
 
-        -- close PRs and delete branches
-        forM_ prs $ \(prNum, branch) -> do
-          -- wait until PR is marked "merged"
-          whileM_ (not <$> isPRMerged prNum) $ return ()
+      -- close PRs and delete branches
+      forM_ prs $ \(prNum, branch) -> do
+        -- wait until PR is marked "merged"
+        whileM_ (not <$> isPRMerged prNum) $ return ()
 
-          closePR prNum
-          deleteBranch branch
+        closePR prNum
+        deleteBranch branch
+        deleteBranch $ toTryBranch prNum
   where
     isTry = isTryBranch ciBranchName
     checkName = if isTry then checkRunTry else checkRunMerge
