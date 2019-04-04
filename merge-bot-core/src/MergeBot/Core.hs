@@ -8,14 +8,9 @@ This module defines core MergeBot functionality.
 -}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE ExtendedDefaultRules #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE MultiWayIf #-}
-{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE TupleSections #-}
-{-# LANGUAGE TypeFamilies #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
 module MergeBot.Core
@@ -42,7 +37,6 @@ import Data.Time (getCurrentTime)
 import Data.Yaml (decodeThrow)
 import GitHub.Data.GitObjectID (GitObjectID)
 import qualified GitHub.Data.PullRequestReviewState as PullRequestReviewState
-import GitHub.Data.StatusState (StatusState)
 import qualified GitHub.Data.StatusState as StatusState
 import GitHub.REST (KeyValue(..))
 import UnliftIO.Exception (finally, fromEither, throwIO)
@@ -52,6 +46,7 @@ import MergeBot.Core.Config
 import MergeBot.Core.Error
 import MergeBot.Core.GitHub
 import MergeBot.Core.Monad
+import MergeBot.Core.Status
 import MergeBot.Core.Text
 
 default (Text)
@@ -273,43 +268,6 @@ refreshCheckRuns isStart ciBranchName sha = do
     isTry = isTryBranch ciBranchName
     checkName = if isTry then checkRunTry else checkRunMerge
     unlines2 = Text.concat . map (<> "\n\n")
-
-type CIStatus = [(Text, (StatusState, Maybe Text))]
-
--- | Get CI statuses compiled from the merge bot config and the contexts for a commit.
---
--- Returns a map from context name to the state of the context and the associated URL.
-getCIStatus :: BotConfig -> [CIContext] -> CIStatus
-getCIStatus BotConfig{requiredStatuses} = fromStatusMap . foldl updateStatusMap empty
-  where
-    empty = HashMap.fromList . map (, (StatusState.EXPECTED, Nothing)) $ requiredStatuses
-    updateStatusMap statuses context = HashMap.adjust
-      (const [get| context.(state, targetUrl) |])
-      [get| context.context |]
-      statuses
-    fromStatusMap statuses =
-      -- iterate on requiredStatuses to keep order
-      map (\context -> (context, statuses HashMap.! context)) requiredStatuses
-
--- | Get text containing Markdown to display the given CIStatus.
-displayCIStatus :: CIStatus -> Text
-displayCIStatus status = Text.unlines $ header ++ map (uncurry mkLine) status
-  where
-    header =
-      [ "CI Job | Status"
-      , ":-----:|:-----:"
-      ]
-    mkLine context (state, url) =
-      let emoji = case state of
-            StatusState.ERROR    -> "❗"
-            StatusState.EXPECTED -> "💤"
-            StatusState.FAILURE  -> "❌"
-            StatusState.PENDING  -> "⏳"
-            StatusState.SUCCESS  -> "✅"
-          link = case url of
-            Nothing -> context
-            Just url' -> "[" <> context <> "](" <> url' <> ")"
-      in link <> " | " <> emoji
 
 -- | Get the configuration file for the given tree.
 extractConfig :: [Int] -> Tree -> Either BotError BotConfig
