@@ -7,7 +7,6 @@ Portability :  portable
 This module defines handlers for the MergeBot.
 -}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 
@@ -101,12 +100,8 @@ handleCheckRun o = runBotApp repo $
 handleStatus :: Object StatusEvent -> Token -> Handler ()
 handleStatus o = runBotApp repo $
   case [get| o.branches[].name |] of
-    [branch] ->
-      let handleStatus' isTry = Core.handleStatusUpdate isTry branch [get| o.sha |]
-      in if
-        | isTryBranch branch -> handleStatus' True
-        | isStagingBranch branch -> handleStatus' False
-        | otherwise -> return ()
+    [branch] | isTryBranch branch || isStagingBranch branch ->
+      Core.handleStatusUpdate branch [get| o.sha |]
     _ -> return ()
   where
     repo = [get| o.repository! |]

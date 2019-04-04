@@ -28,6 +28,7 @@ type PullRequestId = Int
 
 data BotError
   = CIBranchPushed (Object PushEvent)
+  | CICommitMissingParents Bool Text GitObjectID
   | CommitForManyPRs GitObjectID [PullRequestId]
   | CommitLacksPR GitObjectID
   | CommitNotPRHead PullRequestId GitObjectID
@@ -47,6 +48,14 @@ instance Exception BotError
 instance Show BotError where
   show = \case
     CIBranchPushed o -> "User tried to manually create CI branch: " <> show o
+    CICommitMissingParents isStart branch sha -> concat
+      [ "Commit `"
+      , unOID' sha
+      , "` has no parents (on branch `"
+      , Text.unpack branch
+      ,  "`) when "
+      , if isStart then "starting check run" else "updating check run"
+      ]
     CommitForManyPRs sha prs -> "Commit `" <> unOID' sha <> "` found as HEAD for multiple PRs: " <> fromPRs prs
     CommitLacksPR sha -> "Commit `" <> unOID' sha <> "` does not have an associated pull request"
     CommitNotPRHead pr sha -> "Commit `" <> unOID' sha <> "` is not HEAD for PR #" <> show pr
@@ -66,17 +75,18 @@ instance Show BotError where
 -- | Get the PRs relevant to the given BotError.
 getRelevantPRs :: BotError -> [PullRequestId]
 getRelevantPRs = \case
-  CIBranchPushed _ -> []
+  CIBranchPushed{} -> []
+  CICommitMissingParents{} -> []
   CommitForManyPRs _ prs -> prs
-  CommitLacksPR _ -> []
+  CommitLacksPR{} -> []
   CommitNotPRHead pr _ -> [pr]
   ConfigFileMissing prs -> prs
   ConfigFileInvalid prs _ -> prs
   InvalidStaging prs _ -> prs
   MergeConflict prs -> prs
   MissingBaseBranch prs _ -> prs
-  MissingCheckRun _ _ -> []
+  MissingCheckRun{} -> []
   MissingCheckRunPR pr _ -> [pr]
   NotFastForward prs _ -> prs
-  NotOnePRInCheckRun _ -> []
+  NotOnePRInCheckRun{} -> []
   UnapprovedPR pr -> [pr]

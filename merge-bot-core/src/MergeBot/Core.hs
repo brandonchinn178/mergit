@@ -8,14 +8,9 @@ This module defines core MergeBot functionality.
 -}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE ExtendedDefaultRules #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE MultiWayIf #-}
-{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE TupleSections #-}
-{-# LANGUAGE TypeFamilies #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
 module MergeBot.Core
@@ -51,6 +46,7 @@ import MergeBot.Core.Config
 import MergeBot.Core.Error
 import MergeBot.Core.GitHub
 import MergeBot.Core.Monad
+import MergeBot.Core.Status
 import MergeBot.Core.Text
 
 default (Text)
@@ -86,7 +82,7 @@ startTryJob :: MonadMergeBot m => Int -> GitObjectID -> Text -> m ()
 startTryJob prNum prSHA base = do
   mergeSHA <- createCIBranch base [prSHA] tryBranch tryMessage
 
-  refreshCheckRuns True True tryBranch mergeSHA
+  refreshCheckRuns True tryBranch mergeSHA
   where
     tryBranch = toTryBranch prNum
     tryMessage = toTryMessage prNum
@@ -120,7 +116,7 @@ resetMerge prNum = do
   updateCheckRun checkRunId $ mergeJobInitData now
 
 -- | Handle a notification that the given commit's status has been updated.
-handleStatusUpdate :: MonadMergeBot m => Bool -> Text -> GitObjectID -> m ()
+handleStatusUpdate :: MonadMergeBot m => Text -> GitObjectID -> m ()
 handleStatusUpdate = refreshCheckRuns False
 
 -- | Load all queues and start a merge run if one is not already running.
@@ -137,7 +133,7 @@ pollQueues = do
           stagingMessage = toStagingMessage base prNums
       mergeSHA <- createCIBranch base prSHAs stagingBranch stagingMessage
 
-      refreshCheckRuns True False stagingBranch mergeSHA
+      refreshCheckRuns True stagingBranch mergeSHA
 
 {- Helpers -}
 
@@ -181,10 +177,11 @@ createCIBranch base prSHAs ciBranch message = do
     tempBranch = "temp-" <> ciBranch
 
 -- | Update the check runs for the given CI commit, including any additional data provided.
-refreshCheckRuns :: MonadMergeBot m => Bool -> Bool -> Text -> GitObjectID -> m ()
-refreshCheckRuns isStart isTry ciBranchName sha = do
+refreshCheckRuns :: MonadMergeBot m => Bool -> Text -> GitObjectID -> m ()
+refreshCheckRuns isStart ciBranchName sha = do
   CICommit{..} <- getCICommit sha checkName
   let (parentSHAs, checkRuns) = unzip parents
+  when (null parents) $ throwIO $ CICommitMissingParents isStart ciBranchName sha
 
   -- since we check the config in 'createCIBranch', we know that 'extractConfig' here will not fail
   config <-
@@ -194,7 +191,11 @@ refreshCheckRuns isStart isTry ciBranchName sha = do
   now <- liftIO getCurrentTime
   (repoOwner, repoName) <- getRepo
 
-  let checkRunState = StatusState.summarize $ map [get| .state |] commitContexts
+  let ciStatus = getCIStatus config commitContexts
+      checkRunState = resolveCIStatus ciStatus
+      -- NB: isComplete means that the merge bot should consider a check run "done"; it does not
+      -- necessarily mean that CI is done. Meaning we should not clean up yet, since more CI jobs
+      -- could start and fail to checkout.
       (isComplete, isSuccess) = case checkRunState of
         StatusState.SUCCESS -> (True, True)
         StatusState.ERROR -> (True, False)
@@ -221,78 +222,52 @@ refreshCheckRuns isStart isTry ciBranchName sha = do
         , let repoUrl = "https://github.com/" <> repoOwner <> "/" <> repoName
               ciBranchUrl = repoUrl <> "/commits/" <> ciBranchName
               ciInfo = "CI running in the [" <> ciBranchName <> "](" <> ciBranchUrl <> ") branch."
-              ciStatus = displayCIStatus config commitContexts
+              ciStatusInfo = displayCIStatus ciStatus
               jobLabel = case (isComplete, isTry) of
                 (False, True) -> tryJobLabelRunning
                 (False, False) -> mergeJobLabelRunning
                 (True, True) -> tryJobLabelDone
                 (True, False) -> mergeJobLabelDone
               jobSummary
-                | not isComplete = [ciInfo, ciStatus]
-                | isTry = [tryJobSummaryDone, ciStatus]
-                | not isSuccess = [mergeJobSummaryFailed, ciStatus]
-                | otherwise = [mergeJobSummarySuccess, ciStatus]
+                | not isComplete = [ciInfo, ciStatusInfo]
+                | isTry = [tryJobSummaryDone, ciStatusInfo]
+                | not isSuccess = [mergeJobSummaryFailed, ciStatusInfo]
+                | otherwise = [mergeJobSummarySuccess, ciStatusInfo]
           in [ "output" := output jobLabel (unlines2 jobSummary) ]
         ]
 
   mapM_ (`updateCheckRun` checkRunData) checkRuns
 
-  when isComplete $
-    -- if complete, make sure the CI branch is deleted at the end
-    (`finally` deleteBranch ciBranchName) $
-      -- if successful merge run, merge into base
-      when (isSuccess && not isTry) $ do
-        -- get pr information for parent commits
-        prs <- mapM getPRForCommit parentSHAs
-        let prNums = map fst prs
+  -- when merge run is complete (success/fail), the staging branch should always be deleted to
+  -- allow for the next merge run
+  --
+  -- try branch should not be deleted until the PR is closed, so that any still-running CI jobs
+  -- can still use the try branch
+  when (not isTry && isComplete) $ (`finally` deleteBranch ciBranchName) $ do
+    -- if successful merge run, merge into base
+    when isSuccess $ do
+      -- get pr information for parent commits
+      prs <- mapM getPRForCommit parentSHAs
+      let prNums = map fst prs
 
-        -- merge into base
-        let invalidStagingBranch = throwIO $ InvalidStaging prNums ciBranchName
-        base <- maybe invalidStagingBranch return $ fromStagingBranch ciBranchName
-        success <- updateBranch False base sha
-        unless success $ throwIO $ NotFastForward prNums base
+      -- merge into base
+      let invalidStagingBranch = throwIO $ InvalidStaging prNums ciBranchName
+      base <- maybe invalidStagingBranch return $ fromStagingBranch ciBranchName
+      success <- updateBranch False base sha
+      unless success $ throwIO $ NotFastForward prNums base
 
-        -- close PRs and delete branches
-        forM_ prs $ \(prNum, branch) -> do
-          -- wait until PR is marked "merged"
-          whileM_ (not <$> isPRMerged prNum) $ return ()
+      -- close PRs and delete branches
+      forM_ prs $ \(prNum, branch) -> do
+        -- wait until PR is marked "merged"
+        whileM_ (not <$> isPRMerged prNum) $ return ()
 
-          closePR prNum
-          deleteBranch branch
+        closePR prNum
+        deleteBranch branch
+        deleteBranch $ toTryBranch prNum
   where
+    isTry = isTryBranch ciBranchName
     checkName = if isTry then checkRunTry else checkRunMerge
     unlines2 = Text.concat . map (<> "\n\n")
-
--- | Get text containing Markdown showing a list of jobs required by the merge bot and their status
--- in CI.
-displayCIStatus :: BotConfig -> [CIContext] -> Text
-displayCIStatus BotConfig{requiredStatuses} contexts =
-  let statuses = foldl updateStatusMap (mkStatusMap requiredStatuses) contexts
-  in Text.unlines $ header ++ fromStatusMap statuses
-  where
-    header =
-      [ "CI Job | Status"
-      , ":-----:|:-----:"
-      ]
-    mkStatusMap = HashMap.fromList . map (, (StatusState.EXPECTED, Nothing))
-    updateStatusMap statuses context = HashMap.adjust
-      (const [get| context.(state, targetUrl) |])
-      [get| context.context |]
-      statuses
-    fromStatusMap statuses =
-      -- iterate on requiredStatuses to keep order
-      map (\c -> mkLine c $ statuses HashMap.! c) requiredStatuses
-    mkLine context (state, url) =
-      let emoji = case state of
-            StatusState.ERROR    -> "❗"
-            StatusState.EXPECTED -> "💤"
-            StatusState.FAILURE  -> "❌"
-            StatusState.PENDING  -> "⏳"
-            StatusState.SUCCESS  -> "✅"
-          link = case url of
-            Nothing -> context
-            Just url' -> "[" <> context <> "](" <> url' <> ")"
-      in link <> " | " <> emoji
 
 -- | Get the configuration file for the given tree.
 extractConfig :: [Int] -> Tree -> Either BotError BotConfig

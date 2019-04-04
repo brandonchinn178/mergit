@@ -114,7 +114,7 @@ data CICommit = CICommit
   , commitContexts :: [CIContext]
   , parents        :: [(GitObjectID, CheckRunId)]
     -- ^ The parent commits of a CI commit, not including the base branch
-  }
+  } deriving (Show)
 
 -- | Get details for the given CI commit; that is, a commit created by 'createCIBranch'.
 getCICommit :: MonadMergeBot m => GitObjectID -> Text -> m CICommit
@@ -135,7 +135,7 @@ getCICommit sha checkName = do
         -- ignore base branch, which is always first
         parents = tail [get| payload.parents!.nodes![]! |]
 
-    chunk <- forM (tail parents) $ \parent -> do
+    chunk <- forM parents $ \parent -> do
       let getCheckRuns = [get| .checkSuites!.nodes![]!.checkRuns!.nodes![]!.databaseId |]
           parentSHA = [get| parent.oid |]
       case concat $ getCheckRuns parent of
