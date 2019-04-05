@@ -15,7 +15,8 @@ This module defines functions for running GitHubT actions.
 {-# LANGUAGE TypeApplications #-}
 
 module MergeBot.Monad
-  ( runBotApp
+  ( BotApp
+  , runBotApp
   , runBotAppForAllInstalls
   ) where
 

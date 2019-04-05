@@ -9,6 +9,7 @@ This module defines handlers for the MergeBot.
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module MergeBot.Handlers
   ( handlePullRequest
@@ -19,13 +20,14 @@ module MergeBot.Handlers
   ) where
 
 import Control.Monad (unless, when)
-import Control.Monad.Logger (logInfoN)
-import Data.Aeson.Schema (Object, get)
+import Control.Monad.Logger (logDebugN, logInfoN)
+import Data.Aeson.Schema (IsSchemaObject, Object, get)
 import qualified Data.Text as Text
 import GitHub.Data.GitObjectID (unOID)
 import qualified GitHub.Schema.Event.CheckRun as CheckRun
 import qualified GitHub.Schema.Event.CheckSuite as CheckSuite
 import qualified GitHub.Schema.Event.PullRequest as PullRequest
+import GitHub.Schema.User (UserWebhook)
 import Servant (Handler)
 import Servant.GitHub
 import UnliftIO.Exception (throwIO)
@@ -35,11 +37,12 @@ import MergeBot.Core.Actions (MergeBotAction(..), parseAction)
 import MergeBot.Core.Error (BotError(..))
 import qualified MergeBot.Core.GitHub as Core
 import MergeBot.Core.Text (isStagingBranch, isTryBranch)
-import MergeBot.Monad (runBotApp)
+import MergeBot.Monad (BotApp, runBotApp)
 
 -- | Handle the 'pull_request' GitHub event.
 handlePullRequest :: Object PullRequestEvent -> Token -> Handler ()
-handlePullRequest o = runBotApp repo $
+handlePullRequest o = runBotApp repo $ do
+  logSender o [get| o.sender |]
   case [get| o.action |] of
     PullRequest.OPENED -> do
       logInfoN $ "PR created: " <> Text.pack (show [get| o.pull_request.number |])
@@ -50,7 +53,8 @@ handlePullRequest o = runBotApp repo $
 
 -- | Handle the 'check_suite' GitHub event.
 handleCheckSuite :: Object CheckSuiteEvent -> Token -> Handler ()
-handleCheckSuite o = runBotApp repo $
+handleCheckSuite o = runBotApp repo $ do
+  logSender o [get| o.sender |]
   case [get| o.action |] of
     CheckSuite.REQUESTED ->
       -- create check runs for any commits pushed to a PR
@@ -62,7 +66,8 @@ handleCheckSuite o = runBotApp repo $
 
 -- | Handle the 'check_run' GitHub event.
 handleCheckRun :: Object CheckRunEvent -> Token -> Handler ()
-handleCheckRun o = runBotApp repo $
+handleCheckRun o = runBotApp repo $ do
+  logSender o [get| o.sender |]
   case [get| o.action |] of
     CheckRun.REQUESTED_ACTION -> do
       pr <- case [get| o.check_run.pull_requests[] |] of
@@ -98,7 +103,8 @@ handleCheckRun o = runBotApp repo $
 
 -- | Handle the 'status' GitHub event.
 handleStatus :: Object StatusEvent -> Token -> Handler ()
-handleStatus o = runBotApp repo $
+handleStatus o = runBotApp repo $ do
+  logSender o [get| o.sender |]
   case [get| o.branches[].name |] of
     [branch] | isTryBranch branch || isStagingBranch branch ->
       Core.handleStatusUpdate branch [get| o.sha |]
@@ -108,7 +114,8 @@ handleStatus o = runBotApp repo $
 
 -- | Handle the 'push' GitHub event.
 handlePush :: Object PushEvent -> Token -> Handler ()
-handlePush o = runBotApp repo $
+handlePush o = runBotApp repo $ do
+  logSender o [get| o.sender |]
   when (isCreated && isCIBranch && not isBot) $ do
     Core.deleteBranch branch
     throwIO $ CIBranchPushed o
@@ -120,3 +127,10 @@ handlePush o = runBotApp repo $
     branch = case Text.splitOn "/" [get| o.ref |] of
       [] -> error $ "Bad ref: " ++ Text.unpack [get| o.ref |]
       l -> last l
+
+{- Helpers -}
+
+-- | Log the sender for the given object.
+logSender :: IsSchemaObject schema => Object schema -> Object UserWebhook -> BotApp ()
+logSender o sender = logDebugN $
+  "User '" <> [get| sender.login |] <> "' sent payload: " <> Text.pack (show o)
