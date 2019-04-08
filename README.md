@@ -62,10 +62,10 @@ provide an access token to use for the duration of a request.
 1. Follow [these instructions][create-github-app] to create a GitHub app.
     1. **Make sure to set a webhook secret!**
     1. Permissions:
-        * Checks: Read/Write
-        * Repository contents: Read/Write
+        * Checks: Read & Write
+        * Repository contents: Read & Write
         * Repository metadata: Read-only
-        * Pull requests: Read/Write
+        * Pull requests: Read & Write
         * Commit statuses: Read-only
     1. Events:
         * Check run
@@ -85,3 +85,16 @@ provide an access token to use for the duration of a request.
 
 [create-github-app]: https://developer.github.com/apps/quickstart-guides/setting-up-your-development-environment/#step-2-register-a-new-github-app
 [user-agent]: https://developer.github.com/v3/#user-agent-required
+
+## Deployment
+
+To deploy, follow the instructions in the "Configuration" section to create a
+GitHub app with the following parameters:
+
+* Name: LeapYear Merge Bot
+* Homepage URL: Set to a `smee.io` URL for now
+* Webhook URL: Same as Homepage URL
+* Webhook secret: Generate a random secret
+* Installed only on this account
+
+Then save the webhook secret, app ID, and private key to LastPass.
