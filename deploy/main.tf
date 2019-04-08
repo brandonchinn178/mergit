@@ -25,6 +25,15 @@ locals {
     User = "MergeBot"
     Maintainer = "merge-bot"
   }
+
+  bot_conf_dir = "/etc/merge-bot.d/"
+  private_key_name = "github-app.pem"
+  env_file_lines = [
+    "export GITHUB_APP_ID=${var.app_id}",
+    "export GITHUB_WEBHOOK_SECRET=${var.webhook_secret}",
+    "export GITHUB_PRIVATE_KEY=${local.bot_conf_dir}/${local.private_key_name}",
+    "export GITHUB_USER_AGENT=${var.user_agent}",
+  ]
 }
 
 ## Imported helpers ##
@@ -79,6 +88,29 @@ resource "aws_instance" "merge_bot" {
   connection {
     user = "${local.ami_user}"
     private_key = "${module.keypair.private_key_pem}"
-    timeout = "2m"
+  }
+
+  provisioner "file" {
+    destination = "~/merge-bot"
+    source = "${var.merge_bot}"
+  }
+
+  provisioner "file" {
+    destination = "~/${local.private_key_name}"
+    source = "${var.private_key}"
+  }
+
+  provisioner "file" {
+    destination = "~/env",
+    content = "${join("\n", "${local.env_file_lines}")}"
+  }
+
+  provisioner "remote-exec" {
+    inline = [
+      "sudo mkdir -p ${local.bot_conf_dir}",
+      "sudo mv merge-bot /usr/local/bin/",
+      "sudo mv ${local.private_key_name} ${local.bot_conf_dir}",
+      "sudo mv env ${local.bot_conf_dir}",
+    ]
   }
 }
