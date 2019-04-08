@@ -97,4 +97,5 @@ GitHub app with the following parameters:
 * Webhook secret: Generate a random secret
 * Installed only on this account
 
-Then save the webhook secret, app ID, and private key to LastPass.
+Then save the webhook secret, app ID, and private key to LastPass. Follow the
+instructions in `deploy/README.md` with these values.
