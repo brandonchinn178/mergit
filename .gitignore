@@ -7,5 +7,6 @@
 
 .terraform/
 *.tfvars
+/deploy/artifacts/
 
 /core/.graphql

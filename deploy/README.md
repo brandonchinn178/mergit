@@ -7,11 +7,14 @@ EC2 instances.
 
 1. Install at least Terraform 0.11.13
 1. Get the app ID, webhook secret, and private key from LastPass.
+1. Download the `merge-bot` binary from a CI job.
 
 ## Steps
 
 1. `cd` to this directory
-1. Put the private key in this directory named as `github-app.pem`
+1. `mkdir artifacts/`
+1. Save the private key as `artifacts/github-app.pem`
+1. Save the `merge-bot` binary as `artifacts/merge-bot`
 1. Create a `terraform.tfvars` file
 
     ```

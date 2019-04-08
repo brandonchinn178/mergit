@@ -1,3 +1,8 @@
+variable merge_bot {
+  description = "The executable for running the merge bot."
+  default = "artifacts/merge-bot"
+}
+
 variable app_id {
   description = "The GitHub App ID for the merge bot."
 }
@@ -8,7 +13,7 @@ variable webhook_secret {
 
 variable private_key {
   description = "The private key for the merge bot."
-  default = "github-app.pem"
+  default = "artifacts/github-app.pem"
 }
 
 variable user_agent {
