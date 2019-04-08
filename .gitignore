@@ -5,6 +5,7 @@
 .env
 *.pem
 
+.terraform/
 *.tfvars
 
 /core/.graphql

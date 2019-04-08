@@ -11,11 +11,13 @@ EC2 instances.
 ## Steps
 
 1. `cd` to this directory
-1. Put the private key in this directory
+1. Put the private key in this directory named as `github-app.pem`
 1. Create a `terraform.tfvars` file
 
     ```
     app_id = xxx
     webhook_secret = "xxx"
-    private_key = "xxx.pem"
     ```
+
+1. `terraform init`
+1. `terraform apply -auto-approve`
