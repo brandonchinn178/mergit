@@ -24,3 +24,4 @@ EC2 instances.
 
 1. `terraform init`
 1. `terraform apply -auto-approve`
+1. Upload the file at `terraform output keyfile` to LastPass
