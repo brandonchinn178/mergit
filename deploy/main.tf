@@ -27,14 +27,14 @@ locals {
     Maintainer = "merge-bot"
   }
 
-  bot_conf_dir     = "/etc/merge-bot.d/"
+  bot_conf_dir     = "/etc/merge-bot.d"
   private_key_name = "github-app.pem"
 
   env_file_lines = [
-    "export GITHUB_APP_ID=${var.app_id}",
-    "export GITHUB_WEBHOOK_SECRET=${var.webhook_secret}",
-    "export GITHUB_PRIVATE_KEY=${local.bot_conf_dir}/${local.private_key_name}",
-    "export GITHUB_USER_AGENT=${var.user_agent}",
+    "GITHUB_APP_ID=${var.app_id}",
+    "GITHUB_WEBHOOK_SECRET=${var.webhook_secret}",
+    "GITHUB_PRIVATE_KEY=${local.bot_conf_dir}/${local.private_key_name}",
+    "GITHUB_USER_AGENT=${var.user_agent}",
   ]
 }
 
@@ -109,12 +109,23 @@ resource "aws_instance" "merge_bot" {
     content     = "${join("\n", "${local.env_file_lines}")}"
   }
 
+  provisioner "file" {
+    destination = "~/merge-bot.service"
+    source      = "${path.module}/merge-bot.service"
+  }
+
   provisioner "remote-exec" {
     inline = [
-      "sudo mkdir -p ${local.bot_conf_dir}",
+      # merge-bot executable
+      "sudo chmod +x merge-bot",
       "sudo mv merge-bot /usr/local/bin/",
+      # configuration
+      "sudo mkdir -p ${local.bot_conf_dir}",
       "sudo mv ${local.private_key_name} ${local.bot_conf_dir}",
       "sudo mv env ${local.bot_conf_dir}",
+      # systemd
+      "sudo mv merge-bot.service /usr/lib/systemd/system/",
+      "sudo systemctl enable --now merge-bot",
     ]
   }
 }

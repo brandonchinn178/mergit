@@ -1,0 +1,10 @@
+[Unit]
+Description=LeapYear Merge Bot
+
+[Service]
+ExecStart=/usr/local/bin/merge-bot
+EnvironmentFile=/etc/merge-bot.d/env
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
