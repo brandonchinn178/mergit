@@ -29,13 +29,6 @@ locals {
 
   bot_conf_dir     = "/etc/merge-bot.d"
   private_key_name = "github-app.pem"
-
-  env_file_lines = [
-    "GITHUB_APP_ID=${var.app_id}",
-    "GITHUB_WEBHOOK_SECRET=${var.webhook_secret}",
-    "GITHUB_PRIVATE_KEY=${local.bot_conf_dir}/${local.private_key_name}",
-    "GITHUB_USER_AGENT=${var.user_agent}",
-  ]
 }
 
 ## Imported helpers ##
@@ -106,7 +99,13 @@ resource "aws_instance" "merge_bot" {
 
   provisioner "file" {
     destination = "~/env"
-    content     = "${join("\n", "${local.env_file_lines}")}"
+
+    content = <<-EOT
+      GITHUB_APP_ID=${var.app_id}
+      GITHUB_WEBHOOK_SECRET=${var.webhook_secret}
+      GITHUB_PRIVATE_KEY=${local.bot_conf_dir}/${local.private_key_name}
+      GITHUB_USER_AGENT=${var.user_agent}
+    EOT
   }
 
   provisioner "file" {
@@ -114,18 +113,48 @@ resource "aws_instance" "merge_bot" {
     source      = "${path.module}/merge-bot.service"
   }
 
+  provisioner "file" {
+    destination = "~/nginx.repo"
+    source      = "${path.module}/nginx.repo"
+  }
+
+  provisioner "file" {
+    destination = "~/nginx.conf"
+    content = <<-EOT
+      server {
+        listen 443;
+        listen [::]:443;
+
+        server_name ${aws_instance.merge_bot.public_dns};
+
+        location / {
+          proxy_pass http://localhost:3000/;
+        }
+      }
+    EOT
+  }
+
   provisioner "remote-exec" {
     inline = [
       # merge-bot executable
       "sudo chmod +x merge-bot",
       "sudo mv merge-bot /usr/local/bin/",
+
       # configuration
       "sudo mkdir -p ${local.bot_conf_dir}",
       "sudo mv ${local.private_key_name} ${local.bot_conf_dir}",
       "sudo mv env ${local.bot_conf_dir}",
+
       # systemd
       "sudo mv merge-bot.service /usr/lib/systemd/system/",
       "sudo systemctl enable --now merge-bot",
+
+      # nginx
+      "sudo mv nginx.repo /etc/yum.repos.d/",
+      "sudo yum install -y nginx",
+      "sudo mv nginx.conf /etc/nginx/conf.d/default.conf",
+      "sudo setenforce 0", # https://unix.stackexchange.com/questions/218747/nginx-says-open-etc-nginx-conf-d-foo-conf-failed-13-permission-denied
+      "sudo systemctl enable --now nginx",
     ]
   }
 }
