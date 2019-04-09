@@ -123,12 +123,15 @@ resource "aws_instance" "merge_bot" {
     content = <<-EOT
       server {
         listen 443;
-        listen [::]:443;
-
         server_name ${aws_instance.merge_bot.public_dns};
+
+        ssl on;
+        ssl_certificate /usr/local/nginx/conf/server.pem;
+        ssl_certificate_key /usr/local/nginx/conf/server.key;
 
         location / {
           proxy_pass http://localhost:3000/;
+          proxy_redirect http:// https://;
         }
       }
     EOT
@@ -148,6 +151,10 @@ resource "aws_instance" "merge_bot" {
       # systemd
       "sudo mv merge-bot.service /usr/lib/systemd/system/",
       "sudo systemctl enable --now merge-bot",
+
+      # ssl
+      "sudo mkdir -p /usr/local/nginx/conf/",
+      "sudo openssl req -new -nodes -x509 -days 365 -subj '/CN=${aws_instance.merge_bot.public_dns}' -out /usr/local/nginx/conf/server.pem -keyout /usr/local/nginx/conf/server.key",
 
       # nginx
       "sudo mv nginx.repo /etc/yum.repos.d/",
