@@ -17,32 +17,16 @@ provider "aws" {
 }
 
 locals {
-  ami           = "ami-011b3ccf1bd6db744" # RHEL 7.6 in us-east-1
-  instance_type = "t2.micro"
-  ami_user      = "ec2-user"
-
   tags = {
     Name       = "LY Merge Bot"
-    User       = "MergeBot"
+    User       = "LeapYear Infrastructure Team"
     Maintainer = "merge-bot"
   }
-
-  bot_conf_dir     = "/etc/merge-bot.d"
-  private_key_name = "github-app.pem"
 }
-
-## Imported helpers ##
 
 data "aws_vpc" "main" {
   default = true
 }
-
-module "keypair" {
-  source = "git@github.com:LeapYear/infrastructure//modules/keypair?ref=0afa538f9f2ea5801b65e311a252c7f8aea8d412"
-  prefix = "merge-bot"
-}
-
-## Resources ##
 
 resource "aws_security_group" "security_group" {
   name        = "merge_bot_security"
@@ -72,6 +56,22 @@ resource "aws_security_group" "security_group" {
     to_port     = 0
     cidr_blocks = ["0.0.0.0/0"]
   }
+}
+
+## Primary EC2 instance ##
+
+locals {
+  ami           = "ami-011b3ccf1bd6db744" # RHEL 7.6 in us-east-1
+  instance_type = "t2.micro"
+  ami_user      = "ec2-user"
+
+  bot_conf_dir     = "/etc/merge-bot.d"
+  private_key_name = "github-app.pem"
+}
+
+module "keypair" {
+  source = "git@github.com:LeapYear/infrastructure//modules/keypair?ref=0afa538f9f2ea5801b65e311a252c7f8aea8d412"
+  prefix = "merge-bot"
 }
 
 resource "aws_instance" "merge_bot" {
@@ -165,3 +165,7 @@ resource "aws_instance" "merge_bot" {
     ]
   }
 }
+
+## Load Balancer ##
+
+# TODO

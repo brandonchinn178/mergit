@@ -3,6 +3,15 @@
 This directory contains Terraform scripts to deploy the merge bot to AWS using
 EC2 instances.
 
+The `main.tf` Terraform script configures two groups of resources:
+
+* resources for provisioning an EC2 instance to run the merge bot
+* resources for setting up a load balancer for the EC2 instance
+
+The merge bot will probably not have heavy traffic, but the load balancer
+lets us use SSL from Amazon's certificate service, letting us accept HTTPS
+requests from GitHub while routing HTTP requests internally to the merge bot.
+
 ## Pre-Requisites
 
 1. Install at least Terraform 0.11.13
