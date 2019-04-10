@@ -7,5 +7,5 @@ output "keyfile" {
 }
 
 output "url" {
-  value = "${aws_instance.merge_bot.public_dns}"
+  value = "${aws_lb.load_balancer.dns_name}"
 }
