@@ -34,3 +34,12 @@ requests from GitHub while routing HTTP requests internally to the merge bot.
 1. `terraform init`
 1. `terraform apply -auto-approve`
 1. Upload the file at `terraform output keyfile` to LastPass
+
+## Inspect
+
+To SSH into the EC2 instance running the merge bot, download the keyfile
+(saved as "LY Merge Bot (AWS)" on LastPass) and run
+
+```
+$(terraform output ssh_cmd) -i path/to/merge-bot-aws.pem
+```

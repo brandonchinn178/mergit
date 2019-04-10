@@ -142,6 +142,9 @@ resource "aws_instance" "merge_bot" {
       "sudo mv ${local.private_key_name} ${local.bot_conf_dir}",
       "sudo mv env ${local.bot_conf_dir}",
 
+      # logging
+      "sudo mkdir -p /var/log/merge-bot",
+
       # systemd
       "sudo mv merge-bot.service /usr/lib/systemd/system/",
       "sudo systemctl enable --now merge-bot",
@@ -198,7 +201,7 @@ resource "aws_lb" "load_balancer" {
 }
 
 module "domain" {
-  source = "git@github.com:LeapYear/infrastructure//modules/domain?ref=8b353acf35f4fc0e18df2d998d4f7be8d97dfe55"
+  source = "git@github.com:LeapYear/infrastructure//modules/domain?ref=021dc88e5228787c440f44624fde913894250cb3"
 
   domain_name    = "build-leapyear.com"
   subdomain_name = "merge-bot"

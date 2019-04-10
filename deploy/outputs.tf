@@ -7,5 +7,10 @@ output "keyfile" {
 }
 
 output "url" {
-  value = "${aws_lb.load_balancer.dns_name}"
+  value = "${module.domain.url}"
+}
+
+# SSH command without the key file
+output "ssh_cmd" {
+  value = "ssh ${local.ami_user}@${aws_instance.merge_bot.public_ip}"
 }

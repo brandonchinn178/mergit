@@ -99,3 +99,18 @@ GitHub app with the following parameters:
 
 Then save the webhook secret, app ID, and private key to LastPass. Follow the
 instructions in `deploy/README.md` with these values.
+
+Edit the GitHub app and replace the homepage and webhook URLs with
+`https://merge-bot.build-leapyear.com/webhook`. The GitHub app should now be
+set!
+
+Now, you need to install the GitHub app to the correct repository:
+
+1. Remove all CI statuses from required status checks
+1. Set the "Bot Merge" check as a required status check
+1. Add `.lymerge.yaml` to the repo with the required CI statuses
+1. Make a PR and use the merge bot to merge it in!
+
+### Updating the deployment
+
+TODO
