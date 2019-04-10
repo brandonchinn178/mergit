@@ -43,3 +43,9 @@ To SSH into the EC2 instance running the merge bot, download the keyfile
 ```
 $(terraform output ssh_cmd) -i path/to/merge-bot-aws.pem
 ```
+
+## Update
+
+1. Put the new `merge-bot` binary in `artifacts/`
+1. `terraform taint aws_instance.merge_bot`
+1. `terraform apply -auto-approve`

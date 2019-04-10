@@ -110,7 +110,3 @@ Now, you need to install the GitHub app to the correct repository:
 1. Set the "Bot Merge" check as a required status check
 1. Add `.lymerge.yaml` to the repo with the required CI statuses
 1. Make a PR and use the merge bot to merge it in!
-
-### Updating the deployment
-
-TODO
