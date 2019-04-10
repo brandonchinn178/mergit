@@ -30,7 +30,8 @@ import MergeBot.Monad (runBotAppForAllInstalls)
 
 type MergeBotApp
   = "webhook" :>
-    (    GitHubEvent 'PullRequestEvent :> WithToken :> GitHubAction
+    (    GitHubEvent 'PingEvent :> GitHubAction
+    :<|> GitHubEvent 'PullRequestEvent :> WithToken :> GitHubAction
     :<|> GitHubEvent 'CheckSuiteEvent :> WithToken :> GitHubAction
     :<|> GitHubEvent 'CheckRunEvent :> WithToken :> GitHubAction
     :<|> GitHubEvent 'StatusEvent :> WithToken :> GitHubAction
@@ -39,7 +40,8 @@ type MergeBotApp
 
 server :: Server MergeBotApp
 server
-  =    handlePullRequest
+  =    handlePing
+  :<|> handlePullRequest
   :<|> handleCheckSuite
   :<|> handleCheckRun
   :<|> handleStatus

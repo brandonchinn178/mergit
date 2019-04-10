@@ -37,6 +37,7 @@ import GitHub.Schema.Event.InstallationRepositories as Schema
 import GitHub.Schema.Event.IssueComment as Schema (IssueCommentEvent)
 import GitHub.Schema.Event.Issues as Schema (IssuesEvent)
 import GitHub.Schema.Event.Label as Schema (LabelEvent)
+import GitHub.Schema.Event.Ping as Schema (PingEvent)
 import GitHub.Schema.Event.PullRequest as Schema (PullRequestEvent)
 import GitHub.Schema.Event.Push as Schema (PushEvent)
 import GitHub.Schema.Event.Status as Schema (StatusEvent)
@@ -66,6 +67,7 @@ data GitHubEventType
   -- TODO: OrganizationEvent
   -- TODO: OrgBlockEvent
   -- TODO: PageBuildEvent
+  | PingEvent
   -- TODO: ProjectCardEvent
   -- TODO: ProjectColumnEvent
   -- TODO: ProjectEvent
@@ -148,6 +150,10 @@ instance IsGitHubEvent 'IssuesEvent where
 instance IsGitHubEvent 'LabelEvent where
   type EventSchema 'LabelEvent = Schema.LabelEvent
   eventName = "label"
+
+instance IsGitHubEvent 'PingEvent where
+  type EventSchema 'PingEvent = Schema.PingEvent
+  eventName = "ping"
 
 instance IsGitHubEvent 'PullRequestEvent where
   type EventSchema 'PullRequestEvent = Schema.PullRequestEvent

@@ -12,7 +12,8 @@ This module defines handlers for the MergeBot.
 {-# LANGUAGE TypeFamilies #-}
 
 module MergeBot.Handlers
-  ( handlePullRequest
+  ( handlePing
+  , handlePullRequest
   , handleCheckSuite
   , handleCheckRun
   , handleStatus
@@ -20,6 +21,7 @@ module MergeBot.Handlers
   ) where
 
 import Control.Monad (unless, when)
+import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Logger (logDebugN, logInfoN)
 import Data.Aeson.Schema (IsSchemaObject, Object, get)
 import qualified Data.Text as Text
@@ -38,6 +40,10 @@ import MergeBot.Core.Error (BotError(..))
 import qualified MergeBot.Core.GitHub as Core
 import MergeBot.Core.Text (isStagingBranch, isTryBranch)
 import MergeBot.Monad (BotApp, runBotApp)
+
+-- | Handle the 'ping' GitHub event.
+handlePing :: Object PingEvent -> Handler ()
+handlePing o = liftIO $ putStrLn $ "Got ping from app #" ++ show [get| o.hook.app_id |]
 
 -- | Handle the 'pull_request' GitHub event.
 handlePullRequest :: Object PullRequestEvent -> Token -> Handler ()
