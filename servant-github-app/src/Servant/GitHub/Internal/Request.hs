@@ -7,6 +7,7 @@ Portability :  portable
 Helper functions for getting information from Request objects.
 -}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TupleSections #-}
 
 module Servant.GitHub.Internal.Request where
 
@@ -38,12 +39,11 @@ requestBodyMapVar :: MVar (Map ByteString ByteStringL.ByteString)
 requestBodyMapVar = unsafePerformIO $ newMVar Map.empty
 
 getRequestBody' :: Request -> ByteString -> IO ByteStringL.ByteString
-getRequestBody' request signature = modifyMVar requestBodyMapVar $ \requestBodyMap ->
-  case Map.lookup signature requestBodyMap of
-    Nothing -> do
-      body <- lazyRequestBody request
-      return (Map.insert signature body requestBodyMap, body)
-    Just body -> return (requestBodyMap, body)
+getRequestBody' request signature = modifyMVar requestBodyMapVar $ \requestBodyMap -> do
+  body <- lazyRequestBody request
+  if ByteStringL.null body
+    then return . (requestBodyMap,) . Map.findWithDefault body signature $ requestBodyMap
+    else return (Map.insert signature body requestBodyMap, body)
 
 getRequestBody :: Request -> Servant.DelayedIO ByteStringL.ByteString
 getRequestBody request = liftIO . getRequestBody' request =<< getSignature request
