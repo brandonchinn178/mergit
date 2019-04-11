@@ -51,6 +51,12 @@ aliases:
     run:
       name: Build packages
       command: stack build --test --no-run-tests
+  - &copy-artifacts
+    run:
+      name: Copy artifacts
+      command: |
+        mkdir -p artifacts/
+        cp "$(stack exec -- bash -c 'type -P merge-bot')" artifacts/
 
   # test steps
   - &run-hlint
@@ -98,6 +104,9 @@ jobs:
             - ~/.stack
             - .stack-work
       - *run-build
+      - *copy-artifacts
+      - store_artifacts:
+          path: artifacts/
       - persist_to_workspace:
           root: .
           paths:
