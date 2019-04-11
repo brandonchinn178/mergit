@@ -12,8 +12,7 @@ module MergeBot.Core.Logging
   , runMergeBotLogging
   ) where
 
-import Control.Monad (unless)
-import Control.Monad.Logger (LogLevel(..), LoggingT, defaultLogStr, runLoggingT)
+import Control.Monad.Logger (LoggingT, defaultLogStr, runLoggingT)
 import qualified Data.ByteString.Char8 as Char8
 import Data.Time (UTCTime, defaultTimeLocale, formatTime, getCurrentTime)
 import System.FilePath ((</>))
@@ -41,7 +40,4 @@ runMergeBotLogging = flip runLoggingT $ \loc src lvl str -> do
       doLog h = Char8.hPutStr h $ fromLogStr $ defaultLogStr loc src lvl str
 
   withFile dest AppendMode doLog
-
-  -- error logs are already sent to stderr via 'fail' (see 'handleBotErr')
-  unless (lvl == LevelError) $
-    doLog stderr
+  doLog stderr

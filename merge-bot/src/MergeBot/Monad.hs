@@ -7,6 +7,7 @@ Portability :  portable
 This module defines functions for running GitHubT actions.
 -}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
@@ -23,6 +24,7 @@ module MergeBot.Monad
 import Control.Monad (forM)
 import Control.Monad.IO.Class (liftIO)
 import Data.Aeson.Schema (Object, get, schema)
+import qualified Data.ByteString.Lazy.Char8 as Char8
 import Data.Text (Text)
 import qualified Data.Text as Text
 import GitHub.REST
@@ -30,10 +32,10 @@ import GitHub.REST
 import GitHub.REST.Auth (getJWTToken)
 import GitHub.Schema.Repository (RepoWebhook)
 import Network.HTTP.Types (StdMethod(..))
-import Servant (Handler, runHandler)
+import Servant (Handler, ServantErr(..), err500, runHandler, throwError)
 import Servant.GitHub (GitHubAppParams(..), loadGitHubAppParams)
 import Servant.GitHub.Security (getToken)
-import UnliftIO.Exception (throwIO)
+import UnliftIO.Exception (SomeException, displayException, throwIO, try)
 
 import MergeBot.Core.Monad (BotAppT, BotSettings(..), runBotAppT)
 
@@ -45,13 +47,16 @@ runBotApp = runBotApp' . [get| .full_name |]
 
 -- | A helper around 'runBotAppT'.
 runBotApp' :: Text -> BotApp a -> Token -> Handler a
-runBotApp' repo action token = liftIO $ do
-  GitHubAppParams{ghUserAgent, ghAppId} <- loadGitHubAppParams
-  (`runBotAppT` action) BotSettings
-    { userAgent = ghUserAgent
-    , appId = ghAppId
-    , ..
-    }
+runBotApp' repo action token = do
+  GitHubAppParams{ghUserAgent, ghAppId} <- liftIO loadGitHubAppParams
+  let settings = BotSettings
+        { userAgent = ghUserAgent
+        , appId = ghAppId
+        , ..
+        }
+  liftIO (try @_ @SomeException $ runBotAppT settings action) >>= \case
+    Right x -> return x
+    Left e -> throwError $ err500 { errBody = Char8.pack $ displayException e }
   where
     (repoOwner, repoName) = parseRepo repo
 
