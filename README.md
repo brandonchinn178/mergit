@@ -104,9 +104,20 @@ Edit the GitHub app and replace the homepage and webhook URLs with
 `https://merge-bot.build-leapyear.com/webhook`. The GitHub app should now be
 set!
 
-Now, you need to install the GitHub app to the correct repository:
+### Installation
+
+Now, you need to install the GitHub app to the relevant repositories:
 
 1. Remove all CI statuses from required status checks
+1. Add `.lymerge.yaml` to the repo with the required CI statuses (the same
+   labels that you removed in step 1):
+
+```yaml
+statuses:
+- "ci/circleci: build"
+- "ci/circleci: test"
+```
+
+1. Make a PR
 1. Set the "Bot Merge" check as a required status check
-1. Add `.lymerge.yaml` to the repo with the required CI statuses
-1. Make a PR and use the merge bot to merge it in!
+1. Use the merge bot to merge in the PR!
