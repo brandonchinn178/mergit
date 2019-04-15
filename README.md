@@ -121,4 +121,5 @@ statuses:
 1. Edit CI config to only run CI on branches matching `staging-.*` or `trying-.*`
 1. Make a PR
 1. Set the "Bot Merge" check as a required status check (for protected branches)
+1. Uncheck "Require branches to be up to date before merging"
 1. Use the merge bot to merge in the PR!
