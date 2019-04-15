@@ -108,7 +108,7 @@ set!
 
 Now, you need to install the GitHub app to the relevant repositories:
 
-1. Remove all CI statuses from required status checks
+1. Remove all CI statuses from required status checks (for protected branches)
 1. Add `.lymerge.yaml` to the repo with the required CI statuses (the same
    labels that you removed in step 1):
 
@@ -118,6 +118,7 @@ statuses:
 - "ci/circleci: test"
 ```
 
+1. Edit CI config to only run CI on branches matching `staging-*` or `trying-*`
 1. Make a PR
-1. Set the "Bot Merge" check as a required status check
+1. Set the "Bot Merge" check as a required status check (for protected branches)
 1. Use the merge bot to merge in the PR!
