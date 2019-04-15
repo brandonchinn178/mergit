@@ -41,11 +41,14 @@ updateCheckRuns :: MonadMergeBot m => [CheckRunId] -> CheckRunOptions -> m ()
 updateCheckRuns checkRunIds CheckRunOptions{..} = do
   now <- liftIO getCurrentTime
 
-  let doneActions
-                | isTry = [BotTry]
-                | isSuccess = [BotResetMerge]
-                | otherwise = [BotQueue]
-      actions = if isComplete then doneActions else []
+  let pendingActions
+        | isTry = [BotCancelTry]
+        | otherwise = [BotCancelMerge]
+      doneActions
+        | isTry = [BotTry]
+        | isSuccess = [BotResetMerge]
+        | otherwise = [BotQueue]
+      actions = if isComplete then doneActions else pendingActions
 
       jobLabel = case (isComplete, isTry) of
         (False, True) -> tryJobLabelRunning

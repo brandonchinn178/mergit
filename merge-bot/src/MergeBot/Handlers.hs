@@ -95,6 +95,9 @@ handleCheckRun o = runBotApp repo $ do
         Just BotTry -> do
           logInfoN $ "Trying PR #" <> prNum' <> " for commit: " <> unOID sha
           Core.startTryJob prNum sha prBaseRef checkRunId
+        Just BotCancelTry -> do
+          logInfoN $ "Cancelling try for PR #" <> prNum'
+          Core.cancelTryJob prNum
         Just BotQueue -> do
           logInfoN $ "Queuing PR #" <> prNum'
           Core.queuePR prNum
@@ -104,6 +107,9 @@ handleCheckRun o = runBotApp repo $ do
         Just BotResetMerge -> do
           logInfoN $ "Resetting merge check run for PR #" <> prNum'
           Core.resetMerge prNum
+        Just BotCancelMerge -> do
+          logInfoN $ "Cancelling merge run (Sent by PR #" <> prNum' <> ")"
+          Core.cancelMerge prNum
         Nothing -> return ()
     _ -> return ()
   where

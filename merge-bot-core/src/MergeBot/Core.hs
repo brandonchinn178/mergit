@@ -17,9 +17,11 @@ This module defines core MergeBot functionality.
 module MergeBot.Core
   ( createCheckRuns
   , startTryJob
+  , cancelTryJob
   , queuePR
   , dequeuePR
   , resetMerge
+  , cancelMerge
   , handleStatusUpdate
   , pollQueues
   ) where
@@ -97,6 +99,10 @@ startTryJob prNum prSHA base checkRunId = do
     tryBranch = toTryBranch prNum
     tryMessage = toTryMessage prNum
 
+-- | Cancel the try job for the given PR.
+cancelTryJob :: MonadMergeBot m => Int -> m ()
+cancelTryJob = undefined
+
 -- | Add a PR to the queue.
 queuePR :: MonadMergeBot m => Int -> m ()
 queuePR prNum = do
@@ -124,6 +130,10 @@ resetMerge prNum = do
   checkRunId <- getCheckRun prNum checkRunMerge
   now <- liftIO getCurrentTime
   updateCheckRun checkRunId $ mergeJobInitData now
+
+-- | Cancel the merge run containing the given PR.
+cancelMerge :: MonadMergeBot m => Int -> m ()
+cancelMerge = undefined
 
 -- | Handle a notification that the given commit's status has been updated.
 handleStatusUpdate :: MonadMergeBot m => Text -> GitObjectID -> m ()
