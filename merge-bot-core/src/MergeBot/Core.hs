@@ -8,6 +8,7 @@ This module defines core MergeBot functionality.
 -}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE ExtendedDefaultRules #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -253,8 +254,9 @@ refreshCheckRuns isStart ciBranchName sha = do
       -- merge into base
       let invalidStagingBranch = throwIO $ InvalidStaging prNums ciBranchName
       base <- maybe invalidStagingBranch return $ fromStagingBranch ciBranchName
-      success <- updateBranch False base sha
-      unless success $ throwIO $ NotFastForward prNums base
+      updateBranch False base sha >>= \case
+        Right _ -> return ()
+        Left message -> throwIO $ BadUpdate prNums base message
 
       -- close PRs and delete branches
       forM_ prs $ \(prNum, branch) -> do

@@ -44,6 +44,7 @@ module MergeBot.Core.GitHub
   ) where
 
 import Control.Monad (forM, void)
+import Data.Bifunctor (bimap)
 import Data.Either (isRight)
 import Data.GraphQL (get, mkGetter, runQuery, unwrap)
 import Data.HashMap.Strict (HashMap)
@@ -327,13 +328,15 @@ createBranch name sha = void $ queryGitHub' GHEndpoint
 -- Returns False if update is not a fast-forward.
 --
 -- https://developer.github.com/v3/git/refs/#update-a-reference
-updateBranch :: MonadMergeBot m => Bool -> Text -> GitObjectID -> m Bool
-updateBranch force branch sha = fmap isRight $ githubTry $ queryGitHub' GHEndpoint
+updateBranch :: MonadMergeBot m => Bool -> Text -> GitObjectID -> m (Either Text ())
+updateBranch force branch sha = fmap resolve $ githubTry $ queryGitHub' GHEndpoint
   { method = PATCH
   , endpoint = "/repos/:owner/:repo/git/refs/:ref"
   , endpointVals = ["ref" := "heads/" <> branch]
   , ghData = ["sha" := sha, "force" := force]
   }
+  where
+    resolve = bimap (.: "message") (const ())
 
 -- | Delete the given branch, ignoring the error if the branch doesn't exist.
 --
