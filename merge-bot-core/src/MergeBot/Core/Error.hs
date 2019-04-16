@@ -27,7 +27,8 @@ import MergeBot.Core.Config (configFileName)
 type PullRequestId = Int
 
 data BotError
-  = CIBranchPushed (Object PushEvent)
+  = BadUpdate [PullRequestId] Text Text
+  | CIBranchPushed (Object PushEvent)
   | CICommitMissingParents Bool Text GitObjectID
   | CommitForManyPRs GitObjectID [PullRequestId]
   | CommitLacksPR GitObjectID
@@ -39,7 +40,6 @@ data BotError
   | MissingBaseBranch [PullRequestId] Text
   | MissingCheckRun GitObjectID Text
   | MissingCheckRunPR PullRequestId Text
-  | NotFastForward [PullRequestId] Text
   | NotOnePRInCheckRun (Object CheckRunEvent)
   | UnapprovedPR PullRequestId
 
@@ -47,6 +47,14 @@ instance Exception BotError
 
 instance Show BotError where
   show = \case
+    BadUpdate prs base message -> concat
+      [ "Could not merge PRs "
+      , fromPRs prs
+      , " into `"
+      , Text.unpack base
+      , "`: "
+      , Text.unpack message
+      ]
     CIBranchPushed o -> "User tried to manually create CI branch: " <> show o
     CICommitMissingParents isStart branch sha -> concat
       [ "Commit `"
@@ -66,7 +74,6 @@ instance Show BotError where
     MissingBaseBranch _ branch -> "Base branch does not exist: " <> Text.unpack branch
     MissingCheckRun sha checkName -> "Commit `" <> unOID' sha <> "` missing check run named: " <> Text.unpack checkName
     MissingCheckRunPR pr checkName -> "PR #" <> show pr <> " missing check run named: " <> Text.unpack checkName
-    NotFastForward prs base -> "Could not fast forward `" <> Text.unpack base <> "` when merging PRs: " <> fromPRs prs
     NotOnePRInCheckRun o -> "Check run did not have exactly one PR: " <> show o
     UnapprovedPR prNum -> "PR #" <> show prNum <> " is not approved"
     where
@@ -75,6 +82,7 @@ instance Show BotError where
 -- | Get the PRs relevant to the given BotError.
 getRelevantPRs :: BotError -> [PullRequestId]
 getRelevantPRs = \case
+  BadUpdate prs _ _ -> prs
   CIBranchPushed{} -> []
   CICommitMissingParents{} -> []
   CommitForManyPRs _ prs -> prs
@@ -87,6 +95,5 @@ getRelevantPRs = \case
   MissingBaseBranch prs _ -> prs
   MissingCheckRun{} -> []
   MissingCheckRunPR pr _ -> [pr]
-  NotFastForward prs _ -> prs
   NotOnePRInCheckRun{} -> []
   UnapprovedPR pr -> [pr]
