@@ -82,6 +82,8 @@ handleCheckRun o = runBotApp repo $ do
 
       let prNum = [get| pr.number |]
           prNum' = Text.pack $ show prNum
+          prBaseRef = [get| pr.base.ref |]
+          checkRunId = [get| o.check_run.id |]
           sha = [get| o.check_run.head_sha |]
           action = [get| o.requested_action!.identifier |]
 
@@ -92,7 +94,7 @@ handleCheckRun o = runBotApp repo $ do
       case parseAction action of
         Just BotTry -> do
           logInfoN $ "Trying PR #" <> prNum' <> " for commit: " <> unOID sha
-          Core.startTryJob prNum sha [get| pr.base.ref |]
+          Core.startTryJob prNum sha prBaseRef checkRunId
         Just BotQueue -> do
           logInfoN $ "Queuing PR #" <> prNum'
           Core.queuePR prNum
