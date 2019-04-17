@@ -138,10 +138,17 @@ pollQueues = do
     when (isNothing staging) $ startMergeJob prs base
   where
     startMergeJob prs base = do
-      let (prNums, prSHAs) = unzip prs
+      let (prNums, prSHAs, checkRunIds) = unzip3 prs
           stagingBranch = toStagingBranch base
           stagingMessage = toStagingMessage base prNums
       mergeSHA <- createCIBranch base prSHAs stagingBranch stagingMessage
+        `onException` updateCheckRuns checkRunIds CheckRunOptions
+          { isStart = True
+          , isComplete = True
+          , isSuccess = False
+          , isTry = False
+          , checkRunBody = ["Unable to start merge job."]
+          }
 
       refreshCheckRuns True stagingBranch mergeSHA
 

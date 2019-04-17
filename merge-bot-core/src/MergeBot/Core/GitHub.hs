@@ -243,7 +243,7 @@ isPRMerged prNum = do
       }
 
 -- | Get all queued PRs, by base branch.
-getQueues :: MonadMergeBot m => m (HashMap Text [(Int, GitObjectID)])
+getQueues :: MonadMergeBot m => m (HashMap Text [(Int, GitObjectID, CheckRunId)])
 getQueues  = do
   (repoOwner, repoName) <- getRepo
   appId <- getAppId
@@ -264,12 +264,12 @@ getQueues  = do
       , nextCursor = [get| info.endCursor |]
       }
   where
-    getQueuedPR pr = case concat [get| pr.headRef!.target.checkSuites!.nodes![]!.checkRuns!.nodes! |] of
-      [] -> Nothing -- PR has no merge check run in the "queued" state
-      _ -> Just
-        ( [get| pr.baseRefName |]
-        , [ [get| pr.(number, headRefOid) |] ]
-        )
+    getQueuedPR pr =
+      let prCommit = [get| pr.headRef!.target |]
+          (base, number, headRef) = [get| pr.(baseRefName, number, headRefOid) |]
+      in case concat [get| prCommit.checkSuites!.nodes![]!.checkRuns!.nodes![]!.databaseId |] of
+        [] -> Nothing -- PR has no merge check run in the "queued" state
+        checkRunId:_ -> Just (base, [(number, headRef, checkRunId)])
 
 {- REST -}
 
