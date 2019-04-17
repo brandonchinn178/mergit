@@ -43,6 +43,7 @@ import GitHub.REST (KeyValue(..))
 import UnliftIO.Exception (finally, fromEither, throwIO)
 
 import MergeBot.Core.Actions
+import MergeBot.Core.CheckRun
 import MergeBot.Core.Config
 import MergeBot.Core.Error
 import MergeBot.Core.GitHub
@@ -177,11 +178,11 @@ createCIBranch base prSHAs ciBranch message = do
   where
     tempBranch = "temp-" <> ciBranch
 
--- | Update the check runs for the given CI commit, including any additional data provided.
+-- | Refresh the check runs for the given CI commit.
 refreshCheckRuns :: MonadMergeBot m => Bool -> Text -> GitObjectID -> m ()
 refreshCheckRuns isStart ciBranchName sha = do
   CICommit{..} <- getCICommit sha checkName
-  let (parentSHAs, checkRuns) = unzip parents
+  let (parentSHAs, checkRunIds) = unzip parents
   when (null parents) $ throwIO $ CICommitMissingParents isStart ciBranchName sha
 
   -- since we check the config in 'createCIBranch', we know that 'extractConfig' here will not fail
@@ -189,11 +190,11 @@ refreshCheckRuns isStart ciBranchName sha = do
     either (error "extractConfig failed in refreshCheckRuns") return $
       extractConfig [] commitTree
 
-  now <- liftIO getCurrentTime
   (repoOwner, repoName) <- getRepo
 
   let ciStatus = getCIStatus config commitContexts
       checkRunState = resolveCIStatus ciStatus
+
       -- NB: isComplete means that the merge bot should consider a check run "done"; it does not
       -- necessarily mean that CI is done. Meaning we should not clean up yet, since more CI jobs
       -- could start and fail to checkout.
@@ -203,41 +204,17 @@ refreshCheckRuns isStart ciBranchName sha = do
         StatusState.FAILURE -> (True, False)
         _ -> (False, False)
 
-      checkRunData = concat
-        [ if isStart then [ "started_at" := now ] else []
-        , if isComplete
-            then
-              [ "status"       := "completed"
-              , "conclusion"   := if isSuccess then "success" else "failure"
-              , "completed_at" := now
-              ]
-            else
-              [ "status" := "in_progress"
-              ]
-        , let doneActions
-                | isComplete && isTry = [renderAction BotTry]
-                | isComplete && not isSuccess = [renderAction BotQueue]
-                | isComplete && not isTry && isSuccess = [renderAction BotResetMerge]
-                | otherwise = []
-          in [ "actions" := doneActions ]
-        , let repoUrl = "https://github.com/" <> repoOwner <> "/" <> repoName
-              ciBranchUrl = repoUrl <> "/commits/" <> ciBranchName
-              ciInfo = "CI running in the [" <> ciBranchName <> "](" <> ciBranchUrl <> ") branch."
-              ciStatusInfo = displayCIStatus ciStatus
-              jobLabel = case (isComplete, isTry) of
-                (False, True) -> tryJobLabelRunning
-                (False, False) -> mergeJobLabelRunning
-                (True, True) -> tryJobLabelDone
-                (True, False) -> mergeJobLabelDone
-              jobSummary
-                | not isComplete = [ciInfo, ciStatusInfo]
-                | isTry = [tryJobSummaryDone, ciStatusInfo]
-                | not isSuccess = [mergeJobSummaryFailed, ciStatusInfo]
-                | otherwise = [mergeJobSummarySuccess, ciStatusInfo]
-          in [ "output" := output jobLabel (unlines2 jobSummary) ]
-        ]
+      repoUrl = "https://github.com/" <> repoOwner <> "/" <> repoName
+      ciBranchUrl = repoUrl <> "/commits/" <> ciBranchName
+      ciInfo = "CI running in the [" <> ciBranchName <> "](" <> ciBranchUrl <> ") branch."
+      ciStatusInfo = displayCIStatus ciStatus
+      checkRunBody
+        | not isComplete = [ciInfo, ciStatusInfo]
+        | isTry = [tryJobSummaryDone, ciStatusInfo]
+        | not isSuccess = [mergeJobSummaryFailed, ciStatusInfo]
+        | otherwise = [mergeJobSummarySuccess, ciStatusInfo]
 
-  mapM_ (`updateCheckRun` checkRunData) checkRuns
+  updateCheckRuns checkRunIds CheckRunOptions{..}
 
   -- when merge run is complete (success/fail), the staging branch should always be deleted to
   -- allow for the next merge run
@@ -269,7 +246,6 @@ refreshCheckRuns isStart ciBranchName sha = do
   where
     isTry = isTryBranch ciBranchName
     checkName = if isTry then checkRunTry else checkRunMerge
-    unlines2 = Text.concat . map (<> "\n\n")
 
 -- | Get the configuration file for the given tree.
 extractConfig :: [Int] -> Tree -> Either BotError BotConfig
