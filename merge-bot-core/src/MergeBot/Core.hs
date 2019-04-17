@@ -40,7 +40,7 @@ import GitHub.Data.GitObjectID (GitObjectID)
 import qualified GitHub.Data.PullRequestReviewState as PullRequestReviewState
 import qualified GitHub.Data.StatusState as StatusState
 import GitHub.REST (KeyValue(..))
-import UnliftIO.Exception (finally, fromEither, throwIO)
+import UnliftIO.Exception (finally, fromEither, onException, throwIO)
 
 import MergeBot.Core.Actions
 import MergeBot.Core.CheckRun
@@ -80,9 +80,17 @@ createMergeCheckRun sha = do
     ] ++ mergeJobInitData now
 
 -- | Start a new try job.
-startTryJob :: MonadMergeBot m => Int -> GitObjectID -> Text -> m ()
-startTryJob prNum prSHA base = do
-  mergeSHA <- createCIBranch base [prSHA] tryBranch tryMessage
+startTryJob :: MonadMergeBot m => Int -> GitObjectID -> Text -> CheckRunId -> m ()
+startTryJob prNum prSHA base checkRunId = do
+  mergeSHA <-
+    createCIBranch base [prSHA] tryBranch tryMessage
+      `onException` updateCheckRuns [checkRunId] CheckRunOptions
+        { isStart = True
+        , isComplete = True
+        , isSuccess = False
+        , isTry = True
+        , checkRunBody = ["Unable to start try job."]
+        }
 
   refreshCheckRuns True tryBranch mergeSHA
   where
