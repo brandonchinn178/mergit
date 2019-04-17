@@ -27,6 +27,7 @@ module MergeBot.Core.GitHub
   , CIContext
   , CICommit(..)
   , getCICommit
+  , CheckRunId
   , getCheckRun
   , getPRForCommit
   , getPRReviews
@@ -79,8 +80,6 @@ import MergeBot.Core.Monad (MonadMergeBot(..), queryGitHub')
 import MergeBot.Core.Text (checkRunMerge)
 
 default (Text)
-
-type CheckRunId = Int
 
 {- GraphQL -}
 
@@ -156,6 +155,8 @@ getCICommit sha checkName = do
     , commitContexts = fromMaybe [] [get| result.status?.contexts |]
     , parents
     }
+
+type CheckRunId = Int
 
 -- | Get the check run for the given PR and check run name.
 getCheckRun :: MonadMergeBot m => Int -> Text -> m CheckRunId
