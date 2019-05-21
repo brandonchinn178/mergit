@@ -17,9 +17,7 @@ for arg in "$@"; do
 done
 
 function get_files() {
-    # don't stylish-haskell this file
-    IGNORED=clients/web/src/MergeBot/Client/Settings/Development.hs
-    find . -name .stack-work -prune -o -path "${IGNORED}" -o -name "*.hs" -print0
+    find . -name .stack-work -prune -o -name "*.hs" -print0
 }
 
 function diff_no_fail() {
