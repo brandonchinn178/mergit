@@ -35,8 +35,9 @@ aliases:
           scripts/install-stack-deps.sh
         )
         cat "${FILES[@]}" > cache-key.txt
+        curl -sSL https://get.haskellstack.org/ | sed -n 's/^STACK_VERSION="\(.*\)"/\1/p' >> cache-key.txt
   - &cache-key
-    v0-{{ checksum "cache-key.txt" }}
+    v1-{{ checksum "cache-key.txt" }}
   - &install-system-deps
     run:
       name: Install system dependencies
@@ -102,7 +103,6 @@ jobs:
           key: *cache-key
           paths:
             - ~/.stack
-            - .stack-work
       - *run-build
       - *copy-artifacts
       - store_artifacts:
@@ -139,6 +139,7 @@ jobs:
       - checkout
       - attach_workspace:
           at: .
+      - *install-system-deps # https://github.com/commercialhaskell/stack/issues/4893
       - *install-stack
       - restore_cache:
           key: *cache-key
