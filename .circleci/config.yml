@@ -35,6 +35,7 @@ aliases:
           scripts/install-stack-deps.sh
         )
         cat "${FILES[@]}" > cache-key.txt
+        curl -sSL https://get.haskellstack.org/ | sed -n 's/^STACK_VERSION="\(.*\)"/\1/p' >> cache-key.txt
   - &cache-key
     v0-{{ checksum "cache-key.txt" }}
   - &install-system-deps
