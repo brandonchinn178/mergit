@@ -36,15 +36,10 @@ default (Text)
 createTryCheckRun :: MonadMergeBot m => GitObjectID -> m ()
 createTryCheckRun sha = do
   now <- liftIO getCurrentTime
-  createCheckRun
+  createCheckRun $
     [ "name"         := checkRunTry
     , "head_sha"     := sha
-    , "status"       := "completed"
-    , "conclusion"   := "neutral"
-    , "completed_at" := now
-    , "output"       := output tryJobLabelInit tryJobSummaryInit
-    , "actions"      := [renderAction BotTry]
-    ]
+    ] ++ tryJobInitData now
 
 -- | Create the check run for queuing/merging PRs.
 createMergeCheckRun :: MonadMergeBot m => GitObjectID -> m ()
