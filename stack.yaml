@@ -9,7 +9,7 @@ packages:
   - merge-bot
   - merge-bot-core
   - servant-github-app
-  - template-haskell-test-utils
 
 extra-deps:
   - jwt-0.9.0
+  - th-test-utils-1.0.0
