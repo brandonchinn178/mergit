@@ -16,6 +16,7 @@ module MergeBot.Core.CheckRun
   , createMergeCheckRun
   , CheckRunUpdates(..)
   , updateCheckRuns
+  , updateCheckRun
   ) where
 
 import Control.Monad.IO.Class (liftIO)
@@ -26,7 +27,7 @@ import GitHub.Data.GitObjectID (GitObjectID)
 import GitHub.REST (KeyValue(..))
 
 import MergeBot.Core.Actions (MergeBotAction(..), renderAction)
-import MergeBot.Core.GitHub (CheckRunId, createCheckRun, updateCheckRun)
+import MergeBot.Core.GitHub (CheckRunId, createCheckRun, updateCheckRun')
 import MergeBot.Core.Monad (MonadMergeBot)
 import MergeBot.Core.Text
 
@@ -60,7 +61,7 @@ data CheckRunUpdates = CheckRunUpdates
 updateCheckRuns :: MonadMergeBot m => [(GitObjectID, CheckRunId)] -> CheckRunUpdates -> m ()
 updateCheckRuns checkRuns CheckRunUpdates{..} = do
   checkRunData <- mkCheckRunData <$> liftIO getCurrentTime
-  mapM_ (updateCheckRun' checkRunData) checkRuns
+  mapM_ (doUpdateCheckRun checkRunData) checkRuns
   where
     doneActions
       | isTry = [BotTry]
@@ -90,7 +91,28 @@ updateCheckRuns checkRuns CheckRunUpdates{..} = do
         ]
       ]
 
-    updateCheckRun' checkRunData (_, checkRunId) = updateCheckRun checkRunId checkRunData
+    doUpdateCheckRun checkRunData (sha, checkRunId) =
+      updateCheckRun isStart isTry checkRunId sha checkRunData
+
+-- | CORRECTLY update a check run.
+--
+-- GitHub Checks API requires creating a new CheckRun when transitioning from completed
+-- status to non-completed status (undocumented, email thread between GitHub Support and
+-- brandon@leapyear.io)
+updateCheckRun :: MonadMergeBot m
+  => Bool
+     -- ^ Whether this update should completely overwrite the existing check run. REQUIRED to be
+     -- True if the status transitions from completed to a non-completed status (e.g. in_progress).
+  -> Bool
+     -- ^ Whether the check run being updated is a try check run
+  -> CheckRunId
+  -> GitObjectID
+  -> [KeyValue]
+  -> m ()
+updateCheckRun shouldOverwrite isTry checkRunId sha checkRunData
+  | not shouldOverwrite = updateCheckRun' checkRunId checkRunData
+  | isTry = createTryCheckRun sha checkRunData
+  | otherwise = createMergeCheckRun sha checkRunData
 
 {- Helpers -}
 
