@@ -14,7 +14,7 @@ This module defines functions for manipulating GitHub check runs.
 module MergeBot.Core.CheckRun
   ( createTryCheckRun
   , createMergeCheckRun
-  , CheckRunOptions(..)
+  , CheckRunUpdates(..)
   , updateCheckRuns
   ) where
 
@@ -48,7 +48,7 @@ createMergeCheckRun sha checkRunData =
     , "head_sha"     := sha
     ] ++ checkRunData
 
-data CheckRunOptions = CheckRunOptions
+data CheckRunUpdates = CheckRunUpdates
   { isStart      :: Bool
   , isComplete   :: Bool
   , isSuccess    :: Bool
@@ -56,9 +56,9 @@ data CheckRunOptions = CheckRunOptions
   , checkRunBody :: [Text] -- ^ Lines for the check run body, as markdown
   } deriving (Show)
 
--- | Update the given check runs with the parameters in CheckRunOptions
-updateCheckRuns :: MonadMergeBot m => [(GitObjectID, CheckRunId)] -> CheckRunOptions -> m ()
-updateCheckRuns checkRuns CheckRunOptions{..} = do
+-- | Update the given check runs with the parameters in CheckRunUpdates
+updateCheckRuns :: MonadMergeBot m => [(GitObjectID, CheckRunId)] -> CheckRunUpdates -> m ()
+updateCheckRuns checkRuns CheckRunUpdates{..} = do
   checkRunData <- mkCheckRunData <$> liftIO getCurrentTime
   mapM_ (updateCheckRun' checkRunData) checkRuns
   where

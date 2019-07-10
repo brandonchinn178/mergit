@@ -64,7 +64,7 @@ startTryJob :: MonadMergeBot m => Int -> GitObjectID -> Text -> CheckRunId -> m 
 startTryJob prNum prSHA base checkRunId = do
   mergeSHA <-
     createCIBranch base [prSHA] tryBranch tryMessage
-      `onException` updateCheckRuns [(prSHA, checkRunId)] CheckRunOptions
+      `onException` updateCheckRuns [(prSHA, checkRunId)] CheckRunUpdates
         { isStart = True
         , isComplete = True
         , isSuccess = False
@@ -122,7 +122,7 @@ pollQueues = do
           stagingBranch = toStagingBranch base
           stagingMessage = toStagingMessage base prNums
       mergeSHA <- createCIBranch base prSHAs stagingBranch stagingMessage
-        `onException` updateCheckRuns (zip prSHAs checkRunIds) CheckRunOptions
+        `onException` updateCheckRuns (zip prSHAs checkRunIds) CheckRunUpdates
           { isStart = True
           , isComplete = True
           , isSuccess = False
@@ -209,7 +209,7 @@ refreshCheckRuns isStart ciBranchName sha = do
         | not isSuccess = [mergeJobSummaryFailed, ciStatusInfo]
         | otherwise = [mergeJobSummarySuccess, ciStatusInfo]
 
-  updateCheckRuns parents CheckRunOptions{..}
+  updateCheckRuns parents CheckRunUpdates{..}
 
   -- when merge run is complete (success/fail), the staging branch should always be deleted to
   -- allow for the next merge run
