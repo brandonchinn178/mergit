@@ -78,8 +78,8 @@ startTryJob prNum prSHA base checkRunId = do
     tryMessage = toTryMessage prNum
 
 -- | Add a PR to the queue.
-queuePR :: MonadMergeBot m => Int -> m ()
-queuePR prNum = do
+queuePR :: MonadMergeBot m => Int -> GitObjectID -> m ()
+queuePR prNum sha = do
   -- TODO: lookup how many approvals are required
   reviews <- getPRReviews prNum
 
@@ -88,22 +88,22 @@ queuePR prNum = do
 
   checkRunId <- getCheckRun prNum checkRunMerge
   -- TOOD: batching info
-  updateCheckRun checkRunId
+  updateCheckRun True False checkRunId sha
     [ "status"  := "queued"
     , "output"  := output mergeJobLabelQueued mergeJobSummaryQueued
     , "actions" := [renderAction BotDequeue]
     ]
 
 -- | Remove a PR from the queue.
-dequeuePR :: MonadMergeBot m => Int -> m ()
+dequeuePR :: MonadMergeBot m => Int -> GitObjectID -> m ()
 dequeuePR = resetMerge
 
 -- | Remove a PR from the queue.
-resetMerge :: MonadMergeBot m => Int -> m ()
-resetMerge prNum = do
+resetMerge :: MonadMergeBot m => Int -> GitObjectID -> m ()
+resetMerge prNum sha = do
   checkRunId <- getCheckRun prNum checkRunMerge
   now <- liftIO getCurrentTime
-  updateCheckRun checkRunId $ mergeJobInitData now
+  updateCheckRun True False checkRunId sha $ mergeJobInitData now
 
 -- | Handle a notification that the given commit's status has been updated.
 handleStatusUpdate :: MonadMergeBot m => Text -> GitObjectID -> m ()
