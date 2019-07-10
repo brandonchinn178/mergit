@@ -56,10 +56,11 @@ data CheckRunOptions = CheckRunOptions
   , checkRunBody :: [Text] -- ^ Lines for the check run body, as markdown
   } deriving (Show)
 
-updateCheckRuns :: MonadMergeBot m => [CheckRunId] -> CheckRunOptions -> m ()
-updateCheckRuns checkRunIds CheckRunOptions{..} = do
+-- | Update the given check runs with the parameters in CheckRunOptions
+updateCheckRuns :: MonadMergeBot m => [(GitObjectID, CheckRunId)] -> CheckRunOptions -> m ()
+updateCheckRuns checkRuns CheckRunOptions{..} = do
   checkRunData <- mkCheckRunData <$> liftIO getCurrentTime
-  mapM_ (`updateCheckRun` checkRunData) checkRunIds
+  mapM_ (updateCheckRun' checkRunData) checkRuns
   where
     doneActions
       | isTry = [BotTry]
@@ -88,6 +89,8 @@ updateCheckRuns checkRunIds CheckRunOptions{..} = do
         , "output" := output jobLabel (unlines2 checkRunBody)
         ]
       ]
+
+    updateCheckRun' checkRunData (_, checkRunId) = updateCheckRun checkRunId checkRunData
 
 {- Helpers -}
 

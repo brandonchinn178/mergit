@@ -64,7 +64,7 @@ startTryJob :: MonadMergeBot m => Int -> GitObjectID -> Text -> CheckRunId -> m 
 startTryJob prNum prSHA base checkRunId = do
   mergeSHA <-
     createCIBranch base [prSHA] tryBranch tryMessage
-      `onException` updateCheckRuns [checkRunId] CheckRunOptions
+      `onException` updateCheckRuns [(prSHA, checkRunId)] CheckRunOptions
         { isStart = True
         , isComplete = True
         , isSuccess = False
@@ -122,7 +122,7 @@ pollQueues = do
           stagingBranch = toStagingBranch base
           stagingMessage = toStagingMessage base prNums
       mergeSHA <- createCIBranch base prSHAs stagingBranch stagingMessage
-        `onException` updateCheckRuns checkRunIds CheckRunOptions
+        `onException` updateCheckRuns (zip prSHAs checkRunIds) CheckRunOptions
           { isStart = True
           , isComplete = True
           , isSuccess = False
@@ -177,7 +177,7 @@ createCIBranch base prSHAs ciBranch message = do
 refreshCheckRuns :: MonadMergeBot m => Bool -> Text -> GitObjectID -> m ()
 refreshCheckRuns isStart ciBranchName sha = do
   CICommit{..} <- getCICommit sha checkName
-  let (parentSHAs, checkRunIds) = unzip parents
+  let parentSHAs = map fst parents
   when (null parents) $ throwIO $ CICommitMissingParents isStart ciBranchName sha
 
   -- since we check the config in 'createCIBranch', we know that 'extractConfig' here will not fail
@@ -209,7 +209,7 @@ refreshCheckRuns isStart ciBranchName sha = do
         | not isSuccess = [mergeJobSummaryFailed, ciStatusInfo]
         | otherwise = [mergeJobSummarySuccess, ciStatusInfo]
 
-  updateCheckRuns checkRunIds CheckRunOptions{..}
+  updateCheckRuns parents CheckRunOptions{..}
 
   -- when merge run is complete (success/fail), the staging branch should always be deleted to
   -- allow for the next merge run
