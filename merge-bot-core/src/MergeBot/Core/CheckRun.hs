@@ -51,7 +51,8 @@ createMergeCheckRun sha checkRunData =
     ] ++ checkRunData
 
 data CheckRunStatus
-  = CheckRunInProgress
+  = CheckRunQueued
+  | CheckRunInProgress
   | CheckRunComplete Bool -- ^ is successful?
   deriving (Show)
 
@@ -72,10 +73,12 @@ updateCheckRuns checkRuns CheckRunUpdates{..} = do
       CheckRunComplete True -> [BotResetMerge]
       CheckRunComplete False -> if isTry then [BotTry] else [BotQueue]
       CheckRunInProgress -> []
+      CheckRunQueued -> [BotDequeue]
 
     jobLabel = case checkRunStatus of
       CheckRunComplete _ -> if isTry then tryJobLabelDone else mergeJobLabelDone
       CheckRunInProgress -> if isTry then tryJobLabelRunning else mergeJobLabelRunning
+      CheckRunQueued -> mergeJobLabelQueued
 
     mkCheckRunData now = concat
       [ if isStart then [ "started_at" := now ] else []
@@ -87,6 +90,9 @@ updateCheckRuns checkRuns CheckRunUpdates{..} = do
             ]
           CheckRunInProgress ->
             [ "status" := "in_progress"
+            ]
+          CheckRunQueued ->
+            [ "status" := "queued"
             ]
       , [ "actions" := map renderAction actions
         , "output" := output jobLabel (unlines2 checkRunBody)

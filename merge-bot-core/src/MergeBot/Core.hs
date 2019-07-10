@@ -39,10 +39,8 @@ import Data.Yaml (decodeThrow)
 import GitHub.Data.GitObjectID (GitObjectID)
 import qualified GitHub.Data.PullRequestReviewState as PullRequestReviewState
 import qualified GitHub.Data.StatusState as StatusState
-import GitHub.REST (KeyValue(..))
 import UnliftIO.Exception (finally, fromEither, onException, throwIO)
 
-import MergeBot.Core.Actions
 import MergeBot.Core.CheckRun
 import MergeBot.Core.Config
 import MergeBot.Core.Error
@@ -87,11 +85,12 @@ queuePR prNum sha = do
 
   checkRunId <- getCheckRun prNum checkRunMerge
   -- TOOD: batching info
-  updateCheckRun True False checkRunId sha
-    [ "status"  := "queued"
-    , "output"  := output mergeJobLabelQueued mergeJobSummaryQueued
-    , "actions" := [renderAction BotDequeue]
-    ]
+  updateCheckRuns [(sha, checkRunId)] CheckRunUpdates
+    { isStart = True -- previous status of merge check run was "Complete: Action Required"
+    , isTry = False
+    , checkRunStatus = CheckRunQueued
+    , checkRunBody = [mergeJobSummaryQueued]
+    }
 
 -- | Remove a PR from the queue.
 dequeuePR :: MonadMergeBot m => Int -> GitObjectID -> m ()
