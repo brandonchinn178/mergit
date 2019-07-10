@@ -33,9 +33,6 @@ type-level schemas and quasiquoters, consuming JSON data in a type-safe manner.
 Better than `aeson` for decoding nested JSON data that would be cumbersome to
 represent as Haskell ADTs.
 
-* `template-haskell-test-utils`: A library that defines utilities for testing
-Template Haskell code.
-
 * `graphql`: The `graphql-client` library that exposes an interface for calling
 a GraphQL API and consuming the output using `aeson-schemas`.
 
