@@ -98,10 +98,10 @@ dequeuePR = resetMerge
 
 -- | Remove a PR from the queue.
 resetMerge :: MonadMergeBot m => Int -> GitObjectID -> m ()
-resetMerge prNum sha = do
-  checkRunId <- getCheckRun prNum checkRunMerge
+resetMerge _ sha = do
   now <- liftIO getCurrentTime
-  updateCheckRun True False checkRunId sha $ mergeJobInitData now
+  -- reset check run by completely re-creating it
+  createMergeCheckRun sha $ mergeJobInitData now
 
 -- | Handle a notification that the given commit's status has been updated.
 handleStatusUpdate :: MonadMergeBot m => Text -> GitObjectID -> m ()
