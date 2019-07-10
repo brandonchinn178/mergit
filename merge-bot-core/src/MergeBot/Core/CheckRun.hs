@@ -33,22 +33,20 @@ import MergeBot.Core.Text
 default (Text)
 
 -- | Create the check run for trying PRs.
-createTryCheckRun :: MonadMergeBot m => GitObjectID -> m ()
-createTryCheckRun sha = do
-  now <- liftIO getCurrentTime
+createTryCheckRun :: MonadMergeBot m => GitObjectID -> [KeyValue] -> m ()
+createTryCheckRun sha checkRunData =
   createCheckRun $
     [ "name"         := checkRunTry
     , "head_sha"     := sha
-    ] ++ tryJobInitData now
+    ] ++ checkRunData
 
 -- | Create the check run for queuing/merging PRs.
-createMergeCheckRun :: MonadMergeBot m => GitObjectID -> m ()
-createMergeCheckRun sha = do
-  now <- liftIO getCurrentTime
+createMergeCheckRun :: MonadMergeBot m => GitObjectID -> [KeyValue] -> m ()
+createMergeCheckRun sha checkRunData =
   createCheckRun $
     [ "name"         := checkRunMerge
     , "head_sha"     := sha
-    ] ++ mergeJobInitData now
+    ] ++ checkRunData
 
 data CheckRunOptions = CheckRunOptions
   { isStart      :: Bool

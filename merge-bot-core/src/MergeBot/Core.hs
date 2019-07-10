@@ -54,7 +54,10 @@ import MergeBot.Core.Text
 default (Text)
 
 createCheckRuns :: MonadMergeBot m => GitObjectID -> m ()
-createCheckRuns sha = createTryCheckRun sha >> createMergeCheckRun sha
+createCheckRuns sha = do
+  now <- liftIO getCurrentTime
+  createTryCheckRun sha $ tryJobInitData now
+  createMergeCheckRun sha $ mergeJobInitData now
 
 -- | Start a new try job.
 startTryJob :: MonadMergeBot m => Int -> GitObjectID -> Text -> CheckRunId -> m ()
