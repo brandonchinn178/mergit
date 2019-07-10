@@ -39,37 +39,36 @@ data CheckRunOptions = CheckRunOptions
 
 updateCheckRuns :: MonadMergeBot m => [CheckRunId] -> CheckRunOptions -> m ()
 updateCheckRuns checkRunIds CheckRunOptions{..} = do
-  now <- liftIO getCurrentTime
-
-  let doneActions
-                | isTry = [BotTry]
-                | isSuccess = [BotResetMerge]
-                | otherwise = [BotQueue]
-      actions = if isComplete then doneActions else []
-
-      jobLabel = case (isComplete, isTry) of
-        (False, True) -> tryJobLabelRunning
-        (False, False) -> mergeJobLabelRunning
-        (True, True) -> tryJobLabelDone
-        (True, False) -> mergeJobLabelDone
-
-      checkRunData = concat
-        [ if isStart then [ "started_at" := now ] else []
-        , if isComplete
-            then
-              [ "status"       := "completed"
-              , "conclusion"   := if isSuccess then "success" else "failure"
-              , "completed_at" := now
-              ]
-            else
-              [ "status" := "in_progress"
-              ]
-        , [ "actions" := map renderAction actions
-          , "output" := output jobLabel (unlines2 checkRunBody)
-          ]
-        ]
-
+  checkRunData <- mkCheckRunData <$> liftIO getCurrentTime
   mapM_ (`updateCheckRun` checkRunData) checkRunIds
+  where
+    doneActions
+      | isTry = [BotTry]
+      | isSuccess = [BotResetMerge]
+      | otherwise = [BotQueue]
+    actions = if isComplete then doneActions else []
+
+    jobLabel = case (isComplete, isTry) of
+      (False, True) -> tryJobLabelRunning
+      (False, False) -> mergeJobLabelRunning
+      (True, True) -> tryJobLabelDone
+      (True, False) -> mergeJobLabelDone
+
+    mkCheckRunData now = concat
+      [ if isStart then [ "started_at" := now ] else []
+      , if isComplete
+          then
+            [ "status"       := "completed"
+            , "conclusion"   := if isSuccess then "success" else "failure"
+            , "completed_at" := now
+            ]
+          else
+            [ "status" := "in_progress"
+            ]
+      , [ "actions" := map renderAction actions
+        , "output" := output jobLabel (unlines2 checkRunBody)
+        ]
+      ]
 
 {- Helpers -}
 
