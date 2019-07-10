@@ -56,29 +56,6 @@ default (Text)
 createCheckRuns :: MonadMergeBot m => GitObjectID -> m ()
 createCheckRuns sha = createTryCheckRun sha >> createMergeCheckRun sha
 
--- | Create the check run for trying PRs.
-createTryCheckRun :: MonadMergeBot m => GitObjectID -> m ()
-createTryCheckRun sha = do
-  now <- liftIO getCurrentTime
-  createCheckRun
-    [ "name"         := checkRunTry
-    , "head_sha"     := sha
-    , "status"       := "completed"
-    , "conclusion"   := "neutral"
-    , "completed_at" := now
-    , "output"       := output tryJobLabelInit tryJobSummaryInit
-    , "actions"      := [renderAction BotTry]
-    ]
-
--- | Create the check run for queuing/merging PRs.
-createMergeCheckRun :: MonadMergeBot m => GitObjectID -> m ()
-createMergeCheckRun sha = do
-  now <- liftIO getCurrentTime
-  createCheckRun $
-    [ "name"         := checkRunMerge
-    , "head_sha"     := sha
-    ] ++ mergeJobInitData now
-
 -- | Start a new try job.
 startTryJob :: MonadMergeBot m => Int -> GitObjectID -> Text -> CheckRunId -> m ()
 startTryJob prNum prSHA base checkRunId = do

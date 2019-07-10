@@ -12,7 +12,9 @@ This module defines functions for manipulating GitHub check runs.
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
 module MergeBot.Core.CheckRun
-  ( CheckRunOptions(..)
+  ( createTryCheckRun
+  , createMergeCheckRun
+  , CheckRunOptions(..)
   , updateCheckRuns
   ) where
 
@@ -20,14 +22,38 @@ import Control.Monad.IO.Class (liftIO)
 import Data.Text (Text)
 import qualified Data.Text as Text
 import Data.Time (getCurrentTime)
+import GitHub.Data.GitObjectID (GitObjectID)
 import GitHub.REST (KeyValue(..))
 
 import MergeBot.Core.Actions (MergeBotAction(..), renderAction)
-import MergeBot.Core.GitHub (CheckRunId, updateCheckRun)
+import MergeBot.Core.GitHub (CheckRunId, createCheckRun, updateCheckRun)
 import MergeBot.Core.Monad (MonadMergeBot)
 import MergeBot.Core.Text
 
 default (Text)
+
+-- | Create the check run for trying PRs.
+createTryCheckRun :: MonadMergeBot m => GitObjectID -> m ()
+createTryCheckRun sha = do
+  now <- liftIO getCurrentTime
+  createCheckRun
+    [ "name"         := checkRunTry
+    , "head_sha"     := sha
+    , "status"       := "completed"
+    , "conclusion"   := "neutral"
+    , "completed_at" := now
+    , "output"       := output tryJobLabelInit tryJobSummaryInit
+    , "actions"      := [renderAction BotTry]
+    ]
+
+-- | Create the check run for queuing/merging PRs.
+createMergeCheckRun :: MonadMergeBot m => GitObjectID -> m ()
+createMergeCheckRun sha = do
+  now <- liftIO getCurrentTime
+  createCheckRun $
+    [ "name"         := checkRunMerge
+    , "head_sha"     := sha
+    ] ++ mergeJobInitData now
 
 data CheckRunOptions = CheckRunOptions
   { isStart      :: Bool
