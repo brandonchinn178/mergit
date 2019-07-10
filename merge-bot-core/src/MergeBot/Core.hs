@@ -66,9 +66,8 @@ startTryJob prNum prSHA base checkRunId = do
     createCIBranch base [prSHA] tryBranch tryMessage
       `onException` updateCheckRuns [(prSHA, checkRunId)] CheckRunUpdates
         { isStart = True
-        , isComplete = True
-        , isSuccess = False
         , isTry = True
+        , checkRunStatus = CheckRunComplete False
         , checkRunBody = ["Unable to start try job."]
         }
 
@@ -124,9 +123,8 @@ pollQueues = do
       mergeSHA <- createCIBranch base prSHAs stagingBranch stagingMessage
         `onException` updateCheckRuns (zip prSHAs checkRunIds) CheckRunUpdates
           { isStart = True
-          , isComplete = True
-          , isSuccess = False
           , isTry = False
+          , checkRunStatus = CheckRunComplete False
           , checkRunBody = ["Unable to start merge job."]
           }
 
@@ -198,6 +196,10 @@ refreshCheckRuns isStart ciBranchName sha = do
         StatusState.ERROR -> (True, False)
         StatusState.FAILURE -> (True, False)
         _ -> (False, False)
+
+      checkRunStatus = if isComplete
+        then CheckRunComplete isSuccess
+        else CheckRunInProgress
 
       repoUrl = "https://github.com/" <> repoOwner <> "/" <> repoName
       ciBranchUrl = repoUrl <> "/commits/" <> ciBranchName

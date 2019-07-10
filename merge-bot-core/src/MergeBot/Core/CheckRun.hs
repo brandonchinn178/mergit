@@ -14,6 +14,7 @@ This module defines functions for manipulating GitHub check runs.
 module MergeBot.Core.CheckRun
   ( createTryCheckRun
   , createMergeCheckRun
+  , CheckRunStatus(..)
   , CheckRunUpdates(..)
   , updateCheckRuns
   , updateCheckRun
@@ -49,12 +50,16 @@ createMergeCheckRun sha checkRunData =
     , "head_sha"     := sha
     ] ++ checkRunData
 
+data CheckRunStatus
+  = CheckRunInProgress
+  | CheckRunComplete Bool -- ^ is successful?
+  deriving (Show)
+
 data CheckRunUpdates = CheckRunUpdates
-  { isStart      :: Bool
-  , isComplete   :: Bool
-  , isSuccess    :: Bool
-  , isTry        :: Bool
-  , checkRunBody :: [Text] -- ^ Lines for the check run body, as markdown
+  { isStart        :: Bool
+  , isTry          :: Bool
+  , checkRunStatus :: CheckRunStatus
+  , checkRunBody   :: [Text] -- ^ Lines for the check run body, as markdown
   } deriving (Show)
 
 -- | Update the given check runs with the parameters in CheckRunUpdates
@@ -63,27 +68,24 @@ updateCheckRuns checkRuns CheckRunUpdates{..} = do
   checkRunData <- mkCheckRunData <$> liftIO getCurrentTime
   mapM_ (doUpdateCheckRun checkRunData) checkRuns
   where
-    doneActions
-      | isTry = [BotTry]
-      | isSuccess = [BotResetMerge]
-      | otherwise = [BotQueue]
-    actions = if isComplete then doneActions else []
+    actions = case checkRunStatus of
+      CheckRunComplete True -> [BotResetMerge]
+      CheckRunComplete False -> if isTry then [BotTry] else [BotQueue]
+      CheckRunInProgress -> []
 
-    jobLabel = case (isComplete, isTry) of
-      (False, True) -> tryJobLabelRunning
-      (False, False) -> mergeJobLabelRunning
-      (True, True) -> tryJobLabelDone
-      (True, False) -> mergeJobLabelDone
+    jobLabel = case checkRunStatus of
+      CheckRunComplete _ -> if isTry then tryJobLabelDone else mergeJobLabelDone
+      CheckRunInProgress -> if isTry then tryJobLabelRunning else mergeJobLabelRunning
 
     mkCheckRunData now = concat
       [ if isStart then [ "started_at" := now ] else []
-      , if isComplete
-          then
+      , case checkRunStatus of
+          CheckRunComplete isSuccess ->
             [ "status"       := "completed"
             , "conclusion"   := if isSuccess then "success" else "failure"
             , "completed_at" := now
             ]
-          else
+          CheckRunInProgress ->
             [ "status" := "in_progress"
             ]
       , [ "actions" := map renderAction actions
