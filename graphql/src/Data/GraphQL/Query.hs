@@ -28,7 +28,7 @@ import Data.Kind (Type)
 import Data.Text (Text)
 import qualified Data.Text as Text
 import Language.Haskell.TH (ExpQ, Loc(..), location, runIO)
-import Language.Haskell.TH.Syntax (lift)
+import Language.Haskell.TH.Syntax (addDependentFile, lift)
 import Path
     ( filename
     , fromAbsFile
@@ -74,6 +74,10 @@ readGraphQLFile fp = do
       loc' <- parseRelFile loc
       return $ cwd </> loc'
   file <- parseRelFile fp
-  query <- runIO $ readFile (fromAbsFile $ parent here </> file)
+  query <- readFile' $ fromAbsFile $ parent here </> file
   name <- fmap ((++ ".query") . fromRelFile) . setFileExtension "" . filename $ file
   [| UnsafeQuery name $ Text.pack $(lift query) |]
+  where
+    readFile' file = do
+      addDependentFile file
+      runIO $ readFile file
