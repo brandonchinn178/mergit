@@ -39,10 +39,8 @@ import Data.Yaml (decodeThrow)
 import GitHub.Data.GitObjectID (GitObjectID)
 import qualified GitHub.Data.PullRequestReviewState as PullRequestReviewState
 import qualified GitHub.Data.StatusState as StatusState
-import GitHub.REST (KeyValue(..))
 import UnliftIO.Exception (finally, fromEither, onException, throwIO)
 
-import MergeBot.Core.Actions
 import MergeBot.Core.CheckRun
 import MergeBot.Core.Config
 import MergeBot.Core.Error
@@ -54,41 +52,20 @@ import MergeBot.Core.Text
 default (Text)
 
 createCheckRuns :: MonadMergeBot m => GitObjectID -> m ()
-createCheckRuns sha = createTryCheckRun sha >> createMergeCheckRun sha
-
--- | Create the check run for trying PRs.
-createTryCheckRun :: MonadMergeBot m => GitObjectID -> m ()
-createTryCheckRun sha = do
+createCheckRuns sha = do
   now <- liftIO getCurrentTime
-  createCheckRun
-    [ "name"         := checkRunTry
-    , "head_sha"     := sha
-    , "status"       := "completed"
-    , "conclusion"   := "neutral"
-    , "completed_at" := now
-    , "output"       := output tryJobLabelInit tryJobSummaryInit
-    , "actions"      := [renderAction BotTry]
-    ]
-
--- | Create the check run for queuing/merging PRs.
-createMergeCheckRun :: MonadMergeBot m => GitObjectID -> m ()
-createMergeCheckRun sha = do
-  now <- liftIO getCurrentTime
-  createCheckRun $
-    [ "name"         := checkRunMerge
-    , "head_sha"     := sha
-    ] ++ mergeJobInitData now
+  createTryCheckRun sha $ tryJobInitData now
+  createMergeCheckRun sha $ mergeJobInitData now
 
 -- | Start a new try job.
 startTryJob :: MonadMergeBot m => Int -> GitObjectID -> Text -> CheckRunId -> m ()
 startTryJob prNum prSHA base checkRunId = do
   mergeSHA <-
     createCIBranch base [prSHA] tryBranch tryMessage
-      `onException` updateCheckRuns [checkRunId] CheckRunOptions
+      `onException` updateCheckRuns [(prSHA, checkRunId)] CheckRunUpdates
         { isStart = True
-        , isComplete = True
-        , isSuccess = False
         , isTry = True
+        , checkRunStatus = CheckRunComplete False
         , checkRunBody = ["Unable to start try job."]
         }
 
@@ -98,8 +75,8 @@ startTryJob prNum prSHA base checkRunId = do
     tryMessage = toTryMessage prNum
 
 -- | Add a PR to the queue.
-queuePR :: MonadMergeBot m => Int -> m ()
-queuePR prNum = do
+queuePR :: MonadMergeBot m => Int -> GitObjectID -> m ()
+queuePR prNum sha = do
   -- TODO: lookup how many approvals are required
   reviews <- getPRReviews prNum
 
@@ -108,22 +85,23 @@ queuePR prNum = do
 
   checkRunId <- getCheckRun prNum checkRunMerge
   -- TOOD: batching info
-  updateCheckRun checkRunId
-    [ "status"  := "queued"
-    , "output"  := output mergeJobLabelQueued mergeJobSummaryQueued
-    , "actions" := [renderAction BotDequeue]
-    ]
+  updateCheckRuns [(sha, checkRunId)] CheckRunUpdates
+    { isStart = True -- previous status of merge check run was "Complete: Action Required"
+    , isTry = False
+    , checkRunStatus = CheckRunQueued
+    , checkRunBody = [mergeJobSummaryQueued]
+    }
 
 -- | Remove a PR from the queue.
-dequeuePR :: MonadMergeBot m => Int -> m ()
+dequeuePR :: MonadMergeBot m => Int -> GitObjectID -> m ()
 dequeuePR = resetMerge
 
 -- | Remove a PR from the queue.
-resetMerge :: MonadMergeBot m => Int -> m ()
-resetMerge prNum = do
-  checkRunId <- getCheckRun prNum checkRunMerge
+resetMerge :: MonadMergeBot m => Int -> GitObjectID -> m ()
+resetMerge _ sha = do
   now <- liftIO getCurrentTime
-  updateCheckRun checkRunId $ mergeJobInitData now
+  -- reset check run by completely re-creating it
+  createMergeCheckRun sha $ mergeJobInitData now
 
 -- | Handle a notification that the given commit's status has been updated.
 handleStatusUpdate :: MonadMergeBot m => Text -> GitObjectID -> m ()
@@ -142,11 +120,10 @@ pollQueues = do
           stagingBranch = toStagingBranch base
           stagingMessage = toStagingMessage base prNums
       mergeSHA <- createCIBranch base prSHAs stagingBranch stagingMessage
-        `onException` updateCheckRuns checkRunIds CheckRunOptions
+        `onException` updateCheckRuns (zip prSHAs checkRunIds) CheckRunUpdates
           { isStart = True
-          , isComplete = True
-          , isSuccess = False
           , isTry = False
+          , checkRunStatus = CheckRunComplete False
           , checkRunBody = ["Unable to start merge job."]
           }
 
@@ -197,7 +174,7 @@ createCIBranch base prSHAs ciBranch message = do
 refreshCheckRuns :: MonadMergeBot m => Bool -> Text -> GitObjectID -> m ()
 refreshCheckRuns isStart ciBranchName sha = do
   CICommit{..} <- getCICommit sha checkName
-  let (parentSHAs, checkRunIds) = unzip parents
+  let parentSHAs = map fst parents
   when (null parents) $ throwIO $ CICommitMissingParents isStart ciBranchName sha
 
   -- since we check the config in 'createCIBranch', we know that 'extractConfig' here will not fail
@@ -219,6 +196,10 @@ refreshCheckRuns isStart ciBranchName sha = do
         StatusState.FAILURE -> (True, False)
         _ -> (False, False)
 
+      checkRunStatus = if isComplete
+        then CheckRunComplete isSuccess
+        else CheckRunInProgress
+
       repoUrl = "https://github.com/" <> repoOwner <> "/" <> repoName
       ciBranchUrl = repoUrl <> "/commits/" <> ciBranchName
       ciInfo = "CI running in the [" <> ciBranchName <> "](" <> ciBranchUrl <> ") branch."
@@ -229,7 +210,7 @@ refreshCheckRuns isStart ciBranchName sha = do
         | not isSuccess = [mergeJobSummaryFailed, ciStatusInfo]
         | otherwise = [mergeJobSummarySuccess, ciStatusInfo]
 
-  updateCheckRuns checkRunIds CheckRunOptions{..}
+  updateCheckRuns parents CheckRunUpdates{..}
 
   -- when merge run is complete (success/fail), the staging branch should always be deleted to
   -- allow for the next merge run

@@ -35,7 +35,7 @@ module MergeBot.Core.GitHub
   , getQueues
     -- * REST
   , createCheckRun
-  , updateCheckRun
+  , updateCheckRun'
   , createCommit
   , createBranch
   , updateBranch
@@ -286,9 +286,11 @@ createCheckRun ghData = void $ queryGitHub' GHEndpoint
 
 -- | Update a check run.
 --
+-- NOTE: Should NOT be run directly. Use MergeBot.Core.CheckRun.updateCheckRun instead.
+--
 -- https://developer.github.com/v3/checks/runs/#update-a-check-run
-updateCheckRun :: MonadMergeBot m => CheckRunId -> GitHubData -> m ()
-updateCheckRun checkRunId ghData = void $ queryGitHub' GHEndpoint
+updateCheckRun' :: MonadMergeBot m => CheckRunId -> GitHubData -> m ()
+updateCheckRun' checkRunId ghData = void $ queryGitHub' GHEndpoint
   { method = PATCH
   , endpoint = "/repos/:owner/:repo/check-runs/:check_run_id"
   , endpointVals = ["check_run_id" := checkRunId]

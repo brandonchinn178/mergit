@@ -51,6 +51,15 @@ tryJobSummaryDone :: Text
 tryJobSummaryDone =
   "To re-run try job, click the \"Run Try\" button again, **NOT** any of the \"Re-run\" links."
 
+tryJobInitData :: UTCTime -> [KeyValue]
+tryJobInitData now =
+  [ "status"       := "completed"
+  , "conclusion"   := "neutral"
+  , "completed_at" := now
+  , "output"       := output tryJobLabelInit tryJobSummaryInit
+  , "actions"      := [renderAction BotTry]
+  ]
+
 -- | The label for the check run for merging PRs.
 checkRunMerge :: Text
 checkRunMerge = "Bot Merge"

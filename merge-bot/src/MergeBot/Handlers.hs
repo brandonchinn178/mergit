@@ -97,13 +97,13 @@ handleCheckRun o = runBotApp repo $ do
           Core.startTryJob prNum sha prBaseRef checkRunId
         Just BotQueue -> do
           logInfoN $ "Queuing PR #" <> prNum'
-          Core.queuePR prNum
+          Core.queuePR prNum sha
         Just BotDequeue -> do
           logInfoN $ "Dequeuing PR #" <> prNum'
-          Core.dequeuePR prNum
+          Core.dequeuePR prNum sha
         Just BotResetMerge -> do
           logInfoN $ "Resetting merge check run for PR #" <> prNum'
-          Core.resetMerge prNum
+          Core.resetMerge prNum sha
         Nothing -> return ()
     _ -> return ()
   where
