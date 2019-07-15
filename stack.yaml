@@ -1,7 +1,6 @@
 resolver: lts-13.5
 
 packages:
-  - aeson-schemas
   - github-rest
   - github-schemas
   - graphql
@@ -11,5 +10,6 @@ packages:
   - servant-github-app
 
 extra-deps:
+  - aeson-schemas-1.0.2
   - jwt-0.9.0
   - th-test-utils-1.0.0

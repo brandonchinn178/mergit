@@ -28,11 +28,6 @@ See the Feature home page [on Notion][feature-home-page] for more details.
 The project is broken up into multiple sub-projects, most of which can be moved
 out into a separate repo:
 
-* `aeson-schemas`: A library that extracts information from JSON input using
-type-level schemas and quasiquoters, consuming JSON data in a type-safe manner.
-Better than `aeson` for decoding nested JSON data that would be cumbersome to
-represent as Haskell ADTs.
-
 * `graphql`: The `graphql-client` library that exposes an interface for calling
 a GraphQL API and consuming the output using `aeson-schemas`.
 
