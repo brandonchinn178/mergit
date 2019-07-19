@@ -6,11 +6,9 @@ Portability :  portable
 
 This module defines the entrypoint for the MergeBot GitHub application.
 -}
-{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NumDecimals #-}
 {-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE TypeOperators #-}
 {-# OPTIONS_GHC -freduction-depth=400 #-}
 
 module MergeBot (runMergeBot) where
@@ -26,20 +24,12 @@ import UnliftIO.Async (concurrently_, waitCatch, withAsync)
 
 import qualified MergeBot.Core as Core
 import MergeBot.Monad (runBotAppForAllInstalls)
-import MergeBot.Routes.Debug (DebugRoutes, handleDebugRoutes)
-import MergeBot.Routes.Webhook (WebhookRoutes, handleWebhookRoutes)
-
-type MergeBotApp =
-  "webhook" :> WebhookRoutes
-  :<|> DebugRoutes
-
-server :: Server MergeBotApp
-server = handleWebhookRoutes :<|> handleDebugRoutes
+import MergeBot.Routes (MergeBotRoutes, handleMergeBotRoutes)
 
 initApp :: IO Application
 initApp = do
   params <- loadGitHubAppParams
-  return $ serveWithContext (Proxy @MergeBotApp) (params :. EmptyContext) server
+  return $ serveWithContext (Proxy @MergeBotRoutes) (params :. EmptyContext) handleMergeBotRoutes
 
 pollQueues :: IO ()
 pollQueues = do
