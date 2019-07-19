@@ -19,9 +19,17 @@ import Servant
 import MergeBot.Routes.Debug (DebugRoutes, handleDebugRoutes)
 import MergeBot.Routes.Webhook (WebhookRoutes, handleWebhookRoutes)
 
-type MergeBotRoutes =
-  "webhook" :> WebhookRoutes
-  :<|> DebugRoutes
+type MergeBotRoutes = UnprotectedRoutes :<|> ProtectedRoutes
 
 handleMergeBotRoutes :: Server MergeBotRoutes
-handleMergeBotRoutes = handleWebhookRoutes :<|> handleDebugRoutes
+handleMergeBotRoutes = handleUnprotectedRoutes :<|> handleProtectedRoutes
+
+type UnprotectedRoutes = "webhook" :> WebhookRoutes
+
+handleUnprotectedRoutes :: Server UnprotectedRoutes
+handleUnprotectedRoutes = handleWebhookRoutes
+
+type ProtectedRoutes = DebugRoutes
+
+handleProtectedRoutes :: Server ProtectedRoutes
+handleProtectedRoutes = handleDebugRoutes
