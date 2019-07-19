@@ -5,6 +5,7 @@ name: merge-bot
 version: 0.1.0
 
 dependencies:
+- aeson
 - aeson-schemas
 - base
 - blaze-html
@@ -14,6 +15,7 @@ dependencies:
 - http-types
 - merge-bot-core
 - monad-logger
+- servant-auth-server
 - servant-blaze
 - servant-github-app
 - servant-server

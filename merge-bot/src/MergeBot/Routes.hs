@@ -6,6 +6,7 @@ Portability :  portable
 
 This module defines all routes for the MergeBot.
 -}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeOperators #-}
 
@@ -15,11 +16,13 @@ module MergeBot.Routes
   ) where
 
 import Servant
+import Servant.Auth.Server (Auth, AuthResult(..), Cookie, throwAll)
 
+import MergeBot.Routes.Auth (UserToken, fromUserToken, redirectToLogin)
 import MergeBot.Routes.Debug (DebugRoutes, handleDebugRoutes)
 import MergeBot.Routes.Webhook (WebhookRoutes, handleWebhookRoutes)
 
-type MergeBotRoutes = UnprotectedRoutes :<|> ProtectedRoutes
+type MergeBotRoutes = UnprotectedRoutes :<|> (Auth '[Cookie] UserToken :> ProtectedRoutes)
 
 handleMergeBotRoutes :: Server MergeBotRoutes
 handleMergeBotRoutes = handleUnprotectedRoutes :<|> handleProtectedRoutes
@@ -31,5 +34,7 @@ handleUnprotectedRoutes = handleWebhookRoutes
 
 type ProtectedRoutes = DebugRoutes
 
-handleProtectedRoutes :: Server ProtectedRoutes
-handleProtectedRoutes = handleDebugRoutes
+handleProtectedRoutes :: AuthResult UserToken -> Server ProtectedRoutes
+handleProtectedRoutes = \case
+  Authenticated token -> handleDebugRoutes $ fromUserToken token
+  _ -> throwAll redirectToLogin

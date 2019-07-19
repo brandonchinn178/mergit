@@ -8,6 +8,7 @@ This module defines the entrypoint for the MergeBot GitHub application.
 -}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NumDecimals #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -freduction-depth=400 #-}
 
@@ -19,6 +20,7 @@ import Control.Monad (forever, (>=>))
 import Data.Proxy (Proxy(..))
 import Network.Wai.Handler.Warp (run)
 import Servant
+import Servant.Auth.Server (CookieSettings(..), defaultCookieSettings, defaultJWTSettings)
 import Servant.GitHub
 import UnliftIO.Async (concurrently_, waitCatch, withAsync)
 
@@ -29,7 +31,15 @@ import MergeBot.Routes (MergeBotRoutes, handleMergeBotRoutes)
 initApp :: IO Application
 initApp = do
   params <- loadGitHubAppParams
-  return $ serveWithContext (Proxy @MergeBotRoutes) (params :. EmptyContext) handleMergeBotRoutes
+
+  let cookieSettings = defaultCookieSettings
+        { cookieIsSecure = NotSecure
+        , sessionCookieName = "merge-bot-github-token"
+        }
+      jwtSettings = defaultJWTSettings undefined
+      context = cookieSettings :. jwtSettings :. params :. EmptyContext
+
+  return $ serveWithContext (Proxy @MergeBotRoutes) context handleMergeBotRoutes
 
 pollQueues :: IO ()
 pollQueues = do
