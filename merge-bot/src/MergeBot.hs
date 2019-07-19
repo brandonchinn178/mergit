@@ -26,12 +26,15 @@ import UnliftIO.Async (concurrently_, waitCatch, withAsync)
 
 import qualified MergeBot.Core as Core
 import MergeBot.Monad (runBotAppForAllInstalls)
+import MergeBot.Routes.Debug (DebugRoutes, handleDebugRoutes)
 import MergeBot.Routes.Webhook (WebhookRoutes, handleWebhookRoutes)
 
-type MergeBotApp = "webhook" :> WebhookRoutes
+type MergeBotApp =
+  "webhook" :> WebhookRoutes
+  :<|> DebugRoutes
 
 server :: Server MergeBotApp
-server = handleWebhookRoutes
+server = handleWebhookRoutes :<|> handleDebugRoutes
 
 initApp :: IO Application
 initApp = do
