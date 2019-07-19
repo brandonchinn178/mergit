@@ -25,27 +25,13 @@ import Servant.GitHub
 import UnliftIO.Async (concurrently_, waitCatch, withAsync)
 
 import qualified MergeBot.Core as Core
-import MergeBot.Handlers
 import MergeBot.Monad (runBotAppForAllInstalls)
+import MergeBot.Routes.Webhook (WebhookRoutes, handleWebhookRoutes)
 
-type MergeBotApp
-  = "webhook" :>
-    (    GitHubEvent 'PingEvent :> GitHubAction
-    :<|> GitHubEvent 'PullRequestEvent :> WithToken :> GitHubAction
-    :<|> GitHubEvent 'CheckSuiteEvent :> WithToken :> GitHubAction
-    :<|> GitHubEvent 'CheckRunEvent :> WithToken :> GitHubAction
-    :<|> GitHubEvent 'StatusEvent :> WithToken :> GitHubAction
-    :<|> GitHubEvent 'PushEvent :> WithToken :> GitHubAction
-    )
+type MergeBotApp = "webhook" :> WebhookRoutes
 
 server :: Server MergeBotApp
-server
-  =    handlePing
-  :<|> handlePullRequest
-  :<|> handleCheckSuite
-  :<|> handleCheckRun
-  :<|> handleStatus
-  :<|> handlePush
+server = handleWebhookRoutes
 
 initApp :: IO Application
 initApp = do
