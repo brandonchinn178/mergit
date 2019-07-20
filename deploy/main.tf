@@ -126,6 +126,7 @@ resource "aws_instance" "merge_bot" {
       GITHUB_PRIVATE_KEY=${local.bot_conf_dir}/${local.private_key_name}
       GITHUB_USER_AGENT=${var.user_agent}
       COOKIE_JWK=${local.bot_conf_dir}/cookie-jwk.pem
+      MERGE_BOT_URL=https://merge-bot.build-leapyear.com
     EOT
   }
 
