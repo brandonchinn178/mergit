@@ -28,6 +28,8 @@ requests from GitHub while routing HTTP requests internally to the merge bot.
 
     ```
     app_id = xxx
+    client_id = xxx
+    client_secret = xxx
     webhook_secret = "xxx"
     ```
 

@@ -70,12 +70,14 @@ provide an access token to use for the duration of a request.
         * Pull request
         * Push
         * Status
-    1. Save the webhook secret you created and the App ID and Private key that
-       GitHub generated for you.
+    1. Save the webhook secret you created and the App ID, Client ID,
+       Client secret, and Private key that GitHub generated for you.
 
 1. Set the following environment variables, preferably in a `.env` file based
    on `.env.template`:
     1. `GITHUB_APP_ID` to the App ID
+    1. `GITHUB_CLIENT_ID` to the Client ID
+    1. `GITHUB_CLIENT_SECRET` to the Client secret
     1. `GITHUB_WEBHOOK_SECRET` to the webhook secret you created
     1. `GITHUB_PRIVATE_KEY` to the absolute path of the private key
     1. `GITHUB_USER_AGENT` to the [user agent][user-agent] to use with the API

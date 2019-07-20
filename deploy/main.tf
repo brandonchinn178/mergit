@@ -120,6 +120,8 @@ resource "aws_instance" "merge_bot" {
 
     content = <<-EOT
       GITHUB_APP_ID=${var.app_id}
+      GITHUB_CLIENT_ID=${var.client_id}
+      GITHUB_CLIENT_SECRET=${var.client_secret}
       GITHUB_WEBHOOK_SECRET=${var.webhook_secret}
       GITHUB_PRIVATE_KEY=${local.bot_conf_dir}/${local.private_key_name}
       GITHUB_USER_AGENT=${var.user_agent}
