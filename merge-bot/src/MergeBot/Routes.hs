@@ -18,7 +18,8 @@ module MergeBot.Routes
 import Servant
 import Servant.Auth.Server (Auth, AuthResult(..), Cookie, throwAll)
 
-import MergeBot.Routes.Auth (UserToken, fromUserToken, redirectToLogin)
+import MergeBot.Routes.Auth
+    (AuthRoutes, UserToken, fromUserToken, handleAuthRoutes, redirectToLogin)
 import MergeBot.Routes.Debug (DebugRoutes, handleDebugRoutes)
 import MergeBot.Routes.Webhook (WebhookRoutes, handleWebhookRoutes)
 
@@ -27,14 +28,17 @@ type MergeBotRoutes = UnprotectedRoutes :<|> (Auth '[Cookie] UserToken :> Protec
 handleMergeBotRoutes :: Server MergeBotRoutes
 handleMergeBotRoutes = handleUnprotectedRoutes :<|> handleProtectedRoutes
 
-type UnprotectedRoutes = "webhook" :> WebhookRoutes
+type UnprotectedRoutes =
+  "auth" :> AuthRoutes
+  :<|> "webhook" :> WebhookRoutes
 
 handleUnprotectedRoutes :: Server UnprotectedRoutes
-handleUnprotectedRoutes = handleWebhookRoutes
+handleUnprotectedRoutes = handleAuthRoutes :<|> handleWebhookRoutes
 
 type ProtectedRoutes = DebugRoutes
 
 handleProtectedRoutes :: AuthResult UserToken -> Server ProtectedRoutes
 handleProtectedRoutes = \case
+  -- TODO: hoist, validate token
   Authenticated token -> handleDebugRoutes $ fromUserToken token
   _ -> throwAll redirectToLogin
