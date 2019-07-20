@@ -19,26 +19,26 @@ import Servant
 import Servant.Auth.Server (Auth, AuthResult(..), Cookie, throwAll)
 
 import MergeBot.Routes.Auth
-    (AuthRoutes, UserToken, fromUserToken, handleAuthRoutes, redirectToLogin)
+    (AuthParams, AuthRoutes, UserToken, fromUserToken, handleAuthRoutes, redirectToLogin)
 import MergeBot.Routes.Debug (DebugRoutes, handleDebugRoutes)
 import MergeBot.Routes.Webhook (WebhookRoutes, handleWebhookRoutes)
 
 type MergeBotRoutes = UnprotectedRoutes :<|> (Auth '[Cookie] UserToken :> ProtectedRoutes)
 
-handleMergeBotRoutes :: Server MergeBotRoutes
-handleMergeBotRoutes = handleUnprotectedRoutes :<|> handleProtectedRoutes
+handleMergeBotRoutes :: AuthParams -> Server MergeBotRoutes
+handleMergeBotRoutes authParams = handleUnprotectedRoutes authParams :<|> handleProtectedRoutes authParams
 
 type UnprotectedRoutes =
   "auth" :> AuthRoutes
   :<|> "webhook" :> WebhookRoutes
 
-handleUnprotectedRoutes :: Server UnprotectedRoutes
-handleUnprotectedRoutes = handleAuthRoutes :<|> handleWebhookRoutes
+handleUnprotectedRoutes :: AuthParams -> Server UnprotectedRoutes
+handleUnprotectedRoutes authParams = handleAuthRoutes authParams :<|> handleWebhookRoutes
 
 type ProtectedRoutes = DebugRoutes
 
-handleProtectedRoutes :: AuthResult UserToken -> Server ProtectedRoutes
-handleProtectedRoutes = \case
+handleProtectedRoutes :: AuthParams -> AuthResult UserToken -> Server ProtectedRoutes
+handleProtectedRoutes authParams = \case
   -- TODO: hoist, validate token
   Authenticated token -> handleDebugRoutes $ fromUserToken token
-  _ -> throwAll redirectToLogin
+  _ -> throwAll $ redirectToLogin authParams

@@ -81,7 +81,6 @@ provide an access token to use for the duration of a request.
     1. `GITHUB_WEBHOOK_SECRET` to the webhook secret you created
     1. `GITHUB_PRIVATE_KEY` to the absolute path of the private key
     1. `GITHUB_USER_AGENT` to the [user agent][user-agent] to use with the API
-    1. `MERGE_BOT_URL` to the smee url (e.g. `https://smee.io/<token>`)
 
 [create-github-app]: https://developer.github.com/apps/quickstart-guides/setting-up-your-development-environment/#step-2-register-a-new-github-app
 [user-agent]: https://developer.github.com/v3/#user-agent-required
