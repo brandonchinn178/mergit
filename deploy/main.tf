@@ -123,6 +123,7 @@ resource "aws_instance" "merge_bot" {
       GITHUB_WEBHOOK_SECRET=${var.webhook_secret}
       GITHUB_PRIVATE_KEY=${local.bot_conf_dir}/${local.private_key_name}
       GITHUB_USER_AGENT=${var.user_agent}
+      COOKIE_JWK=${local.bot_conf_dir}/cookie-jwk.pem
     EOT
   }
 
@@ -141,6 +142,7 @@ resource "aws_instance" "merge_bot" {
       "sudo mkdir -p ${local.bot_conf_dir}",
       "sudo mv ${local.private_key_name} ${local.bot_conf_dir}",
       "sudo mv env ${local.bot_conf_dir}",
+      "sudo openssl genrsa -out ${local.bot_conf_dir}/cookie-jwk.pem 2048",
 
       # logging
       "sudo mkdir -p /var/log/merge-bot",

@@ -13,6 +13,7 @@ dependencies:
 - github-rest
 - github-schemas
 - http-types
+- jose
 - merge-bot-core
 - monad-logger
 - servant-auth-server
@@ -22,6 +23,8 @@ dependencies:
 - text
 - unliftio
 - warp
+- x509
+- x509-store
 
 library:
   source-dirs: src
