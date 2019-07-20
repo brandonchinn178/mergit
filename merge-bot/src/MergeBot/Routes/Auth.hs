@@ -7,7 +7,9 @@ Portability :  portable
 This module defines authentication routes for the MergeBot.
 -}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -25,18 +27,24 @@ module MergeBot.Routes.Auth
   , redirectToLogin
   ) where
 
+import Control.Monad.IO.Class (liftIO)
 import Crypto.JWT (fromRSA)
-import Data.Aeson (FromJSON, ToJSON)
+import Data.Aeson (FromJSON(..), ToJSON(..), object, withObject, (.=), (.:))
 import qualified Data.ByteString.Char8 as Char8
+import Data.Default (def)
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
+import qualified Data.Text as Text
 import qualified Data.Text.Encoding as Text
 import Data.X509 (PrivKey(..))
 import Data.X509.File (readKeyFile)
 import GitHub.REST (Token(..))
-import Network.HTTP.Types (hLocation)
+import Network.HTTP.Req ((/:))
+import qualified Network.HTTP.Req as Req
+import Network.HTTP.Types (hLocation, renderSimpleQuery)
 import Servant
-import Servant.Auth.Server (CookieSettings(..), JWTSettings, FromJWT, ToJWT, defaultCookieSettings, defaultJWTSettings)
+import Servant.Auth.Server
+import Servant.HTML.Blaze (HTML)
 import Servant.Server (ServantErr)
 import System.Environment (getEnv, lookupEnv)
 
@@ -47,17 +55,31 @@ type AuthRoutes =
 handleAuthRoutes :: AuthParams -> Server AuthRoutes
 handleAuthRoutes authParams = handleLoginRoute authParams :<|> handleCallbackRoute authParams
 
-type LoginRoute = Get '[JSON] () -- TODO: Redirect
+type LoginRoute = Redirect '[HTML] (RedirectResult '[])
 
-handleLoginRoute :: AuthParams -> Handler ()
-handleLoginRoute _ =
-  return ()
+handleLoginRoute :: AuthParams -> Handler (RedirectResult '[])
+handleLoginRoute AuthParams{..} = do
+  let redirectUrl = "https://github.com/login/oauth/authorize" <> renderSimpleQuery True
+        [ ("client_id", Char8.pack ghClientId)
+        , ("redirect_uri", Char8.pack $ ghBaseUrl <> "/auth/callback")
+        ]
+  return $ addHeader (Char8.unpack redirectUrl) NoContent
 
-type CallbackRoute = Get '[JSON] () -- TODO: Redirect
+type SetCookieHeaders = '[Header "Set-Cookie" SetCookie, Header "Set-Cookie" SetCookie]
+type CallbackRoute =
+  QueryParam' '[Required, Strict] "code" String :>
+  Redirect '[HTML] (RedirectResult SetCookieHeaders)
 
-handleCallbackRoute :: AuthParams -> Handler ()
-handleCallbackRoute _ =
-  return ()
+handleCallbackRoute :: AuthParams -> String -> Handler (RedirectResult SetCookieHeaders)
+handleCallbackRoute AuthParams{..} ghCode = do
+  token <- liftIO $ getAccessToken AccessTokenRequest{..}
+
+  -- TODO: use referer url
+  let redirectUrl = ghBaseUrl
+
+  liftIO $ acceptLogin cookieSettings jwtSettings token >>= \case
+    Nothing -> fail "Could not make JWT"
+    Just addCookieHeaders -> return $ addHeader redirectUrl $ addCookieHeaders NoContent
 
 {- GitHub app environment variables -}
 
@@ -79,6 +101,7 @@ loadAuthParams = do
   let cookieSettings = defaultCookieSettings
         { cookieIsSecure = NotSecure
         , sessionCookieName = "merge-bot-github-token"
+        , cookieXsrfSetting = Just def { xsrfExcludeGet = True }
         }
       jwtSettings = defaultJWTSettings jwk
 
@@ -87,6 +110,37 @@ loadAuthParams = do
   ghBaseUrl <- fromMaybe "http://localhost:3000" <$> lookupEnv "MERGE_BOT_URL"
 
   return AuthParams{..}
+
+{- GitHub access token -}
+
+data AccessTokenRequest = AccessTokenRequest
+  { ghClientId     :: String
+  , ghClientSecret :: String
+  , ghCode         :: String
+  }
+
+instance ToJSON AccessTokenRequest where
+  toJSON AccessTokenRequest{..} = object
+    [ "client_id" .= ghClientId
+    , "client_secret" .= ghClientSecret
+    , "code" .= ghCode
+    ]
+
+data AccessTokenResponse = AccessTokenResponse
+  { accessToken :: String
+  }
+
+instance FromJSON AccessTokenResponse where
+  parseJSON = withObject "AccessTokenResponse" $ \o ->
+    AccessTokenResponse <$> o .: "access_token"
+
+getAccessToken :: AccessTokenRequest -> IO UserToken
+getAccessToken reqBody = Req.runReq def $ do
+  let githubUrl = Req.https "github.com" /: "login" /: "oauth" /: "access_token"
+      acceptHeader = Req.header "Accept" "application/json"
+
+  resp <- Req.req Req.POST githubUrl (Req.ReqBodyJson reqBody) Req.jsonResponse acceptHeader
+  return . UserToken . Text.pack . accessToken . Req.responseBody $ resp
 
 {- Authentication types + functions -}
 
@@ -98,6 +152,11 @@ instance ToJWT UserToken
 
 fromUserToken :: UserToken -> Token
 fromUserToken (UserToken token) = AccessToken $ Text.encodeUtf8 token
+
+{- Redirection -}
+
+type RedirectResult (hdrs :: [*]) = Headers (Header "Location" String ': hdrs) NoContent
+type Redirect = Verb 'GET 302
 
 -- TODO: pass in referer url to redirect post-login
 redirectToLogin :: AuthParams -> ServantErr

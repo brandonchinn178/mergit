@@ -58,6 +58,7 @@ provide an access token to use for the duration of a request.
 
 1. Follow [these instructions][create-github-app] to create a GitHub app.
     1. **Make sure to set a webhook secret!**
+    1. Set callback URL to `http://localhost:3000/auth/callback`
     1. Permissions:
         * Checks: Read & Write
         * Repository contents: Read & Write

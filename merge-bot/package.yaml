@@ -10,12 +10,14 @@ dependencies:
 - base
 - blaze-html
 - bytestring
+- data-default
 - github-rest
 - github-schemas
 - http-types
 - jose
 - merge-bot-core
 - monad-logger
+- req
 - servant-auth-server
 - servant-blaze
 - servant-github-app
