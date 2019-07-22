@@ -1,23 +1,20 @@
 {-|
-Module      :  MergeBot.Handlers
+Module      :  MergeBot.Routes.Webhook
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
 Portability :  portable
 
-This module defines handlers for the MergeBot.
+This module defines webhook routes for the MergeBot.
 -}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
 
-module MergeBot.Handlers
-  ( handlePing
-  , handlePullRequest
-  , handleCheckSuite
-  , handleCheckRun
-  , handleStatus
-  , handlePush
+module MergeBot.Routes.Webhook
+  ( WebhookRoutes
+  , handleWebhookRoutes
   ) where
 
 import Control.Monad (unless, when)
@@ -30,7 +27,7 @@ import qualified GitHub.Schema.Event.CheckRun as CheckRun
 import qualified GitHub.Schema.Event.CheckSuite as CheckSuite
 import qualified GitHub.Schema.Event.PullRequest as PullRequest
 import GitHub.Schema.User (UserWebhook)
-import Servant (Handler)
+import Servant
 import Servant.GitHub
 import UnliftIO.Exception (throwIO)
 
@@ -40,6 +37,23 @@ import MergeBot.Core.Error (BotError(..))
 import qualified MergeBot.Core.GitHub as Core
 import MergeBot.Core.Text (isStagingBranch, isTryBranch)
 import MergeBot.Monad (BotApp, runBotApp)
+
+type WebhookRoutes =
+  GitHubEvent 'PingEvent :> GitHubAction
+  :<|> GitHubEvent 'PullRequestEvent :> WithToken :> GitHubAction
+  :<|> GitHubEvent 'CheckSuiteEvent :> WithToken :> GitHubAction
+  :<|> GitHubEvent 'CheckRunEvent :> WithToken :> GitHubAction
+  :<|> GitHubEvent 'StatusEvent :> WithToken :> GitHubAction
+  :<|> GitHubEvent 'PushEvent :> WithToken :> GitHubAction
+
+handleWebhookRoutes :: Server WebhookRoutes
+handleWebhookRoutes =
+  handlePing
+  :<|> handlePullRequest
+  :<|> handleCheckSuite
+  :<|> handleCheckRun
+  :<|> handleStatus
+  :<|> handlePush
 
 -- | Handle the 'ping' GitHub event.
 handlePing :: Object PingEvent -> Handler ()

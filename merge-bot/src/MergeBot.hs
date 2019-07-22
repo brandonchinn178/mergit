@@ -6,11 +6,9 @@ Portability :  portable
 
 This module defines the entrypoint for the MergeBot GitHub application.
 -}
-{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NumDecimals #-}
 {-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE TypeOperators #-}
 {-# OPTIONS_GHC -freduction-depth=400 #-}
 
 module MergeBot (runMergeBot) where
@@ -25,32 +23,18 @@ import Servant.GitHub
 import UnliftIO.Async (concurrently_, waitCatch, withAsync)
 
 import qualified MergeBot.Core as Core
-import MergeBot.Handlers
 import MergeBot.Monad (runBotAppForAllInstalls)
-
-type MergeBotApp
-  = "webhook" :>
-    (    GitHubEvent 'PingEvent :> GitHubAction
-    :<|> GitHubEvent 'PullRequestEvent :> WithToken :> GitHubAction
-    :<|> GitHubEvent 'CheckSuiteEvent :> WithToken :> GitHubAction
-    :<|> GitHubEvent 'CheckRunEvent :> WithToken :> GitHubAction
-    :<|> GitHubEvent 'StatusEvent :> WithToken :> GitHubAction
-    :<|> GitHubEvent 'PushEvent :> WithToken :> GitHubAction
-    )
-
-server :: Server MergeBotApp
-server
-  =    handlePing
-  :<|> handlePullRequest
-  :<|> handleCheckSuite
-  :<|> handleCheckRun
-  :<|> handleStatus
-  :<|> handlePush
+import MergeBot.Routes (MergeBotRoutes, handleMergeBotRoutes)
+import MergeBot.Routes.Auth (AuthParams(..), loadAuthParams)
 
 initApp :: IO Application
 initApp = do
   params <- loadGitHubAppParams
-  return $ serveWithContext (Proxy @MergeBotApp) (params :. EmptyContext) server
+  authParams <- loadAuthParams
+
+  let context = cookieSettings authParams :. jwtSettings authParams :. params :. EmptyContext
+
+  return $ serveWithContext (Proxy @MergeBotRoutes) context $ handleMergeBotRoutes authParams
 
 pollQueues :: IO ()
 pollQueues = do

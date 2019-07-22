@@ -5,19 +5,28 @@ name: merge-bot
 version: 0.1.0
 
 dependencies:
+- aeson
 - aeson-schemas
 - base
+- blaze-html
 - bytestring
+- data-default
 - github-rest
 - github-schemas
 - http-types
+- jose
 - merge-bot-core
 - monad-logger
+- req
+- servant-auth-server
+- servant-blaze
 - servant-github-app
 - servant-server
 - text
 - unliftio
 - warp
+- x509
+- x509-store
 
 library:
   source-dirs: src
