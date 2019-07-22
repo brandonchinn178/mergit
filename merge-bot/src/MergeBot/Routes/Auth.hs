@@ -29,7 +29,7 @@ module MergeBot.Routes.Auth
 
 import Control.Monad.IO.Class (liftIO)
 import Crypto.JWT (fromRSA)
-import Data.Aeson (FromJSON(..), ToJSON(..), object, withObject, (.=), (.:))
+import Data.Aeson (FromJSON(..), ToJSON(..), object, withObject, (.:), (.=))
 import qualified Data.ByteString.Char8 as Char8
 import Data.Default (def)
 import Data.Maybe (fromMaybe)
@@ -95,7 +95,7 @@ loadAuthParams :: IO AuthParams
 loadAuthParams = do
   jwkFile <- fromMaybe "conf/cookie-jwk.pem" <$> lookupEnv "COOKIE_JWK"
   jwk <- readKeyFile jwkFile >>= \case
-    (PrivKeyRSA key):_ -> return $ fromRSA key
+    PrivKeyRSA key:_ -> return $ fromRSA key
     _ -> fail $ "RSA key not found in key file: " ++ jwkFile
 
   let cookieSettings = defaultCookieSettings

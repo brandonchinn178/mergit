@@ -8,7 +8,6 @@ This module defines the entrypoint for the MergeBot GitHub application.
 -}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NumDecimals #-}
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -freduction-depth=400 #-}
 

@@ -6,8 +6,8 @@ Portability :  portable
 
 This module defines all routes for the MergeBot.
 -}
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TypeOperators #-}
 
 module MergeBot.Routes
@@ -19,7 +19,13 @@ import Servant
 import Servant.Auth.Server (Auth, AuthResult(..), Cookie, throwAll)
 
 import MergeBot.Routes.Auth
-    (AuthParams, AuthRoutes, UserToken, fromUserToken, handleAuthRoutes, redirectToLogin)
+    ( AuthParams
+    , AuthRoutes
+    , UserToken
+    , fromUserToken
+    , handleAuthRoutes
+    , redirectToLogin
+    )
 import MergeBot.Routes.Debug (DebugRoutes, handleDebugRoutes)
 import MergeBot.Routes.Webhook (WebhookRoutes, handleWebhookRoutes)
 
