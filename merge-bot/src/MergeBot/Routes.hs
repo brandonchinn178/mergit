@@ -10,6 +10,7 @@ This module defines all routes for the MergeBot.
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
@@ -19,13 +20,14 @@ module MergeBot.Routes
   , handleMergeBotRoutes
   ) where
 
-import Data.Aeson (Value)
+import Data.Aeson.Schema (Object, get)
 import GitHub.REST (GHEndpoint(..), Token, githubTry', queryGitHub)
+import GitHub.Schema.User (User)
 import Network.HTTP.Types (StdMethod(..), status401)
 import Servant
 import Servant.Auth.Server (Auth, AuthResult(..), Cookie, throwAll)
 
-import MergeBot.Monad (DebugApp, runDebugApp)
+import MergeBot.Monad (DebugApp, runDebugApp, withUser)
 import MergeBot.Routes.Auth
     ( AuthParams
     , AuthRoutes
@@ -66,8 +68,9 @@ handleProtectedRoutes authParams = \case
         , endpointVals = []
         , ghData = []
         }
-      case result of
-        Left _ -> throwError $ redirectToLogin authParams
-        Right (_ :: Value) -> return ()
 
-      routeToRun
+      user <- case result of
+        Left _ -> throwError $ redirectToLogin authParams
+        Right (o :: Object User) -> return [get| o.login |]
+
+      withUser user routeToRun

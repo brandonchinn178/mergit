@@ -27,12 +27,14 @@ module MergeBot.Monad
   , DebugApp
   , runDebugApp
   , runBotAppDebug
+  , getUser
+  , withUser
   ) where
 
 import Control.Monad (forM)
 import Control.Monad.Except (MonadError(..))
 import Control.Monad.IO.Class (MonadIO(..))
-import Control.Monad.Reader (ReaderT, ask, lift, runReaderT)
+import Control.Monad.Reader (ReaderT, asks, lift, local, runReaderT)
 import Data.Aeson.Schema (Object, get, schema)
 import qualified Data.ByteString.Lazy.Char8 as Char8
 import Data.GraphQL (QuerySettings(..), QueryT, defaultQuerySettings, runQueryT)
@@ -125,9 +127,14 @@ runBotAppForAllInstalls action = do
 
 type ServerDebug api = ServerT api DebugApp
 
+data DebugState = DebugState
+  { debugToken :: Token
+  , debugUser  :: Maybe Text
+  }
+
 newtype DebugApp a = DebugApp
   { unDebugApp ::
-      ReaderT Token
+      ReaderT DebugState
         ( GitHubT
           ( QueryT API
               IO
@@ -169,18 +176,29 @@ runDebugApp token action = do
               : requestHeaders req
           }
         }
+      debugState = DebugState
+        { debugToken = token
+        , debugUser = Nothing
+        }
 
   runIO
     . runQueryT graphqlSettings
     . runGitHubT ghState
-    . (`runReaderT` token)
+    . (`runReaderT` debugState)
     . unDebugApp
     $ action
 
 runBotAppDebug :: Text -> BotApp a -> DebugApp a
 runBotAppDebug repo action = do
-  token <- DebugApp ask
+  token <- DebugApp $ asks debugToken
   liftIO $ runBotApp' repo action token
+
+-- | Get the currently authenticated user.
+getUser :: DebugApp Text
+getUser = DebugApp $ fromMaybe "Anonymous" <$> asks debugUser
+
+withUser :: Text -> DebugApp a -> DebugApp a
+withUser user = DebugApp . local (\state -> state { debugUser = Just user }) . unDebugApp
 
 {- Helpers -}
 

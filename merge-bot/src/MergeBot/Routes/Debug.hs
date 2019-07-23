@@ -21,7 +21,7 @@ import Servant.HTML.Blaze (HTML)
 import Text.Blaze.Html5 (Html)
 import qualified Text.Blaze.Html5 as H
 
-import MergeBot.Monad (DebugApp, ServerDebug)
+import MergeBot.Monad (DebugApp, ServerDebug, getUser)
 
 type DebugRoutes = IndexPage
 
@@ -41,6 +41,7 @@ type HtmlPage = Get '[HTML] Html
 -- | Renders the given body within the general template.
 render :: Html -> DebugApp Html
 render body = do
+  user <- getUser
   return $ H.html $ do
     H.head $
       H.title "LeapYear Merge Bot"
@@ -49,5 +50,5 @@ render body = do
         H.h1 "LeapYear Merge Bot"
         H.p $ do
           "Logged in as: "
-          H.strong "TODO"
+          H.strong $ H.toHtml user
       H.main body
