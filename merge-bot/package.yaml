@@ -13,10 +13,13 @@ dependencies:
 - data-default
 - github-rest
 - github-schemas
+- graphql-client
+- http-client
 - http-types
 - jose
 - merge-bot-core
 - monad-logger
+- mtl
 - req
 - servant-auth-server
 - servant-blaze
