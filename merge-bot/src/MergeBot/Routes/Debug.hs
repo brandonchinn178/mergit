@@ -16,27 +16,39 @@ module MergeBot.Routes.Debug
   , handleDebugRoutes
   ) where
 
-import GitHub.REST (Token)
 import Servant
 import Servant.HTML.Blaze (HTML)
-import Text.Blaze.Html5 (ToMarkup)
+import Text.Blaze.Html5 (Html)
 import qualified Text.Blaze.Html5 as H
 
-type DebugRoutes = Get '[HTML] IndexPage
+import MergeBot.Monad (DebugApp, ServerDebug, getUser)
 
-handleDebugRoutes :: Token -> Server DebugRoutes
-handleDebugRoutes token = handleIndexPage token
+type DebugRoutes = IndexPage
+
+handleDebugRoutes :: ServerDebug DebugRoutes
+handleDebugRoutes = handleIndexPage
 
 {- Index page -}
 
-data IndexPage = IndexPage
+type IndexPage = HtmlPage
+handleIndexPage :: DebugApp Html
+handleIndexPage = render "Hello world"
 
-instance ToMarkup IndexPage where
-  toMarkup IndexPage = H.html $ do
+{- Helpers -}
+
+type HtmlPage = Get '[HTML] Html
+
+-- | Renders the given body within the general template.
+render :: Html -> DebugApp Html
+render body = do
+  user <- getUser
+  return $ H.html $ do
     H.head $
-      H.title "LY Merge Bot"
+      H.title "LeapYear Merge Bot"
     H.body $ do
-      H.p "Hello world"
-
-handleIndexPage :: Token -> Handler IndexPage
-handleIndexPage _ = return IndexPage
+      H.header $ do
+        H.h1 "LeapYear Merge Bot"
+        H.p $ do
+          "Logged in as: "
+          H.strong $ H.toHtml user
+      H.main body
