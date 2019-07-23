@@ -8,6 +8,10 @@ This module defines all routes for the MergeBot.
 -}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
 
 module MergeBot.Routes
@@ -15,6 +19,17 @@ module MergeBot.Routes
   , handleMergeBotRoutes
   ) where
 
+import Control.Monad.IO.Class (liftIO)
+import Data.Aeson (Value)
+import GitHub.REST
+    ( GHEndpoint(..)
+    , GitHubState(..)
+    , Token
+    , githubTry'
+    , queryGitHub
+    , runGitHubT
+    )
+import Network.HTTP.Types (StdMethod(..), status401)
 import Servant
 import Servant.Auth.Server (Auth, AuthResult(..), Cookie, throwAll)
 
@@ -45,6 +60,24 @@ type ProtectedRoutes = DebugRoutes
 
 handleProtectedRoutes :: AuthParams -> AuthResult UserToken -> Server ProtectedRoutes
 handleProtectedRoutes authParams = \case
-  -- TODO: hoist, validate token
-  Authenticated token -> handleDebugRoutes $ fromUserToken token
+  Authenticated token -> hoistServer (Proxy @ProtectedRoutes) (runRoute $ fromUserToken token) $
+    handleDebugRoutes (fromUserToken token)
   _ -> throwAll $ redirectToLogin authParams
+  where
+    -- TODO: first `Handler a` should be a custom monad
+    runRoute :: Token -> Handler a -> Handler a
+    runRoute token routeToRun = do
+      let ghState = GitHubState{token, userAgent = "LeapYear/merge-bot", apiVersion = "v3"}
+      result <- liftIO $ runGitHubT ghState $
+        githubTry' status401 $ queryGitHub GHEndpoint
+          { method = GET
+          , endpoint = "/user"
+          , endpointVals = []
+          , ghData = []
+          }
+
+      case result of
+        Left _ -> throwError $ redirectToLogin authParams
+        Right (_ :: Value) -> return ()
+
+      routeToRun
