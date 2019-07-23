@@ -9,11 +9,11 @@ This module defines functions for running GitHubT actions.
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
 
 module MergeBot.Monad
@@ -23,29 +23,40 @@ module MergeBot.Monad
   , runBotApp'
   , runBotAppForAllInstalls
     -- * Debug monad
+  , ServerDebug
   , DebugApp
   , runDebugApp
   , runBotAppDebug
   ) where
 
 import Control.Monad (forM)
+import Control.Monad.Except (MonadError(..))
 import Control.Monad.IO.Class (MonadIO(..))
-import Control.Monad.Reader (ReaderT, ask, runReaderT)
+import Control.Monad.Reader (ReaderT, ask, lift, runReaderT)
 import Data.Aeson.Schema (Object, get, schema)
 import qualified Data.ByteString.Lazy.Char8 as Char8
 import Data.GraphQL (QuerySettings(..), QueryT, defaultQuerySettings, runQueryT)
+import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import qualified Data.Text as Text
 import GitHub.REST
-    (GHEndpoint(..), GitHubState(..), GitHubT, Token, queryGitHub, runGitHubT)
+    ( GHEndpoint(..)
+    , GitHubState(..)
+    , GitHubT
+    , MonadGitHubREST(..)
+    , Token
+    , runGitHubT
+    )
 import GitHub.REST.Auth (fromToken, getJWTToken)
 import GitHub.Schema.Repository (RepoWebhook)
 import Network.HTTP.Client (Request(..))
 import Network.HTTP.Types (StdMethod(..), hAccept, hAuthorization, hUserAgent)
-import Servant (Handler, ServantErr(..), err500, throwError)
+import Servant (Handler, ServantErr(..), ServerT, err500)
 import Servant.GitHub (GitHubAppParams(..), loadGitHubAppParams)
 import Servant.GitHub.Security (getToken)
-import UnliftIO.Exception (SomeException, displayException, try)
+import UnliftIO (MonadUnliftIO(..), UnliftIO(..), withUnliftIO)
+import UnliftIO.Exception
+    (SomeException, catch, displayException, fromException, throwIO, try)
 
 import MergeBot.Core.GraphQL.API (API)
 import MergeBot.Core.Monad (BotAppT, BotSettings(..), runBotAppT)
@@ -112,6 +123,8 @@ runBotAppForAllInstalls action = do
 
 {- Debug monad -}
 
+type ServerDebug api = ServerT api DebugApp
+
 newtype DebugApp a = DebugApp
   { unDebugApp ::
       ReaderT Token
@@ -127,6 +140,18 @@ newtype DebugApp a = DebugApp
     , Monad
     , MonadIO
     )
+
+instance MonadGitHubREST DebugApp where
+  queryGitHub = DebugApp . lift . queryGitHub
+
+instance MonadError ServantErr DebugApp where
+  throwError = throwIO
+  catchError = catch
+
+instance MonadUnliftIO DebugApp where
+  askUnliftIO = DebugApp $
+    withUnliftIO $ \u ->
+      return $ UnliftIO (unliftIO u . unDebugApp)
 
 runDebugApp :: Token -> DebugApp a -> Handler a
 runDebugApp token action = do
@@ -163,7 +188,9 @@ runBotAppDebug repo action = do
 runIO :: IO a -> Handler a
 runIO m = liftIO (try @_ @SomeException m) >>= \case
   Right x -> return x
-  Left e -> throwError $ err500 { errBody = Char8.pack $ displayException e }
+  Left e -> throwError . fromMaybe (showErr e) . fromException $ e
+  where
+    showErr e = err500 { errBody = Char8.pack $ displayException e }
 
 -- | Separate a repo name of the format "owner/repo" into a tuple @(owner, repo)@.
 parseRepo :: Text -> (Text, Text)

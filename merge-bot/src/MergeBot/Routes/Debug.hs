@@ -16,16 +16,17 @@ module MergeBot.Routes.Debug
   , handleDebugRoutes
   ) where
 
-import GitHub.REST (Token)
 import Servant
 import Servant.HTML.Blaze (HTML)
 import Text.Blaze.Html5 (ToMarkup)
 import qualified Text.Blaze.Html5 as H
 
+import MergeBot.Monad (DebugApp, ServerDebug)
+
 type DebugRoutes = Get '[HTML] IndexPage
 
-handleDebugRoutes :: Token -> Server DebugRoutes
-handleDebugRoutes token = handleIndexPage token
+handleDebugRoutes :: ServerDebug DebugRoutes
+handleDebugRoutes = handleIndexPage
 
 {- Index page -}
 
@@ -38,5 +39,5 @@ instance ToMarkup IndexPage where
     H.body $ do
       H.p "Hello world"
 
-handleIndexPage :: Token -> Handler IndexPage
-handleIndexPage _ = return IndexPage
+handleIndexPage :: DebugApp IndexPage
+handleIndexPage = return IndexPage
