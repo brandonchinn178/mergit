@@ -68,12 +68,12 @@ import MergeBot.Core.Monad (BotAppT, BotSettings(..), runBotAppT)
 type BotApp = BotAppT IO
 
 -- | A helper around 'runBotAppT' for easy use by the Servant handlers.
-runBotApp :: Object RepoWebhook -> BotApp a -> Token -> Handler a
-runBotApp o action token = runIO $ runBotApp' [get| o.full_name |] action token
+runBotApp' :: Object RepoWebhook -> BotApp a -> Token -> Handler a
+runBotApp' o action token = runIO $ runBotApp [get| o.full_name |] action token
 
 -- | A helper around 'runBotAppT'.
-runBotApp' :: Text -> BotApp a -> Token -> IO a
-runBotApp' repo action token = do
+runBotApp :: Text -> BotApp a -> Token -> IO a
+runBotApp repo action token = do
   GitHubAppParams{ghUserAgent, ghAppId} <- liftIO loadGitHubAppParams
   let settings = BotSettings
         { userAgent = ghUserAgent
@@ -107,7 +107,7 @@ runBotAppForAllInstalls action = do
     let state = mkState installToken
     repositories <- [get| .repositories[].full_name |] <$> runGitHubT state getRepositories
     forM repositories $ \repo -> do
-      result <- runBotApp' repo action installToken
+      result <- runBotApp repo action installToken
       return (repo, result)
   where
     getInstallations = queryGitHub @_ @[Object [schema| { id: Int } |]] GHEndpoint
@@ -191,7 +191,7 @@ runDebugApp token action = do
 runBotAppDebug :: Text -> BotApp a -> DebugApp a
 runBotAppDebug repo action = do
   token <- DebugApp $ asks debugToken
-  liftIO $ runBotApp' repo action token
+  liftIO $ runBotApp repo action token
 
 -- | Get the currently authenticated user.
 getUser :: DebugApp Text

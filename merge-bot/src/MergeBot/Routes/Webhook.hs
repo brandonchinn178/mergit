@@ -36,7 +36,7 @@ import MergeBot.Core.Actions (MergeBotAction(..), parseAction)
 import MergeBot.Core.Error (BotError(..))
 import qualified MergeBot.Core.GitHub as Core
 import MergeBot.Core.Text (isStagingBranch, isTryBranch)
-import MergeBot.Monad (BotApp, runBotApp)
+import MergeBot.Monad (BotApp, runBotApp')
 
 type WebhookRoutes =
   GitHubEvent 'PingEvent :> GitHubAction
@@ -61,7 +61,7 @@ handlePing o = liftIO $ putStrLn $ "Got ping from app #" ++ show [get| o.hook.ap
 
 -- | Handle the 'pull_request' GitHub event.
 handlePullRequest :: Object PullRequestEvent -> Token -> Handler ()
-handlePullRequest o = runBotApp repo $ do
+handlePullRequest o = runBotApp' repo $ do
   logSender o [get| o.sender |]
   case [get| o.action |] of
     PullRequest.OPENED -> do
@@ -73,7 +73,7 @@ handlePullRequest o = runBotApp repo $ do
 
 -- | Handle the 'check_suite' GitHub event.
 handleCheckSuite :: Object CheckSuiteEvent -> Token -> Handler ()
-handleCheckSuite o = runBotApp repo $ do
+handleCheckSuite o = runBotApp' repo $ do
   logSender o [get| o.sender |]
   case [get| o.action |] of
     CheckSuite.REQUESTED ->
@@ -86,7 +86,7 @@ handleCheckSuite o = runBotApp repo $ do
 
 -- | Handle the 'check_run' GitHub event.
 handleCheckRun :: Object CheckRunEvent -> Token -> Handler ()
-handleCheckRun o = runBotApp repo $ do
+handleCheckRun o = runBotApp' repo $ do
   logSender o [get| o.sender |]
   case [get| o.action |] of
     CheckRun.REQUESTED_ACTION -> do
@@ -125,7 +125,7 @@ handleCheckRun o = runBotApp repo $ do
 
 -- | Handle the 'status' GitHub event.
 handleStatus :: Object StatusEvent -> Token -> Handler ()
-handleStatus o = runBotApp repo $ do
+handleStatus o = runBotApp' repo $ do
   logSender o [get| o.sender |]
   case [get| o.branches[].name |] of
     [branch] | isTryBranch branch || isStagingBranch branch ->
@@ -136,7 +136,7 @@ handleStatus o = runBotApp repo $ do
 
 -- | Handle the 'push' GitHub event.
 handlePush :: Object PushEvent -> Token -> Handler ()
-handlePush o = runBotApp repo $ do
+handlePush o = runBotApp' repo $ do
   logSender o [get| o.sender |]
   when (isCreated && isCIBranch && not isBot) $ do
     Core.deleteBranch branch
