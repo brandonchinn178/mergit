@@ -6,6 +6,7 @@ Portability :  portable
 
 This module defines the entrypoint for the MergeBot GitHub application.
 -}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NumDecimals #-}
 {-# LANGUAGE TypeApplications #-}
@@ -19,31 +20,45 @@ import Control.Monad (forever, (>=>))
 import Data.Proxy (Proxy(..))
 import Network.Wai.Handler.Warp (run)
 import Servant
+import Servant.Auth.Server (CookieSettings, JWTSettings)
 import Servant.GitHub
 import UnliftIO.Async (concurrently_, waitCatch, withAsync)
 
+import MergeBot.Auth (AuthParams(..), loadAuthParams)
 import qualified MergeBot.Core as Core
-import MergeBot.Monad (runBotAppForAllInstalls)
+import MergeBot.Monad (runBaseApp, runBaseHandler, runBotAppForAllInstalls)
 import MergeBot.Routes (MergeBotRoutes, handleMergeBotRoutes)
-import MergeBot.Routes.Auth (AuthParams(..), loadAuthParams)
 
-initApp :: IO Application
-initApp = do
-  params <- loadGitHubAppParams
-  authParams <- loadAuthParams
+type BaseAppContext = '[CookieSettings, JWTSettings, GitHubAppParams]
 
-  let context = cookieSettings authParams :. jwtSettings authParams :. params :. EmptyContext
+initApp :: GitHubAppParams -> AuthParams -> Application
+initApp ghAppParams authParams =
+  serveWithContext (Proxy @MergeBotRoutes) context $
+    hoistServerWithContext (Proxy @MergeBotRoutes) (Proxy @BaseAppContext) runBaseHandler'
+      handleMergeBotRoutes
+  where
+    context :: Context BaseAppContext
+    context = cookieSettings authParams :. jwtSettings authParams :. ghAppParams :. EmptyContext
 
-  return $ serveWithContext (Proxy @MergeBotRoutes) context $ handleMergeBotRoutes authParams
+    runBaseHandler' = runBaseHandler ghAppParams authParams
 
-pollQueues :: IO ()
-pollQueues = do
-  withAsync (runBotAppForAllInstalls Core.pollQueues) $ waitCatch >=> \case
-    Right _ -> return ()
-    Left e -> putStrLn $ displayException e
+pollQueues :: GitHubAppParams -> AuthParams -> IO ()
+pollQueues ghAppParams authParams = do
+  runAsync $ runBaseApp ghAppParams authParams $ runBotAppForAllInstalls Core.pollQueues
 
   -- wait 10 minutes
   threadDelay $ 10 * 60e6
+  where
+    -- | Run the given action asynchronously, printing any exceptions thrown
+    runAsync action = withAsync action $ waitCatch >=> \case
+      Right _ -> return ()
+      Left e -> putStrLn $ displayException e
 
 runMergeBot :: IO ()
-runMergeBot = concurrently_ (forever pollQueues) (run 3000 =<< initApp)
+runMergeBot = do
+  ghAppParams <- loadGitHubAppParams
+  authParams <- loadAuthParams
+
+  concurrently_
+    (forever $ pollQueues ghAppParams authParams)
+    (run 3000 $ initApp ghAppParams authParams)

@@ -11,6 +11,7 @@ This module defines all routes for the MergeBot.
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
@@ -21,56 +22,59 @@ module MergeBot.Routes
   ) where
 
 import Data.Aeson.Schema (Object, get)
-import GitHub.REST (GHEndpoint(..), Token, githubTry', queryGitHub)
+import GitHub.REST (GHEndpoint(..), githubTry', queryGitHub)
 import GitHub.Schema.User (User)
 import Network.HTTP.Types (StdMethod(..), status401)
 import Servant
-import Servant.Auth.Server (Auth, AuthResult(..), Cookie, throwAll)
+import Servant.Auth.Server (Auth, AuthResult(..), Cookie)
 
-import MergeBot.Monad (DebugApp, runDebugApp, withUser)
-import MergeBot.Routes.Auth
-    ( AuthParams
-    , AuthRoutes
-    , UserToken
-    , fromUserToken
-    , handleAuthRoutes
-    , redirectToLogin
-    )
+import MergeBot.Auth (UserToken, fromUserToken, redirectToLogin)
+import MergeBot.Monad (BaseApp, ServerBase, getAuthParams)
+import MergeBot.Routes.Auth (AuthRoutes, handleAuthRoutes)
 import MergeBot.Routes.Debug (DebugRoutes, handleDebugRoutes)
+import MergeBot.Routes.Debug.Monad (DebugApp, runDebugApp, withUser)
 import MergeBot.Routes.Webhook (WebhookRoutes, handleWebhookRoutes)
 
 type MergeBotRoutes = UnprotectedRoutes :<|> (Auth '[Cookie] UserToken :> ProtectedRoutes)
 
-handleMergeBotRoutes :: AuthParams -> Server MergeBotRoutes
-handleMergeBotRoutes authParams = handleUnprotectedRoutes authParams :<|> handleProtectedRoutes authParams
+handleMergeBotRoutes :: ServerBase MergeBotRoutes
+handleMergeBotRoutes = handleUnprotectedRoutes :<|> handleProtectedRoutes
 
 type UnprotectedRoutes =
   "auth" :> AuthRoutes
   :<|> "webhook" :> WebhookRoutes
 
-handleUnprotectedRoutes :: AuthParams -> Server UnprotectedRoutes
-handleUnprotectedRoutes authParams = handleAuthRoutes authParams :<|> handleWebhookRoutes
+handleUnprotectedRoutes :: ServerBase UnprotectedRoutes
+handleUnprotectedRoutes = handleAuthRoutes :<|> handleWebhookRoutes
 
 type ProtectedRoutes = DebugRoutes
 
-handleProtectedRoutes :: AuthParams -> AuthResult UserToken -> Server ProtectedRoutes
-handleProtectedRoutes authParams = \case
-  Authenticated token -> hoistServer (Proxy @ProtectedRoutes) (runRoute $ fromUserToken token)
-    handleDebugRoutes
-  _ -> throwAll $ redirectToLogin authParams
+handleProtectedRoutes :: AuthResult UserToken -> ServerBase ProtectedRoutes
+handleProtectedRoutes = \case
+  Authenticated token -> hoistWith (runRoute token)
+  _ -> hoistWith runRedirect
   where
-    runRoute :: Token -> DebugApp a -> Handler a
-    runRoute token routeToRun = runDebugApp token $ do
-      -- make sure token isn't expired
-      result <- githubTry' status401 $ queryGitHub GHEndpoint
-        { method = GET
-        , endpoint = "/user"
-        , endpointVals = []
-        , ghData = []
-        }
+    hoistWith :: (forall x. DebugApp x -> BaseApp x) -> ServerBase ProtectedRoutes
+    hoistWith f = hoistServer (Proxy @ProtectedRoutes) f handleDebugRoutes
 
-      user <- case result of
-        Left _ -> throwError $ redirectToLogin authParams
-        Right (o :: Object User) -> return [get| o.login |]
+    runRoute :: UserToken -> DebugApp a -> BaseApp a
+    runRoute token routeToRun = do
+      authParams <- getAuthParams
 
-      withUser user routeToRun
+      runDebugApp (fromUserToken token) $ do
+        -- make sure token isn't expired
+        result <- githubTry' status401 $ queryGitHub GHEndpoint
+          { method = GET
+          , endpoint = "/user"
+          , endpointVals = []
+          , ghData = []
+          }
+
+        user <- case result of
+          Left _ -> redirectToLogin authParams
+          Right (o :: Object User) -> return [get| o.login |]
+
+        withUser user routeToRun
+
+    runRedirect :: DebugApp a -> BaseApp a
+    runRedirect _ = redirectToLogin =<< getAuthParams
