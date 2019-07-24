@@ -27,7 +27,7 @@ import qualified GitHub.Schema.Event.CheckRun as CheckRun
 import qualified GitHub.Schema.Event.CheckSuite as CheckSuite
 import qualified GitHub.Schema.Event.PullRequest as PullRequest
 import GitHub.Schema.Repository (RepoWebhook)
-import GitHub.Schema.User (UserWebhook)
+import GitHub.Schema.User (UserShort)
 import Servant
 import Servant.GitHub
 import UnliftIO.Exception (throwIO)
@@ -158,6 +158,6 @@ runBotApp' :: Object RepoWebhook -> BotApp a -> Token -> BaseApp a
 runBotApp' o action token = runBotApp [get| o.full_name |] action token
 
 -- | Log the sender for the given object.
-logSender :: IsSchemaObject schema => Object schema -> Object UserWebhook -> BotApp ()
+logSender :: IsSchemaObject schema => Object schema -> Object UserShort -> BotApp ()
 logSender o sender = logDebugN $
   "User '" <> [get| sender.login |] <> "' sent payload: " <> Text.pack (show o)

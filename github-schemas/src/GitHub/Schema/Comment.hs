@@ -15,7 +15,7 @@ import Data.Aeson.Schema (schema)
 import Data.Time (UTCTime)
 
 import GitHub.Data.URL (URL)
-import GitHub.Schema.User (UserWebhook)
+import GitHub.Schema.User (UserShort)
 
 -- | https://developer.github.com/v3/issues/comments/#get-a-single-comment
 type Comment = [schema|
@@ -25,7 +25,7 @@ type Comment = [schema|
     url: Text,
     html_url: URL,
     body: Text,
-    user: #UserWebhook,
+    user: #UserShort,
     created_at: UTCTime,
     updated_at: UTCTime,
   }

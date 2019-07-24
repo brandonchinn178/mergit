@@ -22,7 +22,7 @@ import GitHub.Schema.Label (Label)
 import GitHub.Schema.Milestone (Milestone)
 import GitHub.Schema.Repository (RepoWebhook)
 import GitHub.Schema.Team (Team)
-import GitHub.Schema.User (UserWebhook)
+import GitHub.Schema.User (UserShort)
 
 -- | A pull request as returned by GitHub events.
 type PullRequestWebhook = [schema|
@@ -38,16 +38,16 @@ type PullRequestWebhook = [schema|
     state: State,
     locked: Bool,
     title: Text,
-    user: #UserWebhook,
+    user: #UserShort,
     body: Text,
     created_at: UTCTime,
     updated_at: UTCTime,
     closed_at: Maybe UTCTime,
     merged_at: Maybe UTCTime,
     merge_commit_sha: Maybe GitObjectID,
-    assignee: Maybe #UserWebhook,
-    assignees: List #UserWebhook,
-    requested_reviewers: List #UserWebhook,
+    assignee: Maybe #UserShort,
+    assignees: List #UserShort,
+    requested_reviewers: List #UserShort,
     requested_teams: List #Team,
     labels: List #Label,
     milestone: Maybe #Milestone,
@@ -60,14 +60,14 @@ type PullRequestWebhook = [schema|
       label: Text,
       ref: Text,
       sha: GitObjectID,
-      user: #UserWebhook,
+      user: #UserShort,
       repo: #RepoWebhook,
     },
     base: {
       label: Text,
       ref: Text,
       sha: GitObjectID,
-      user: #UserWebhook,
+      user: #UserShort,
       repo: #RepoWebhook,
     },
     _links: {
@@ -101,7 +101,7 @@ type PullRequestWebhook = [schema|
     mergeable: Maybe Bool,
     rebaseable: Maybe Bool,
     mergeable_state: Text,
-    merged_by: Maybe #UserWebhook,
+    merged_by: Maybe #UserShort,
     comments: Int,
     review_comments: Int,
     maintainer_can_modify: Bool,

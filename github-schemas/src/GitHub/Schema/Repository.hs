@@ -15,7 +15,7 @@ import Data.Aeson.Schema (schema)
 -- import Data.Time (UTCTime)
 
 import GitHub.Data.URL (URL)
-import GitHub.Schema.User (UserWebhook)
+import GitHub.Schema.User (UserShort)
 
 -- | A repository as returned by GitHub events.
 type RepoWebhook = [schema|
@@ -24,7 +24,7 @@ type RepoWebhook = [schema|
     node_id: Text,
     name: Text,
     full_name: Text,
-    owner: #UserWebhook,
+    owner: #UserShort,
     private: Bool,
     html_url: URL,
     description: Maybe Text,

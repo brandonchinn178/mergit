@@ -18,7 +18,7 @@ import GitHub.Data.State (State)
 import GitHub.Data.URL (URL)
 import GitHub.Schema.Label (Label)
 import GitHub.Schema.Milestone (Milestone)
-import GitHub.Schema.User (UserWebhook)
+import GitHub.Schema.User (UserShort)
 
 -- | https://developer.github.com/v3/issues/#get-a-single-issue
 type Issue = [schema|
@@ -35,10 +35,10 @@ type Issue = [schema|
     state: State,
     title: Text,
     body: Maybe Text,
-    user: #UserWebhook,
+    user: #UserShort,
     labels: List #Label,
-    assignee: #UserWebhook,
-    assignees: List #UserWebhook,
+    assignee: #UserShort,
+    assignees: List #UserShort,
     milestone: Maybe #Milestone,
     locked: Bool,
     active_lock_reason: Maybe Text,
@@ -52,6 +52,6 @@ type Issue = [schema|
     closed_at: Maybe UTCTime,
     created_at: Maybe UTCTime,
     updated_at: Maybe UTCTime,
-    closed_by: #UserWebhook,
+    closed_by: #UserShort,
   }
 |]

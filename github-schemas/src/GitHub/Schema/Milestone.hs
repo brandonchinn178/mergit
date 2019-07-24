@@ -16,7 +16,7 @@ import Data.Time (UTCTime)
 
 import GitHub.Data.State (State)
 import GitHub.Data.URL (URL)
-import GitHub.Schema.User (UserWebhook)
+import GitHub.Schema.User (UserShort)
 
 -- | https://developer.github.com/v3/issues/milestones/#get-a-single-milestone
 type Milestone = [schema|
@@ -30,7 +30,7 @@ type Milestone = [schema|
     state: State,
     title: Text,
     description: Text,
-    creator: #UserWebhook,
+    creator: #UserShort,
     open_issues: Int,
     closed_issues: Int,
     created_at: UTCTime,
