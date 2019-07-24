@@ -20,7 +20,6 @@ module MergeBot.Monad
   ( -- * Webhook monad
     BotApp
   , runBotApp
-  , runBotApp'
   , runBotAppForAllInstalls
     -- * Debug monad
   , ServerDebug
@@ -29,6 +28,8 @@ module MergeBot.Monad
   , runBotAppDebug
   , getUser
   , withUser
+    -- * Helpers
+  , runIO
   ) where
 
 import Control.Monad (forM)
@@ -50,7 +51,6 @@ import GitHub.REST
     , runGitHubT
     )
 import GitHub.REST.Auth (fromToken, getJWTToken)
-import GitHub.Schema.Repository (RepoWebhook)
 import Network.HTTP.Client (Request(..))
 import Network.HTTP.Types (StdMethod(..), hAccept, hAuthorization, hUserAgent)
 import Servant (Handler, ServantErr(..), ServerT, err500)
@@ -66,10 +66,6 @@ import MergeBot.Core.Monad (BotAppT, BotSettings(..), runBotAppT)
 {- Webhook monad -}
 
 type BotApp = BotAppT IO
-
--- | A helper around 'runBotAppT' for easy use by the Servant handlers.
-runBotApp' :: Object RepoWebhook -> BotApp a -> Token -> Handler a
-runBotApp' o action token = runIO $ runBotApp [get| o.full_name |] action token
 
 -- | A helper around 'runBotAppT'.
 runBotApp :: Text -> BotApp a -> Token -> IO a

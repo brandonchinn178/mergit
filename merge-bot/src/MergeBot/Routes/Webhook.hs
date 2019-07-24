@@ -26,6 +26,7 @@ import GitHub.Data.GitObjectID (unOID)
 import qualified GitHub.Schema.Event.CheckRun as CheckRun
 import qualified GitHub.Schema.Event.CheckSuite as CheckSuite
 import qualified GitHub.Schema.Event.PullRequest as PullRequest
+import GitHub.Schema.Repository (RepoWebhook)
 import GitHub.Schema.User (UserWebhook)
 import Servant
 import Servant.GitHub
@@ -36,7 +37,7 @@ import MergeBot.Core.Actions (MergeBotAction(..), parseAction)
 import MergeBot.Core.Error (BotError(..))
 import qualified MergeBot.Core.GitHub as Core
 import MergeBot.Core.Text (isStagingBranch, isTryBranch)
-import MergeBot.Monad (BotApp, runBotApp')
+import MergeBot.Monad (BotApp, runBotApp, runIO)
 
 type WebhookRoutes =
   GitHubEvent 'PingEvent :> GitHubAction
@@ -151,6 +152,10 @@ handlePush o = runBotApp' repo $ do
       l -> last l
 
 {- Helpers -}
+
+-- | A helper around 'runBotAppT' for easy use by the Servant handlers.
+runBotApp' :: Object RepoWebhook -> BotApp a -> Token -> Handler a
+runBotApp' o action token = runIO $ runBotApp [get| o.full_name |] action token
 
 -- | Log the sender for the given object.
 logSender :: IsSchemaObject schema => Object schema -> Object UserWebhook -> BotApp ()
