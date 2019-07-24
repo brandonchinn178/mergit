@@ -20,9 +20,13 @@ module MergeBot.Monad
   ( BaseApp
   , ServerBase
   , runBaseApp
-  , runBaseHandler
   , getGitHubAppParams
   , getAuthParams
+    -- * BaseApp helpers
+  , runBaseHandler
+  , getJWTToken'
+  , queryGitHub'
+  , getInstallations
     -- * BotAppT helpers
   , BotApp
   , runBotApp
@@ -33,6 +37,7 @@ import Control.Monad (forM)
 import Control.Monad.Except (MonadError(..))
 import Control.Monad.IO.Class (MonadIO(..))
 import Control.Monad.Reader (ReaderT, asks, runReaderT)
+import Data.Aeson (FromJSON)
 import Data.Aeson.Schema (Object, get, schema)
 import qualified Data.ByteString.Lazy.Char8 as Char8
 import Data.Maybe (fromMaybe)
@@ -74,15 +79,44 @@ runBaseApp ghAppParams authParams = (`runReaderT` state) . unBaseApp
   where
     state = (ghAppParams, authParams)
 
--- | A helper for running BaseApp in Handler.
-runBaseHandler :: GitHubAppParams -> AuthParams -> BaseApp a -> Handler a
-runBaseHandler ghAppParams authParams = runIO . runBaseApp ghAppParams authParams
-
 getGitHubAppParams :: BaseApp GitHubAppParams
 getGitHubAppParams = BaseApp $ asks fst
 
 getAuthParams :: BaseApp AuthParams
 getAuthParams = BaseApp $ asks snd
+
+{- BaseApp helpers -}
+
+-- | A helper for running BaseApp in Handler.
+runBaseHandler :: GitHubAppParams -> AuthParams -> BaseApp a -> Handler a
+runBaseHandler ghAppParams authParams = runIO . runBaseApp ghAppParams authParams
+
+-- | A helper for generating a JWT token.
+getJWTToken' :: BaseApp Token
+getJWTToken' = do
+  GitHubAppParams{ghAppId, ghSigner} <- getGitHubAppParams
+  liftIO $ getJWTToken ghSigner ghAppId
+
+-- | A helper for querying GitHub using the given token.
+queryGitHub' :: FromJSON a => GHEndpoint -> Token -> BaseApp a
+queryGitHub' endpoint token = do
+  GitHubAppParams{ghUserAgent} <- getGitHubAppParams
+  let ghState = GitHubState { token, userAgent = ghUserAgent, apiVersion = "machine-man-preview" }
+
+  liftIO $ runGitHubT ghState $ queryGitHub endpoint
+
+-- | A helper for getting all the installation IDs for this GitHub app.
+getInstallations :: BaseApp [Int]
+getInstallations = do
+  jwtToken <- getJWTToken'
+  map [get| .id |] <$> getInstallations' jwtToken
+  where
+    getInstallations' = queryGitHub' @[Object [schema| { id: Int } |]] GHEndpoint
+      { method = GET
+      , endpoint = "/app/installations"
+      , endpointVals = []
+      , ghData = []
+      }
 
 {- BotAppT helpers -}
 
@@ -109,31 +143,17 @@ runBotAppForAllInstalls action = do
   GitHubAppParams{ghUserAgent, ghAppId, ghSigner} <- getGitHubAppParams
 
   -- get all installations
-  jwtToken <- liftIO $ getJWTToken ghSigner ghAppId
-  let mkState token = GitHubState
-        { token
-        , userAgent = ghUserAgent
-        , apiVersion = "machine-man-preview"
-        }
-      jwtState = mkState jwtToken
-  installations <- liftIO $ map [get| .id |] <$> runGitHubT jwtState getInstallations
+  installations <- getInstallations
 
   -- run the given action in each repo
   fmap concat $ forM installations $ \installationId -> do
     installToken <- liftIO $ getToken ghSigner ghAppId ghUserAgent installationId
-    let state = mkState installToken
-    repositories <- liftIO $ [get| .repositories[].full_name |] <$> runGitHubT state getRepositories
+    repositories <- [get| .repositories[].full_name |] <$> getRepositories installToken
     forM repositories $ \repo -> do
       result <- runBotApp repo action installToken
       return (repo, result)
   where
-    getInstallations = queryGitHub @_ @[Object [schema| { id: Int } |]] GHEndpoint
-      { method = GET
-      , endpoint = "/app/installations"
-      , endpointVals = []
-      , ghData = []
-      }
-    getRepositories = queryGitHub @_ @(Object [schema| { repositories: List { full_name: Text } } |]) GHEndpoint
+    getRepositories = queryGitHub' @(Object [schema| { repositories: List { full_name: Text } } |]) GHEndpoint
       { method = GET
       , endpoint = "/installation/repositories"
       , endpointVals = []
