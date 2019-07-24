@@ -31,29 +31,34 @@ import MergeBot.Routes (MergeBotRoutes, handleMergeBotRoutes)
 
 type BaseAppContext = '[CookieSettings, JWTSettings, GitHubAppParams]
 
-initApp :: IO Application
-initApp = do
-  params <- loadGitHubAppParams
-  authParams <- loadAuthParams
-
-  let context :: Context BaseAppContext
-      context = cookieSettings authParams :. jwtSettings authParams :. params :. EmptyContext
-
-  return $ serveWithContext (Proxy @MergeBotRoutes) context $
-    hoistServerWithContext (Proxy @MergeBotRoutes) (Proxy @BaseAppContext) (runBaseHandler params authParams)
+initApp :: GitHubAppParams -> AuthParams -> Application
+initApp ghAppParams authParams =
+  serveWithContext (Proxy @MergeBotRoutes) context $
+    hoistServerWithContext (Proxy @MergeBotRoutes) (Proxy @BaseAppContext) runBaseHandler'
       handleMergeBotRoutes
+  where
+    context :: Context BaseAppContext
+    context = cookieSettings authParams :. jwtSettings authParams :. ghAppParams :. EmptyContext
 
-pollQueues :: IO ()
-pollQueues = do
-  params <- loadGitHubAppParams
-  authParams <- loadAuthParams
+    runBaseHandler' = runBaseHandler ghAppParams authParams
 
-  withAsync (runBaseApp params authParams $ runBotAppForAllInstalls Core.pollQueues) $ waitCatch >=> \case
-    Right _ -> return ()
-    Left e -> putStrLn $ displayException e
+pollQueues :: GitHubAppParams -> AuthParams -> IO ()
+pollQueues ghAppParams authParams = do
+  runAsync $ runBaseApp ghAppParams authParams $ runBotAppForAllInstalls Core.pollQueues
 
   -- wait 10 minutes
   threadDelay $ 10 * 60e6
+  where
+    -- | Run the given action asynchronously, printing any exceptions thrown
+    runAsync action = withAsync action $ waitCatch >=> \case
+      Right _ -> return ()
+      Left e -> putStrLn $ displayException e
 
 runMergeBot :: IO ()
-runMergeBot = concurrently_ (forever pollQueues) (run 3000 =<< initApp)
+runMergeBot = do
+  ghAppParams <- loadGitHubAppParams
+  authParams <- loadAuthParams
+
+  concurrently_
+    (forever $ pollQueues ghAppParams authParams)
+    (run 3000 $ initApp ghAppParams authParams)
