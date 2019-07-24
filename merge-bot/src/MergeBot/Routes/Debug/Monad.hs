@@ -19,6 +19,7 @@ module MergeBot.Routes.Debug.Monad
   , runBotAppDebug
   , getUser
   , withUser
+  , liftBaseApp
   ) where
 
 import Control.Monad.Except (MonadError(..))
@@ -102,9 +103,9 @@ runDebugApp token action = do
     $ action
 
 runBotAppDebug :: Text -> BotApp a -> DebugApp a
-runBotAppDebug repo action = DebugApp $ do
-  token <- asks debugToken
-  lift $ lift $ lift $ runBotApp repo action token
+runBotAppDebug repo action = do
+  token <- DebugApp $ asks debugToken
+  liftBaseApp $ runBotApp repo action token
 
 -- | Get the currently authenticated user.
 getUser :: DebugApp Text
@@ -112,3 +113,6 @@ getUser = DebugApp $ fromMaybe "Anonymous" <$> asks debugUser
 
 withUser :: Text -> DebugApp a -> DebugApp a
 withUser user = DebugApp . local (\state -> state { debugUser = Just user }) . unDebugApp
+
+liftBaseApp :: BaseApp a -> DebugApp a
+liftBaseApp = DebugApp . lift . lift . lift
