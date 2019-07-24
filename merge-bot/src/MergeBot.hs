@@ -22,10 +22,10 @@ import Servant
 import Servant.GitHub
 import UnliftIO.Async (concurrently_, waitCatch, withAsync)
 
+import MergeBot.Auth (AuthParams(..), loadAuthParams)
 import qualified MergeBot.Core as Core
 import MergeBot.Monad (runBotAppForAllInstalls)
 import MergeBot.Routes (MergeBotRoutes, handleMergeBotRoutes)
-import MergeBot.Routes.Auth (AuthParams(..), loadAuthParams)
 
 initApp :: IO Application
 initApp = do

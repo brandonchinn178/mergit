@@ -8,7 +8,6 @@ This module defines authentication routes for the MergeBot.
 -}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -16,37 +15,23 @@ This module defines authentication routes for the MergeBot.
 {-# LANGUAGE TypeOperators #-}
 
 module MergeBot.Routes.Auth
-  ( -- * Routes
-    AuthRoutes
+  ( AuthRoutes
   , handleAuthRoutes
-    -- * Authentication helpers
-  , AuthParams(..)
-  , loadAuthParams
-  , UserToken
-  , fromUserToken
-  , redirectToLogin
   ) where
 
 import Control.Monad.IO.Class (liftIO)
-import Crypto.JWT (fromRSA)
 import Data.Aeson (FromJSON(..), ToJSON(..), object, withObject, (.:), (.=))
 import qualified Data.ByteString.Char8 as Char8
 import Data.Default (def)
-import Data.Maybe (fromMaybe)
-import Data.Text (Text)
 import qualified Data.Text as Text
-import qualified Data.Text.Encoding as Text
-import Data.X509 (PrivKey(..))
-import Data.X509.File (readKeyFile)
-import GitHub.REST (Token(..))
 import Network.HTTP.Req ((/:))
 import qualified Network.HTTP.Req as Req
-import Network.HTTP.Types (hLocation, renderSimpleQuery)
+import Network.HTTP.Types (renderSimpleQuery)
 import Servant
 import Servant.Auth.Server
 import Servant.HTML.Blaze (HTML)
-import Servant.Server (ServantErr)
-import System.Environment (getEnv, lookupEnv)
+
+import MergeBot.Auth (AuthParams(..), UserToken(..))
 
 type AuthRoutes =
   "login" :> LoginRoute
@@ -81,36 +66,6 @@ handleCallbackRoute AuthParams{..} ghCode = do
     Nothing -> fail "Could not make JWT"
     Just addCookieHeaders -> return $ addHeader redirectUrl $ addCookieHeaders NoContent
 
-{- GitHub app environment variables -}
-
-data AuthParams = AuthParams
-  { cookieSettings :: CookieSettings
-  , jwtSettings    :: JWTSettings
-  , ghClientId     :: String
-  , ghClientSecret :: String
-  , ghBaseUrl      :: String
-  }
-
-loadAuthParams :: IO AuthParams
-loadAuthParams = do
-  jwkFile <- fromMaybe "conf/cookie-jwk.pem" <$> lookupEnv "COOKIE_JWK"
-  jwk <- readKeyFile jwkFile >>= \case
-    PrivKeyRSA key:_ -> return $ fromRSA key
-    _ -> fail $ "RSA key not found in key file: " ++ jwkFile
-
-  let cookieSettings = defaultCookieSettings
-        { cookieIsSecure = NotSecure
-        , sessionCookieName = "merge-bot-github-token"
-        , cookieXsrfSetting = Just def { xsrfExcludeGet = True }
-        }
-      jwtSettings = defaultJWTSettings jwk
-
-  ghClientId <- getEnv "GITHUB_CLIENT_ID"
-  ghClientSecret <- getEnv "GITHUB_CLIENT_SECRET"
-  ghBaseUrl <- fromMaybe "http://localhost:3000" <$> lookupEnv "MERGE_BOT_URL"
-
-  return AuthParams{..}
-
 {- GitHub access token -}
 
 data AccessTokenRequest = AccessTokenRequest
@@ -142,24 +97,7 @@ getAccessToken reqBody = Req.runReq def $ do
   resp <- Req.req Req.POST githubUrl (Req.ReqBodyJson reqBody) Req.jsonResponse acceptHeader
   return . UserToken . Text.pack . accessToken . Req.responseBody $ resp
 
-{- Authentication types + functions -}
-
-newtype UserToken = UserToken Text
-  deriving (FromJSON,ToJSON)
-
-instance FromJWT UserToken
-instance ToJWT UserToken
-
-fromUserToken :: UserToken -> Token
-fromUserToken (UserToken token) = AccessToken $ Text.encodeUtf8 token
-
 {- Redirection -}
 
 type RedirectResult (hdrs :: [*]) = Headers (Header "Location" String ': hdrs) NoContent
 type Redirect = Verb 'GET 302
-
--- TODO: pass in referer url to redirect post-login
-redirectToLogin :: AuthParams -> ServantErr
-redirectToLogin authParams = err302 { errHeaders = [(hLocation, redirectUrl)] }
-  where
-    redirectUrl = Char8.pack $ ghBaseUrl authParams <> "/auth/login"
