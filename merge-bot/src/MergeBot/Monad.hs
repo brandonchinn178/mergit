@@ -7,9 +7,7 @@ Portability :  portable
 This module defines functions for running GitHubT actions.
 -}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
@@ -17,17 +15,9 @@ This module defines functions for running GitHubT actions.
 {-# LANGUAGE TypeApplications #-}
 
 module MergeBot.Monad
-  ( -- * Webhook monad
-    BotApp
+  ( BotApp
   , runBotApp
   , runBotAppForAllInstalls
-    -- * Debug monad
-  , ServerDebug
-  , DebugApp
-  , runDebugApp
-  , runBotAppDebug
-  , getUser
-  , withUser
     -- * Helpers
   , runIO
   ) where
@@ -35,35 +25,21 @@ module MergeBot.Monad
 import Control.Monad (forM)
 import Control.Monad.Except (MonadError(..))
 import Control.Monad.IO.Class (MonadIO(..))
-import Control.Monad.Reader (ReaderT, asks, lift, local, runReaderT)
 import Data.Aeson.Schema (Object, get, schema)
 import qualified Data.ByteString.Lazy.Char8 as Char8
-import Data.GraphQL (QuerySettings(..), QueryT, defaultQuerySettings, runQueryT)
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import qualified Data.Text as Text
 import GitHub.REST
-    ( GHEndpoint(..)
-    , GitHubState(..)
-    , GitHubT
-    , MonadGitHubREST(..)
-    , Token
-    , runGitHubT
-    )
-import GitHub.REST.Auth (fromToken, getJWTToken)
-import Network.HTTP.Client (Request(..))
-import Network.HTTP.Types (StdMethod(..), hAccept, hAuthorization, hUserAgent)
-import Servant (Handler, ServantErr(..), ServerT, err500)
+    (GHEndpoint(..), GitHubState(..), MonadGitHubREST(..), Token, runGitHubT)
+import GitHub.REST.Auth (getJWTToken)
+import Network.HTTP.Types (StdMethod(..))
+import Servant (Handler, ServantErr(..), err500)
 import Servant.GitHub (GitHubAppParams(..), loadGitHubAppParams)
 import Servant.GitHub.Security (getToken)
-import UnliftIO (MonadUnliftIO(..), UnliftIO(..), withUnliftIO)
-import UnliftIO.Exception
-    (SomeException, catch, displayException, fromException, throwIO, try)
+import UnliftIO.Exception (SomeException, displayException, fromException, try)
 
-import MergeBot.Core.GraphQL.API (API)
 import MergeBot.Core.Monad (BotAppT, BotSettings(..), runBotAppT)
-
-{- Webhook monad -}
 
 type BotApp = BotAppT IO
 
@@ -118,83 +94,6 @@ runBotAppForAllInstalls action = do
       , endpointVals = []
       , ghData = []
       }
-
-{- Debug monad -}
-
-type ServerDebug api = ServerT api DebugApp
-
-data DebugState = DebugState
-  { debugToken :: Token
-  , debugUser  :: Maybe Text
-  }
-
-newtype DebugApp a = DebugApp
-  { unDebugApp ::
-      ReaderT DebugState
-        ( GitHubT
-          ( QueryT API
-              IO
-          )
-        )
-        a
-  } deriving
-    ( Functor
-    , Applicative
-    , Monad
-    , MonadIO
-    )
-
-instance MonadGitHubREST DebugApp where
-  queryGitHub = DebugApp . lift . queryGitHub
-
-instance MonadError ServantErr DebugApp where
-  throwError = throwIO
-  catchError = catch
-
-instance MonadUnliftIO DebugApp where
-  askUnliftIO = DebugApp $
-    withUnliftIO $ \u ->
-      return $ UnliftIO (unliftIO u . unDebugApp)
-
-runDebugApp :: Token -> DebugApp a -> Handler a
-runDebugApp token action = do
-  GitHubAppParams{ghUserAgent} <- liftIO loadGitHubAppParams
-
-  let ghState = GitHubState { token, userAgent = ghUserAgent, apiVersion = "antiope-preview" }
-      graphqlSettings :: QuerySettings API
-      graphqlSettings = defaultQuerySettings
-        { url = "https://api.github.com/graphql"
-        , modifyReq = \req -> req
-          { requestHeaders =
-              (hAuthorization, fromToken token)
-              : (hUserAgent, ghUserAgent)
-              : (hAccept, "application/vnd.github.antiope-preview+json")
-              : requestHeaders req
-          }
-        }
-      debugState = DebugState
-        { debugToken = token
-        , debugUser = Nothing
-        }
-
-  runIO
-    . runQueryT graphqlSettings
-    . runGitHubT ghState
-    . (`runReaderT` debugState)
-    . unDebugApp
-    $ action
-
-runBotAppDebug :: Text -> BotApp a -> DebugApp a
-runBotAppDebug repo action = do
-  token <- DebugApp $ asks debugToken
-  liftIO $ runBotApp repo action token
-
--- | Get the currently authenticated user.
-getUser :: DebugApp Text
-getUser = DebugApp $ fromMaybe "Anonymous" <$> asks debugUser
-
-withUser :: Text -> DebugApp a -> DebugApp a
-withUser user = DebugApp . local (\state -> state { debugUser = Just user }) . unDebugApp
 
 {- Helpers -}
 

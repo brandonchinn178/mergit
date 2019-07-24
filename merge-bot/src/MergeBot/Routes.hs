@@ -27,7 +27,6 @@ import Network.HTTP.Types (StdMethod(..), status401)
 import Servant
 import Servant.Auth.Server (Auth, AuthResult(..), Cookie, throwAll)
 
-import MergeBot.Monad (DebugApp, runDebugApp, withUser)
 import MergeBot.Routes.Auth
     ( AuthParams
     , AuthRoutes
@@ -37,6 +36,7 @@ import MergeBot.Routes.Auth
     , redirectToLogin
     )
 import MergeBot.Routes.Debug (DebugRoutes, handleDebugRoutes)
+import MergeBot.Routes.Debug.Monad (DebugApp, runDebugApp, withUser)
 import MergeBot.Routes.Webhook (WebhookRoutes, handleWebhookRoutes)
 
 type MergeBotRoutes = UnprotectedRoutes :<|> (Auth '[Cookie] UserToken :> ProtectedRoutes)

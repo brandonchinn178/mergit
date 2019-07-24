@@ -21,7 +21,7 @@ import Servant.HTML.Blaze (HTML)
 import Text.Blaze.Html5 (Html)
 import qualified Text.Blaze.Html5 as H
 
-import MergeBot.Monad (DebugApp, ServerDebug, getUser)
+import MergeBot.Routes.Debug.Monad (DebugApp, ServerDebug, getUser)
 
 type DebugRoutes = IndexPage
 
