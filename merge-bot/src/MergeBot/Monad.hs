@@ -18,7 +18,7 @@ This module defines functions for running GitHubT actions.
 
 module MergeBot.Monad
   ( BaseApp
-  , BaseServer
+  , ServerBase
   , runBaseApp
   , runBaseHandler
   , getGitHubAppParams
@@ -54,7 +54,7 @@ import MergeBot.Core.Monad (BotAppT, BotSettings(..), runBotAppT)
 
 {- The base monad for all servant routes -}
 
-type BaseServer api = ServerT api BaseApp
+type ServerBase api = ServerT api BaseApp
 
 newtype BaseApp a = BaseApp
   { unBaseApp :: ReaderT (GitHubAppParams, AuthParams) IO a

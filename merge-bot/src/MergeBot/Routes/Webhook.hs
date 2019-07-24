@@ -37,7 +37,7 @@ import MergeBot.Core.Actions (MergeBotAction(..), parseAction)
 import MergeBot.Core.Error (BotError(..))
 import qualified MergeBot.Core.GitHub as Core
 import MergeBot.Core.Text (isStagingBranch, isTryBranch)
-import MergeBot.Monad (BaseApp, BaseServer, BotApp, runBotApp)
+import MergeBot.Monad (BaseApp, BotApp, ServerBase, runBotApp)
 
 type WebhookRoutes =
   GitHubEvent 'PingEvent :> GitHubAction
@@ -47,7 +47,7 @@ type WebhookRoutes =
   :<|> GitHubEvent 'StatusEvent :> WithToken :> GitHubAction
   :<|> GitHubEvent 'PushEvent :> WithToken :> GitHubAction
 
-handleWebhookRoutes :: BaseServer WebhookRoutes
+handleWebhookRoutes :: ServerBase WebhookRoutes
 handleWebhookRoutes =
   handlePing
   :<|> handlePullRequest

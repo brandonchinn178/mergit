@@ -32,13 +32,13 @@ import Servant.Auth.Server
 import Servant.HTML.Blaze (HTML)
 
 import MergeBot.Auth (AuthParams(..), UserToken(..))
-import MergeBot.Monad (BaseApp, BaseServer, getAuthParams)
+import MergeBot.Monad (BaseApp, ServerBase, getAuthParams)
 
 type AuthRoutes =
   "login" :> LoginRoute
   :<|> "callback" :> CallbackRoute
 
-handleAuthRoutes :: BaseServer AuthRoutes
+handleAuthRoutes :: ServerBase AuthRoutes
 handleAuthRoutes = handleLoginRoute :<|> handleCallbackRoute
 
 type LoginRoute = Redirect '[HTML] (RedirectResult '[])

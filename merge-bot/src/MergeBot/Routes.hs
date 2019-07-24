@@ -29,7 +29,7 @@ import Servant
 import Servant.Auth.Server (Auth, AuthResult(..), Cookie)
 
 import MergeBot.Auth (UserToken, fromUserToken, redirectToLogin)
-import MergeBot.Monad (BaseApp, BaseServer, getAuthParams)
+import MergeBot.Monad (BaseApp, ServerBase, getAuthParams)
 import MergeBot.Routes.Auth (AuthRoutes, handleAuthRoutes)
 import MergeBot.Routes.Debug (DebugRoutes, handleDebugRoutes)
 import MergeBot.Routes.Debug.Monad (DebugApp, runDebugApp, withUser)
@@ -37,24 +37,24 @@ import MergeBot.Routes.Webhook (WebhookRoutes, handleWebhookRoutes)
 
 type MergeBotRoutes = UnprotectedRoutes :<|> (Auth '[Cookie] UserToken :> ProtectedRoutes)
 
-handleMergeBotRoutes :: BaseServer MergeBotRoutes
+handleMergeBotRoutes :: ServerBase MergeBotRoutes
 handleMergeBotRoutes = handleUnprotectedRoutes :<|> handleProtectedRoutes
 
 type UnprotectedRoutes =
   "auth" :> AuthRoutes
   :<|> "webhook" :> WebhookRoutes
 
-handleUnprotectedRoutes :: BaseServer UnprotectedRoutes
+handleUnprotectedRoutes :: ServerBase UnprotectedRoutes
 handleUnprotectedRoutes = handleAuthRoutes :<|> handleWebhookRoutes
 
 type ProtectedRoutes = DebugRoutes
 
-handleProtectedRoutes :: AuthResult UserToken -> BaseServer ProtectedRoutes
+handleProtectedRoutes :: AuthResult UserToken -> ServerBase ProtectedRoutes
 handleProtectedRoutes = \case
   Authenticated token -> hoistWith (runRoute token)
   _ -> hoistWith runRedirect
   where
-    hoistWith :: (forall x. DebugApp x -> BaseApp x) -> BaseServer ProtectedRoutes
+    hoistWith :: (forall x. DebugApp x -> BaseApp x) -> ServerBase ProtectedRoutes
     hoistWith f = hoistServer (Proxy @ProtectedRoutes) f handleDebugRoutes
 
     runRoute :: UserToken -> DebugApp a -> BaseApp a
