@@ -71,12 +71,10 @@ handleProtectedRoutes = \case
           }
 
         user <- case result of
-          Left _ -> throwError $ redirectToLogin authParams
+          Left _ -> redirectToLogin authParams
           Right (o :: Object User) -> return [get| o.login |]
 
         withUser user routeToRun
 
     runRedirect :: DebugApp a -> BaseApp a
-    runRedirect _ = do
-      authParams <- getAuthParams
-      throwError $ redirectToLogin authParams
+    runRedirect _ = redirectToLogin =<< getAuthParams

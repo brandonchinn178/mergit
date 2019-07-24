@@ -8,6 +8,7 @@ This module defines functions and types for authenticating in the MergeBot.
 -}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -22,6 +23,7 @@ module MergeBot.Auth
   , redirectToLogin
   ) where
 
+import Control.Monad.Except (MonadError(..))
 import Crypto.JWT (fromRSA)
 import Data.Aeson (FromJSON, ToJSON)
 import qualified Data.ByteString.Char8 as Char8
@@ -82,7 +84,7 @@ fromUserToken (UserToken token) = AccessToken $ Text.encodeUtf8 token
 {- Redirection -}
 
 -- TODO: pass in referer url to redirect post-login
-redirectToLogin :: AuthParams -> ServantErr
-redirectToLogin authParams = err302 { errHeaders = [(hLocation, redirectUrl)] }
+redirectToLogin :: MonadError ServantErr m => AuthParams -> m a
+redirectToLogin authParams = throwError $ err302 { errHeaders = [(hLocation, redirectUrl)] }
   where
     redirectUrl = Char8.pack $ ghBaseUrl authParams <> "/auth/login"
