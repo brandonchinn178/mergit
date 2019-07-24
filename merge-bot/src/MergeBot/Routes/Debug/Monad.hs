@@ -31,13 +31,13 @@ import GitHub.REST (GitHubState(..), GitHubT, MonadGitHubREST(..), runGitHubT)
 import GitHub.REST.Auth (Token, fromToken)
 import Network.HTTP.Client (Request(..))
 import Network.HTTP.Types (hAccept, hAuthorization, hUserAgent)
-import Servant (Handler, ServantErr, ServerT)
-import Servant.GitHub (GitHubAppParams(..), loadGitHubAppParams)
+import Servant (ServantErr, ServerT)
+import Servant.GitHub (GitHubAppParams(..))
 import UnliftIO (MonadUnliftIO(..), UnliftIO(..), withUnliftIO)
 import UnliftIO.Exception (catch, throwIO)
 
 import MergeBot.Core.GraphQL.API (API)
-import MergeBot.Monad (BotApp, runBotApp, runIO)
+import MergeBot.Monad (BaseApp, BotApp, getGitHubAppParams, runBotApp)
 
 type ServerDebug api = ServerT api DebugApp
 
@@ -51,7 +51,7 @@ newtype DebugApp a = DebugApp
       ReaderT DebugState
         ( GitHubT
           ( QueryT API
-              IO
+              BaseApp
           )
         )
         a
@@ -74,9 +74,9 @@ instance MonadUnliftIO DebugApp where
     withUnliftIO $ \u ->
       return $ UnliftIO (unliftIO u . unDebugApp)
 
-runDebugApp :: Token -> DebugApp a -> Handler a
+runDebugApp :: Token -> DebugApp a -> BaseApp a
 runDebugApp token action = do
-  GitHubAppParams{ghUserAgent} <- liftIO loadGitHubAppParams
+  GitHubAppParams{ghUserAgent} <- getGitHubAppParams
 
   let ghState = GitHubState { token, userAgent = ghUserAgent, apiVersion = "antiope-preview" }
       graphqlSettings :: QuerySettings API
@@ -95,17 +95,16 @@ runDebugApp token action = do
         , debugUser = Nothing
         }
 
-  runIO
-    . runQueryT graphqlSettings
+  runQueryT graphqlSettings
     . runGitHubT ghState
     . (`runReaderT` debugState)
     . unDebugApp
     $ action
 
 runBotAppDebug :: Text -> BotApp a -> DebugApp a
-runBotAppDebug repo action = do
-  token <- DebugApp $ asks debugToken
-  liftIO $ runBotApp repo action token
+runBotAppDebug repo action = DebugApp $ do
+  token <- asks debugToken
+  lift $ lift $ lift $ runBotApp repo action token
 
 -- | Get the currently authenticated user.
 getUser :: DebugApp Text

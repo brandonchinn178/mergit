@@ -37,7 +37,7 @@ import MergeBot.Core.Actions (MergeBotAction(..), parseAction)
 import MergeBot.Core.Error (BotError(..))
 import qualified MergeBot.Core.GitHub as Core
 import MergeBot.Core.Text (isStagingBranch, isTryBranch)
-import MergeBot.Monad (BotApp, runBotApp, runIO)
+import MergeBot.Monad (BaseApp, BaseServer, BotApp, runBotApp)
 
 type WebhookRoutes =
   GitHubEvent 'PingEvent :> GitHubAction
@@ -47,7 +47,7 @@ type WebhookRoutes =
   :<|> GitHubEvent 'StatusEvent :> WithToken :> GitHubAction
   :<|> GitHubEvent 'PushEvent :> WithToken :> GitHubAction
 
-handleWebhookRoutes :: Server WebhookRoutes
+handleWebhookRoutes :: BaseServer WebhookRoutes
 handleWebhookRoutes =
   handlePing
   :<|> handlePullRequest
@@ -57,11 +57,11 @@ handleWebhookRoutes =
   :<|> handlePush
 
 -- | Handle the 'ping' GitHub event.
-handlePing :: Object PingEvent -> Handler ()
+handlePing :: Object PingEvent -> BaseApp ()
 handlePing o = liftIO $ putStrLn $ "Got ping from app #" ++ show [get| o.hook.app_id |]
 
 -- | Handle the 'pull_request' GitHub event.
-handlePullRequest :: Object PullRequestEvent -> Token -> Handler ()
+handlePullRequest :: Object PullRequestEvent -> Token -> BaseApp ()
 handlePullRequest o = runBotApp' repo $ do
   logSender o [get| o.sender |]
   case [get| o.action |] of
@@ -73,7 +73,7 @@ handlePullRequest o = runBotApp' repo $ do
     repo = [get| o.repository! |]
 
 -- | Handle the 'check_suite' GitHub event.
-handleCheckSuite :: Object CheckSuiteEvent -> Token -> Handler ()
+handleCheckSuite :: Object CheckSuiteEvent -> Token -> BaseApp ()
 handleCheckSuite o = runBotApp' repo $ do
   logSender o [get| o.sender |]
   case [get| o.action |] of
@@ -86,7 +86,7 @@ handleCheckSuite o = runBotApp' repo $ do
     repo = [get| o.repository! |]
 
 -- | Handle the 'check_run' GitHub event.
-handleCheckRun :: Object CheckRunEvent -> Token -> Handler ()
+handleCheckRun :: Object CheckRunEvent -> Token -> BaseApp ()
 handleCheckRun o = runBotApp' repo $ do
   logSender o [get| o.sender |]
   case [get| o.action |] of
@@ -125,7 +125,7 @@ handleCheckRun o = runBotApp' repo $ do
     repo = [get| o.repository! |]
 
 -- | Handle the 'status' GitHub event.
-handleStatus :: Object StatusEvent -> Token -> Handler ()
+handleStatus :: Object StatusEvent -> Token -> BaseApp ()
 handleStatus o = runBotApp' repo $ do
   logSender o [get| o.sender |]
   case [get| o.branches[].name |] of
@@ -136,7 +136,7 @@ handleStatus o = runBotApp' repo $ do
     repo = [get| o.repository! |]
 
 -- | Handle the 'push' GitHub event.
-handlePush :: Object PushEvent -> Token -> Handler ()
+handlePush :: Object PushEvent -> Token -> BaseApp ()
 handlePush o = runBotApp' repo $ do
   logSender o [get| o.sender |]
   when (isCreated && isCIBranch && not isBot) $ do
@@ -154,8 +154,8 @@ handlePush o = runBotApp' repo $ do
 {- Helpers -}
 
 -- | A helper around 'runBotAppT' for easy use by the Servant handlers.
-runBotApp' :: Object RepoWebhook -> BotApp a -> Token -> Handler a
-runBotApp' o action token = runIO $ runBotApp [get| o.full_name |] action token
+runBotApp' :: Object RepoWebhook -> BotApp a -> Token -> BaseApp a
+runBotApp' o action token = runBotApp [get| o.full_name |] action token
 
 -- | Log the sender for the given object.
 logSender :: IsSchemaObject schema => Object schema -> Object UserWebhook -> BotApp ()

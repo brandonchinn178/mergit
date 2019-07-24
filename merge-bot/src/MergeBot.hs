@@ -6,6 +6,7 @@ Portability :  portable
 
 This module defines the entrypoint for the MergeBot GitHub application.
 -}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NumDecimals #-}
 {-# LANGUAGE TypeApplications #-}
@@ -19,26 +20,35 @@ import Control.Monad (forever, (>=>))
 import Data.Proxy (Proxy(..))
 import Network.Wai.Handler.Warp (run)
 import Servant
+import Servant.Auth.Server (CookieSettings, JWTSettings)
 import Servant.GitHub
 import UnliftIO.Async (concurrently_, waitCatch, withAsync)
 
 import MergeBot.Auth (AuthParams(..), loadAuthParams)
 import qualified MergeBot.Core as Core
-import MergeBot.Monad (runBotAppForAllInstalls)
+import MergeBot.Monad (runBaseApp, runBaseHandler, runBotAppForAllInstalls)
 import MergeBot.Routes (MergeBotRoutes, handleMergeBotRoutes)
+
+type BaseAppContext = '[CookieSettings, JWTSettings, GitHubAppParams]
 
 initApp :: IO Application
 initApp = do
   params <- loadGitHubAppParams
   authParams <- loadAuthParams
 
-  let context = cookieSettings authParams :. jwtSettings authParams :. params :. EmptyContext
+  let context :: Context BaseAppContext
+      context = cookieSettings authParams :. jwtSettings authParams :. params :. EmptyContext
 
-  return $ serveWithContext (Proxy @MergeBotRoutes) context $ handleMergeBotRoutes authParams
+  return $ serveWithContext (Proxy @MergeBotRoutes) context $
+    hoistServerWithContext (Proxy @MergeBotRoutes) (Proxy @BaseAppContext) (runBaseHandler params authParams)
+      handleMergeBotRoutes
 
 pollQueues :: IO ()
 pollQueues = do
-  withAsync (runBotAppForAllInstalls Core.pollQueues) $ waitCatch >=> \case
+  params <- loadGitHubAppParams
+  authParams <- loadAuthParams
+
+  withAsync (runBaseApp params authParams $ runBotAppForAllInstalls Core.pollQueues) $ waitCatch >=> \case
     Right _ -> return ()
     Left e -> putStrLn $ displayException e
 

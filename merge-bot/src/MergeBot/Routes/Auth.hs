@@ -32,18 +32,21 @@ import Servant.Auth.Server
 import Servant.HTML.Blaze (HTML)
 
 import MergeBot.Auth (AuthParams(..), UserToken(..))
+import MergeBot.Monad (BaseApp, BaseServer, getAuthParams)
 
 type AuthRoutes =
   "login" :> LoginRoute
   :<|> "callback" :> CallbackRoute
 
-handleAuthRoutes :: AuthParams -> Server AuthRoutes
-handleAuthRoutes authParams = handleLoginRoute authParams :<|> handleCallbackRoute authParams
+handleAuthRoutes :: BaseServer AuthRoutes
+handleAuthRoutes = handleLoginRoute :<|> handleCallbackRoute
 
 type LoginRoute = Redirect '[HTML] (RedirectResult '[])
 
-handleLoginRoute :: AuthParams -> Handler (RedirectResult '[])
-handleLoginRoute AuthParams{..} = do
+handleLoginRoute :: BaseApp (RedirectResult '[])
+handleLoginRoute = do
+  AuthParams{..} <- getAuthParams
+
   let redirectUrl = "https://github.com/login/oauth/authorize" <> renderSimpleQuery True
         [ ("client_id", Char8.pack ghClientId)
         , ("redirect_uri", Char8.pack $ ghBaseUrl <> "/auth/callback")
@@ -55,8 +58,9 @@ type CallbackRoute =
   QueryParam' '[Required, Strict] "code" String :>
   Redirect '[HTML] (RedirectResult SetCookieHeaders)
 
-handleCallbackRoute :: AuthParams -> String -> Handler (RedirectResult SetCookieHeaders)
-handleCallbackRoute AuthParams{..} ghCode = do
+handleCallbackRoute :: String -> BaseApp (RedirectResult SetCookieHeaders)
+handleCallbackRoute ghCode = do
+  AuthParams{..} <- getAuthParams
   token <- liftIO $ getAccessToken AccessTokenRequest{..}
 
   -- TODO: use referer url
