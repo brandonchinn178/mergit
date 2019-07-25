@@ -75,16 +75,19 @@ instance MonadUnliftIO m => MonadUnliftIO (GitHubT m) where
 instance MonadIO m => MonadGitHubREST (GitHubT m) where
   queryGitHubPage ghEndpoint = do
     (manager, GitHubState{..}) <- GitHubT ask
-    response <- liftIO $ flip httpLbs manager request
-      { method = renderMethod ghEndpoint
-      , requestHeaders =
-          (hAccept, "application/vnd.github." <> apiVersion <> "+json")
-          : (hUserAgent, userAgent)
-          : (hAuthorization, fromToken token)
-          : requestHeaders request
-      , requestBody = RequestBodyLBS $ encode $ kvToValue $ ghData ghEndpoint
-      , checkResponse = throwErrorStatusCodes
-      }
+
+    let request = (parseRequest_ $ Text.unpack $ ghUrl <> endpointPath ghEndpoint)
+          { method = renderMethod ghEndpoint
+          , requestHeaders =
+              (hAccept, "application/vnd.github." <> apiVersion <> "+json")
+              : (hUserAgent, userAgent)
+              : (hAuthorization, fromToken token)
+              : requestHeaders request
+          , requestBody = RequestBodyLBS $ encode $ kvToValue $ ghData ghEndpoint
+          , checkResponse = throwErrorStatusCodes
+          }
+
+    response <- liftIO $ httpLbs request manager
 
     let body = responseBody response
         pageLinks = parsePageLinks $ responseHeaders response
@@ -97,7 +100,6 @@ instance MonadIO m => MonadGitHubREST (GitHubT m) where
     return (payload, pageLinks)
     where
       ghUrl = "https://api.github.com"
-      request = parseRequest_ $ Text.unpack $ ghUrl <> endpointPath ghEndpoint
 
       -- https://developer.github.com/v3/guides/traversing-with-pagination/
       parsePageLinks headers =
