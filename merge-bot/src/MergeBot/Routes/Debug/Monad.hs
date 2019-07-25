@@ -79,7 +79,7 @@ runDebugApp :: Token -> DebugApp a -> BaseApp a
 runDebugApp token action = do
   GitHubAppParams{ghUserAgent} <- getGitHubAppParams
 
-  let ghState = GitHubState { token, userAgent = ghUserAgent, apiVersion = "antiope-preview" }
+  let ghState = GitHubState { token, userAgent = ghUserAgent, apiVersion = "machine-man-preview" }
       graphqlSettings :: QuerySettings API
       graphqlSettings = defaultQuerySettings
         { url = "https://api.github.com/graphql"

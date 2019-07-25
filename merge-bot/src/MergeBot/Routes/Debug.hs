@@ -8,6 +8,8 @@ This module defines debugging routes for the MergeBot.
 -}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 
@@ -16,12 +18,18 @@ module MergeBot.Routes.Debug
   , handleDebugRoutes
   ) where
 
+import Control.Monad (forM, forM_)
+import Data.Aeson.Schema (Object, get, schema)
+import GitHub.REST (GHEndpoint(..), KeyValue(..), StdMethod(..), queryGitHub)
+import GitHub.Schema.Repository (Repository)
 import Servant
 import Servant.HTML.Blaze (HTML)
-import Text.Blaze.Html5 (Html)
+import Text.Blaze.Html5 (Html, (!))
 import qualified Text.Blaze.Html5 as H
+import qualified Text.Blaze.Html5.Attributes as A
 
-import MergeBot.Routes.Debug.Monad (DebugApp, ServerDebug, getUser)
+import MergeBot.Monad (getInstallations)
+import MergeBot.Routes.Debug.Monad (DebugApp, ServerDebug, getUser, liftBaseApp)
 
 type DebugRoutes = IndexPage
 
@@ -32,7 +40,22 @@ handleDebugRoutes = handleIndexPage
 
 type IndexPage = HtmlPage
 handleIndexPage :: DebugApp Html
-handleIndexPage = render "Hello world"
+handleIndexPage = do
+  installations <- liftBaseApp getInstallations
+
+  repositories <- fmap concat $ forM installations $ \installationId ->
+    [get| .repositories |] <$>
+      queryGitHub @_ @(Object [schema| { repositories: List #Repository } |]) GHEndpoint
+        { method = GET
+        , endpoint = "/user/installations/:installation_id/repositories"
+        , endpointVals = [ "installation_id" := installationId ]
+        , ghData = []
+        }
+
+  render $ do
+    H.h2 "Available repositories"
+    forM_ repositories $ \repo ->
+      H.li $ H.a ! A.href "#" $ H.toHtml [get| repo.full_name |]
 
 {- Helpers -}
 
