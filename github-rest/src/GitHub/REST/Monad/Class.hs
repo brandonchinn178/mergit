@@ -69,13 +69,13 @@ class MonadIO m => MonadGitHubREST m where
   queryGitHub :: FromJSON a => GHEndpoint -> m a
   queryGitHub = fmap fst . queryGitHubPage
 
-  queryGitHubAll :: FromJSON a => GHEndpoint -> m [a]
+  queryGitHubAll :: (FromJSON a, Monoid a) => GHEndpoint -> m a
   queryGitHubAll ghEndpoint = do
     (payload, pageLinks) <- queryGitHubPage ghEndpoint
     case pageNext pageLinks of
       Just next -> do
         rest <- queryGitHubAll ghEndpoint { endpoint = next, endpointVals = [] }
-        return $ payload ++ rest
+        return $ payload <> rest
       Nothing -> return payload
 
   queryGitHub_ :: GHEndpoint -> m ()
