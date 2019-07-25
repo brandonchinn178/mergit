@@ -26,7 +26,9 @@ import Control.Monad.Trans (MonadTrans)
 import Data.Aeson (eitherDecode, encode, object)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Lazy as ByteStringL
+import Data.Maybe (fromMaybe)
 import qualified Data.Text as Text
+import qualified Data.Text.Encoding as Text
 import Network.HTTP.Client
     ( Manager
     , Request(..)
@@ -71,26 +73,65 @@ instance MonadUnliftIO m => MonadUnliftIO (GitHubT m) where
       return $ UnliftIO (unliftIO u . unGitHubT)
 
 instance MonadIO m => MonadGitHubREST (GitHubT m) where
-  queryGitHub ghEndpoint = do
+  queryGitHubPage ghEndpoint = do
     (manager, GitHubState{..}) <- GitHubT ask
-    response <- liftIO $ getResponse manager request
-      { method = renderMethod ghEndpoint
-      , requestHeaders =
-          (hAccept, "application/vnd.github." <> apiVersion <> "+json")
-          : (hUserAgent, userAgent)
-          : (hAuthorization, fromToken token)
-          : requestHeaders request
-      , requestBody = RequestBodyLBS $ encode $ kvToValue $ ghData ghEndpoint
-      , checkResponse = throwErrorStatusCodes
-      }
 
-    either fail return . eitherDecode $
-      if ByteStringL.null response
+    let request = (parseRequest_ $ Text.unpack $ ghUrl <> endpointPath ghEndpoint)
+          { method = renderMethod ghEndpoint
+          , requestHeaders =
+              (hAccept, "application/vnd.github." <> apiVersion <> "+json")
+              : (hUserAgent, userAgent)
+              : (hAuthorization, fromToken token)
+              : requestHeaders request
+          , requestBody = RequestBodyLBS $ encode $ kvToValue $ ghData ghEndpoint
+          , checkResponse = throwErrorStatusCodes
+          }
+
+    response <- liftIO $ httpLbs request manager
+
+    let body = responseBody response
+        pageLinks = parsePageLinks $ responseHeaders response
+
+    payload <- either fail return . eitherDecode $
+      if ByteStringL.null body
         then encode $ object []
-        else response
+        else body
+
+    return (payload, pageLinks)
     where
-      getResponse manager = fmap responseBody . flip httpLbs manager
-      request = parseRequest_ $ Text.unpack $ "https://api.github.com" <> endpointPath ghEndpoint
+      ghUrl = "https://api.github.com"
+
+      -- https://developer.github.com/v3/guides/traversing-with-pagination/
+      parsePageLinks headers =
+        let split delim = map Text.strip . Text.splitOn delim
+            dropAround begin end s =
+              fromMaybe
+                (error $ "Expected value to wrap within " ++ Text.unpack begin ++ "..." ++ Text.unpack end ++ ": " ++ Text.unpack s)
+                (Text.stripSuffix end =<< Text.stripPrefix begin s)
+
+            parsePageLink link =
+              case split ";" link of
+                [url, rel] ->
+                  let url' = fromMaybe
+                        (error $ "Unknown page link: " ++ show link)
+                        (Text.stripPrefix ghUrl $ dropAround "<" ">" url)
+                  in case split "=" rel of
+                    ["rel", rel'] -> (dropAround "\"" "\"" rel', url')
+                    _ -> error $ "Unknown page link: " ++ show link
+                _ -> error $ "Unknown page link: " ++ show link
+
+            resolve pageLinks link =
+              let (rel, url) = parsePageLink link
+              in case rel of
+                "first" -> pageLinks { pageFirst = Just url }
+                "prev" -> pageLinks { pagePrev = Just url }
+                "next" -> pageLinks { pageNext = Just url }
+                "last" -> pageLinks { pageLast = Just url }
+                _ -> error $ "Unknown rel in page link: " ++ show link
+
+            linkHeader = Text.decodeUtf8 . fromMaybe "" . lookup "Link" $ headers
+
+        in foldl resolve mempty . split "," $ linkHeader
 
 -- | Run the given 'GitHubT' action with the given token and user agent.
 --

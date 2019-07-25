@@ -87,7 +87,7 @@ newtype BotAppT m a = BotAppT
     )
 
 instance MonadIO m => MonadGitHubREST (BotAppT m) where
-  queryGitHub = BotAppT . lift . lift . queryGitHub
+  queryGitHubPage = BotAppT . lift . lift . queryGitHubPage
 
 instance MonadIO m => MonadQuery API (BotAppT m) where
   runQuerySafe query = BotAppT . lift . lift . lift . runQuerySafe query

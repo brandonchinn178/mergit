@@ -28,7 +28,8 @@ import Data.Maybe (catMaybes)
 import Data.Text (Text)
 import qualified Data.Text as Text
 import GitHub.Data.URL (URL(..))
-import GitHub.REST (GHEndpoint(..), KeyValue(..), StdMethod(..), queryGitHub)
+import GitHub.REST
+    (GHEndpoint(..), KeyValue(..), StdMethod(..), queryGitHub, queryGitHubAll)
 import GitHub.Schema.PullRequest (PullRequest)
 import GitHub.Schema.Ref (Ref)
 import GitHub.Schema.Repository (Repository)
@@ -84,14 +85,14 @@ handleRepositoryPage repoOwner repoName = do
   -- As much as possible, run all GitHub API queries first, to minimize discrepancies
   -- in data changing from underneath us
 
-  allRefs <- queryGitHub @_ @[Object Ref] GHEndpoint
+  allRefs <- queryGitHubAll @_ @[Object Ref] GHEndpoint
     { method = GET
     , endpoint = "/repos/:repoOwner/:repoName/git/refs/heads"
     , endpointVals = [ "repoOwner" := repoOwner, "repoName" := repoName ]
     , ghData = []
     }
 
-  allPRs <- queryGitHub @_ @[Object PullRequest] GHEndpoint
+  allPRs <- queryGitHubAll @_ @[Object PullRequest] GHEndpoint
     { method = GET
     , endpoint = "/repos/:repoOwner/:repoName/pulls"
     , endpointVals = [ "repoOwner" := repoOwner, "repoName" := repoName ]
