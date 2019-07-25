@@ -20,7 +20,9 @@ module MergeBot.Routes.Debug
 
 import Control.Monad (forM, forM_)
 import Data.Aeson.Schema (Object, get, schema)
+import Data.Text (Text)
 import GitHub.REST (GHEndpoint(..), KeyValue(..), StdMethod(..), queryGitHub)
+import GitHub.Schema.PullRequest (PullRequest)
 import GitHub.Schema.Repository (Repository)
 import Servant
 import Servant.HTML.Blaze (HTML)
@@ -31,10 +33,14 @@ import qualified Text.Blaze.Html5.Attributes as A
 import MergeBot.Monad (getInstallations)
 import MergeBot.Routes.Debug.Monad (DebugApp, ServerDebug, getUser, liftBaseApp)
 
-type DebugRoutes = IndexPage
+type DebugRoutes =
+       IndexPage
+  :<|> "repo" :> Capture "repoOwner" String :> Capture "repoName" String :> RepositoryPage
 
 handleDebugRoutes :: ServerDebug DebugRoutes
-handleDebugRoutes = handleIndexPage
+handleDebugRoutes =
+       handleIndexPage
+  :<|> handleRepositoryPage
 
 {- Index page -}
 
@@ -55,7 +61,27 @@ handleIndexPage = do
   render $ do
     H.h2 "Available repositories"
     forM_ repositories $ \repo ->
-      H.li $ H.a ! A.href "#" $ H.toHtml [get| repo.full_name |]
+      let (owner, name) = [get| repo.(owner.login, name) |]
+          link = H.toValue $ "repo/" <> owner <> "/" <> name
+      in H.li $ H.a ! A.href link $ H.toHtml [get| repo.full_name |]
+
+{- Repository page -}
+
+type RepositoryPage = HtmlPage
+handleRepositoryPage :: String -> String -> DebugApp Html
+handleRepositoryPage repoOwner repoName = do
+  allPRs <- queryGitHub @_ @[Object PullRequest] GHEndpoint
+    { method = GET
+    , endpoint = "/repos/:repoOwner/:repoName/pulls"
+    , endpointVals = [ "repoOwner" := repoOwner, "repoName" := repoName ]
+    , ghData = []
+    }
+
+  render $ do
+    H.h2 "All open pull requests"
+    mkTable ["#", "title"] allPRs $ \pr -> do
+      H.td $ H.toHtml [get| pr.number |]
+      H.td $ H.toHtml [get| pr.title |]
 
 {- Helpers -}
 
@@ -75,3 +101,10 @@ render body = do
           "Logged in as: "
           H.strong $ H.toHtml user
       H.main body
+
+-- | Render a basic table.
+mkTable :: [Text] -> [a] -> (a -> Html) -> Html
+mkTable headers tableData toCells =
+  H.table ! H.customAttribute "border" "1" $ do
+    H.tr $ mapM_ (H.th . H.toHtml) headers
+    mapM_ (H.tr . toCells) tableData

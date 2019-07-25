@@ -24,6 +24,43 @@ import GitHub.Schema.Repository (RepoWebhook)
 import GitHub.Schema.Team (Team)
 import GitHub.Schema.User (UserShort)
 
+-- | A pull request returned by normal endpoints, e.g. `/repos/:owner/:repo/pulls`.
+type PullRequest = [schema|
+  {
+    url: URL,
+    id: Int,
+    node_id: Text,
+    html_url: URL,
+    diff_url: URL,
+    patch_url: URL,
+    issue_url: URL,
+    number: Int,
+    state: State,
+    locked: Bool,
+    title: Text,
+    user: #UserShort,
+    body: Text,
+    created_at: UTCTime,
+    updated_at: UTCTime,
+    closed_at: Maybe UTCTime,
+    merged_at: Maybe UTCTime,
+    merge_commit_sha: Maybe GitObjectID,
+    assignee: Maybe #UserShort,
+    assignees: List #UserShort,
+    requested_reviewers: List #UserShort,
+    requested_teams: List #Team,
+    labels: List #Label,
+    milestone: Maybe #Milestone,
+    commits_url: URL,
+    review_comments_url: URL,
+    review_comment_url: URL,
+    comments_url: URL,
+    statuses_url: URL,
+    head: #CommitShort,
+    base: #CommitShort,
+  }
+|]
+
 -- | A pull request as returned by GitHub events.
 type PullRequestWebhook = [schema|
   {
