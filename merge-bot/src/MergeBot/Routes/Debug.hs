@@ -88,15 +88,15 @@ handleRepositoryPage repoOwner repoName = do
       queuedPRs = map (\(prId, _, _) -> idToPR prId) <$> queues
 
   render $ do
-    H.h2 "All open pull requests"
-    mkTablePRs allPRs
-
     H.h2 "Queued pull requests"
     case HashMap.toList queuedPRs of
       [] -> H.p "No PRs are queued"
       queuedPRs' -> forM_ queuedPRs' $ \(baseBranch, prs) -> do
         H.h3 $ H.toHtml baseBranch
         mkTablePRs prs
+
+    H.h2 "All open pull requests"
+    mkTablePRs allPRs
 
 {- Helpers -}
 
