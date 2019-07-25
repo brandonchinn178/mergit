@@ -42,10 +42,10 @@ import Data.Aeson.Schema (Object, get, schema)
 import qualified Data.ByteString.Lazy.Char8 as Char8
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
-import qualified Data.Text as Text
 import GitHub.REST
     (GHEndpoint(..), GitHubState(..), MonadGitHubREST(..), Token, runGitHubT)
 import GitHub.REST.Auth (getJWTToken)
+import GitHub.Schema.Repository (Repository)
 import Network.HTTP.Types (StdMethod(..))
 import Servant (Handler, ServantErr(..), ServerT, err500)
 import Servant.GitHub (GitHubAppParams(..))
@@ -123,8 +123,8 @@ getInstallations = do
 type BotApp = BotAppT IO
 
 -- | A helper around 'runBotAppT'.
-runBotApp :: Text -> BotApp a -> Token -> BaseApp a
-runBotApp repo action token = do
+runBotApp :: Text -> Text -> BotApp a -> Token -> BaseApp a
+runBotApp repoOwner repoName action token = do
   GitHubAppParams{ghUserAgent, ghAppId} <- getGitHubAppParams
   let settings = BotSettings
         { userAgent = ghUserAgent
@@ -132,8 +132,6 @@ runBotApp repo action token = do
         , ..
         }
   liftIO $ runBotAppT settings action
-  where
-    (repoOwner, repoName) = parseRepo repo
 
 -- | A helper that runs the given action for every repository that the merge bot is installed on.
 --
@@ -148,12 +146,13 @@ runBotAppForAllInstalls action = do
   -- run the given action in each repo
   fmap concat $ forM installations $ \installationId -> do
     installToken <- liftIO $ getToken ghSigner ghAppId ghUserAgent installationId
-    repositories <- [get| .repositories[].full_name |] <$> getRepositories installToken
+    repositories <- [get| .repositories[] |] <$> getRepositories installToken
     forM repositories $ \repo -> do
-      result <- runBotApp repo action installToken
-      return (repo, result)
+      let (repoOwner, repoName) = [get| repo.(owner.login, name) |]
+      result <- runBotApp repoOwner repoName action installToken
+      return ([get| repo.full_name |], result)
   where
-    getRepositories = queryGitHub' @(Object [schema| { repositories: List { full_name: Text } } |]) GHEndpoint
+    getRepositories = queryGitHub' @(Object [schema| { repositories: List #Repository } |]) GHEndpoint
       { method = GET
       , endpoint = "/installation/repositories"
       , endpointVals = []
@@ -169,9 +168,3 @@ runIO m = liftIO (try @_ @SomeException m) >>= \case
   Left e -> throwError . fromMaybe (showErr e) . fromException $ e
   where
     showErr e = err500 { errBody = Char8.pack $ displayException e }
-
--- | Separate a repo name of the format "owner/repo" into a tuple @(owner, repo)@.
-parseRepo :: Text -> (Text, Text)
-parseRepo repo = case Text.splitOn "/" repo of
-  [repoOwner, repoName] -> (repoOwner, repoName)
-  _ -> error $ "Invalid repo: " ++ Text.unpack repo

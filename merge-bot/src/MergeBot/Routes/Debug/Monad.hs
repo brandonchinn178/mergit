@@ -79,10 +79,10 @@ runDebugApp token action = do
     . unDebugApp
     $ action
 
-runBotAppDebug :: Text -> BotApp a -> DebugApp a
-runBotAppDebug repo action = do
+runBotAppDebug :: Text -> Text -> BotApp a -> DebugApp a
+runBotAppDebug repoOwner repoName action = do
   token <- DebugApp $ asks debugToken
-  liftBaseApp $ runBotApp repo action token
+  liftBaseApp $ runBotApp repoOwner repoName action token
 
 -- | Get the currently authenticated user.
 getUser :: DebugApp Text
