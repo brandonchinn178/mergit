@@ -7,6 +7,8 @@ Portability :  portable
 This module defines debugging routes for the MergeBot.
 -}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DisambiguateRecordFields #-}
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TypeApplications #-}
@@ -22,10 +24,13 @@ import Control.Arrow ((&&&))
 import Control.Monad (forM, forM_)
 import Data.Aeson.Schema (Object, get, schema)
 import qualified Data.HashMap.Strict as HashMap
+import Data.Maybe (catMaybes)
 import Data.Text (Text)
+import qualified Data.Text as Text
 import GitHub.REST (GHEndpoint(..), KeyValue(..), StdMethod(..), queryGitHub)
 import GitHub.Data.URL (URL(..))
 import GitHub.Schema.PullRequest (PullRequest)
+import GitHub.Schema.Ref (Ref)
 import GitHub.Schema.Repository (Repository)
 import Servant
 import Servant.HTML.Blaze (HTML)
@@ -34,6 +39,7 @@ import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
 import qualified MergeBot.Core.GitHub as Core
+import qualified MergeBot.Core.Text as Core
 import MergeBot.Monad (getInstallations)
 import MergeBot.Routes.Debug.Monad (DebugApp, ServerDebug, getUser, liftBaseApp, runBotAppDebug)
 
@@ -74,6 +80,16 @@ handleIndexPage = do
 type RepositoryPage = HtmlPage
 handleRepositoryPage :: Text -> Text -> DebugApp Html
 handleRepositoryPage repoOwner repoName = do
+  -- As much as possible, run all GitHub API queries first, to minimize discrepancies
+  -- in data changing from underneath us
+
+  allRefs <- queryGitHub @_ @[Object Ref] GHEndpoint
+    { method = GET
+    , endpoint = "/repos/:repoOwner/:repoName/git/refs/heads"
+    , endpointVals = [ "repoOwner" := repoOwner, "repoName" := repoName ]
+    , ghData = []
+    }
+
   allPRs <- queryGitHub @_ @[Object PullRequest] GHEndpoint
     { method = GET
     , endpoint = "/repos/:repoOwner/:repoName/pulls"
@@ -83,17 +99,28 @@ handleRepositoryPage repoOwner repoName = do
 
   queues <- runBotAppDebug repoOwner repoName Core.getQueues
 
+  -- runningPRIds :: [(Text, [Int])]
+  -- mapping of base branch to list of PR ids running a merge against the base branch
+  runningPRIds <- runBotAppDebug repoOwner repoName $
+    fmap catMaybes $ forM allRefs $ \ref -> do
+      case Text.stripPrefix "refs/heads/" [get| ref.ref |] >>= Core.fromStagingBranch of
+        Nothing -> return Nothing
+        Just baseBranch -> do
+          Core.CICommit{parents} <- Core.getCICommit [get| ref.object.sha |] Core.checkRunMerge
+          prIds <- mapM (fmap fst . Core.getPRForCommit . fst) parents
+          return $ Just (baseBranch, prIds)
+
   let allPRsMap = HashMap.fromList $ map ([get| .number |] &&& id) allPRs
       idToPR = (allPRsMap HashMap.!)
       queuedPRs = map (\(prId, _, _) -> idToPR prId) <$> queues
+      runningPRs = map (map idToPR <$>) runningPRIds
 
   render $ do
+    H.h2 "Running pull requests"
+    mkTables "No PRs are running" runningPRs
+
     H.h2 "Queued pull requests"
-    case HashMap.toList queuedPRs of
-      [] -> H.p "No PRs are queued"
-      queuedPRs' -> forM_ queuedPRs' $ \(baseBranch, prs) -> do
-        H.h3 $ H.toHtml baseBranch
-        mkTablePRs prs
+    mkTables "No PRs are queued" $ HashMap.toList queuedPRs
 
     H.h2 "All open pull requests"
     mkTablePRs allPRs
@@ -130,3 +157,11 @@ mkTablePRs prs = mkTable ["#", "title"] prs $ \pr -> do
   H.td $ H.toHtml [get| pr.number |]
   let link = H.toValue $ unURL [get| pr.html_url |]
   H.td $ H.a ! A.href link $ H.toHtml [get| pr.title |]
+
+-- | Render tables of PRs, separated by a label.
+mkTables :: Text -> [(Text, [Object PullRequest])] -> Html
+mkTables emptyLabel [] = H.p $ H.toHtml emptyLabel
+mkTables _ labelToPRs =
+  forM_ labelToPRs $ \(label, prs) -> do
+    H.h3 $ H.toHtml label
+    mkTablePRs prs
