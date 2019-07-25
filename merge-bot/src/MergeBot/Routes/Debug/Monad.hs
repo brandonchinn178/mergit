@@ -25,19 +25,15 @@ module MergeBot.Routes.Debug.Monad
 import Control.Monad.Except (MonadError(..))
 import Control.Monad.IO.Class (MonadIO(..))
 import Control.Monad.Reader (ReaderT, asks, lift, local, runReaderT)
-import Data.GraphQL (QuerySettings(..), QueryT, defaultQuerySettings, runQueryT)
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import GitHub.REST (GitHubState(..), GitHubT, MonadGitHubREST(..), runGitHubT)
-import GitHub.REST.Auth (Token, fromToken)
-import Network.HTTP.Client (Request(..))
-import Network.HTTP.Types (hAccept, hAuthorization, hUserAgent)
+import GitHub.REST.Auth (Token)
 import Servant (ServantErr, ServerT)
 import Servant.GitHub (GitHubAppParams(..))
 import UnliftIO (MonadUnliftIO(..), UnliftIO(..), withUnliftIO)
 import UnliftIO.Exception (catch, throwIO)
 
-import MergeBot.Core.GraphQL.API (API)
 import MergeBot.Monad (BaseApp, BotApp, getGitHubAppParams, runBotApp)
 
 type ServerDebug api = ServerT api DebugApp
@@ -48,14 +44,7 @@ data DebugState = DebugState
   }
 
 newtype DebugApp a = DebugApp
-  { unDebugApp ::
-      ReaderT DebugState
-        ( GitHubT
-          ( QueryT API
-              BaseApp
-          )
-        )
-        a
+  { unDebugApp :: ReaderT DebugState (GitHubT BaseApp) a
   } deriving
     ( Functor
     , Applicative
@@ -80,24 +69,12 @@ runDebugApp token action = do
   GitHubAppParams{ghUserAgent} <- getGitHubAppParams
 
   let ghState = GitHubState { token, userAgent = ghUserAgent, apiVersion = "machine-man-preview" }
-      graphqlSettings :: QuerySettings API
-      graphqlSettings = defaultQuerySettings
-        { url = "https://api.github.com/graphql"
-        , modifyReq = \req -> req
-          { requestHeaders =
-              (hAuthorization, fromToken token)
-              : (hUserAgent, ghUserAgent)
-              : (hAccept, "application/vnd.github.antiope-preview+json")
-              : requestHeaders req
-          }
-        }
       debugState = DebugState
         { debugToken = token
         , debugUser = Nothing
         }
 
-  runQueryT graphqlSettings
-    . runGitHubT ghState
+  runGitHubT ghState
     . (`runReaderT` debugState)
     . unDebugApp
     $ action
@@ -115,4 +92,4 @@ withUser :: Text -> DebugApp a -> DebugApp a
 withUser user = DebugApp . local (\state -> state { debugUser = Just user }) . unDebugApp
 
 liftBaseApp :: BaseApp a -> DebugApp a
-liftBaseApp = DebugApp . lift . lift . lift
+liftBaseApp = DebugApp . lift . lift
