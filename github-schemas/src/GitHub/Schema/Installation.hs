@@ -14,12 +14,12 @@ module GitHub.Schema.Installation where
 import Data.Aeson.Schema (schema)
 
 import GitHub.Data.URL (URL)
-import GitHub.Schema.User (UserWebhook)
+import GitHub.Schema.User (UserShort)
 
 type Installation = [schema|
   {
     id: Int,
-    account: #UserWebhook,
+    account: #UserShort,
     repository_selection: Text,
     access_tokens_url: URL,
     repositories_url: URL,

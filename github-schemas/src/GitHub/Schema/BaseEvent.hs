@@ -15,14 +15,14 @@ import Data.Aeson.Schema (schema)
 
 import GitHub.Schema.Organization (OrgWebhook)
 import GitHub.Schema.Repository (RepoWebhook)
-import GitHub.Schema.User (UserWebhook)
+import GitHub.Schema.User (UserShort)
 
 -- | Fields common to every event payload.
 --
 -- https://developer.github.com/webhooks/#payloads
 type BaseEvent = [schema|
   {
-    sender: #UserWebhook,
+    sender: #UserShort,
     repository: Maybe #RepoWebhook,
     organization: Maybe #OrgWebhook,
     installation: Maybe {

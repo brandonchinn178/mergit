@@ -12,10 +12,95 @@ Defines schemas related to repositories.
 module GitHub.Schema.Repository where
 
 import Data.Aeson.Schema (schema)
--- import Data.Time (UTCTime)
+import Data.Time (UTCTime)
 
 import GitHub.Data.URL (URL)
-import GitHub.Schema.User (UserWebhook)
+import GitHub.Schema.User (UserShort)
+
+-- | A repository returned by normal endpoints, e.g. `/repos/:owner/:repo`.
+type Repository = [schema|
+  {
+    id: Int,
+    node_id: Text,
+    name: Text,
+    full_name: Text,
+    private: Bool,
+    owner: #UserShort,
+    html_url: Text,
+    description: Text,
+    fork: Bool,
+    url: Text,
+    forks_url: Text,
+    keys_url: Text,
+    collaborators_url: Text,
+    teams_url: Text,
+    hooks_url: Text,
+    issue_events_url: Text,
+    events_url: Text,
+    assignees_url: Text,
+    branches_url: Text,
+    tags_url: Text,
+    blobs_url: Text,
+    git_tags_url: Text,
+    git_refs_url: Text,
+    trees_url: Text,
+    statuses_url: Text,
+    languages_url: Text,
+    stargazers_url: Text,
+    contributors_url: Text,
+    subscribers_url: Text,
+    subscription_url: Text,
+    commits_url: Text,
+    git_commits_url: Text,
+    comments_url: Text,
+    issue_comment_url: Text,
+    contents_url: Text,
+    compare_url: Text,
+    merges_url: Text,
+    archive_url: Text,
+    downloads_url: Text,
+    issues_url: Text,
+    pulls_url: Text,
+    milestones_url: Text,
+    notifications_url: Text,
+    labels_url: Text,
+    releases_url: Text,
+    deployments_url: Text,
+    created_at: UTCTime,
+    updated_at: UTCTime,
+    pushed_at: UTCTime,
+    git_url: Text,
+    ssh_url: Text,
+    clone_url: Text,
+    svn_url: Text,
+    homepage: Maybe Text,
+    size: Int,
+    stargazers_count: Int,
+    watchers_count: Int,
+    language: Maybe Text,
+    has_issues: Bool,
+    has_projects: Bool,
+    has_downloads: Bool,
+    has_wiki: Bool,
+    has_pages: Bool,
+    forks_count: Int,
+    mirror_url: Maybe Text,
+    archived: Bool,
+    disabled: Bool,
+    open_issues_count: Int,
+    license: Maybe Text,
+    forks: Int,
+    open_issues: Int,
+    watchers: Int,
+    default_branch: Text,
+    permissions: {
+      admin: Bool,
+      push: Bool,
+      pull: Bool
+    },
+  }
+
+|]
 
 -- | A repository as returned by GitHub events.
 type RepoWebhook = [schema|
@@ -24,7 +109,7 @@ type RepoWebhook = [schema|
     node_id: Text,
     name: Text,
     full_name: Text,
-    owner: #UserWebhook,
+    owner: #UserShort,
     private: Bool,
     html_url: URL,
     description: Maybe Text,

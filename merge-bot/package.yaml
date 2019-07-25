@@ -27,6 +27,7 @@ dependencies:
 - servant-server
 - text
 - unliftio
+- unordered-containers
 - warp
 - x509
 - x509-store

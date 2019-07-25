@@ -16,7 +16,7 @@ import Data.Time (UTCTime)
 
 import GitHub.Data.GitObjectID (GitObjectID)
 import GitHub.Data.URL (URL)
-import GitHub.Schema.User (UserWebhook)
+import GitHub.Schema.User (UserShort)
 
 type Deployment = [schema|
   {
@@ -32,7 +32,7 @@ type Deployment = [schema|
     original_environment: Text,
     environment: Text,
     description: Maybe Text,
-    creator: #UserWebhook,
+    creator: #UserShort,
     created_at: UTCTime,
     updated_at: UTCTime,
     statuses_url: URL,

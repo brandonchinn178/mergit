@@ -52,8 +52,8 @@ type User = [schema|
   }
 |]
 
--- | A user as returned by GitHub events.
-type UserWebhook = [schema|
+-- | An abbreviated user, good for webhooks, and endpoints like `/repos/:owner/:repo`.
+type UserShort = [schema|
   {
     login: Text,
     id: Int,

@@ -18,7 +18,7 @@ import Data.Aeson.Schema.TH (mkEnum)
 import GitHub.Schema.BaseEvent (BaseEvent)
 import GitHub.Schema.Issue (Issue)
 import GitHub.Schema.Label (Label)
-import GitHub.Schema.User (UserWebhook)
+import GitHub.Schema.User (UserShort)
 
 mkEnum "IssuesAction"
   [ "OPENED"
@@ -49,7 +49,7 @@ type IssuesEvent = [schema|
         from: Text,
       },
     },
-    assignee: Maybe #UserWebhook,
+    assignee: Maybe #UserShort,
     label: Maybe #Label,
     #BaseEvent,
   }
