@@ -72,7 +72,7 @@ handleIndexPage = do
     H.h2 "Available repositories"
     forM_ repositories $ \repo ->
       let (owner, name) = [get| repo.(owner.login, name) |]
-          link = H.toValue $ "repo/" <> owner <> "/" <> name
+          link = H.toValue $ "repo/" <> toFullName owner name
       in H.li $ H.a ! A.href link $ H.toHtml [get| repo.full_name |]
 
 {- Repository page -}
@@ -116,6 +116,13 @@ handleRepositoryPage repoOwner repoName = do
       runningPRs = map (map idToPR <$>) runningPRIds
 
   render $ do
+    H.p $ do
+      "Viewing: "
+      H.strong $ H.toHtml $ toFullName repoOwner repoName
+      " ("
+      H.a ! A.href "/" $ "Back"
+      ")"
+
     H.h2 "Running pull requests"
     mkTables "No PRs are running" runningPRs
 
@@ -165,3 +172,6 @@ mkTables _ labelToPRs =
   forM_ labelToPRs $ \(label, prs) -> do
     H.h3 $ H.toHtml label
     mkTablePRs prs
+
+toFullName :: Text -> Text -> Text
+toFullName owner name = owner <> "/" <> name
