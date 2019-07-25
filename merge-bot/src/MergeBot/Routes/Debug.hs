@@ -18,8 +18,10 @@ module MergeBot.Routes.Debug
   , handleDebugRoutes
   ) where
 
+import Control.Arrow ((&&&))
 import Control.Monad (forM, forM_)
 import Data.Aeson.Schema (Object, get, schema)
+import qualified Data.HashMap.Strict as HashMap
 import Data.Text (Text)
 import GitHub.REST (GHEndpoint(..), KeyValue(..), StdMethod(..), queryGitHub)
 import GitHub.Schema.PullRequest (PullRequest)
@@ -30,12 +32,13 @@ import Text.Blaze.Html5 (Html, (!))
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
+import qualified MergeBot.Core.GitHub as Core
 import MergeBot.Monad (getInstallations)
-import MergeBot.Routes.Debug.Monad (DebugApp, ServerDebug, getUser, liftBaseApp)
+import MergeBot.Routes.Debug.Monad (DebugApp, ServerDebug, getUser, liftBaseApp, runBotAppDebug)
 
 type DebugRoutes =
        IndexPage
-  :<|> "repo" :> Capture "repoOwner" String :> Capture "repoName" String :> RepositoryPage
+  :<|> "repo" :> Capture "repoOwner" Text :> Capture "repoName" Text :> RepositoryPage
 
 handleDebugRoutes :: ServerDebug DebugRoutes
 handleDebugRoutes =
@@ -68,7 +71,7 @@ handleIndexPage = do
 {- Repository page -}
 
 type RepositoryPage = HtmlPage
-handleRepositoryPage :: String -> String -> DebugApp Html
+handleRepositoryPage :: Text -> Text -> DebugApp Html
 handleRepositoryPage repoOwner repoName = do
   allPRs <- queryGitHub @_ @[Object PullRequest] GHEndpoint
     { method = GET
@@ -77,11 +80,22 @@ handleRepositoryPage repoOwner repoName = do
     , ghData = []
     }
 
+  queues <- runBotAppDebug repoOwner repoName Core.getQueues
+
+  let allPRsMap = HashMap.fromList $ map ([get| .number |] &&& id) allPRs
+      idToPR = (allPRsMap HashMap.!)
+      queuedPRs = map (\(prId, _, _) -> idToPR prId) <$> queues
+
   render $ do
     H.h2 "All open pull requests"
-    mkTable ["#", "title"] allPRs $ \pr -> do
-      H.td $ H.toHtml [get| pr.number |]
-      H.td $ H.toHtml [get| pr.title |]
+    mkTablePRs allPRs
+
+    H.h2 "Queued pull requests"
+    case HashMap.toList queuedPRs of
+      [] -> H.p "No PRs are queued"
+      queuedPRs' -> forM_ queuedPRs' $ \(baseBranch, prs) -> do
+        H.h3 $ H.toHtml baseBranch
+        mkTablePRs prs
 
 {- Helpers -}
 
@@ -108,3 +122,9 @@ mkTable headers tableData toCells =
   H.table ! H.customAttribute "border" "1" $ do
     H.tr $ mapM_ (H.th . H.toHtml) headers
     mapM_ (H.tr . toCells) tableData
+
+-- | Render a table of PRs.
+mkTablePRs :: [Object PullRequest] -> Html
+mkTablePRs prs = mkTable ["#", "title"] prs $ \pr -> do
+  H.td $ H.toHtml [get| pr.number |]
+  H.td $ H.toHtml [get| pr.title |]
