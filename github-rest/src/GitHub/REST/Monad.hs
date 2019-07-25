@@ -79,10 +79,10 @@ instance MonadIO m => MonadGitHubREST (GitHubT m) where
     let request = (parseRequest_ $ Text.unpack $ ghUrl <> endpointPath ghEndpoint)
           { method = renderMethod ghEndpoint
           , requestHeaders =
-              (hAccept, "application/vnd.github." <> apiVersion <> "+json")
-              : (hUserAgent, userAgent)
-              : (hAuthorization, fromToken token)
-              : requestHeaders request
+              [ (hAccept, "application/vnd.github." <> apiVersion <> "+json")
+              , (hUserAgent, userAgent)
+              , (hAuthorization, fromToken token)
+              ]
           , requestBody = RequestBodyLBS $ encode $ kvToValue $ ghData ghEndpoint
           , checkResponse = throwErrorStatusCodes
           }

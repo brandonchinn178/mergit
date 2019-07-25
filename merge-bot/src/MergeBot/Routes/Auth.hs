@@ -20,13 +20,28 @@ module MergeBot.Routes.Auth
   ) where
 
 import Control.Monad.IO.Class (liftIO)
-import Data.Aeson (FromJSON(..), ToJSON(..), object, withObject, (.:), (.=))
+import Data.Aeson
+    ( FromJSON(..)
+    , ToJSON(..)
+    , eitherDecode
+    , encode
+    , object
+    , withObject
+    , (.:)
+    , (.=)
+    )
 import qualified Data.ByteString.Char8 as Char8
-import Data.Default (def)
 import qualified Data.Text as Text
-import Network.HTTP.Req ((/:))
-import qualified Network.HTTP.Req as Req
-import Network.HTTP.Types (renderSimpleQuery)
+import Network.HTTP.Client
+    ( Request(..)
+    , RequestBody(..)
+    , Response(..)
+    , httpLbs
+    , newManager
+    , parseRequest_
+    )
+import Network.HTTP.Client.TLS (tlsManagerSettings)
+import Network.HTTP.Types (hAccept, renderSimpleQuery)
 import Servant
 import Servant.Auth.Server
 import Servant.HTML.Blaze (HTML)
@@ -94,12 +109,19 @@ instance FromJSON AccessTokenResponse where
     AccessTokenResponse <$> o .: "access_token"
 
 getAccessToken :: AccessTokenRequest -> IO UserToken
-getAccessToken reqBody = Req.runReq def $ do
-  let githubUrl = Req.https "github.com" /: "login" /: "oauth" /: "access_token"
-      acceptHeader = Req.header "Accept" "application/json"
+getAccessToken reqBody = do
+  manager <- newManager tlsManagerSettings
+  let request = (parseRequest_ "https://github.com/login/oauth/access_token")
+        { method = "POST"
+        , requestHeaders =
+            [ (hAccept, "application/json")
+            ]
+        , requestBody = RequestBodyLBS $ encode reqBody
+        }
 
-  resp <- Req.req Req.POST githubUrl (Req.ReqBodyJson reqBody) Req.jsonResponse acceptHeader
-  return . UserToken . Text.pack . accessToken . Req.responseBody $ resp
+  response <- httpLbs request manager
+  either fail (return . UserToken . Text.pack . accessToken) $
+    eitherDecode $ responseBody response
 
 {- Redirection -}
 
