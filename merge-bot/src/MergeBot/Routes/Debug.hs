@@ -27,8 +27,8 @@ import qualified Data.HashMap.Strict as HashMap
 import Data.Maybe (catMaybes)
 import Data.Text (Text)
 import qualified Data.Text as Text
-import GitHub.REST (GHEndpoint(..), KeyValue(..), StdMethod(..), queryGitHub)
 import GitHub.Data.URL (URL(..))
+import GitHub.REST (GHEndpoint(..), KeyValue(..), StdMethod(..), queryGitHub)
 import GitHub.Schema.PullRequest (PullRequest)
 import GitHub.Schema.Ref (Ref)
 import GitHub.Schema.Repository (Repository)
@@ -41,7 +41,8 @@ import qualified Text.Blaze.Html5.Attributes as A
 import qualified MergeBot.Core.GitHub as Core
 import qualified MergeBot.Core.Text as Core
 import MergeBot.Monad (getInstallations)
-import MergeBot.Routes.Debug.Monad (DebugApp, ServerDebug, getUser, liftBaseApp, runBotAppDebug)
+import MergeBot.Routes.Debug.Monad
+    (DebugApp, ServerDebug, getUser, liftBaseApp, runBotAppDebug)
 
 type DebugRoutes =
        IndexPage
