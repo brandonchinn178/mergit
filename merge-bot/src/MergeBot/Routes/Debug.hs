@@ -24,6 +24,7 @@ import Data.Aeson.Schema (Object, get, schema)
 import qualified Data.HashMap.Strict as HashMap
 import Data.Text (Text)
 import GitHub.REST (GHEndpoint(..), KeyValue(..), StdMethod(..), queryGitHub)
+import GitHub.Data.URL (URL(..))
 import GitHub.Schema.PullRequest (PullRequest)
 import GitHub.Schema.Repository (Repository)
 import Servant
@@ -127,4 +128,5 @@ mkTable headers tableData toCells =
 mkTablePRs :: [Object PullRequest] -> Html
 mkTablePRs prs = mkTable ["#", "title"] prs $ \pr -> do
   H.td $ H.toHtml [get| pr.number |]
-  H.td $ H.toHtml [get| pr.title |]
+  let link = H.toValue $ unURL [get| pr.html_url |]
+  H.td $ H.a ! A.href link $ H.toHtml [get| pr.title |]
