@@ -104,7 +104,6 @@ instance MonadIO m => MonadGitHubREST (GitHubT m) where
     where
       ghUrl = "https://api.github.com"
 
-      -- https://developer.github.com/v3/guides/traversing-with-pagination/
       parsePageLinks headers =
         let split delim = map Text.strip . Text.splitOn delim
             dropAround begin end s =
