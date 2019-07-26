@@ -23,7 +23,7 @@ import Control.Monad.IO.Class (MonadIO(..))
 import Control.Monad.IO.Unlift (MonadUnliftIO(..), UnliftIO(..), withUnliftIO)
 import Control.Monad.Reader (ReaderT, ask, runReaderT)
 import Control.Monad.Trans (MonadTrans)
-import Data.Aeson (eitherDecode, encode, object)
+import Data.Aeson (eitherDecode, encode)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Lazy as ByteStringL
 import Data.Maybe (fromMaybe)
@@ -73,7 +73,7 @@ instance MonadUnliftIO m => MonadUnliftIO (GitHubT m) where
       return $ UnliftIO (unliftIO u . unGitHubT)
 
 instance MonadIO m => MonadGitHubREST (GitHubT m) where
-  queryGitHubPage ghEndpoint = do
+  queryGitHubPage' ghEndpoint = do
     (manager, GitHubState{..}) <- GitHubT ask
 
     let request = (parseRequest_ $ Text.unpack $ ghUrl <> endpointPath ghEndpoint)
@@ -90,18 +90,20 @@ instance MonadIO m => MonadGitHubREST (GitHubT m) where
     response <- liftIO $ httpLbs request manager
 
     let body = responseBody response
+        -- empty body always errors when decoding, even if the end user doesn't care about the
+        -- result, like creating a branch, when the endpoint doesn't return anything.
+        --
+        -- In this case, pretend like the server sent back an encoded version of the unit type,
+        -- so that `queryGitHub endpoint` would be typed to `m ()`.
+        nonEmptyBody = if ByteStringL.null body then encode () else body
         pageLinks = parsePageLinks $ responseHeaders response
 
-    payload <- either fail return . eitherDecode $
-      if ByteStringL.null body
-        then encode $ object []
-        else body
-
-    return (payload, pageLinks)
+    return $ case eitherDecode nonEmptyBody of
+      Right payload -> Right (payload, pageLinks)
+      Left e -> Left (Text.pack e, Text.decodeUtf8 $ ByteStringL.toStrict body)
     where
       ghUrl = "https://api.github.com"
 
-      -- https://developer.github.com/v3/guides/traversing-with-pagination/
       parsePageLinks headers =
         let split delim = map Text.strip . Text.splitOn delim
             dropAround begin end s =

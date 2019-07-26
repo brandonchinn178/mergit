@@ -13,7 +13,7 @@ module GitHub.REST.Monad.Class
   , PageLinks(..)
   ) where
 
-import Control.Monad (void)
+import Control.Monad (void, (<=<))
 import Control.Monad.IO.Class (MonadIO)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Except (ExceptT)
@@ -28,6 +28,7 @@ import qualified Control.Monad.Trans.Writer.Lazy as Lazy
 import qualified Control.Monad.Trans.Writer.Strict as Strict
 import Data.Aeson (FromJSON, Value)
 import Data.Text (Text)
+import qualified Data.Text as Text
 
 import GitHub.REST.Endpoint
 
@@ -62,13 +63,31 @@ import GitHub.REST.Endpoint
 -- >   , ghData = []
 -- >   }
 class MonadIO m => MonadGitHubREST m where
-  {-# MINIMAL queryGitHubPage #-}
+  {-# MINIMAL queryGitHubPage' #-}
 
+  -- | Query GitHub, returning @Right (payload, links)@ if successful, where @payload@ is the
+  -- response that GitHub sent back and @links@ containing any pagination links GitHub may have
+  -- sent back. If the response could not be decoded as JSON, returns
+  -- @Left (error message, response from server)@.
+  --
+  -- Errors on network connection failures or if GitHub sent back an error message. Use `githubTry`
+  -- if you wish to handle GitHub errors.
+  queryGitHubPage' :: FromJSON a => GHEndpoint -> m (Either (Text, Text) (a, PageLinks))
+
+  -- | 'queryGitHubPage'', except calls 'fail' if JSON decoding fails.
   queryGitHubPage :: FromJSON a => GHEndpoint -> m (a, PageLinks)
+  queryGitHubPage = either fail' pure <=< queryGitHubPage'
+    where
+      fail' (message, response) =
+        let ellipses s = if Text.length s > 100 then take 100 (Text.unpack s) ++ "..." else Text.unpack s
+        in fail $ "Could not decode response:\nmessage = " ++ ellipses message ++ "\nresponse = " ++ ellipses response
 
+  -- | 'queryGitHubPage', except ignoring pagination links.
   queryGitHub :: FromJSON a => GHEndpoint -> m a
   queryGitHub = fmap fst . queryGitHubPage
 
+  -- | Repeatedly calls 'queryGitHubPage' for each page returned by GitHub and concatenates the
+  -- results.
   queryGitHubAll :: (FromJSON a, Monoid a) => GHEndpoint -> m a
   queryGitHubAll ghEndpoint = do
     (payload, pageLinks) <- queryGitHubPage ghEndpoint
@@ -78,43 +97,47 @@ class MonadIO m => MonadGitHubREST m where
         return $ payload <> rest
       Nothing -> return payload
 
+  -- | 'queryGitHub', except ignores the result.
   queryGitHub_ :: GHEndpoint -> m ()
   queryGitHub_ = void . queryGitHub @_ @Value
 
 {- Instances for common monad transformers -}
 
 instance MonadGitHubREST m => MonadGitHubREST (ReaderT r m) where
-  queryGitHubPage = lift . queryGitHubPage
+  queryGitHubPage' = lift . queryGitHubPage'
 
 instance MonadGitHubREST m => MonadGitHubREST (ExceptT e m) where
-  queryGitHubPage = lift . queryGitHubPage
+  queryGitHubPage' = lift . queryGitHubPage'
 
 instance MonadGitHubREST m => MonadGitHubREST (IdentityT m) where
-  queryGitHubPage = lift . queryGitHubPage
+  queryGitHubPage' = lift . queryGitHubPage'
 
 instance MonadGitHubREST m => MonadGitHubREST (MaybeT m) where
-  queryGitHubPage = lift . queryGitHubPage
+  queryGitHubPage' = lift . queryGitHubPage'
 
 instance (Monoid w, MonadGitHubREST m) => MonadGitHubREST (Lazy.RWST r w s m) where
-  queryGitHubPage = lift . queryGitHubPage
+  queryGitHubPage' = lift . queryGitHubPage'
 
 instance (Monoid w, MonadGitHubREST m) => MonadGitHubREST (Strict.RWST r w s m) where
-  queryGitHubPage = lift . queryGitHubPage
+  queryGitHubPage' = lift . queryGitHubPage'
 
 instance MonadGitHubREST m => MonadGitHubREST (Lazy.StateT s m) where
-  queryGitHubPage = lift . queryGitHubPage
+  queryGitHubPage' = lift . queryGitHubPage'
 
 instance MonadGitHubREST m => MonadGitHubREST (Strict.StateT s m) where
-  queryGitHubPage = lift . queryGitHubPage
+  queryGitHubPage' = lift . queryGitHubPage'
 
 instance (Monoid w, MonadGitHubREST m) => MonadGitHubREST (Lazy.WriterT w m) where
-  queryGitHubPage = lift . queryGitHubPage
+  queryGitHubPage' = lift . queryGitHubPage'
 
 instance (Monoid w, MonadGitHubREST m) => MonadGitHubREST (Strict.WriterT w m) where
-  queryGitHubPage = lift . queryGitHubPage
+  queryGitHubPage' = lift . queryGitHubPage'
 
 {- Pagination -}
 
+-- | Helper type for GitHub pagination.
+--
+-- https://developer.github.com/v3/guides/traversing-with-pagination/
 data PageLinks = PageLinks
   { pageFirst :: Maybe Text
   , pagePrev  :: Maybe Text

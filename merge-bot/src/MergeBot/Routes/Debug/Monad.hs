@@ -53,7 +53,7 @@ newtype DebugApp a = DebugApp
     )
 
 instance MonadGitHubREST DebugApp where
-  queryGitHubPage = DebugApp . lift . queryGitHubPage
+  queryGitHubPage' = DebugApp . lift . queryGitHubPage'
 
 instance MonadError ServantErr DebugApp where
   throwError = throwIO
