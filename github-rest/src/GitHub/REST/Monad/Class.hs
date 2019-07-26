@@ -76,7 +76,11 @@ class MonadIO m => MonadGitHubREST m where
 
   -- | 'queryGitHubPage'', except calls 'fail' if JSON decoding fails.
   queryGitHubPage :: FromJSON a => GHEndpoint -> m (a, PageLinks)
-  queryGitHubPage = either (fail . Text.unpack . fst) pure <=< queryGitHubPage'
+  queryGitHubPage = either fail' pure <=< queryGitHubPage'
+    where
+      fail' (message, response) =
+        let ellipses s = if Text.length s > 100 then take 100 (Text.unpack s) ++ "..." else Text.unpack s
+        in fail $ "Could not decode response:\nmessage = " ++ ellipses message ++ "\nresponse = " ++ ellipses response
 
   -- | 'queryGitHubPage', except ignoring pagination links.
   queryGitHub :: FromJSON a => GHEndpoint -> m a
