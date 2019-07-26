@@ -13,7 +13,7 @@ module GitHub.REST.Monad.Class
   , PageLinks(..)
   ) where
 
-import Control.Monad (void)
+import Control.Monad (void, (<=<))
 import Control.Monad.IO.Class (MonadIO)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Except (ExceptT)
@@ -28,6 +28,7 @@ import qualified Control.Monad.Trans.Writer.Lazy as Lazy
 import qualified Control.Monad.Trans.Writer.Strict as Strict
 import Data.Aeson (FromJSON, Value)
 import Data.Text (Text)
+import qualified Data.Text as Text
 
 import GitHub.REST.Endpoint
 
@@ -62,9 +63,12 @@ import GitHub.REST.Endpoint
 -- >   , ghData = []
 -- >   }
 class MonadIO m => MonadGitHubREST m where
-  {-# MINIMAL queryGitHubPage #-}
+  {-# MINIMAL queryGitHubPage' #-}
+
+  queryGitHubPage' :: FromJSON a => GHEndpoint -> m (Either (Text, Text) (a, PageLinks))
 
   queryGitHubPage :: FromJSON a => GHEndpoint -> m (a, PageLinks)
+  queryGitHubPage = either (fail . Text.unpack . fst) pure <=< queryGitHubPage'
 
   queryGitHub :: FromJSON a => GHEndpoint -> m a
   queryGitHub = fmap fst . queryGitHubPage
@@ -84,34 +88,34 @@ class MonadIO m => MonadGitHubREST m where
 {- Instances for common monad transformers -}
 
 instance MonadGitHubREST m => MonadGitHubREST (ReaderT r m) where
-  queryGitHubPage = lift . queryGitHubPage
+  queryGitHubPage' = lift . queryGitHubPage'
 
 instance MonadGitHubREST m => MonadGitHubREST (ExceptT e m) where
-  queryGitHubPage = lift . queryGitHubPage
+  queryGitHubPage' = lift . queryGitHubPage'
 
 instance MonadGitHubREST m => MonadGitHubREST (IdentityT m) where
-  queryGitHubPage = lift . queryGitHubPage
+  queryGitHubPage' = lift . queryGitHubPage'
 
 instance MonadGitHubREST m => MonadGitHubREST (MaybeT m) where
-  queryGitHubPage = lift . queryGitHubPage
+  queryGitHubPage' = lift . queryGitHubPage'
 
 instance (Monoid w, MonadGitHubREST m) => MonadGitHubREST (Lazy.RWST r w s m) where
-  queryGitHubPage = lift . queryGitHubPage
+  queryGitHubPage' = lift . queryGitHubPage'
 
 instance (Monoid w, MonadGitHubREST m) => MonadGitHubREST (Strict.RWST r w s m) where
-  queryGitHubPage = lift . queryGitHubPage
+  queryGitHubPage' = lift . queryGitHubPage'
 
 instance MonadGitHubREST m => MonadGitHubREST (Lazy.StateT s m) where
-  queryGitHubPage = lift . queryGitHubPage
+  queryGitHubPage' = lift . queryGitHubPage'
 
 instance MonadGitHubREST m => MonadGitHubREST (Strict.StateT s m) where
-  queryGitHubPage = lift . queryGitHubPage
+  queryGitHubPage' = lift . queryGitHubPage'
 
 instance (Monoid w, MonadGitHubREST m) => MonadGitHubREST (Lazy.WriterT w m) where
-  queryGitHubPage = lift . queryGitHubPage
+  queryGitHubPage' = lift . queryGitHubPage'
 
 instance (Monoid w, MonadGitHubREST m) => MonadGitHubREST (Strict.WriterT w m) where
-  queryGitHubPage = lift . queryGitHubPage
+  queryGitHubPage' = lift . queryGitHubPage'
 
 {- Pagination -}
 
