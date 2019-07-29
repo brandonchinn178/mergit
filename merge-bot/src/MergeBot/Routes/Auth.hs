@@ -39,9 +39,10 @@ import Network.HTTP.Client
     , httpLbs
     , newManager
     , parseRequest_
+    , throwErrorStatusCodes
     )
 import Network.HTTP.Client.TLS (tlsManagerSettings)
-import Network.HTTP.Types (hAccept, renderSimpleQuery)
+import Network.HTTP.Types (hAccept, hContentType, renderSimpleQuery)
 import Servant
 import Servant.Auth.Server
 import Servant.HTML.Blaze (HTML)
@@ -115,8 +116,10 @@ getAccessToken reqBody = do
         { method = "POST"
         , requestHeaders =
             [ (hAccept, "application/json")
+            , (hContentType, "application/json")
             ]
         , requestBody = RequestBodyLBS $ encode reqBody
+        , checkResponse = throwErrorStatusCodes
         }
 
   response <- httpLbs request manager

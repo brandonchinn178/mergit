@@ -7,6 +7,14 @@ variable app_id {
   description = "The GitHub App ID for the merge bot."
 }
 
+variable client_id {
+  description = "The GitHub Client ID for the merge bot."
+}
+
+variable client_secret {
+  description = "The GitHub Client secret for the merge bot."
+}
+
 variable webhook_secret {
   description = "The webhook secret set for the merge bot."
 }
