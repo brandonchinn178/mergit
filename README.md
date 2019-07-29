@@ -57,8 +57,9 @@ provide an access token to use for the duration of a request.
 ## Configuration
 
 1. Follow [these instructions][create-github-app] to create a GitHub app.
-    1. **Make sure to set a webhook secret!**
-    1. Set callback URL to `http://localhost:3000/auth/callback`
+    1. Set homepage URL, callback URL, and webhook URL
+    1. Generate a random webhook secret
+    1. Installed only on this account
     1. Permissions:
         * Checks: Read & Write
         * Repository contents: Read & Write
@@ -86,23 +87,32 @@ provide an access token to use for the duration of a request.
 [create-github-app]: https://developer.github.com/apps/quickstart-guides/setting-up-your-development-environment/#step-2-register-a-new-github-app
 [user-agent]: https://developer.github.com/v3/#user-agent-required
 
-## Deployment
+### Development
 
-To deploy, follow the instructions in the "Configuration" section to create a
-GitHub app with the following parameters:
+To configure a merge bot GitHub app for development, follow the instructions in
+the "Configuration" section to create a GitHub app with the following
+parameters:
+
+* Name: LeapYear Merge Bot (Dev)
+* Homepage URL: `https://localhost:3000/`
+* Callback URL: `https://localhost:3000/auth/callback/`
+* Webhook URL: the smee URL generated for you
+
+### Production
+
+To configure a merge bot GitHub app for production, follow the instructions in
+the "Configuration" section to create a GitHub app with the following
+parameters:
 
 * Name: LeapYear Merge Bot
-* Homepage URL: Set to a `smee.io` URL for now
-* Webhook URL: Same as Homepage URL
-* Webhook secret: Generate a random secret
-* Installed only on this account
+* Homepage URL: `https://merge-bot.build-leapyear.com/`
+* Callback URL: `https://merge-bot.build-leapyear.com/auth/callback/`
+* Webhook URL: `https://merge-bot.build-leapyear.com/webhook/`
 
-Then save the webhook secret, app ID, and private key to LastPass. Follow the
-instructions in `deploy/README.md` with these values.
+Make sure to save the webhook secret, app ID, and private key to LastPass.
+Follow the instructions in `deploy/README.md` with these values.
 
-Edit the GitHub app and replace the homepage and webhook URLs with
-`https://merge-bot.build-leapyear.com/webhook`. The GitHub app should now be
-set!
+The GitHub app should now be set up!
 
 ### Installation
 
