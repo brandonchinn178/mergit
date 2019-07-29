@@ -73,7 +73,7 @@ loadAuthParams = do
 {- Authentication types + functions -}
 
 newtype UserToken = UserToken Text
-  deriving (FromJSON,ToJSON)
+  deriving (Show,FromJSON,ToJSON)
 
 instance FromJWT UserToken
 instance ToJWT UserToken

@@ -122,6 +122,7 @@ instance MonadIO m => MonadGitHubREST (GitHubT m) where
                     _ -> error $ "Unknown page link: " ++ show link
                 _ -> error $ "Unknown page link: " ++ show link
 
+            resolve pageLinks "" = pageLinks
             resolve pageLinks link =
               let (rel, url) = parsePageLink link
               in case rel of
