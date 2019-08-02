@@ -36,7 +36,7 @@ runApp = runQueryT querySettings . unApp
 
 mkGetter "Song" "getSongs" ''Recordings.Schema ".search!.recordings!.nodes![]!"
 
-searchForSong :: MonadQuery API m => String -> m [Song]
+searchForSong :: (MonadIO m, MonadQuery API m) => String -> m [Song]
 searchForSong song = getSongs <$> runQuery Recordings.query Recordings.Args
   { _query = song
   , _first = Just 5

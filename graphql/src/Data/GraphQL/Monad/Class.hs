@@ -47,7 +47,7 @@ import Data.GraphQL.Result (GraphQLResult, getErrors, getResult)
 import Data.GraphQL.TestUtils (MockedEndpoints, lookupMock)
 
 -- | A type class for monads that can run queries.
-class MonadIO m => MonadQuery (api :: k) m where
+class Monad m => MonadQuery (api :: k) m where
   runQuerySafe
     :: forall args (schema :: SchemaType)
      . (GraphQLArgs args, IsSchemaObject schema)
@@ -56,7 +56,7 @@ class MonadIO m => MonadQuery (api :: k) m where
 -- | Runs the given query and returns the result, erroring if the query returned errors.
 runQuery
   :: forall api m args (schema :: SchemaType)
-   . (MonadQuery api m, GraphQLArgs args, IsSchemaObject schema)
+   . (MonadIO m, MonadQuery api m, GraphQLArgs args, IsSchemaObject schema)
   => Query api args schema -> args -> m (Object schema)
 runQuery query args = do
   result <- runQuerySafe query args
