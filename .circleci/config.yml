@@ -23,7 +23,6 @@ aliases:
         FILES=(
           stack.yaml
           hpack.yaml
-          aeson-schemas/package.yaml
           github-rest/package.yaml
           github-schemas/package.yaml
           graphql/package.yaml
@@ -110,7 +109,6 @@ jobs:
           root: .
           paths:
             - .stack-work
-            - aeson-schemas/.stack-work
             - github-rest/.stack-work
             - github-schemas/.stack-work
             - graphql/.stack-work
