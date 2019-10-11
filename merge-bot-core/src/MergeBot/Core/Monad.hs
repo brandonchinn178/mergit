@@ -54,7 +54,7 @@ import GitHub.REST
 import GitHub.REST.Auth (Token, fromToken)
 import Network.HTTP.Client (Request(..))
 import Network.HTTP.Types (StdMethod(..), hAccept, hAuthorization, hUserAgent)
-import UnliftIO.Exception (handle)
+import UnliftIO.Exception (handle, handleAny)
 
 import MergeBot.Core.Error (getRelevantPRs)
 import MergeBot.Core.GraphQL.API (API)
@@ -113,6 +113,7 @@ runBotAppT BotSettings{..} =
   . runMergeBotLogging
   . unBotAppT
   . handle handleBotErr
+  . handleAny handleSomeException
   where
     state = GitHubState { token, userAgent, apiVersion = "antiope-preview" }
     botState = BotState{..}
@@ -130,6 +131,10 @@ runBotAppT BotSettings{..} =
       mapM_ (`commentOnPR` msg) $ getRelevantPRs e
       logErrorN $ Text.pack msg
       fail $ "[MergeBot Error] " ++ msg
+    handleSomeException e = do
+      let msg = displayException e
+      logErrorN $ Text.pack msg
+      fail $ "[Other Error] " ++ msg
 
 {- MonadMergeBot class -}
 
