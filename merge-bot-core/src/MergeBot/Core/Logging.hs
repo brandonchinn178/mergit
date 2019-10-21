@@ -28,11 +28,9 @@ logDir = "/var/log/merge-bot/"
 
 -- | Get the file to log to.
 logDest :: UTCTime -> FilePath
-logDest date = "merge-bot__" <> date' <> ".log"
-  where
-    date' = formatTime defaultTimeLocale "%Y-%m-%d" date
+logDest date = formatTime defaultTimeLocale "merge-bot__%Y-%m-%d.log" date
 
--- | Run the given action, sending logs to 'getLogDest' and 'stderr'.
+-- | Run the given action, sending logs to 'logDest' and 'stderr'.
 runMergeBotLogging :: LoggingT m a -> m a
 runMergeBotLogging = flip runLoggingT $ \loc src lvl str -> do
   now <- getCurrentTime
