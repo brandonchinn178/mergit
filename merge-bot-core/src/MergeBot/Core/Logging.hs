@@ -12,7 +12,7 @@ module MergeBot.Core.Logging
   , runMergeBotLogging
   ) where
 
-import Control.Monad.Logger (LoggingT, defaultLogStr, runLoggingT)
+import Control.Monad.Logger (LoggingT, defaultLogStr, runLoggingT, toLogStr)
 import qualified Data.ByteString.Char8 as Char8
 import Data.Time (UTCTime, defaultTimeLocale, formatTime, getCurrentTime)
 import System.FilePath ((</>))
@@ -37,7 +37,8 @@ runMergeBotLogging :: LoggingT m a -> m a
 runMergeBotLogging = flip runLoggingT $ \loc src lvl str -> do
   now <- getCurrentTime
   let dest = logDir </> logDest now
-      doLog h = Char8.hPutStr h $ fromLogStr $ defaultLogStr loc src lvl str
+      message = toLogStr (formatTime defaultTimeLocale "[%H:%M:%S] " now) <> str
+      doLog h = Char8.hPutStr h $ fromLogStr $ defaultLogStr loc src lvl message
 
   withFile dest AppendMode doLog
   doLog stderr
