@@ -68,7 +68,11 @@ runDebugApp :: Token -> DebugApp a -> BaseApp a
 runDebugApp token action = do
   GitHubAppParams{ghUserAgent} <- getGitHubAppParams
 
-  let ghState = GitHubState { token, userAgent = ghUserAgent, apiVersion = "machine-man-preview" }
+  let ghState = GitHubState
+        { token = Just token
+        , userAgent = ghUserAgent
+        , apiVersion = "machine-man-preview"
+        }
       debugState = DebugState
         { debugToken = token
         , debugUser = Nothing

@@ -115,7 +115,7 @@ runBotAppT BotSettings{..} =
   . handle handleBotErr
   . handleAny handleSomeException
   where
-    state = GitHubState { token, userAgent, apiVersion = "antiope-preview" }
+    state = GitHubState { token = Just token, userAgent, apiVersion = "antiope-preview" }
     botState = BotState{..}
     graphqlSettings = githubQuerySettings
       { modifyReq = \req -> req

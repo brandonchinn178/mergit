@@ -43,7 +43,7 @@ handleInstallationEvent o token = liftIO $ do
   putStrLn $ "Installation ID: " ++ show [get| o.installation.id |]
 
   GitHubAppParams{ghUserAgent} <- loadGitHubAppParams
-  let state = GitHubState token ghUserAgent "v3"
+  let state = GitHubState (Just token) ghUserAgent "v3"
 
   forM_ [get| o.repositories[].full_name |] $ \repoName -> do
     repo <- runGitHubT state $

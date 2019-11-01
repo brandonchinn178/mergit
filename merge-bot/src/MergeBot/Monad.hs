@@ -101,7 +101,11 @@ getJWTToken' = do
 queryGitHub' :: FromJSON a => GHEndpoint -> Token -> BaseApp a
 queryGitHub' endpoint token = do
   GitHubAppParams{ghUserAgent} <- getGitHubAppParams
-  let ghState = GitHubState { token, userAgent = ghUserAgent, apiVersion = "machine-man-preview" }
+  let ghState = GitHubState
+        { token = Just token
+        , userAgent = ghUserAgent
+        , apiVersion = "machine-man-preview"
+        }
 
   liftIO $ runGitHubT ghState $ queryGitHub endpoint
 
