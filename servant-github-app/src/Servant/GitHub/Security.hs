@@ -61,7 +61,7 @@ getToken :: Signer -> Int -> ByteString -> Int -> IO Token
 getToken signer appId userAgent installationId = do
   jwtToken <- getJWTToken signer appId
   let state = GitHubState
-        { token = jwtToken
+        { token = Just jwtToken
         , apiVersion = "machine-man-preview"
         , userAgent
         }
