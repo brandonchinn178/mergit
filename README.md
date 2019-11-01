@@ -31,10 +31,6 @@ out into a separate repo:
 * `graphql`: The `graphql-client` library that exposes an interface for calling
 a GraphQL API and consuming the output using `aeson-schemas`.
 
-* `github-rest`: A library for interacting with the GitHub REST API (v3). More
-flexible than the `github` package on Hackage by manually defining endpoints
-instead of writing a function per endpoint.
-
 * `github-schemas`: A library containing schemas (defined with `aeson-schemas`)
 and data types for interacting with GitHub APIs.
 
