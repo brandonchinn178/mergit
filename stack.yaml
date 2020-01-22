@@ -2,8 +2,6 @@ resolver: lts-16.9
 
 packages:
   - github-schemas
-  - graphql
-  - graphql/example
   - merge-bot
   - merge-bot-core
   - servant-github-app
@@ -12,3 +10,4 @@ extra-deps:
   - aeson-schemas-1.2.0
   - github: LeapYear/github-rest
     commit: 0f90f10eeede4697f0faba569734f87fdc07c61a
+  - graphql-client-1.0.0

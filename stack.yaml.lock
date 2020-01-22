@@ -22,6 +22,13 @@ packages:
       sha256: 6c59a31abae53d6df9e580926425250bb596f76e297a254f71e2623f7e99a210
   original:
     url: https://github.com/LeapYear/github-rest/archive/0f90f10eeede4697f0faba569734f87fdc07c61a.tar.gz
+- completed:
+    hackage: graphql-client-1.0.0@sha256:e4a75dd1da432c2e2cf2f4cfae91ae3a9641867b8e96f317e55a4b3df2a4df2f,3909
+    pantry-tree:
+      size: 1356
+      sha256: bc31a66b6b17721791bf2a421f742211fcabf900eabb7c4c61d1d43205e6e6e1
+  original:
+    hackage: graphql-client-1.0.0
 snapshots:
 - completed:
     size: 532380
