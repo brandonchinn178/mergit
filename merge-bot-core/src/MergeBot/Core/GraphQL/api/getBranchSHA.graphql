@@ -1,4 +1,4 @@
-query BranchSHA($repoOwner: String!, $repoName: String!, $branch: String!) {
+query getBranchSHA($repoOwner: String!, $repoName: String!, $branch: String!) {
   repository(owner: $repoOwner, name: $repoName) {
     ref(qualifiedName: $branch) {
       target {

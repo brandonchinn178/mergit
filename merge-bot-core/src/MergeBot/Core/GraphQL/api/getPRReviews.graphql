@@ -1,4 +1,4 @@
-query PRReviews(
+query getPRReviews(
   $repoOwner: String!,
   $repoName: String!,
   $prNum: Int!,

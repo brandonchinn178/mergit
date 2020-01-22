@@ -1,4 +1,4 @@
-query CICommit(
+query getCICommit(
   $repoOwner: String!,
   $repoName: String!,
   $sha: GitObjectID!,
