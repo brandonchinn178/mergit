@@ -28,9 +28,6 @@ See the Feature home page [on Notion][feature-home-page] for more details.
 The project is broken up into multiple sub-projects, most of which can be moved
 out into a separate repo:
 
-* `graphql`: The `graphql-client` library that exposes an interface for calling
-a GraphQL API and consuming the output using `aeson-schemas`.
-
 * `github-schemas`: A library containing schemas (defined with `aeson-schemas`)
 and data types for interacting with GitHub APIs.
 
