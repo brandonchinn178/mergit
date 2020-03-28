@@ -77,14 +77,17 @@ import Network.HTTP.Types (status409)
 import UnliftIO.Exception (throwIO)
 
 import MergeBot.Core.Error (BotError(..))
-import qualified MergeBot.Core.GraphQL.BranchSHA as BranchSHA
-import qualified MergeBot.Core.GraphQL.BranchTree as BranchTree
-import qualified MergeBot.Core.GraphQL.CICommit as CICommit
-import qualified MergeBot.Core.GraphQL.PRCheckRun as PRCheckRun
-import qualified MergeBot.Core.GraphQL.PRForCommit as PRForCommit
-import qualified MergeBot.Core.GraphQL.PRIsMerged as PRIsMerged
-import qualified MergeBot.Core.GraphQL.PRReviews as PRReviews
-import qualified MergeBot.Core.GraphQL.QueuedPRs as QueuedPRs
+import MergeBot.Core.GraphQL.API
+    ( GetBranchSHAQuery(..)
+    , GetBranchTreeQuery(..)
+    , GetBranchTreeSchema
+    , GetCICommitQuery(..)
+    , GetIsPRMergedQuery(..)
+    , GetPRCheckRunQuery(..)
+    , GetPRForCommitQuery(..)
+    , GetPRReviewsQuery(..)
+    , GetQueuedPRsQuery(..)
+    )
 import MergeBot.Core.Monad (MonadMergeBot(..), queryGitHub')
 import MergeBot.Core.Text (checkRunMerge, checkRunTry)
 
@@ -107,14 +110,14 @@ getCheckName = \case
 
 {- GraphQL -}
 
-mkGetter "Tree" "getTree" ''BranchTree.Schema ".repository.ref!.target.tree!"
+mkGetter "Tree" "getTree" ''GetBranchTreeSchema ".repository!.ref!.target.tree!"
 
 -- | Get the git tree for the given branch.
 getBranchTree :: MonadMergeBot m => BranchName -> m Tree
 getBranchTree branch = do
   (repoOwner, repoName) <- getRepo
   getTree <$>
-    runQuery BranchTree.query BranchTree.Args
+    runQuery GetBranchTreeQuery
       { _repoOwner = Text.unpack repoOwner
       , _repoName = Text.unpack repoName
       , _name = Text.unpack branch
@@ -125,7 +128,7 @@ getBranchSHA :: MonadMergeBot m => BranchName -> m (Maybe CommitSHA)
 getBranchSHA branch = do
   (repoOwner, repoName) <- getRepo
   [get| .repository!.ref?.target.oid |] <$>
-    runQuery BranchSHA.query BranchSHA.Args
+    runQuery GetBranchSHAQuery
       { _repoOwner = Text.unpack repoOwner
       , _repoName = Text.unpack repoName
       , _branch = Text.unpack branch
@@ -146,7 +149,7 @@ getCICommit sha checkRunType = do
   (repoOwner, repoName) <- getRepo
   appId <- getAppId
   (result, parents) <- queryAll $ \after -> do
-    result <- runQuery CICommit.query CICommit.Args
+    result <- runQuery GetCICommitQuery
       { _repoOwner = Text.unpack repoOwner
       , _repoName = Text.unpack repoName
       , _appId = appId
@@ -189,7 +192,7 @@ getCheckRun :: MonadMergeBot m => PrNum -> CheckRunType -> m CheckRunId
 getCheckRun prNum checkRunType = do
   (repoOwner, repoName) <- getRepo
   appId <- getAppId
-  result <- runQuery PRCheckRun.query PRCheckRun.Args
+  result <- runQuery GetPRCheckRunQuery
     { _repoOwner = Text.unpack repoOwner
     , _repoName = Text.unpack repoName
     , _prNum = prNum
@@ -217,7 +220,7 @@ getPRsForCICommit :: MonadMergeBot m => CICommit -> m [PRForCommit]
 getPRsForCICommit CICommit{..} = forM parents $ \(sha, _) -> do
   (repoOwner, repoName) <- getRepo
   result <- queryAll_ $ \after -> do
-    result <- runQuery PRForCommit.query PRForCommit.Args
+    result <- runQuery GetPRForCommitQuery
       { _repoOwner = Text.unpack repoOwner
       , _repoName = Text.unpack repoName
       , _sha = sha
@@ -245,7 +248,7 @@ getPRReviews :: MonadMergeBot m => PrNum -> m (HashMap UserName PullRequestRevie
 getPRReviews prNum = do
   (repoOwner, repoName) <- getRepo
   fmap (HashMap.fromListWith resolve) $ queryAll_ $ \after -> do
-    result <- runQuery PRReviews.query PRReviews.Args
+    result <- runQuery GetPRReviewsQuery
       { _repoOwner = Text.unpack repoOwner
       , _repoName = Text.unpack repoName
       , _prNum = prNum
@@ -274,7 +277,7 @@ isPRMerged :: MonadMergeBot m => PrNum -> m Bool
 isPRMerged prNum = do
   (repoOwner, repoName) <- getRepo
   [get| .repository!.pullRequest!.merged |] <$>
-    runQuery PRIsMerged.query PRIsMerged.Args
+    runQuery GetIsPRMergedQuery
       { _repoOwner = Text.unpack repoOwner
       , _repoName = Text.unpack repoName
       , _prNum = prNum
@@ -286,7 +289,7 @@ getQueues  = do
   (repoOwner, repoName) <- getRepo
   appId <- getAppId
   fmap (HashMap.fromListWith (++)) $ queryAll_ $ \after -> do
-    result <- runQuery QueuedPRs.query QueuedPRs.Args
+    result <- runQuery GetQueuedPRsQuery
       { _repoOwner = Text.unpack repoOwner
       , _repoName = Text.unpack repoName
       , _after = after
