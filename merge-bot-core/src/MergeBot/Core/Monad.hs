@@ -65,7 +65,6 @@ import Network.HTTP.Types
 import UnliftIO.Exception (Handler(..), SomeException, catchJust, catches)
 
 import MergeBot.Core.Error (getRelevantPRs)
-import MergeBot.Core.GraphQL.API (API)
 import MergeBot.Core.Logging (runMergeBotLogging)
 
 -- | The monadic state in BotAppT.
@@ -80,7 +79,7 @@ newtype BotAppT m a = BotAppT
       LoggingT
         ( ReaderT BotState
           ( GitHubT
-            ( QueryT API
+            ( QueryT
                 m
             )
           )
@@ -115,7 +114,7 @@ instance MonadUnliftIO m => MonadGitHubREST (BotAppT m) where
           -> Just ()
         _ -> Nothing
 
-instance MonadIO m => MonadQuery API (BotAppT m) where
+instance MonadIO m => MonadQuery (BotAppT m) where
   runQuerySafe query = BotAppT . lift . lift . lift . runQuerySafe query
 
 instance MonadUnliftIO m => MonadUnliftIO (BotAppT m) where
@@ -167,7 +166,7 @@ runBotAppT BotSettings{..} =
 
 {- MonadMergeBot class -}
 
-class (MonadGitHubREST m, MonadQuery API m, MonadUnliftIO m) => MonadMergeBot m where
+class (MonadGitHubREST m, MonadQuery m, MonadUnliftIO m) => MonadMergeBot m where
   getRepo :: m (Text, Text)
   getAppId :: m Int
 
@@ -191,7 +190,7 @@ queryGitHub' endpoint = do
 
 {- Helpers -}
 
-githubQuerySettings :: QuerySettings API
+githubQuerySettings :: QuerySettings
 githubQuerySettings = defaultQuerySettings
   { url = "https://api.github.com/graphql"
   }
