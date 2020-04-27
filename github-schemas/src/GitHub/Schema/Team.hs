@@ -28,6 +28,5 @@ type Team = [schema|
     permission: Text,
     members_url: URL,
     repositories_url: URL,
-    parent: Maybe Int,
   }
 |]

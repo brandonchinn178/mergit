@@ -6,6 +6,8 @@ aliases:
     docker:
       - image: centos:7
     working_directory: /root/src
+    environment:
+      LANG: en_US.UTF-8
 
   # system dependencies
   - &install-stack
