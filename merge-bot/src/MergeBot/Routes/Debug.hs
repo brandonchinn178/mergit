@@ -24,7 +24,7 @@ import Control.Arrow ((&&&))
 import Control.Monad (forM, forM_)
 import Data.Aeson.Schema (Object, get, schema)
 import qualified Data.HashMap.Strict as HashMap
-import Data.Maybe (catMaybes)
+import Data.Maybe (catMaybes, fromMaybe)
 import Data.Text (Text)
 import qualified Data.Text as Text
 import GitHub.Data.URL (URL(..))
@@ -113,7 +113,9 @@ handleRepositoryPage repoOwner repoName = do
           return $ Just (baseBranch, prIds)
 
   let allPRsMap = HashMap.fromList $ map ([get| .number |] &&& id) allPRs
-      idToPR = (allPRsMap HashMap.!)
+      idToPR prId =
+        fromMaybe (error $ "Could not find open PR #" ++ show prId) $
+        HashMap.lookup prId allPRsMap
       queuedPRs = map (\(prId, _, _) -> idToPR prId) <$> queues
       runningPRs = map (map idToPR <$>) runningPRIds
 
