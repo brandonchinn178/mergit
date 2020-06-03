@@ -15,6 +15,7 @@ This module defines the monad used by the MergeBot.
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 
 module MergeBot.Core.Monad
@@ -54,7 +55,7 @@ import GitHub.REST
 import GitHub.REST.Auth (Token, fromToken)
 import Network.HTTP.Client (Request(..))
 import Network.HTTP.Types (StdMethod(..), hAccept, hAuthorization, hUserAgent)
-import UnliftIO.Exception (handle, handleAny)
+import UnliftIO.Exception (Handler(..), SomeException, catches)
 
 import MergeBot.Core.Error (getRelevantPRs)
 import MergeBot.Core.GraphQL.API (API)
@@ -112,8 +113,11 @@ runBotAppT BotSettings{..} =
   . (`runReaderT` botState)
   . runMergeBotLogging
   . unBotAppT
-  . handle handleBotErr
-  . handleAny handleSomeException
+  . (`catches`
+      [ Handler handleBotErr
+      , Handler handleSomeException
+      ]
+    )
   where
     state = GitHubState { token = Just token, userAgent, apiVersion = "antiope-preview" }
     botState = BotState{..}
@@ -131,7 +135,7 @@ runBotAppT BotSettings{..} =
       mapM_ (`commentOnPR` msg) $ getRelevantPRs e
       logErrorN $ Text.pack msg
       fail $ "[MergeBot Error] " ++ msg
-    handleSomeException e = do
+    handleSomeException (e :: SomeException) = do
       let msg = displayException e
       logErrorN $ Text.pack msg
       fail $ "[Other Error] " ++ msg
