@@ -72,8 +72,7 @@ resource "aws_security_group" "merge_bot" {
     to_port   = 22
     protocol  = "tcp"
 
-    # LeapYear Office
-    cidr_blocks = ["96.82.102.113/32"]
+    cidr_blocks = ["96.82.102.113/32", "3.234.201.220/32", "10.0.0.0/8"]
   }
 
   ingress {
