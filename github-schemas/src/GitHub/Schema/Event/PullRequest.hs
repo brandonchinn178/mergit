@@ -18,11 +18,10 @@ import Data.Aeson.Schema.TH (mkEnum)
 import GitHub.Schema.BaseEvent (BaseEvent)
 import GitHub.Schema.PullRequest (PullRequestWebhook)
 
+-- https://docs.github.com/en/actions/reference/events-that-trigger-workflows#pull_request
 mkEnum "PullRequestAction"
   [ "ASSIGNED"
   , "UNASSIGNED"
-  , "REVIEW_REQUESTED"
-  , "REVIEW_REQUEST_REMOVED"
   , "LABELED"
   , "UNLABELED"
   , "OPENED"
@@ -30,6 +29,11 @@ mkEnum "PullRequestAction"
   , "CLOSED"
   , "REOPENED"
   , "SYNCHRONIZE"
+  , "READY_FOR_REVIEW"
+  , "LOCKED"
+  , "UNLOCKED"
+  , "REVIEW_REQUESTED"
+  , "REVIEW_REQUEST_REMOVED"
   ]
 
 type PullRequestEvent = [schema|
