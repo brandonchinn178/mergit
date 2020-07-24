@@ -24,6 +24,7 @@ import Control.Arrow ((&&&))
 import Control.Monad (forM, forM_)
 import Data.Aeson.Schema (Object, get, schema)
 import qualified Data.HashMap.Strict as HashMap
+import Data.List (intercalate)
 import Data.Maybe (catMaybes, fromMaybe)
 import Data.Text (Text)
 import qualified Data.Text as Text
@@ -103,9 +104,9 @@ handleRepositoryPage repoOwner repoName = do
     let getPRIds = map $ \(prId, _, _) -> prId
     map (fmap getPRIds) . HashMap.toList <$> Core.getQueues
 
-  -- runningPRIds :: [(Text, [Int])]
+  -- mergeRuns :: [(Text, [Int])]
   -- mapping of base branch to list of PR ids running a merge against the base branch
-  runningPRIds <- runBotAppDebug repoOwner repoName $
+  mergeRuns <- runBotAppDebug repoOwner repoName $
     fmap catMaybes $ forM allRefs $ \ref -> do
       case Text.stripPrefix "refs/heads/" [get| ref.ref |] >>= Core.fromStagingBranch of
         Nothing -> return Nothing
@@ -115,9 +116,7 @@ handleRepositoryPage repoOwner repoName = do
           return $ Just (baseBranch, prIds)
 
   let allPRsMap = HashMap.fromList $ map ([get| .number |] &&& id) allPRs
-      idToPR prId =
-        fromMaybe (error $ "Could not find open PR #" ++ show prId) $
-        HashMap.lookup prId allPRsMap
+      lookupPR = (`HashMap.lookup` allPRsMap)
 
   render $ do
     H.p $ do
@@ -128,22 +127,30 @@ handleRepositoryPage repoOwner repoName = do
       ")"
 
     H.h2 "Running pull requests"
-    if null runningPRIds
+    if null mergeRuns
       then H.p "No PRs are running"
-      else forM_ runningPRIds $ \(branch, prIds) -> do
-        let prs = map idToPR prIds
-
+      else forM_ mergeRuns $ \(branch, prIds) -> do
         H.h3 $ H.toHtml branch
-        mkTablePRs prs
+        -- TODO: always show button to reset (delete) staging branch
+
+        case traverse lookupPR prIds of
+          Nothing -> do
+            let prs = intercalate ", " $ map (\prId -> "#" ++ show prId) prIds
+            mkErrorTable $ Text.pack $ "Found closed PRs (" ++ prs ++ "). Reset this staging branch."
+          Just prs -> mkTablePRs prs
 
     H.h2 "Queued pull requests"
     if null queues
       then H.p "No PRs are queued"
       else forM_ queues $ \(branch, prIds) -> do
-        let queuedPRs = map idToPR prIds
-
         H.h3 $ H.toHtml branch
-        mkTablePRs queuedPRs
+
+        -- should not error, because a queued PR, by definition, is open
+        let idToPR prId = fromMaybe
+              (error $ "Could not find open PR #" ++ show prId)
+              (lookupPR prId)
+
+        mkTablePRs $ map idToPR prIds
 
     H.h2 "All open pull requests"
     mkTablePRs allPRs
@@ -173,6 +180,10 @@ mkTable headers tableData toCells =
   H.table ! H.customAttribute "border" "1" $ do
     H.tr $ mapM_ (H.th . H.toHtml) headers
     mapM_ (H.tr . toCells) tableData
+
+-- | Render an error in a table.
+mkErrorTable :: Text -> Html
+mkErrorTable errorMessage = mkTable ["Error", errorMessage] [] id
 
 -- | Render a table of PRs.
 mkTablePRs :: [Object PullRequest] -> Html
