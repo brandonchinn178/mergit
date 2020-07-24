@@ -30,7 +30,13 @@ import Data.Text (Text)
 import qualified Data.Text as Text
 import GitHub.Data.URL (URL(..))
 import GitHub.REST
-    (GHEndpoint(..), KeyValue(..), StdMethod(..), queryGitHub, queryGitHub_, queryGitHubAll)
+    ( GHEndpoint(..)
+    , KeyValue(..)
+    , StdMethod(..)
+    , queryGitHub
+    , queryGitHubAll
+    , queryGitHub_
+    )
 import GitHub.Schema.PullRequest (PullRequest)
 import GitHub.Schema.Ref (Ref)
 import GitHub.Schema.Repository (Repository)
@@ -40,9 +46,9 @@ import Text.Blaze.Html5 (Html, (!))
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
+import MergeBot.Auth (xsrfTokenInputName)
 import qualified MergeBot.Core.GitHub as Core
 import qualified MergeBot.Core.Text as Core
-import MergeBot.Auth (xsrfTokenInputName)
 import MergeBot.Monad (getInstallations)
 import MergeBot.Routes.Debug.Monad
     (DebugApp, ServerDebug, getUser, getXsrfToken, liftBaseApp, runBotAppDebug)

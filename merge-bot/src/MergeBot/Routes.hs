@@ -28,7 +28,8 @@ import Network.HTTP.Types (StdMethod(..), status401)
 import Servant
 import Servant.Auth.Server (Auth, AuthResult(..), Cookie)
 
-import MergeBot.Auth (UserToken, XsrfProtected, XsrfToken, fromUserToken, redirectToLogin)
+import MergeBot.Auth
+    (UserToken, XsrfProtected, XsrfToken, fromUserToken, redirectToLogin)
 import MergeBot.Monad (BaseApp, ServerBase, getAuthParams)
 import MergeBot.Routes.Auth (AuthRoutes, handleAuthRoutes)
 import MergeBot.Routes.Debug (DebugRoutes, handleDebugRoutes)

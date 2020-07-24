@@ -172,7 +172,7 @@ instance
             _ -> Servant.delayedFail Servant.err401
 
           -- good for now, revisit if we need to handle these cases
-        | otherwise = error $ "Non-GET requests must use application/x-www-form-urlencoded"
+        | otherwise = error "Non-GET requests must use application/x-www-form-urlencoded"
 
       go f xsrfTokenSetCookie =
         let setCookieList = Just xsrfTokenSetCookie `Servant.Auth.SetCookieCons` Servant.Auth.SetCookieNil
