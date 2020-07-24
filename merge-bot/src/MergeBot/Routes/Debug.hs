@@ -99,7 +99,7 @@ handleRepositoryPage repoOwner repoName = do
     , ghData = []
     }
 
-  queues <- runBotAppDebug repoOwner repoName Core.getQueues
+  queues <- HashMap.toList <$> runBotAppDebug repoOwner repoName Core.getQueues
 
   -- runningPRIds :: [(Text, [Int])]
   -- mapping of base branch to list of PR ids running a merge against the base branch
@@ -116,8 +116,6 @@ handleRepositoryPage repoOwner repoName = do
       idToPR prId =
         fromMaybe (error $ "Could not find open PR #" ++ show prId) $
         HashMap.lookup prId allPRsMap
-      queuedPRs = map (\(prId, _, _) -> idToPR prId) <$> queues
-      runningPRs = map (map idToPR <$>) runningPRIds
 
   render $ do
     H.p $ do
@@ -128,10 +126,22 @@ handleRepositoryPage repoOwner repoName = do
       ")"
 
     H.h2 "Running pull requests"
-    mkTables "No PRs are running" runningPRs
+    if null runningPRIds
+      then H.p "No PRs are running"
+      else forM_ runningPRIds $ \(branch, prIds) -> do
+        let prs = map idToPR prIds
+
+        H.h3 $ H.toHtml branch
+        mkTablePRs prs
 
     H.h2 "Queued pull requests"
-    mkTables "No PRs are queued" $ HashMap.toList queuedPRs
+    if null queues
+      then H.p "No PRs are queued"
+      else forM_ queues $ \(branch, queue) -> do
+        let queuedPRs = map (\(prId, _, _) -> idToPR prId) queue
+
+        H.h3 $ H.toHtml branch
+        mkTablePRs queuedPRs
 
     H.h2 "All open pull requests"
     mkTablePRs allPRs
@@ -168,14 +178,6 @@ mkTablePRs prs = mkTable ["#", "title"] prs $ \pr -> do
   H.td $ H.toHtml [get| pr.number |]
   let link = H.toValue $ unURL [get| pr.html_url |]
   H.td $ H.a ! A.href link $ H.toHtml [get| pr.title |]
-
--- | Render tables of PRs, separated by a label.
-mkTables :: Text -> [(Text, [Object PullRequest])] -> Html
-mkTables emptyLabel [] = H.p $ H.toHtml emptyLabel
-mkTables _ labelToPRs =
-  forM_ labelToPRs $ \(label, prs) -> do
-    H.h3 $ H.toHtml label
-    mkTablePRs prs
 
 toFullName :: Text -> Text -> Text
 toFullName owner name = owner <> "/" <> name
