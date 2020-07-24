@@ -35,7 +35,7 @@ import MergeBot.Routes.Debug (DebugRoutes, handleDebugRoutes)
 import MergeBot.Routes.Debug.Monad (DebugApp, DebugState(..), runDebugApp)
 import MergeBot.Routes.Webhook (WebhookRoutes, handleWebhookRoutes)
 
-type MergeBotRoutes = UnprotectedRoutes :<|> (Auth '[Cookie] UserToken :> XsrfProtected :> ProtectedRoutes)
+type MergeBotRoutes = UnprotectedRoutes :<|> (XsrfProtected :> Auth '[Cookie] UserToken :> ProtectedRoutes)
 
 handleMergeBotRoutes :: ServerBase MergeBotRoutes
 handleMergeBotRoutes = handleUnprotectedRoutes :<|> handleProtectedRoutes
@@ -49,11 +49,10 @@ handleUnprotectedRoutes = handleAuthRoutes :<|> handleWebhookRoutes
 
 type ProtectedRoutes = DebugRoutes
 
-handleProtectedRoutes :: AuthResult UserToken -> XsrfToken -> ServerBase ProtectedRoutes
-handleProtectedRoutes authResult xsrfToken =
-  case authResult of
-    Authenticated token -> hoistWith (runRoute token)
-    _ -> hoistWith runRedirect
+handleProtectedRoutes :: XsrfToken -> AuthResult UserToken -> ServerBase ProtectedRoutes
+handleProtectedRoutes xsrfToken = \case
+  Authenticated token -> hoistWith (runRoute token)
+  _ -> hoistWith runRedirect
   where
     hoistWith :: (forall x. DebugApp x -> BaseApp x) -> ServerBase ProtectedRoutes
     hoistWith f = hoistServer (Proxy @ProtectedRoutes) f handleDebugRoutes
