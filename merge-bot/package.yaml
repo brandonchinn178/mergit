@@ -10,10 +10,12 @@ dependencies:
 - base
 - blaze-html
 - bytestring
+- cookie
 - data-default
 - github-rest
 - github-schemas
 - graphql-client
+- http-api-data
 - http-client
 - http-client-tls
 - http-types
@@ -28,6 +30,7 @@ dependencies:
 - text
 - unliftio
 - unordered-containers
+- wai
 - warp
 - x509
 - x509-store
