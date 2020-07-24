@@ -15,17 +15,16 @@ This module defines the monad for running debug routes.
 module MergeBot.Routes.Debug.Monad
   ( ServerDebug
   , DebugApp
+  , DebugState(..)
   , runDebugApp
   , runBotAppDebug
   , getUser
-  , withUser
   , liftBaseApp
   ) where
 
 import Control.Monad.Except (MonadError(..))
 import Control.Monad.IO.Class (MonadIO(..))
-import Control.Monad.Reader (ReaderT, asks, lift, local, runReaderT)
-import Data.Maybe (fromMaybe)
+import Control.Monad.Reader (ReaderT, asks, lift, runReaderT)
 import Data.Text (Text)
 import GitHub.REST (GitHubState(..), GitHubT, MonadGitHubREST(..), runGitHubT)
 import GitHub.REST.Auth (Token)
@@ -40,7 +39,7 @@ type ServerDebug api = ServerT api DebugApp
 
 data DebugState = DebugState
   { debugToken :: Token
-  , debugUser  :: Maybe Text
+  , debugUser  :: Text
   }
 
 newtype DebugApp a = DebugApp
@@ -64,18 +63,14 @@ instance MonadUnliftIO DebugApp where
     withUnliftIO $ \u ->
       return $ UnliftIO (unliftIO u . unDebugApp)
 
-runDebugApp :: Token -> DebugApp a -> BaseApp a
-runDebugApp token action = do
+runDebugApp :: DebugState -> DebugApp a -> BaseApp a
+runDebugApp debugState action = do
   GitHubAppParams{ghUserAgent} <- getGitHubAppParams
 
   let ghState = GitHubState
-        { token = Just token
+        { token = Just $ debugToken debugState
         , userAgent = ghUserAgent
         , apiVersion = "machine-man-preview"
-        }
-      debugState = DebugState
-        { debugToken = token
-        , debugUser = Nothing
         }
 
   runGitHubT ghState
@@ -90,10 +85,7 @@ runBotAppDebug repoOwner repoName action = do
 
 -- | Get the currently authenticated user.
 getUser :: DebugApp Text
-getUser = DebugApp $ fromMaybe "Anonymous" <$> asks debugUser
-
-withUser :: Text -> DebugApp a -> DebugApp a
-withUser user = DebugApp . local (\state -> state { debugUser = Just user }) . unDebugApp
+getUser = DebugApp $ asks debugUser
 
 liftBaseApp :: BaseApp a -> DebugApp a
 liftBaseApp = DebugApp . lift . lift

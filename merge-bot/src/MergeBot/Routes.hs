@@ -32,8 +32,7 @@ import MergeBot.Auth (UserToken, fromUserToken, redirectToLogin)
 import MergeBot.Monad (BaseApp, ServerBase, getAuthParams)
 import MergeBot.Routes.Auth (AuthRoutes, handleAuthRoutes)
 import MergeBot.Routes.Debug (DebugRoutes, handleDebugRoutes)
-import MergeBot.Routes.Debug.Monad
-    (DebugApp, liftBaseApp, runDebugApp, withUser)
+import MergeBot.Routes.Debug.Monad (DebugApp, DebugState(..), runDebugApp)
 import MergeBot.Routes.Webhook (WebhookRoutes, handleWebhookRoutes)
 
 type MergeBotRoutes = UnprotectedRoutes :<|> (Auth '[Cookie] UserToken :> ProtectedRoutes)
@@ -59,20 +58,27 @@ handleProtectedRoutes = \case
     hoistWith f = hoistServer (Proxy @ProtectedRoutes) f handleDebugRoutes
 
     runRoute :: UserToken -> DebugApp a -> BaseApp a
-    runRoute token routeToRun = runDebugApp (fromUserToken token) $ do
+    runRoute token routeToRun = do
+      let debugStateWithoutUser = DebugState
+            { debugToken = fromUserToken token
+            , debugUser = error "User is not verified"
+            }
+
       -- make sure token isn't expired
-      result <- githubTry' status401 $ queryGitHub GHEndpoint
-        { method = GET
-        , endpoint = "/user"
-        , endpointVals = []
-        , ghData = []
-        }
+      result <- runDebugApp debugStateWithoutUser $ githubTry' status401 $
+        queryGitHub GHEndpoint
+          { method = GET
+          , endpoint = "/user"
+          , endpointVals = []
+          , ghData = []
+          }
 
       user <- case result of
-        Left _ -> liftBaseApp redirectToLogin'
+        Left _ -> redirectToLogin'
         Right (o :: Object User) -> return [get| o.login |]
 
-      withUser user routeToRun
+      let debugState = debugStateWithoutUser { debugUser = user }
+      runDebugApp debugState routeToRun
 
     runRedirect :: DebugApp a -> BaseApp a
     runRedirect _ = redirectToLogin'
