@@ -75,7 +75,7 @@ handleIndexPage = do
     H.h2 "Available repositories"
     forM_ repositories $ \repo ->
       let (owner, name) = [get| repo.(owner.login, name) |]
-          link = H.toValue $ "repo/" <> toFullName owner name
+          link = H.toValue $ buildPath ["repo", owner, name]
       in H.li $ H.a ! A.href link $ H.toHtml [get| repo.full_name |]
 
 {- Repository page -}
@@ -121,7 +121,7 @@ handleRepositoryPage repoOwner repoName = do
   render $ do
     H.p $ do
       "Viewing: "
-      H.strong $ H.toHtml $ toFullName repoOwner repoName
+      H.strong $ H.toHtml $ repoOwner <> "/" <> repoName
       " ("
       H.a ! A.href "/" $ "Back"
       ")"
@@ -192,5 +192,5 @@ mkTablePRs prs = mkTable ["#", "title"] prs $ \pr -> do
   let link = H.toValue $ unURL [get| pr.html_url |]
   H.td $ H.a ! A.href link $ H.toHtml [get| pr.title |]
 
-toFullName :: Text -> Text -> Text
-toFullName owner name = owner <> "/" <> name
+buildPath :: [Text] -> Text
+buildPath = Text.concat . map ("/" <>)
