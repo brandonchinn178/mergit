@@ -10,6 +10,7 @@ This module defines the monad used by the MergeBot.
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -26,15 +27,18 @@ module MergeBot.Core.Monad
   , queryGitHub'
   ) where
 
+import Control.Concurrent (threadDelay)
 import Control.Exception (displayException)
 import Control.Monad (void)
-import Control.Monad.IO.Class (MonadIO)
+import Control.Monad.IO.Class (MonadIO(..))
 import Control.Monad.IO.Unlift (MonadUnliftIO(..), UnliftIO(..), withUnliftIO)
 import Control.Monad.Logger (LoggingT, MonadLogger, logErrorN)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Reader (ReaderT, asks, runReaderT)
 import Data.Aeson (Value)
+import qualified Data.Aeson as Aeson
 import Data.ByteString (ByteString)
+import qualified Data.ByteString.Lazy as ByteStringL
 import Data.GraphQL
     ( MonadQuery(..)
     , QuerySettings(..)
@@ -42,6 +46,7 @@ import Data.GraphQL
     , defaultQuerySettings
     , runQueryT
     )
+import qualified Data.HashMap.Strict as HashMap
 import Data.Text (Text)
 import qualified Data.Text as Text
 import GitHub.REST
@@ -53,9 +58,11 @@ import GitHub.REST
     , runGitHubT
     )
 import GitHub.REST.Auth (Token, fromToken)
-import Network.HTTP.Client (Request(..))
-import Network.HTTP.Types (StdMethod(..), hAccept, hAuthorization, hUserAgent)
-import UnliftIO.Exception (Handler(..), SomeException, catches)
+import Network.HTTP.Client
+    (HttpException(..), HttpExceptionContent(..), Request(..), Response(..))
+import Network.HTTP.Types
+    (StdMethod(..), hAccept, hAuthorization, hUserAgent, status401)
+import UnliftIO.Exception (Handler(..), SomeException, catchJust, catches)
 
 import MergeBot.Core.Error (getRelevantPRs)
 import MergeBot.Core.GraphQL.API (API)
@@ -87,8 +94,23 @@ newtype BotAppT m a = BotAppT
     , MonadLogger
     )
 
-instance MonadIO m => MonadGitHubREST (BotAppT m) where
-  queryGitHubPage' = BotAppT . lift . lift . queryGitHubPage'
+instance MonadUnliftIO m => MonadGitHubREST (BotAppT m) where
+  queryGitHubPage' = retry . (BotAppT . lift . lift . queryGitHubPage')
+    where
+      retry m =
+        let go i = catchJust (getBadCredentialsError i) m $ \_ -> do
+              liftIO $ threadDelay $ round (2 ** i :: Double)
+              go (i + 1)
+        in go 0
+
+      getBadCredentialsError i = \case
+        HttpExceptionRequest _ (StatusCodeException r body)
+          | i < 5 -- only catch errors up to 5 times
+          , responseStatus r == status401
+          , Just o <- Aeson.decode (ByteStringL.fromStrict body)
+          , Just (Aeson.String "Bad credentials") <- HashMap.lookup ("message" :: Text) o
+          -> Just ()
+        _ -> Nothing
 
 instance MonadIO m => MonadQuery API (BotAppT m) where
   runQuerySafe query = BotAppT . lift . lift . lift . runQuerySafe query
