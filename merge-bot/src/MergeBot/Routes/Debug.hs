@@ -99,7 +99,9 @@ handleRepositoryPage repoOwner repoName = do
     , ghData = []
     }
 
-  queues <- HashMap.toList <$> runBotAppDebug repoOwner repoName Core.getQueues
+  queues <- runBotAppDebug repoOwner repoName $ do
+    let getPRIds = map $ \(prId, _, _) -> prId
+    map (fmap getPRIds) . HashMap.toList <$> Core.getQueues
 
   -- runningPRIds :: [(Text, [Int])]
   -- mapping of base branch to list of PR ids running a merge against the base branch
@@ -137,8 +139,8 @@ handleRepositoryPage repoOwner repoName = do
     H.h2 "Queued pull requests"
     if null queues
       then H.p "No PRs are queued"
-      else forM_ queues $ \(branch, queue) -> do
-        let queuedPRs = map (\(prId, _, _) -> idToPR prId) queue
+      else forM_ queues $ \(branch, prIds) -> do
+        let queuedPRs = map idToPR prIds
 
         H.h3 $ H.toHtml branch
         mkTablePRs queuedPRs
