@@ -19,6 +19,7 @@ module MergeBot.Routes.Debug.Monad
   , runDebugApp
   , runBotAppDebug
   , getUser
+  , getXsrfToken
   , liftBaseApp
   ) where
 
@@ -33,13 +34,15 @@ import Servant.GitHub (GitHubAppParams(..))
 import UnliftIO (MonadUnliftIO(..), UnliftIO(..), withUnliftIO)
 import UnliftIO.Exception (catch, throwIO)
 
+import MergeBot.Auth (XsrfToken)
 import MergeBot.Monad (BaseApp, BotApp, getGitHubAppParams, runBotApp)
 
 type ServerDebug api = ServerT api DebugApp
 
 data DebugState = DebugState
-  { debugToken :: Token
-  , debugUser  :: Text
+  { debugToken     :: Token
+  , debugXsrfToken :: XsrfToken
+  , debugUser      :: Text
   }
 
 newtype DebugApp a = DebugApp
@@ -86,6 +89,9 @@ runBotAppDebug repoOwner repoName action = do
 -- | Get the currently authenticated user.
 getUser :: DebugApp Text
 getUser = DebugApp $ asks debugUser
+
+getXsrfToken :: DebugApp XsrfToken
+getXsrfToken = DebugApp $ asks debugXsrfToken
 
 liftBaseApp :: BaseApp a -> DebugApp a
 liftBaseApp = DebugApp . lift . lift

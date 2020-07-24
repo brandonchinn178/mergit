@@ -50,7 +50,7 @@ handleUnprotectedRoutes = handleAuthRoutes :<|> handleWebhookRoutes
 type ProtectedRoutes = DebugRoutes
 
 handleProtectedRoutes :: AuthResult UserToken -> XsrfToken -> ServerBase ProtectedRoutes
-handleProtectedRoutes authResult _ =
+handleProtectedRoutes authResult xsrfToken =
   case authResult of
     Authenticated token -> hoistWith (runRoute token)
     _ -> hoistWith runRedirect
@@ -62,6 +62,7 @@ handleProtectedRoutes authResult _ =
     runRoute token routeToRun = do
       let debugStateWithoutUser = DebugState
             { debugToken = fromUserToken token
+            , debugXsrfToken = xsrfToken
             , debugUser = error "User is not verified"
             }
 

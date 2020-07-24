@@ -30,7 +30,7 @@ import Data.Text (Text)
 import qualified Data.Text as Text
 import GitHub.Data.URL (URL(..))
 import GitHub.REST
-    (GHEndpoint(..), KeyValue(..), StdMethod(..), queryGitHub, queryGitHubAll)
+    (GHEndpoint(..), KeyValue(..), StdMethod(..), queryGitHub, queryGitHub_, queryGitHubAll)
 import GitHub.Schema.PullRequest (PullRequest)
 import GitHub.Schema.Ref (Ref)
 import GitHub.Schema.Repository (Repository)
@@ -42,18 +42,21 @@ import qualified Text.Blaze.Html5.Attributes as A
 
 import qualified MergeBot.Core.GitHub as Core
 import qualified MergeBot.Core.Text as Core
+import MergeBot.Auth (xsrfTokenInputName)
 import MergeBot.Monad (getInstallations)
 import MergeBot.Routes.Debug.Monad
-    (DebugApp, ServerDebug, getUser, liftBaseApp, runBotAppDebug)
+    (DebugApp, ServerDebug, getUser, getXsrfToken, liftBaseApp, runBotAppDebug)
 
 type DebugRoutes =
        IndexPage
   :<|> "repo" :> Capture "repoOwner" Text :> Capture "repoName" Text :> RepositoryPage
+  :<|> "repo" :> Capture "repoOwner" Text :> Capture "repoName" Text :> "reset-merge-run" :> Capture "baseBranch" Text :> DeleteStagingBranch
 
 handleDebugRoutes :: ServerDebug DebugRoutes
 handleDebugRoutes =
        handleIndexPage
   :<|> handleRepositoryPage
+  :<|> handleDeleteStagingBranch
 
 {- Index page -}
 
@@ -115,6 +118,8 @@ handleRepositoryPage repoOwner repoName = do
           prIds <- mapM (fmap fst . Core.getPRForCommit . fst) parents
           return $ Just (baseBranch, prIds)
 
+  xsrfToken <- getXsrfToken
+
   let allPRsMap = HashMap.fromList $ map ([get| .number |] &&& id) allPRs
       lookupPR = (`HashMap.lookup` allPRsMap)
 
@@ -131,12 +136,17 @@ handleRepositoryPage repoOwner repoName = do
       then H.p "No PRs are running"
       else forM_ mergeRuns $ \(branch, prIds) -> do
         H.h3 $ H.toHtml branch
-        -- TODO: always show button to reset (delete) staging branch
+
+        -- button to delete staging branch
+        let resetStagingPath = buildPath ["repo", repoOwner, repoName, "reset-merge-run", branch]
+        H.form ! A.method "post" ! A.action (H.toValue resetStagingPath) $ do
+          xsrfTokenInput xsrfToken
+          H.button "Reset merge run"
 
         case traverse lookupPR prIds of
           Nothing -> do
             let prs = intercalate ", " $ map (\prId -> "#" ++ show prId) prIds
-            mkErrorTable $ Text.pack $ "Found closed PRs (" ++ prs ++ "). Reset this staging branch."
+            mkErrorTable $ Text.pack $ "Found closed PRs (" ++ prs ++ "). Reset this merge run."
           Just prs -> mkTablePRs prs
 
     H.h2 "Queued pull requests"
@@ -155,9 +165,28 @@ handleRepositoryPage repoOwner repoName = do
     H.h2 "All open pull requests"
     mkTablePRs allPRs
 
+{- Reset staging branch -}
+
+type DeleteStagingBranch = Verb 'POST 303 '[HTML] RedirectResponse
+
+handleDeleteStagingBranch :: Text -> Text -> Text -> DebugApp RedirectResponse
+handleDeleteStagingBranch repoOwner repoName baseBranch = do
+  queryGitHub_ GHEndpoint
+    { method = DELETE
+    , endpoint = "/repos/:owner/:repo/git/refs/:ref"
+    , endpointVals =
+        [ "owner" := repoOwner
+        , "repo" := repoName
+        , "ref" := "heads/" <> Core.toStagingBranch baseBranch
+        ]
+    , ghData = []
+    }
+  return $ addHeader (Text.unpack $ buildPath ["repo", repoOwner, repoName]) NoContent
+
 {- Helpers -}
 
 type HtmlPage = Get '[HTML] Html
+type RedirectResponse = Headers '[Header "Location" String] NoContent
 
 -- | Renders the given body within the general template.
 render :: Html -> DebugApp Html
@@ -194,3 +223,10 @@ mkTablePRs prs = mkTable ["#", "title"] prs $ \pr -> do
 
 buildPath :: [Text] -> Text
 buildPath = Text.concat . map ("/" <>)
+
+xsrfTokenInput :: Text -> Html
+xsrfTokenInput xsrfToken =
+  H.input
+    ! A.type_ "hidden"
+    ! A.name (H.toValue xsrfTokenInputName)
+    ! A.value (H.toValue xsrfToken)
