@@ -44,10 +44,10 @@ import Network.HTTP.Client
 import Network.HTTP.Client.TLS (tlsManagerSettings)
 import Network.HTTP.Types (hAccept, hContentType, renderSimpleQuery)
 import Servant
-import Servant.Auth.Server
+import Servant.Auth.Server (SetCookie, acceptLogin, makeXsrfCookie)
 import Servant.HTML.Blaze (HTML)
 
-import MergeBot.Auth (AuthParams(..), UserToken(..))
+import MergeBot.Auth (AuthParams(..), UserToken(..), authCookieSettings)
 import MergeBot.Monad (BaseApp, ServerBase, getAuthParams)
 
 type AuthRoutes =
@@ -69,7 +69,11 @@ handleLoginRoute = do
         ]
   return $ addHeader (Char8.unpack redirectUrl) NoContent
 
-type SetCookieHeaders = '[Header "Set-Cookie" SetCookie, Header "Set-Cookie" SetCookie]
+type SetCookieHeaders =
+  '[ Header "Set-Cookie" SetCookie -- JWT token from servant-auth
+   , Header "Set-Cookie" SetCookie -- nonexistent XSRF token from servant-auth
+   , Header "Set-Cookie" SetCookie -- XSRF token we're manually generating
+   ]
 type CallbackRoute =
   QueryParam' '[Required, Strict] "code" String :>
   Redirect '[HTML] (RedirectResult SetCookieHeaders)
@@ -84,7 +88,9 @@ handleCallbackRoute ghCode = do
 
   liftIO $ acceptLogin cookieSettings jwtSettings token >>= \case
     Nothing -> fail "Could not make JWT"
-    Just addCookieHeaders -> return $ addHeader redirectUrl $ addCookieHeaders NoContent
+    Just addCookieHeaders -> do
+      xsrfCookie <- makeXsrfCookie authCookieSettings
+      return $ addHeader redirectUrl $ addHeader xsrfCookie $ addCookieHeaders NoContent
 
 {- GitHub access token -}
 

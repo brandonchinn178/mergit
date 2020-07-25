@@ -24,12 +24,19 @@ import Control.Arrow ((&&&))
 import Control.Monad (forM, forM_)
 import Data.Aeson.Schema (Object, get, schema)
 import qualified Data.HashMap.Strict as HashMap
+import Data.List (intercalate)
 import Data.Maybe (catMaybes, fromMaybe)
 import Data.Text (Text)
 import qualified Data.Text as Text
 import GitHub.Data.URL (URL(..))
 import GitHub.REST
-    (GHEndpoint(..), KeyValue(..), StdMethod(..), queryGitHub, queryGitHubAll)
+    ( GHEndpoint(..)
+    , KeyValue(..)
+    , StdMethod(..)
+    , queryGitHub
+    , queryGitHubAll
+    , queryGitHub_
+    )
 import GitHub.Schema.PullRequest (PullRequest)
 import GitHub.Schema.Ref (Ref)
 import GitHub.Schema.Repository (Repository)
@@ -39,20 +46,23 @@ import Text.Blaze.Html5 (Html, (!))
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
+import MergeBot.Auth (xsrfTokenInputName)
 import qualified MergeBot.Core.GitHub as Core
 import qualified MergeBot.Core.Text as Core
 import MergeBot.Monad (getInstallations)
 import MergeBot.Routes.Debug.Monad
-    (DebugApp, ServerDebug, getUser, liftBaseApp, runBotAppDebug)
+    (DebugApp, ServerDebug, getUser, getXsrfToken, liftBaseApp, runBotAppDebug)
 
 type DebugRoutes =
        IndexPage
   :<|> "repo" :> Capture "repoOwner" Text :> Capture "repoName" Text :> RepositoryPage
+  :<|> "repo" :> Capture "repoOwner" Text :> Capture "repoName" Text :> "reset-merge-run" :> Capture "baseBranch" Text :> DeleteStagingBranch
 
 handleDebugRoutes :: ServerDebug DebugRoutes
 handleDebugRoutes =
        handleIndexPage
   :<|> handleRepositoryPage
+  :<|> handleDeleteStagingBranch
 
 {- Index page -}
 
@@ -74,7 +84,7 @@ handleIndexPage = do
     H.h2 "Available repositories"
     forM_ repositories $ \repo ->
       let (owner, name) = [get| repo.(owner.login, name) |]
-          link = H.toValue $ "repo/" <> toFullName owner name
+          link = H.toValue $ buildPath ["repo", owner, name]
       in H.li $ H.a ! A.href link $ H.toHtml [get| repo.full_name |]
 
 {- Repository page -}
@@ -99,11 +109,13 @@ handleRepositoryPage repoOwner repoName = do
     , ghData = []
     }
 
-  queues <- runBotAppDebug repoOwner repoName Core.getQueues
+  queues <- runBotAppDebug repoOwner repoName $ do
+    let getPRIds = map $ \(prId, _, _) -> prId
+    map (fmap getPRIds) . HashMap.toList <$> Core.getQueues
 
-  -- runningPRIds :: [(Text, [Int])]
+  -- mergeRuns :: [(Text, [Int])]
   -- mapping of base branch to list of PR ids running a merge against the base branch
-  runningPRIds <- runBotAppDebug repoOwner repoName $
+  mergeRuns <- runBotAppDebug repoOwner repoName $
     fmap catMaybes $ forM allRefs $ \ref -> do
       case Text.stripPrefix "refs/heads/" [get| ref.ref |] >>= Core.fromStagingBranch of
         Nothing -> return Nothing
@@ -112,33 +124,75 @@ handleRepositoryPage repoOwner repoName = do
           prIds <- mapM (fmap fst . Core.getPRForCommit . fst) parents
           return $ Just (baseBranch, prIds)
 
+  xsrfToken <- getXsrfToken
+
   let allPRsMap = HashMap.fromList $ map ([get| .number |] &&& id) allPRs
-      idToPR prId =
-        fromMaybe (error $ "Could not find open PR #" ++ show prId) $
-        HashMap.lookup prId allPRsMap
-      queuedPRs = map (\(prId, _, _) -> idToPR prId) <$> queues
-      runningPRs = map (map idToPR <$>) runningPRIds
+      lookupPR = (`HashMap.lookup` allPRsMap)
 
   render $ do
     H.p $ do
       "Viewing: "
-      H.strong $ H.toHtml $ toFullName repoOwner repoName
+      H.strong $ H.toHtml $ repoOwner <> "/" <> repoName
       " ("
       H.a ! A.href "/" $ "Back"
       ")"
 
     H.h2 "Running pull requests"
-    mkTables "No PRs are running" runningPRs
+    if null mergeRuns
+      then H.p "No PRs are running"
+      else forM_ mergeRuns $ \(branch, prIds) -> do
+        H.h3 $ H.toHtml branch
+
+        -- button to delete staging branch
+        let resetStagingPath = buildPath ["repo", repoOwner, repoName, "reset-merge-run", branch]
+        H.form ! A.method "post" ! A.action (H.toValue resetStagingPath) $ do
+          xsrfTokenInput xsrfToken
+          H.button "Reset merge run"
+
+        case traverse lookupPR prIds of
+          Nothing -> do
+            let prs = intercalate ", " $ map (\prId -> "#" ++ show prId) prIds
+            mkErrorTable $ Text.pack $ "Found closed PRs (" ++ prs ++ "). Reset this merge run."
+          Just prs -> mkTablePRs prs
 
     H.h2 "Queued pull requests"
-    mkTables "No PRs are queued" $ HashMap.toList queuedPRs
+    if null queues
+      then H.p "No PRs are queued"
+      else forM_ queues $ \(branch, prIds) -> do
+        H.h3 $ H.toHtml branch
+
+        -- should not error, because a queued PR, by definition, is open
+        let idToPR prId = fromMaybe
+              (error $ "Could not find open PR #" ++ show prId)
+              (lookupPR prId)
+
+        mkTablePRs $ map idToPR prIds
 
     H.h2 "All open pull requests"
     mkTablePRs allPRs
 
+{- Reset staging branch -}
+
+type DeleteStagingBranch = Verb 'POST 303 '[HTML] RedirectResponse
+
+handleDeleteStagingBranch :: Text -> Text -> Text -> DebugApp RedirectResponse
+handleDeleteStagingBranch repoOwner repoName baseBranch = do
+  queryGitHub_ GHEndpoint
+    { method = DELETE
+    , endpoint = "/repos/:owner/:repo/git/refs/:ref"
+    , endpointVals =
+        [ "owner" := repoOwner
+        , "repo" := repoName
+        , "ref" := "heads/" <> Core.toStagingBranch baseBranch
+        ]
+    , ghData = []
+    }
+  return $ addHeader (Text.unpack $ buildPath ["repo", repoOwner, repoName]) NoContent
+
 {- Helpers -}
 
 type HtmlPage = Get '[HTML] Html
+type RedirectResponse = Headers '[Header "Location" String] NoContent
 
 -- | Renders the given body within the general template.
 render :: Html -> DebugApp Html
@@ -162,6 +216,10 @@ mkTable headers tableData toCells =
     H.tr $ mapM_ (H.th . H.toHtml) headers
     mapM_ (H.tr . toCells) tableData
 
+-- | Render an error in a table.
+mkErrorTable :: Text -> Html
+mkErrorTable errorMessage = mkTable ["Error", errorMessage] [] id
+
 -- | Render a table of PRs.
 mkTablePRs :: [Object PullRequest] -> Html
 mkTablePRs prs = mkTable ["#", "title"] prs $ \pr -> do
@@ -169,13 +227,12 @@ mkTablePRs prs = mkTable ["#", "title"] prs $ \pr -> do
   let link = H.toValue $ unURL [get| pr.html_url |]
   H.td $ H.a ! A.href link $ H.toHtml [get| pr.title |]
 
--- | Render tables of PRs, separated by a label.
-mkTables :: Text -> [(Text, [Object PullRequest])] -> Html
-mkTables emptyLabel [] = H.p $ H.toHtml emptyLabel
-mkTables _ labelToPRs =
-  forM_ labelToPRs $ \(label, prs) -> do
-    H.h3 $ H.toHtml label
-    mkTablePRs prs
+buildPath :: [Text] -> Text
+buildPath = Text.concat . map ("/" <>)
 
-toFullName :: Text -> Text -> Text
-toFullName owner name = owner <> "/" <> name
+xsrfTokenInput :: Text -> Html
+xsrfTokenInput xsrfToken =
+  H.input
+    ! A.type_ "hidden"
+    ! A.name (H.toValue xsrfTokenInputName)
+    ! A.value (H.toValue xsrfToken)
