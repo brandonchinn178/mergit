@@ -14,11 +14,13 @@ TODO: add in stuff from top-level README
     1. **Make sure to set a webhook secret!**
     1. Save the webhook secret you created and the App ID and Private key that
        GitHub generated for you.
+    1. Generate a private key and download it
 
 1. Set the following environment variables:
     1. `GITHUB_APP_ID` to the App ID
     1. `GITHUB_WEBHOOK_SECRET` to the webhook secret you created
     1. `GITHUB_PRIVATE_KEY` to the absolute path of the private key
+    1. `GITHUB_USER_AGENT` to your GitHub username
 
 1. Run example app
     1. `stack build servant-github-app`
