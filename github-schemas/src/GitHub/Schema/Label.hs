@@ -22,7 +22,7 @@ type Label = [schema|
     node_id: Text,
     url: URL,
     name: Text,
-    description: Text,
+    description: Maybe Text,
     color: Text,
     default: Bool,
   }
