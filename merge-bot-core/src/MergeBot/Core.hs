@@ -218,7 +218,8 @@ refreshCheckRuns isStart ciBranchName sha = do
   --
   -- try branch should not be deleted until the PR is closed, so that any still-running CI jobs
   -- can still use the try branch
-  when (not isTry && isComplete) $ (`finally` deleteBranch ciBranchName) $ do
+  let isCompletedMergeRun = not isTry && isComplete
+  when isCompletedMergeRun $ (`finally` deleteBranch ciBranchName) $
     -- if successful merge run, merge into base
     when isSuccess $ do
       -- get pr information for parent commits
