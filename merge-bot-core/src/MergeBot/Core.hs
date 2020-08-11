@@ -230,7 +230,7 @@ refreshCheckRuns isStart ciBranchName sha = do
       base <- maybe invalidStagingBranch return $ fromStagingBranch ciBranchName
       updateBranch False base sha >>= \case
         Right _ -> return ()
-        Left message -> throwIO $ BadUpdate prNums base message
+        Left message -> throwIO $ BadUpdate sha prNums base message
 
       -- close PRs and delete branches
       forM_ prs $ \(prNum, branch) -> do

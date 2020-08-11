@@ -27,7 +27,7 @@ import MergeBot.Core.Config (configFileName)
 type PullRequestId = Int
 
 data BotError
-  = BadUpdate [PullRequestId] Text Text
+  = BadUpdate GitObjectID [PullRequestId] Text Text
   | CIBranchPushed (Object PushEvent)
   | CICommitMissingParents Bool Text GitObjectID
   | CommitForManyPRs GitObjectID [PullRequestId]
@@ -47,12 +47,12 @@ instance Exception BotError
 
 instance Show BotError where
   show = \case
-    BadUpdate prs base message -> concat
+    BadUpdate sha prs base message -> concat
       [ "Could not merge PRs "
       , fromPRs prs
       , " into `"
       , Text.unpack base
-      , "`: "
+      , "` (" ++ unOID' sha ++ "): "
       , Text.unpack message
       ]
     CIBranchPushed o -> "User tried to manually create CI branch: " <> show o
@@ -82,7 +82,7 @@ instance Show BotError where
 -- | Get the PRs relevant to the given BotError.
 getRelevantPRs :: BotError -> [PullRequestId]
 getRelevantPRs = \case
-  BadUpdate prs _ _ -> prs
+  BadUpdate _ prs _ _ -> prs
   CIBranchPushed{} -> []
   CICommitMissingParents{} -> []
   CommitForManyPRs _ prs -> prs
