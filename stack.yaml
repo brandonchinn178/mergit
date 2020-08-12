@@ -1,4 +1,4 @@
-resolver: lts-13.5
+resolver: lts-16.9
 
 packages:
   - github-schemas
@@ -9,8 +9,6 @@ packages:
   - servant-github-app
 
 extra-deps:
-  - aeson-schemas-1.0.2
+  - aeson-schemas-1.2.0
   - github: LeapYear/github-rest
-    commit: 6ac0c04659e4431dae33ffdda32a3fb9db17f779
-  - jwt-0.9.0
-  - th-test-utils-1.0.0
+    commit: 0f90f10eeede4697f0faba569734f87fdc07c61a
