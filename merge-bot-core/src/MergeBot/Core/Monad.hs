@@ -6,6 +6,7 @@ Portability :  portable
 
 This module defines the monad used by the MergeBot.
 -}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
