@@ -31,6 +31,7 @@ import Data.Aeson
     , (.=)
     )
 import qualified Data.ByteString.Char8 as Char8
+import Data.Kind (Type)
 import qualified Data.Text as Text
 import Network.HTTP.Client
     ( Request(..)
@@ -134,5 +135,5 @@ getAccessToken reqBody = do
 
 {- Redirection -}
 
-type RedirectResult (hdrs :: [*]) = Headers (Header "Location" String ': hdrs) NoContent
+type RedirectResult (hdrs :: [Type]) = Headers (Header "Location" String ': hdrs) NoContent
 type Redirect = Verb 'GET 302
