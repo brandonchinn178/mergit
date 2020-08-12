@@ -6,6 +6,7 @@ Portability :  portable
 
 This module defines the monad used by the MergeBot.
 -}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -17,7 +18,6 @@ This module defines the monad used by the MergeBot.
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeSynonymInstances #-}
 
 module MergeBot.Core.Monad
   ( BotAppT
@@ -156,11 +156,11 @@ runBotAppT BotSettings{..} =
       let msg = displayException e
       mapM_ (`commentOnPR` msg) $ getRelevantPRs e
       logErrorN $ Text.pack msg
-      fail $ "[MergeBot Error] " ++ msg
+      error $ "[MergeBot Error] " ++ msg
     handleSomeException (e :: SomeException) = do
       let msg = displayException e
       logErrorN $ Text.pack msg
-      fail $ "[Other Error] " ++ msg
+      error $ "[Other Error] " ++ msg
 
 {- MonadMergeBot class -}
 

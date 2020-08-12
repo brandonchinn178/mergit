@@ -29,7 +29,7 @@ import Control.Monad.Reader (ReaderT, asks, lift, runReaderT)
 import Data.Text (Text)
 import GitHub.REST (GitHubState(..), GitHubT, MonadGitHubREST(..), runGitHubT)
 import GitHub.REST.Auth (Token)
-import Servant (ServantErr, ServerT)
+import Servant (ServerError, ServerT)
 import Servant.GitHub (GitHubAppParams(..))
 import UnliftIO (MonadUnliftIO(..), UnliftIO(..), withUnliftIO)
 import UnliftIO.Exception (catch, throwIO)
@@ -57,7 +57,7 @@ newtype DebugApp a = DebugApp
 instance MonadGitHubREST DebugApp where
   queryGitHubPage' = DebugApp . lift . queryGitHubPage'
 
-instance MonadError ServantErr DebugApp where
+instance MonadError ServerError DebugApp where
   throwError = throwIO
   catchError = catch
 

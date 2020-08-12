@@ -9,19 +9,12 @@
 
 import Control.Monad (forM_)
 import Control.Monad.IO.Class (liftIO)
-import Data.Aeson.Schema (Object, get)
+import Data.Aeson.Schema (get)
 import qualified Data.Text as Text
 import GitHub.Data.URL (URL(..))
 import GitHub.REST
-    ( GHEndpoint(..)
-    , GitHubState(..)
-    , KeyValue(..)
-    , Token
-    , queryGitHub
-    , runGitHubT
-    )
+    (GHEndpoint(..), GitHubState(..), KeyValue(..), queryGitHub, runGitHubT)
 import GitHub.Schema.Repository (RepoWebhook)
-import Network.HTTP.Types (StdMethod(..))
 import Network.Wai.Handler.Warp (run)
 import Servant
 import Servant.GitHub

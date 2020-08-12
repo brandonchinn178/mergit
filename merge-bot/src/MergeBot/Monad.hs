@@ -47,7 +47,7 @@ import GitHub.REST
 import GitHub.REST.Auth (getJWTToken)
 import GitHub.Schema.Repository (Repository)
 import Network.HTTP.Types (StdMethod(..))
-import Servant (Handler, ServantErr(..), ServerT, err500)
+import Servant (Handler, ServerError(..), ServerT, err500)
 import Servant.GitHub (GitHubAppParams(..))
 import Servant.GitHub.Security (getToken)
 import UnliftIO (MonadUnliftIO(..), UnliftIO(..), withUnliftIO)
@@ -70,7 +70,7 @@ instance MonadUnliftIO BaseApp where
     withUnliftIO $ \u ->
       return $ UnliftIO (unliftIO u . unBaseApp)
 
-instance MonadError ServantErr BaseApp where
+instance MonadError ServerError BaseApp where
   throwError = throwIO
   catchError = catch
 

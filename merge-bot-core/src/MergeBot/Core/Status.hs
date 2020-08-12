@@ -12,6 +12,7 @@ This module defines functions for resolving CI statuses.
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TypeApplications #-}
 
 module MergeBot.Core.Status
   ( getCIStatus

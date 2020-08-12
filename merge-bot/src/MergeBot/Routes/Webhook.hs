@@ -9,6 +9,7 @@ This module defines webhook routes for the MergeBot.
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 
@@ -20,7 +21,7 @@ module MergeBot.Routes.Webhook
 import Control.Monad (unless, when)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Logger (logDebugN, logInfoN)
-import Data.Aeson.Schema (IsSchemaObject, Object, get)
+import Data.Aeson.Schema (IsSchemaObject, get)
 import Data.Text (Text)
 import qualified Data.Text as Text
 import GitHub.Data.GitObjectID (unOID)

@@ -24,7 +24,7 @@ module MergeBot.Routes
 import Data.Aeson.Schema (Object, get)
 import GitHub.REST (GHEndpoint(..), githubTry', queryGitHub)
 import GitHub.Schema.User (User)
-import Network.HTTP.Types (StdMethod(..), status401)
+import Network.HTTP.Types (status401)
 import Servant
 import Servant.Auth.Server (Auth, AuthResult(..), Cookie)
 

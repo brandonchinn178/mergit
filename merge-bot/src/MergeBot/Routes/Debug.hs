@@ -30,13 +30,7 @@ import Data.Text (Text)
 import qualified Data.Text as Text
 import GitHub.Data.URL (URL(..))
 import GitHub.REST
-    ( GHEndpoint(..)
-    , KeyValue(..)
-    , StdMethod(..)
-    , queryGitHub
-    , queryGitHubAll
-    , queryGitHub_
-    )
+    (GHEndpoint(..), KeyValue(..), queryGitHub, queryGitHubAll, queryGitHub_)
 import GitHub.Schema.PullRequest (PullRequest)
 import GitHub.Schema.Ref (Ref)
 import GitHub.Schema.Repository (Repository)
