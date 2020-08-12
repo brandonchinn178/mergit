@@ -52,7 +52,7 @@ import Network.Wai (lazyRequestBody, requestHeaders, requestMethod)
 import Servant
 import Servant.Auth.Server
 import qualified Servant.Auth.Server.Internal.AddSetCookie as Servant.Auth
-import Servant.Server (ServantErr)
+import Servant.Server (ServerError)
 import qualified Servant.Server.Internal as Servant
 import System.Environment (getEnv, lookupEnv)
 import Web.Cookie (parseCookies, setCookieValue)
@@ -110,7 +110,7 @@ fromUserToken (UserToken token) = AccessToken $ Text.encodeUtf8 token
 {- Redirection -}
 
 -- TODO: pass in referer url to redirect post-login
-redirectToLogin :: MonadError ServantErr m => AuthParams -> m a
+redirectToLogin :: MonadError ServerError m => AuthParams -> m a
 redirectToLogin authParams = throwError $ err302 { errHeaders = [(hLocation, redirectUrl)] }
   where
     redirectUrl = Char8.pack $ ghBaseUrl authParams <> "/auth/login"
