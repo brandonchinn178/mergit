@@ -5,29 +5,26 @@
 
 packages:
 - completed:
-    hackage: aeson-schemas-1.0.2@sha256:26f194a3da01811e63af76549b2ff826dc3aff11d3f2e04a5bdbdf067ed3feb6,5758
+    hackage: aeson-schemas-1.2.0@sha256:b10b28f8e10c1155a3e45532c4a827b2a2c30c05d25d9504d4738b4792d8bb70,6595
     pantry-tree:
-      size: 6332
-      sha256: ca237814be039327db202bba8624eb98cef98736d9dbceb9319ceee994f6e51c
+      size: 7982
+      sha256: c5783c15b5f64e5f6e7459f69385db175539750f3431158072e0b625148948c5
   original:
-    hackage: aeson-schemas-1.0.2
+    hackage: aeson-schemas-1.2.0
 - completed:
-    hackage: jwt-0.9.0@sha256:82df51e48d2c7a6773bac7cd0f99f221107e7124db5d118f828dc08af025edee,4179
+    size: 17069
+    url: https://github.com/LeapYear/github-rest/archive/0f90f10eeede4697f0faba569734f87fdc07c61a.tar.gz
+    name: github-rest
+    version: 1.0.3
+    sha256: 4adc597aad4fe71b1ce11f136d834c1d0dbcfdeeec870b1ccd8560ad44522a6e
     pantry-tree:
-      size: 1027
-      sha256: b5d2fea8ec4a71942be093a6e6fc59ac55e70afae9146ab4720ce38eb4176744
+      size: 2030
+      sha256: 6c59a31abae53d6df9e580926425250bb596f76e297a254f71e2623f7e99a210
   original:
-    hackage: jwt-0.9.0
-- completed:
-    hackage: th-test-utils-1.0.0@sha256:f636044afb84810b4ec134ac4dc98a4b1826a51002580f1ecad8b3a325804ed4,2086
-    pantry-tree:
-      size: 392
-      sha256: 1ca4692c8f08a6ea56e8a4796fc65316f94a48139bfb1c90c2165b4060a0ff58
-  original:
-    hackage: th-test-utils-1.0.0
+    url: https://github.com/LeapYear/github-rest/archive/0f90f10eeede4697f0faba569734f87fdc07c61a.tar.gz
 snapshots:
 - completed:
-    size: 495191
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/13/5.yaml
-    sha256: 9aa96e7a2183db5bd50fc78c463b9738b73b036818cfb4106b82c62e652b7fcf
-  original: lts-13.5
+    size: 532380
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/16/9.yaml
+    sha256: 14a7cec114424e4286adde73364438927a553ed248cc50f069a30a67e3ee1e69
+  original: lts-16.9
