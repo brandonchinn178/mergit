@@ -18,8 +18,8 @@ This module defines the entrypoint for the MergeBot GitHub application.
 module MergeBot (runMergeBot) where
 
 import Control.Concurrent (threadDelay)
-import Control.Exception (displayException)
-import Control.Monad (forever, (>=>))
+import Control.Exception (SomeException, displayException)
+import Control.Monad (forever, void)
 import Control.Monad.IO.Class (liftIO)
 import Data.Proxy (Proxy(..))
 import Network.Wai.Handler.Warp (run)
@@ -33,7 +33,7 @@ import Servant
     , serveWithContext
     )
 import Servant.GitHub (loadGitHubAppParams)
-import UnliftIO (MonadUnliftIO, mapConcurrently_, waitCatch, withAsync)
+import UnliftIO (MonadUnliftIO, handle, mapConcurrently_)
 
 import MergeBot.Auth (AuthParams(..), loadAuthParams)
 import qualified MergeBot.Core as Core
@@ -55,15 +55,11 @@ runMergeBot = concurrentlyAllIO
 
 pollQueues :: BaseApp ()
 pollQueues = forever $ do
-  runAsync $ runBotAppForAllInstalls Core.pollQueues
-
-  -- wait 10 minutes
-  liftIO $ threadDelay $ 10 * 60e6
+  handle logException $ void $ runBotAppForAllInstalls Core.pollQueues
+  liftIO $ threadDelay $ pollDelayMinutes * 60e6
   where
-    -- | Run the given action asynchronously, printing any exceptions thrown
-    runAsync action = withAsync action $ waitCatch >=> \case
-      Right _ -> return ()
-      Left e -> liftIO $ putStrLn $ displayException e
+    logException = liftIO . putStrLn . displayException @SomeException
+    pollDelayMinutes = 10
 
 runServer :: BaseApp ()
 runServer = do
