@@ -34,7 +34,6 @@ import Data.Aeson (eitherDecode)
 import Data.Aeson.Schema (IsSchemaObject, Object, SchemaType, get)
 import qualified Data.ByteString.Lazy as ByteStringL
 import qualified Data.ByteString.Lazy.Char8 as Char8
-import Data.Proxy (Proxy(..))
 import GitHub.REST (Token)
 import GitHub.Schema.BaseEvent (BaseEvent)
 import Network.Wai (Request)

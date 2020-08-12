@@ -13,7 +13,6 @@ Defines the PRIsMerged graphql query.
 
 module MergeBot.Core.GraphQL.PRIsMerged where
 
-import Data.Aeson.Schema (schema)
 import Data.GraphQL hiding (Query)
 import qualified Data.GraphQL as GraphQL
 import Data.GraphQL.Aeson (object, (.=))

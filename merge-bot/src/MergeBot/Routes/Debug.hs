@@ -32,7 +32,6 @@ import GitHub.Data.URL (URL(..))
 import GitHub.REST
     ( GHEndpoint(..)
     , KeyValue(..)
-    , StdMethod(..)
     , queryGitHub
     , queryGitHubAll
     , queryGitHub_

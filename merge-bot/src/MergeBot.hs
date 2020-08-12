@@ -17,7 +17,6 @@ module MergeBot (runMergeBot) where
 import Control.Concurrent (threadDelay)
 import Control.Exception (displayException)
 import Control.Monad (forever, (>=>))
-import Data.Proxy (Proxy(..))
 import Network.Wai.Handler.Warp (run)
 import Servant
 import Servant.Auth.Server (CookieSettings, JWTSettings)

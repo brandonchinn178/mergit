@@ -39,7 +39,6 @@ import Crypto.JWT (fromRSA)
 import Data.Aeson (FromJSON, ToJSON)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as Char8
-import Data.Default (def)
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import qualified Data.Text as Text
@@ -52,7 +51,6 @@ import Network.Wai (lazyRequestBody, requestHeaders, requestMethod)
 import Servant
 import Servant.Auth.Server
 import qualified Servant.Auth.Server.Internal.AddSetCookie as Servant.Auth
-import Servant.Server (ServerError)
 import qualified Servant.Server.Internal as Servant
 import System.Environment (getEnv, lookupEnv)
 import Web.Cookie (parseCookies, setCookieValue)

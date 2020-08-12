@@ -13,7 +13,6 @@ Defines the PRForCommit graphql query.
 
 module MergeBot.Core.GraphQL.PRForCommit where
 
-import Data.Aeson.Schema (schema)
 import Data.GraphQL hiding (Query)
 import qualified Data.GraphQL as GraphQL
 import Data.GraphQL.Aeson (object, (.=))

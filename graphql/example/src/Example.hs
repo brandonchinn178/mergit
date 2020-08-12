@@ -16,7 +16,6 @@ import Control.Monad.IO.Class (MonadIO)
 import Data.Bool (bool)
 import Data.GraphQL
 import Data.Maybe (fromMaybe)
-import Data.Monoid ((<>))
 import qualified Data.Text as Text
 
 import Example.GraphQL.API (API)
