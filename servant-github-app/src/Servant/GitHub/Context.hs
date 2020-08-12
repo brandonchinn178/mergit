@@ -42,4 +42,4 @@ loadGitHubAppParams = do
 {- Helpers -}
 
 parseInt :: Monad m => String -> m Int
-parseInt x = maybe (fail $ "Invalid int: " ++ x) return $ readMaybe x
+parseInt x = maybe (error $ "Invalid int: " ++ x) return $ readMaybe x

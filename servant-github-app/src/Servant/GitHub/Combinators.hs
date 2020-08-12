@@ -33,6 +33,7 @@ import Control.Monad.IO.Class (liftIO)
 import Data.Aeson (eitherDecode)
 import Data.Aeson.Schema (IsSchemaObject, Object, SchemaType, get)
 import qualified Data.ByteString.Lazy as ByteStringL
+import qualified Data.ByteString.Lazy.Char8 as Char8
 import Data.Proxy (Proxy(..))
 import GitHub.REST (Token)
 import GitHub.Schema.BaseEvent (BaseEvent)
@@ -204,4 +205,6 @@ addPostBodyCheck_ bodyCheck Servant.Delayed{..} =
 
 decodeRequestBody :: forall (schema :: SchemaType). IsSchemaObject schema
   => ByteStringL.ByteString -> Servant.DelayedIO (Object schema)
-decodeRequestBody = either fail return . eitherDecode @(Object schema)
+decodeRequestBody s = either (Servant.delayedFail . mkErr) return $ eitherDecode @(Object schema) s
+  where
+    mkErr e = err400 { errBody = "Could not decode: " <> Char8.pack e <> "\n" <> s }

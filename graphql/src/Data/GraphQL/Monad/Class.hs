@@ -71,9 +71,9 @@ runQuerySafeMocked
   => Query api args schema -> args -> MockedEndpoints api -> m (GraphQLResult (Object schema))
 runQuerySafeMocked query args endpoints =
   case lookupMock query (fromArgs args) endpoints of
-    Nothing -> fail $ "Endpoint missing mocked data: " ++ queryName query
+    Nothing -> error $ "Endpoint missing mocked data: " ++ queryName query
     Just mockData ->
-      either fail return $ Aeson.parseEither Aeson.parseJSON $ Aeson.object
+      either error return $ Aeson.parseEither Aeson.parseJSON $ Aeson.object
         [ "errors" .= ([] :: [GraphQLError])
         , "data" .= Just mockData
         ]
