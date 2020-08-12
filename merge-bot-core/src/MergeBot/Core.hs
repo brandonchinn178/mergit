@@ -12,6 +12,7 @@ This module defines core MergeBot functionality.
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
 module MergeBot.Core
