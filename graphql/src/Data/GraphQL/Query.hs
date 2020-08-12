@@ -36,7 +36,6 @@ import Path
     , parent
     , parseAbsFile
     , parseRelFile
-    , setFileExtension
     , (</>)
     )
 import Path.IO (getCurrentDir)
@@ -75,7 +74,7 @@ readGraphQLFile fp = do
       return $ cwd </> loc'
   file <- parseRelFile fp
   query <- readFile' $ fromAbsFile $ parent here </> file
-  name <- fmap ((++ ".query") . fromRelFile) . setFileExtension "" . filename $ file
+  let name = fromRelFile $ filename file
   [| UnsafeQuery name $ Text.pack $(lift query) |]
   where
     readFile' file = do
