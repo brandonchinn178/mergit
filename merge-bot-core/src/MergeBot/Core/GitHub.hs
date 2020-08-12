@@ -7,7 +7,6 @@ Portability :  portable
 This module defines functions for manipulating GitHub state.
 -}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DisambiguateRecordFields #-}
 {-# LANGUAGE ExtendedDefaultRules #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE NamedFieldPuns #-}

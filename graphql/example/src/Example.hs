@@ -1,4 +1,3 @@
-{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DisambiguateRecordFields #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -15,7 +14,6 @@ module Example where
 import Control.Monad.IO.Class (MonadIO)
 import Data.Bool (bool)
 import Data.GraphQL
-import Data.Maybe (fromMaybe)
 import qualified Data.Text as Text
 
 import Example.GraphQL.API (API)
@@ -45,7 +43,7 @@ searchForSong song = getSongs <$> runQuery Recordings.query Recordings.Args
 showRecording :: Song -> String
 showRecording song = Text.unpack $ Text.unlines $ map Text.unwords
   [ ["=====", title, parens $ Text.intercalate ", " artists, "====="]
-  , ["Has video recording?", yesno $ fromMaybe False [get| song.video |]]
+  , ["Has video recording?", yesno $ Just True == [get| song.video |]]
   , ["Length of song:", maybe "--" (Text.pack . showDuration) [get| song.length |]]
   , ["Rating:", maybe "--" fromRating mRating]
   , ["Releases:"]

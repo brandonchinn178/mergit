@@ -13,12 +13,7 @@ import Data.Aeson.Schema (get)
 import qualified Data.Text as Text
 import GitHub.Data.URL (URL(..))
 import GitHub.REST
-    ( GHEndpoint(..)
-    , GitHubState(..)
-    , KeyValue(..)
-    , queryGitHub
-    , runGitHubT
-    )
+    (GHEndpoint(..), GitHubState(..), KeyValue(..), queryGitHub, runGitHubT)
 import GitHub.Schema.Repository (RepoWebhook)
 import Network.Wai.Handler.Warp (run)
 import Servant

@@ -18,7 +18,7 @@ module Data.GraphQL.TestUtils
   ) where
 
 import Data.Aeson (Object, Value)
-import Data.Maybe (listToMaybe)
+import Data.List (find)
 
 import Data.GraphQL.Query (Query, fromQuery)
 
@@ -38,7 +38,7 @@ class MocksApi api mock where
 
 -- | Lookup the given query in the given endpoints and apply the arguments to get the mocked result.
 lookupMock :: Query api args schema -> Object -> MockedEndpoints api -> Maybe Value
-lookupMock query args = fmap (($ args) . snd) . listToMaybe . filter (matches query . fst)
+lookupMock query args = fmap (($ args) . snd) . find (matches query . fst)
   where
     matches :: Query api args schema -> Query' api -> Bool
     matches q1 (Query' q2) = fromQuery q1 == fromQuery q2

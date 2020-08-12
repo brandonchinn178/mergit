@@ -18,7 +18,6 @@ This module defines the monad used by the MergeBot.
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeSynonymInstances #-}
 
 module MergeBot.Core.Monad
   ( BotAppT

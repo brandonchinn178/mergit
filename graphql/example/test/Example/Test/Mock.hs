@@ -3,7 +3,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE TypeSynonymInstances #-}
 
 module Example.Test.Mock where
 

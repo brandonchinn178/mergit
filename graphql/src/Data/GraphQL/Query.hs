@@ -6,11 +6,8 @@ Portability :  portable
 
 Definitions needed by GraphQL queries.
 -}
-{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeFamilyDependencies #-}
 {-# LANGUAGE TypeInType #-}
 
