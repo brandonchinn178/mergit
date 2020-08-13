@@ -10,6 +10,7 @@ dependencies:
 - base
 - blaze-html
 - bytestring
+- containers
 - cookie
 - data-default
 - github-rest
@@ -27,6 +28,7 @@ dependencies:
 - servant-blaze
 - servant-github-app
 - servant-server
+- stm
 - text
 - unliftio
 - unordered-containers
@@ -43,3 +45,13 @@ executable:
   main:        Main.hs
   dependencies:
     - merge-bot
+
+tests:
+  merge-bot-test:
+    source-dirs: test
+    main: Main.hs
+    dependencies:
+      - generic-random
+      - merge-bot
+      - tasty
+      - tasty-quickcheck
