@@ -42,7 +42,7 @@ import MergeBot.Routes (MergeBotRoutes, handleMergeBotRoutes)
 -- | Load environment variables and spin up all the merge bot threads.
 runMergeBot :: IO ()
 runMergeBot = concurrentlyAllIO
-  [ pollQueues
+  [ pollMergeQueues
   , runServer
   ]
   where
@@ -52,9 +52,9 @@ runMergeBot = concurrentlyAllIO
       authParams <- loadAuthParams
       runBaseApp ghAppParams authParams $ concurrentlyAll actions
 
-pollQueues :: BaseApp ()
-pollQueues = forever $ do
-  handle logException $ void $ runBotAppForAllInstalls Core.pollQueues
+pollMergeQueues :: BaseApp ()
+pollMergeQueues = forever $ do
+  handle logException $ void $ runBotAppOnAllRepos Core.pollQueues
   liftIO $ threadDelay $ pollDelayMinutes * 60e6
   where
     logException = liftIO . putStrLn . displayException @SomeException

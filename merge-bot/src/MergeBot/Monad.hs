@@ -24,13 +24,11 @@ module MergeBot.Monad
   , getAuthParams
     -- * BaseApp helpers
   , runBaseHandler
-  , getJWTToken'
-  , queryGitHub'
   , getInstallations
     -- * BotAppT helpers
   , BotApp
   , runBotApp
-  , runBotAppForAllInstalls
+  , runBotAppOnAllRepos
   ) where
 
 import Control.Monad (forM)
@@ -140,8 +138,8 @@ runBotApp repoOwner repoName action token = do
 -- | A helper that runs the given action for every repository that the merge bot is installed on.
 --
 -- Returns a list of the results, along with the repository that produced each result.
-runBotAppForAllInstalls :: BotApp a -> BaseApp [(Text, a)]
-runBotAppForAllInstalls action = do
+runBotAppOnAllRepos :: BotApp a -> BaseApp [(Text, a)]
+runBotAppOnAllRepos action = do
   GitHubAppParams{ghUserAgent, ghAppId, ghSigner} <- getGitHubAppParams
 
   -- get all installations
