@@ -9,6 +9,7 @@ This module defines core MergeBot functionality.
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE ExtendedDefaultRules #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -183,8 +184,6 @@ refreshCheckRuns isStart ciBranchName sha = do
     either (error "extractConfig failed in refreshCheckRuns") return $
       extractConfig [] commitTree
 
-  (repoOwner, repoName) <- getRepo
-
   let ciStatus = getCIStatus config commitContexts
       checkRunState = resolveCIStatus ciStatus
 
@@ -197,28 +196,30 @@ refreshCheckRuns isStart ciBranchName sha = do
         StatusState.FAILURE -> (True, False)
         _ -> (False, False)
 
-      checkRunStatus = if isComplete
+  ciBranchUrl <- mkCIBranchUrl
+  updateCheckRuns parents CheckRunUpdates
+    { isStart
+    , isTry
+    , checkRunStatus = if isComplete
         then CheckRunComplete isSuccess
         else CheckRunInProgress
-
-      repoUrl = "https://github.com/" <> repoOwner <> "/" <> repoName
-      ciBranchUrl = repoUrl <> "/commits/" <> ciBranchName
-      ciInfo = "CI running in the [" <> ciBranchName <> "](" <> ciBranchUrl <> ") branch."
-      ciStatusInfo = displayCIStatus ciStatus
-      checkRunBody
-        | not isComplete = [ciInfo, ciStatusInfo]
-        | isTry = [tryJobSummaryDone, ciStatusInfo]
-        | not isSuccess = [mergeJobSummaryFailed, ciStatusInfo]
-        | otherwise = [mergeJobSummarySuccess, ciStatusInfo]
-
-  updateCheckRuns parents CheckRunUpdates{..}
+    , checkRunBody =
+        let ciInfo = "CI running in the [" <> ciBranchName <> "](" <> ciBranchUrl <> ") branch."
+            message
+              | not isComplete = ciInfo
+              | isTry          = tryJobSummaryDone
+              | not isSuccess  = mergeJobSummaryFailed
+              | otherwise      = mergeJobSummarySuccess
+        in [message, displayCIStatus ciStatus]
+    }
 
   -- when merge run is complete (success/fail), the staging branch should always be deleted to
   -- allow for the next merge run
   --
   -- try branch should not be deleted until the PR is closed, so that any still-running CI jobs
   -- can still use the try branch
-  when (not isTry && isComplete) $ (`finally` deleteBranch ciBranchName) $ do
+  let isCompletedMergeRun = not isTry && isComplete
+  when isCompletedMergeRun $ (`finally` deleteBranch ciBranchName) $
     -- if successful merge run, merge into base
     when isSuccess $ do
       -- get pr information for parent commits
@@ -230,7 +231,7 @@ refreshCheckRuns isStart ciBranchName sha = do
       base <- maybe invalidStagingBranch return $ fromStagingBranch ciBranchName
       updateBranch False base sha >>= \case
         Right _ -> return ()
-        Left message -> throwIO $ BadUpdate prNums base message
+        Left message -> throwIO $ BadUpdate sha prNums base message
 
       -- close PRs and delete branches
       forM_ prs $ \(prNum, branch) -> do
@@ -243,6 +244,10 @@ refreshCheckRuns isStart ciBranchName sha = do
   where
     isTry = isTryBranch ciBranchName
     checkName = if isTry then checkRunTry else checkRunMerge
+
+    mkCIBranchUrl = do
+      (repoOwner, repoName) <- getRepo
+      return $ "https://github.com/" <> repoOwner <> "/" <> repoName <> "/commits/" <> ciBranchName
 
 -- | Get the configuration file for the given tree.
 extractConfig :: [Int] -> Tree -> Either BotError BotConfig
