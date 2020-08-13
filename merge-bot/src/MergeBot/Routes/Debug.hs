@@ -29,8 +29,7 @@ import Data.Maybe (catMaybes, fromMaybe)
 import Data.Text (Text)
 import qualified Data.Text as Text
 import GitHub.Data.URL (URL(..))
-import GitHub.REST
-    (GHEndpoint(..), KeyValue(..), queryGitHub, queryGitHubAll, queryGitHub_)
+import GitHub.REST (GHEndpoint(..), KeyValue(..), queryGitHub, queryGitHubAll)
 import GitHub.Schema.PullRequest (PullRequest)
 import GitHub.Schema.Ref (Ref)
 import GitHub.Schema.Repository (Repository)
@@ -171,16 +170,9 @@ type DeleteStagingBranch = Verb 'POST 303 '[HTML] RedirectResponse
 
 handleDeleteStagingBranch :: Text -> Text -> Text -> DebugApp RedirectResponse
 handleDeleteStagingBranch repoOwner repoName baseBranch = do
-  queryGitHub_ GHEndpoint
-    { method = DELETE
-    , endpoint = "/repos/:owner/:repo/git/refs/:ref"
-    , endpointVals =
-        [ "owner" := repoOwner
-        , "repo" := repoName
-        , "ref" := "heads/" <> Core.toStagingBranch baseBranch
-        ]
-    , ghData = []
-    }
+  runBotAppDebug repoOwner repoName $
+    Core.deleteBranch $ Core.toStagingBranch baseBranch
+
   return $ addHeader (Text.unpack $ buildPath ["repo", repoOwner, repoName]) NoContent
 
 {- Helpers -}
