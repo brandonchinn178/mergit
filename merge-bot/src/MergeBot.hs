@@ -21,7 +21,7 @@ import Control.Exception (SomeException, displayException)
 import Control.Monad (forever, void)
 import Control.Monad.IO.Class (liftIO)
 import Data.Proxy (Proxy(..))
-import Network.Wai.Handler.Warp (run)
+import qualified Network.Wai.Handler.Warp as Warp
 import Servant
     ( Application
     , Context(..)
@@ -32,7 +32,7 @@ import Servant
     , serveWithContext
     )
 import Servant.GitHub (loadGitHubAppParams)
-import UnliftIO (MonadUnliftIO, handle, mapConcurrently_)
+import UnliftIO (MonadUnliftIO, async, handle, waitAny)
 
 import MergeBot.Auth (AuthParams(..), loadAuthParams)
 import qualified MergeBot.Core as Core
@@ -52,6 +52,7 @@ runMergeBot = concurrentlyAllIO
       authParams <- loadAuthParams
       runBaseApp ghAppParams authParams $ concurrentlyAll actions
 
+-- TODO: instead of polling, have the completed merge run start the next merge run
 pollMergeQueues :: BaseApp ()
 pollMergeQueues = forever $ do
   handle logException $ void $ runBotAppOnAllRepos Core.pollQueues
@@ -68,13 +69,17 @@ runServer = do
   let runBaseHandler' = runBaseHandler ghAppParams authParams
       context = cookieSettings authParams :. jwtSettings authParams :. ghAppParams :. EmptyContext
 
-  liftIO $ run 3000 $ serveRoutes @MergeBotRoutes runBaseHandler' context handleMergeBotRoutes
+  liftIO $ Warp.run 3000 $ serveRoutes @MergeBotRoutes runBaseHandler' context handleMergeBotRoutes
 
 {- Helpers -}
 
 -- | Run each of the given actions in a separate thread.
+--
+-- If any action throws an exception, rethrow the exception.
 concurrentlyAll :: MonadUnliftIO m => [m ()] -> m ()
-concurrentlyAll = mapConcurrently_ id
+concurrentlyAll actions = do
+  threads <- mapM async actions
+  void $ waitAny threads
 
 serveRoutes :: forall api context m
   . (HasServer api context)
