@@ -22,6 +22,7 @@ module MergeBot.Routes.Debug
 
 import Control.Arrow ((&&&))
 import Control.Monad (forM, forM_)
+import Control.Monad.IO.Class (liftIO)
 import Data.Aeson.Schema (Object, get, schema)
 import qualified Data.HashMap.Strict as HashMap
 import Data.List (intercalate)
@@ -42,6 +43,7 @@ import qualified Text.Blaze.Html5.Attributes as A
 import MergeBot.Auth (xsrfTokenInputName)
 import qualified MergeBot.Core.GitHub as Core
 import qualified MergeBot.Core.Text as Core
+import MergeBot.EventQueue (MergeBotEvent(..), queueEvent)
 import MergeBot.Monad (getInstallations)
 import MergeBot.Routes.Debug.Monad
     (DebugApp, ServerDebug, getUser, getXsrfToken, liftBaseApp, runBotAppDebug)
@@ -170,8 +172,7 @@ type DeleteStagingBranch = Verb 'POST 303 '[HTML] RedirectResponse
 
 handleDeleteStagingBranch :: Text -> Text -> Text -> DebugApp RedirectResponse
 handleDeleteStagingBranch repoOwner repoName baseBranch = do
-  runBotAppDebug repoOwner repoName $
-    Core.deleteBranch $ Core.toStagingBranch baseBranch
+  liftIO $ queueEvent (repoOwner, repoName) $ DeleteBranch $ Core.toStagingBranch baseBranch
 
   return $ addHeader (Text.unpack $ buildPath ["repo", repoOwner, repoName]) NoContent
 

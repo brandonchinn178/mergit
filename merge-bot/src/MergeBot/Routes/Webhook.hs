@@ -33,13 +33,13 @@ import Servant
 import Servant.GitHub
 import UnliftIO.Exception (throwIO)
 
-import qualified MergeBot.Core as Core
 import MergeBot.Core.Actions (MergeBotAction(..), parseAction)
 import MergeBot.Core.Error (BotError(..))
-import qualified MergeBot.Core.GitHub as Core
 import MergeBot.Core.Text (isStagingBranch, isTryBranch)
-import MergeBot.Monad (BaseApp, BotApp, ServerBase, runBotApp)
+import MergeBot.EventQueue (MergeBotEvent(..))
+import MergeBot.Monad (BaseApp, BotApp, ServerBase, queueEvent', runBotApp)
 
+-- TODO: WithToken no longer needed?
 type WebhookRoutes =
   GitHubEvent 'PingEvent :> GitHubAction
   :<|> GitHubEvent 'PullRequestEvent :> WithToken :> GitHubAction
@@ -66,9 +66,9 @@ handlePullRequest :: Object PullRequestEvent -> Token -> BaseApp ()
 handlePullRequest o = runBotApp' repo $ do
   logEvent "pull_request" o
   case [get| o.action |] of
-    PullRequest.OPENED -> do
-      logInfoN $ "PR created: " <> Text.pack (show [get| o.pull_request.number |])
-      Core.createCheckRuns [get| o.pull_request.head.sha |]
+    PullRequest.OPENED ->
+      let (number, sha) = [get| o.pull_request.(number, head.sha) |]
+      in queueEvent' $ PRCreated number sha
     _ -> return ()
   where
     repo = [get| o.repository! |]
@@ -82,8 +82,7 @@ handleCheckSuite o = runBotApp' repo $ do
       let (prs, sha) = [get| o.check_suite.(pull_requests, head_sha) |]
       case prs of
         [] -> return ()
-        -- create check runs for any commits pushed to a PR
-        [_] -> Core.createCheckRuns sha
+        [pr] -> queueEvent' $ CommitPushedToPR [get| pr.number |] sha
         _ -> throwIO $ NotOnePRInCheckSuite o
     _ -> return ()
   where
@@ -111,18 +110,10 @@ handleCheckRun o = runBotApp' repo $ do
         throwIO $ CommitNotPRHead prNum sha
 
       case parseAction action of
-        Just BotTry -> do
-          logInfoN $ "Trying PR #" <> prNum' <> " for commit: " <> unOID sha
-          Core.startTryJob prNum sha prBaseRef checkRunId
-        Just BotQueue -> do
-          logInfoN $ "Queuing PR #" <> prNum'
-          Core.queuePR prNum sha
-        Just BotDequeue -> do
-          logInfoN $ "Dequeuing PR #" <> prNum'
-          Core.dequeuePR prNum sha
-        Just BotResetMerge -> do
-          logInfoN $ "Resetting merge check run for PR #" <> prNum'
-          Core.resetMerge prNum sha
+        Just BotTry -> queueEvent' $ StartTryJob prNum sha prBaseRef checkRunId
+        Just BotQueue -> queueEvent' $ QueuePR prNum sha
+        Just BotDequeue -> queueEvent' $ DequeuePR prNum sha
+        Just BotResetMerge -> queueEvent' $ ResetMerge prNum sha
         Nothing -> return ()
     _ -> return ()
   where
@@ -134,7 +125,7 @@ handleStatus o = runBotApp' repo $ do
   logEvent "status" o
   case [get| o.branches[].name |] of
     [branch] | isTryBranch branch || isStagingBranch branch ->
-      Core.handleStatusUpdate branch [get| o.sha |]
+      queueEvent' $ RefreshCheckRun branch [get| o.sha |]
     _ -> return ()
   where
     repo = [get| o.repository! |]
@@ -144,7 +135,7 @@ handlePush :: Object PushEvent -> Token -> BaseApp ()
 handlePush o = runBotApp' repo $ do
   logEvent "push" o
   when (isCreated && isCIBranch && not isBot) $ do
-    Core.deleteBranch branch
+    queueEvent' $ DeleteBranch branch
     throwIO $ CIBranchPushed o
   where
     repo = [get| o.repository! |]

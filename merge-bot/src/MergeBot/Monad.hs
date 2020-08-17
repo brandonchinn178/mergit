@@ -14,6 +14,7 @@ This module defines functions for running GitHubT actions.
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
 
 module MergeBot.Monad
@@ -25,10 +26,12 @@ module MergeBot.Monad
     -- * BaseApp helpers
   , runBaseHandler
   , getInstallations
+  , getRepoAndTokens
     -- * BotAppT helpers
   , BotApp
   , runBotApp
   , runBotAppOnAllRepos
+  , queueEvent'
   ) where
 
 import Control.Monad (forM)
@@ -53,7 +56,8 @@ import UnliftIO.Exception
     (SomeException, catch, displayException, fromException, throwIO, try)
 
 import MergeBot.Auth (AuthParams)
-import MergeBot.Core.Monad (BotAppT, BotSettings(..), runBotAppT)
+import MergeBot.Core.Monad (BotAppT, BotSettings(..), getRepo, runBotAppT)
+import MergeBot.EventQueue (MergeBotEvent, queueEvent)
 
 {- The base monad for all servant routes -}
 
@@ -135,24 +139,23 @@ runBotApp repoOwner repoName action token = do
         }
   liftIO $ runBotAppT settings action
 
--- | A helper that runs the given action for every repository that the merge bot is installed on.
---
--- Returns a list of the results, along with the repository that produced each result.
-runBotAppOnAllRepos :: BotApp a -> BaseApp [(Text, a)]
-runBotAppOnAllRepos action = do
+type Repo = (Text, Text)
+
+getRepoAndTokens :: BaseApp [(Repo, Token)]
+getRepoAndTokens = do
   GitHubAppParams{ghUserAgent, ghAppId, ghSigner} <- getGitHubAppParams
 
   -- get all installations
   installations <- getInstallations
 
-  -- run the given action in each repo
   fmap concat $ forM installations $ \installationId -> do
+    -- get a token that can be used for this installation (expires in an hour)
     installToken <- liftIO $ getToken ghSigner ghAppId ghUserAgent installationId
-    repositories <- [get| .repositories[] |] <$> getRepositories installToken
-    forM repositories $ \repo -> do
-      let (repoOwner, repoName) = [get| repo.(owner.login, name) |]
-      result <- runBotApp repoOwner repoName action installToken
-      return ([get| repo.full_name |], result)
+
+    -- get list of repositories
+    repositories <- [get| .repositories[].(owner.login, name) |] <$> getRepositories installToken
+
+    return $ map (, installToken) repositories
   where
     getRepositories = queryGitHub' @(Object [schema| { repositories: List #Repository } |]) GHEndpoint
       { method = GET
@@ -160,6 +163,23 @@ runBotAppOnAllRepos action = do
       , endpointVals = []
       , ghData = []
       }
+
+-- | A helper that runs the given action for every repository that the merge bot is installed on.
+--
+-- Returns a list of the results, along with the repository that produced each result.
+runBotAppOnAllRepos :: BotApp a -> BaseApp [(Repo, a)]
+runBotAppOnAllRepos action = mapM runOnRepo =<< getRepoAndTokens
+  where
+    runOnRepo (repo, token) = do
+      let (repoOwner, repoName) = repo
+      result <- runBotApp repoOwner repoName action token
+      return (repo, result)
+
+-- | A helper around 'queueEvent'
+queueEvent' :: MergeBotEvent -> BotApp ()
+queueEvent' event = do
+  repo <- getRepo
+  liftIO $ queueEvent repo event
 
 {- Helpers -}
 
