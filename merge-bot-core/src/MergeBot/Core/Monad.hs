@@ -156,11 +156,11 @@ runBotAppT BotSettings{..} =
       let msg = displayException e
       mapM_ (`commentOnPR` msg) $ getRelevantPRs e
       logErrorN $ Text.pack msg
-      error $ "[MergeBot Error] " ++ msg
+      errorWithoutStackTrace "<<MergeBot Error>>"
     handleSomeException (e :: SomeException) = do
       let msg = displayException e
       logErrorN $ Text.pack msg
-      error $ "[Other Error] " ++ msg
+      errorWithoutStackTrace "<<Other Error>>"
 
 {- MonadMergeBot class -}
 
