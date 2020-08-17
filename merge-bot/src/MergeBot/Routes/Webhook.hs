@@ -78,10 +78,13 @@ handleCheckSuite :: Object CheckSuiteEvent -> Token -> BaseApp ()
 handleCheckSuite o = runBotApp' repo $ do
   logEvent "check_suite" o
   case [get| o.action |] of
-    CheckSuite.REQUESTED ->
-      -- create check runs for any commits pushed to a PR
-      unless (null [get| o.check_suite.pull_requests |]) $
-        Core.createCheckRuns [get| o.check_suite.head_sha |]
+    CheckSuite.REQUESTED -> do
+      let (prs, sha) = [get| o.check_suite.(pull_requests, head_sha) |]
+      case prs of
+        [] -> return ()
+        -- create check runs for any commits pushed to a PR
+        [_] -> Core.createCheckRuns sha
+        _ -> throwIO $ NotOnePRInCheckSuite o
     _ -> return ()
   where
     repo = [get| o.repository! |]
