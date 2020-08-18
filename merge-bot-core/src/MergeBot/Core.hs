@@ -9,6 +9,7 @@ This module defines core MergeBot functionality.
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE ExtendedDefaultRules #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
@@ -176,7 +177,6 @@ createCIBranch base prSHAs ciBranch message = do
 refreshCheckRuns :: MonadMergeBot m => Bool -> Text -> GitObjectID -> m ()
 refreshCheckRuns isStart ciBranchName sha = do
   CICommit{..} <- getCICommit sha checkName
-  let parentSHAs = map fst parents
   when (null parents) $ throwIO $ CICommitMissingParents isStart ciBranchName sha
 
   -- since we check the config in 'createCIBranch', we know that 'extractConfig' here will not fail
@@ -213,37 +213,23 @@ refreshCheckRuns isStart ciBranchName sha = do
         in [message, displayCIStatus ciStatus]
     }
 
-  -- when merge run is complete (success/fail), the staging branch should always be deleted to
-  -- allow for the next merge run
-  --
-  -- try branch should not be deleted until the PR is closed, so that any still-running CI jobs
-  -- can still use the try branch
-  let isCompletedMergeRun = not isTry && isComplete
-  when isCompletedMergeRun $ (`finally` deleteBranch ciBranchName) $
-    -- if successful merge run, merge into base
-    when isSuccess $ do
-      -- get pr information for parent commits
-      prs <- mapM getPRForCommit parentSHAs
-      let prNums = map prForCommitId prs
-
-      -- merge into base
-      let invalidStagingBranch = throwIO $ InvalidStaging prNums ciBranchName
-      base <- maybe invalidStagingBranch return $ fromStagingBranch ciBranchName
-      updateBranch False base sha >>= \case
-        Right _ -> return ()
-        Left message -> throwIO $ BadUpdate sha prNums base message
-
-      -- close PRs and delete branches
-      forM_ prs $ \pr -> do
-        let prNum = prForCommitId pr
-            branch = prForCommitBranch pr
-
-        -- wait until PR is marked "merged"
-        whileM_ (not <$> isPRMerged prNum) $ return ()
-
-        closePR prNum
-        deleteBranch branch
-        deleteBranch $ toTryBranch prNum
+  -- Post-run actions
+  if
+    -- If check run isn't finished yet, no post-run actions to run
+    | not isComplete -> return ()
+    -- If finished check run is a try, no post-run actions to run. PRs should not
+    -- be merged yet, and trying branch should not be cleaned up:
+    --   * If job A fails, but job B hasn't started yet (and doesn't depend on job A),
+    --     we should allow job B to checkout code + run more tests
+    --   * If all jobs succeed, we should allow non-blocking jobs (e.g. a deploy step)
+    --     to also checkout code, so we can't delete the branch yet
+    | isTry -> return ()
+    -- At this point, the run is a completed merge run
+    | otherwise -> do
+        -- get pr information for parent commits
+        let parentSHAs = map fst parents
+        prs <- mapM getPRForCommit parentSHAs
+        onMergeCompletion prs isSuccess `finally` deleteBranch ciBranchName
   where
     isTry = isTryBranch ciBranchName
     checkName = if isTry then checkRunTry else checkRunMerge
@@ -251,6 +237,30 @@ refreshCheckRuns isStart ciBranchName sha = do
     mkCIBranchUrl = do
       (repoOwner, repoName) <- getRepo
       return $ "https://github.com/" <> repoOwner <> "/" <> repoName <> "/commits/" <> ciBranchName
+
+    onMergeCompletion prs isSuccess
+      | isSuccess = do
+          let prNums = map prForCommitId prs
+
+          -- merge into base
+          let invalidStagingBranch = throwIO $ InvalidStaging prNums ciBranchName
+          base <- maybe invalidStagingBranch return $ fromStagingBranch ciBranchName
+          updateBranch False base sha >>= \case
+            Right _ -> return ()
+            Left message -> throwIO $ BadUpdate sha prNums base message
+
+          -- close PRs and delete branches
+          forM_ prs $ \pr -> do
+            let prNum = prForCommitId pr
+                branch = prForCommitBranch pr
+
+            -- wait until PR is marked "merged"
+            whileM_ (not <$> isPRMerged prNum) $ return ()
+
+            closePR prNum
+            deleteBranch branch
+            deleteBranch $ toTryBranch prNum
+      | otherwise = return ()
 
 -- | Get the configuration file for the given tree.
 extractConfig :: [Int] -> Tree -> Either BotError BotConfig
