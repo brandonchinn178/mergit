@@ -55,6 +55,7 @@ type Schema = [schema|
             headRef: Maybe {
               name: Text,
             },
+            merged: Bool,
           },
         },
       },

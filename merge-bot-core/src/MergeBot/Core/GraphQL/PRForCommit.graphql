@@ -18,6 +18,7 @@ query PRForCommit(
             headRef {
               name
             }
+            merged
           }
         }
       }

@@ -116,8 +116,9 @@ handleRepositoryPage repoOwner repoName = do
         Nothing -> return Nothing
         Just baseBranch -> do
           Core.CICommit{parents} <- Core.getCICommit [get| ref.object.sha |] Core.checkRunMerge
-          prIds <- mapM (fmap fst . Core.getPRForCommit . fst) parents
-          return $ Just (baseBranch, prIds)
+          let parentSHAs = map fst parents
+          prs <- mapM Core.getPRForCommit parentSHAs
+          return $ Just (baseBranch, map Core.prForCommitId prs)
 
   xsrfToken <- getXsrfToken
 

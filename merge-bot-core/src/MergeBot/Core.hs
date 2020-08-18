@@ -144,7 +144,7 @@ createCIBranch base prSHAs ciBranch message = do
   deleteBranch tempBranch
 
   (`finally` deleteBranch tempBranch) $ do
-    prNums <- mapM (fmap fst . getPRForCommit) prSHAs
+    prNums <- mapM (fmap prForCommitId . getPRForCommit) prSHAs
 
     baseSHA <- maybe (throwIO $ MissingBaseBranch prNums base) return =<< getBranchSHA base
 
@@ -224,7 +224,7 @@ refreshCheckRuns isStart ciBranchName sha = do
     when isSuccess $ do
       -- get pr information for parent commits
       prs <- mapM getPRForCommit parentSHAs
-      let prNums = map fst prs
+      let prNums = map prForCommitId prs
 
       -- merge into base
       let invalidStagingBranch = throwIO $ InvalidStaging prNums ciBranchName
@@ -234,7 +234,10 @@ refreshCheckRuns isStart ciBranchName sha = do
         Left message -> throwIO $ BadUpdate sha prNums base message
 
       -- close PRs and delete branches
-      forM_ prs $ \(prNum, branch) -> do
+      forM_ prs $ \pr -> do
+        let prNum = prForCommitId pr
+            branch = prForCommitBranch pr
+
         -- wait until PR is marked "merged"
         whileM_ (not <$> isPRMerged prNum) $ return ()
 

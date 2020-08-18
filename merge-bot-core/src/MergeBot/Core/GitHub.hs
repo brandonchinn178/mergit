@@ -29,6 +29,7 @@ module MergeBot.Core.GitHub
   , getCICommit
   , CheckRunId
   , getCheckRun
+  , PRForCommit(..)
   , getPRForCommit
   , getPRReviews
   , isPRMerged
@@ -178,8 +179,14 @@ getCheckRun prNum checkName = do
     [[checkRunId]] -> return checkRunId
     _ -> throwIO $ MissingCheckRunPR prNum checkName
 
+data PRForCommit = PRForCommit
+  { prForCommitId       :: Int
+  , prForCommitBranch   :: Text
+  , prForCommitIsMerged :: Bool
+  }
+
 -- | Get the PR number and branch name for the given commit.
-getPRForCommit :: MonadMergeBot m => GitObjectID -> m (Int, Text)
+getPRForCommit :: MonadMergeBot m => GitObjectID -> m PRForCommit
 getPRForCommit sha = do
   (repoOwner, repoName) <- getRepo
   result <- queryAll_ $ \after -> do
@@ -199,7 +206,11 @@ getPRForCommit sha = do
       }
   case filter ((== sha) . [get| .headRefOid |]) result of
     [] -> throwIO $ CommitLacksPR sha
-    [pr] -> return [get| pr.(number, headRef!.name) |]
+    [pr] -> return PRForCommit
+      { prForCommitId = [get| pr.number |]
+      , prForCommitBranch = [get| pr.headRef!.name |]
+      , prForCommitIsMerged = [get| pr.merged |]
+      }
     prs -> throwIO $ CommitForManyPRs sha $ map [get| .number |] prs
 
 -- | Return the reviews for the given PR as a map from reviewer to review state.
