@@ -33,6 +33,7 @@ import Control.Monad.Loops (whileM_)
 import Data.Bifunctor (first)
 import Data.GraphQL (get)
 import qualified Data.HashMap.Strict as HashMap
+import Data.List (partition)
 import Data.Maybe (isNothing)
 import Data.Text (Text)
 import qualified Data.Text as Text
@@ -229,7 +230,21 @@ refreshCheckRuns isStart ciBranchName sha = do
         -- get pr information for parent commits
         let parentSHAs = map fst parents
         prs <- mapM getPRForCommit parentSHAs
-        onMergeCompletion prs isSuccess `finally` deleteBranch ciBranchName
+
+        let (mergedPRs, nonMergedPRs) = partition prForCommitIsMerged prs
+            getIds = map prForCommitId
+
+        case (mergedPRs, nonMergedPRs) of
+          -- If all PRs are merged, then this status was from a post-merge, non-blocking
+          -- CI job. Don't attempt to merge PRs / delete branches again.
+          (_, []) -> return ()
+          -- If all of the PRs are still open, run the merge post-run actions and delete the
+          -- staging branch when finished, even if the merge run failed (so that the next
+          -- merge run can start).
+          ([], _) -> onMergeCompletion prs isSuccess `finally` deleteBranch ciBranchName
+          -- If there are some PRs merged and some not, then the merge bot is in a really
+          -- bad state.
+          (_, _) -> throwIO $ SomePRsMerged (getIds mergedPRs) (getIds nonMergedPRs)
   where
     isTry = isTryBranch ciBranchName
     checkName = if isTry then checkRunTry else checkRunMerge
