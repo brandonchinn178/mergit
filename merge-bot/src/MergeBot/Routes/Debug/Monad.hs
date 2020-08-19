@@ -35,6 +35,7 @@ import UnliftIO (MonadUnliftIO(..), UnliftIO(..), withUnliftIO)
 import UnliftIO.Exception (catch, throwIO)
 
 import MergeBot.Auth (XsrfToken)
+import MergeBot.Core.GitHub (Repo)
 import MergeBot.Monad (BaseApp, BotApp, getGitHubAppParams, runBotApp)
 
 type ServerDebug api = ServerT api DebugApp
@@ -81,10 +82,10 @@ runDebugApp debugState action = do
     . unDebugApp
     $ action
 
-runBotAppDebug :: Text -> Text -> BotApp a -> DebugApp a
-runBotAppDebug repoOwner repoName action = do
+runBotAppDebug :: Repo -> BotApp a -> DebugApp a
+runBotAppDebug repo action = do
   token <- DebugApp $ asks debugToken
-  liftBaseApp $ runBotApp repoOwner repoName action token
+  liftBaseApp $ runBotApp repo action token
 
 -- | Get the currently authenticated user.
 getUser :: DebugApp Text

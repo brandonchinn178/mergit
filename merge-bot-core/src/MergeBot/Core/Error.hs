@@ -20,6 +20,7 @@ import Data.Text (Text)
 import qualified Data.Text as Text
 import GitHub.Data.GitObjectID (GitObjectID, unOID')
 import GitHub.Schema.Event.CheckRun (CheckRunEvent)
+import GitHub.Schema.Event.CheckSuite (CheckSuiteEvent)
 import GitHub.Schema.Event.Push (PushEvent)
 
 import MergeBot.Core.Config (configFileName)
@@ -41,6 +42,8 @@ data BotError
   | MissingCheckRun GitObjectID Text
   | MissingCheckRunPR PullRequestId Text
   | NotOnePRInCheckRun (Object CheckRunEvent)
+  | NotOnePRInCheckSuite (Object CheckSuiteEvent)
+  | SomePRsMerged [PullRequestId] [PullRequestId]
   | UnapprovedPR PullRequestId
 
 instance Exception BotError
@@ -75,6 +78,8 @@ instance Show BotError where
     MissingCheckRun sha checkName -> "Commit `" <> unOID' sha <> "` missing check run named: " <> Text.unpack checkName
     MissingCheckRunPR pr checkName -> "PR #" <> show pr <> " missing check run named: " <> Text.unpack checkName
     NotOnePRInCheckRun o -> "Check run did not have exactly one PR: " <> show o
+    NotOnePRInCheckSuite o -> "Check suite did not have exactly one PR: " <> show o
+    SomePRsMerged mergedPRs nonMergedPRs -> "PRs " <> fromPRs nonMergedPRs <> " found not merged while PRs " <> fromPRs mergedPRs <> " are merged"
     UnapprovedPR prNum -> "PR #" <> show prNum <> " is not approved"
     where
       fromPRs = unwords . map (('#':) . show)
@@ -96,4 +101,6 @@ getRelevantPRs = \case
   MissingCheckRun{} -> []
   MissingCheckRunPR pr _ -> [pr]
   NotOnePRInCheckRun{} -> []
+  NotOnePRInCheckSuite{} -> []
+  SomePRsMerged mergedPRs nonMergedPRs -> mergedPRs ++ nonMergedPRs
   UnapprovedPR pr -> [pr]
