@@ -65,7 +65,7 @@ createCheckRuns sha = do
 startTryJob :: MonadMergeBot m => Int -> GitObjectID -> Text -> CheckRunId -> m ()
 startTryJob prNum prSHA base checkRunId = do
   mergeSHA <-
-    createCIBranch base [prSHA] tryBranch tryMessage
+    createCIBranch base [(prNum, prSHA)] tryBranch tryMessage
       `onException` updateCheckRuns [(prSHA, checkRunId)] CheckRunUpdates
         { isStart = True
         , isTry = True
@@ -121,10 +121,14 @@ pollQueues = do
   where
     startMergeJob prs base = do
       let (prNums, prSHAs, checkRunIds) = unzip3 prs
+          prNumsAndSHAs = zip prNums prSHAs
+          prSHAsAndCheckRunIds = zip prSHAs checkRunIds
+
           stagingBranch = toStagingBranch base
           stagingMessage = toStagingMessage base prNums
-      mergeSHA <- createCIBranch base prSHAs stagingBranch stagingMessage
-        `onException` updateCheckRuns (zip prSHAs checkRunIds) CheckRunUpdates
+
+      mergeSHA <- createCIBranch base prNumsAndSHAs stagingBranch stagingMessage
+        `onException` updateCheckRuns prSHAsAndCheckRunIds CheckRunUpdates
           { isStart = True
           , isTry = False
           , checkRunStatus = CheckRunComplete False
@@ -140,14 +144,12 @@ pollQueues = do
 -- * Deletes the existing try or merge branch, if one exists.
 -- * Errors if merge conflict
 -- * Errors if the .lymerge.yaml file is missing or invalid
-createCIBranch :: MonadMergeBot m => Text -> [GitObjectID] -> Text -> Text -> m GitObjectID
-createCIBranch base prSHAs ciBranch message = do
+createCIBranch :: MonadMergeBot m => Text -> [(Int, GitObjectID)] -> Text -> Text -> m GitObjectID
+createCIBranch base prs ciBranch message = do
   deleteBranch ciBranch
   deleteBranch tempBranch
 
   (`finally` deleteBranch tempBranch) $ do
-    prNums <- mapM (fmap prForCommitId . getPRForCommit) prSHAs
-
     baseSHA <- maybe (throwIO $ MissingBaseBranch prNums base) return =<< getBranchSHA base
 
     -- create temp branch off base
@@ -173,6 +175,7 @@ createCIBranch base prSHAs ciBranch message = do
     return mergeSHA
   where
     tempBranch = "temp-" <> ciBranch
+    (prNums, prSHAs) = unzip prs
 
 -- | Refresh the check runs for the given CI commit.
 refreshCheckRuns :: MonadMergeBot m => Bool -> Text -> GitObjectID -> m ()
