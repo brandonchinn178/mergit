@@ -231,21 +231,16 @@ refreshCheckRuns isStart ciBranchName sha = do
     -- At this point, the run is a completed merge run
     | otherwise -> do
         prs <- getPRsForCICommit ciCommit
+        allPRsMerged <- areAllPRsMerged prs
 
-        let (mergedPRs, nonMergedPRs) = partition prForCommitIsMerged prs
-            getIds = map prForCommitId
-
-        case (mergedPRs, nonMergedPRs) of
+        if allPRsMerged
           -- If all PRs are merged, then this status was from a post-merge, non-blocking
           -- CI job. Don't attempt to merge PRs / delete branches again.
-          (_, []) -> return ()
+          then return ()
           -- If all of the PRs are still open, run the merge post-run actions and delete the
           -- staging branch when finished, even if the merge run failed (so that the next
           -- merge run can start).
-          ([], _) -> onMergeCompletion prs isSuccess `finally` deleteBranch ciBranchName
-          -- If there are some PRs merged and some not, then the merge bot is in a really
-          -- bad state.
-          (_, _) -> throwIO $ SomePRsMerged (getIds mergedPRs) (getIds nonMergedPRs)
+          else onMergeCompletion prs isSuccess `finally` deleteBranch ciBranchName
   where
     isTry = isTryBranch ciBranchName
     checkName = if isTry then checkRunTry else checkRunMerge
@@ -253,6 +248,16 @@ refreshCheckRuns isStart ciBranchName sha = do
     mkCIBranchUrl = do
       (repoOwner, repoName) <- getRepo
       return $ "https://github.com/" <> repoOwner <> "/" <> repoName <> "/commits/" <> ciBranchName
+
+    areAllPRsMerged prs = do
+      let (mergedPRs, nonMergedPRs) = partition prForCommitIsMerged prs
+          getIds = map prForCommitId
+
+      case (mergedPRs, nonMergedPRs) of
+        (_, []) -> return True
+        ([], _) -> return False
+        -- If there are some PRs merged and some not, then the merge bot is in a really bad state.
+        (_, _) -> throwIO $ SomePRsMerged (getIds mergedPRs) (getIds nonMergedPRs)
 
     onMergeCompletion prs isSuccess
       | isSuccess = do
