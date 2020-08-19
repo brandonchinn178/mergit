@@ -30,7 +30,7 @@ module MergeBot.Core.GitHub
   , CheckRunId
   , getCheckRun
   , PRForCommit(..)
-  , getPRForCommit
+  , getPRsForCICommit
   , getPRReviews
   , isPRMerged
   , getQueues
@@ -185,9 +185,9 @@ data PRForCommit = PRForCommit
   , prForCommitIsMerged :: Bool
   }
 
--- | Get the PR number and branch name for the given commit.
-getPRForCommit :: MonadMergeBot m => GitObjectID -> m PRForCommit
-getPRForCommit sha = do
+-- | Get the PR number and branch name for the given CI commit.
+getPRsForCICommit :: MonadMergeBot m => CICommit -> m [PRForCommit]
+getPRsForCICommit CICommit{..} = forM parents $ \(sha, _) -> do
   (repoOwner, repoName) <- getRepo
   result <- queryAll_ $ \after -> do
     result <- runQuery PRForCommit.query PRForCommit.Args

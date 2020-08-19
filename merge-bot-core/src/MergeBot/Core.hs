@@ -180,7 +180,7 @@ createCIBranch base prs ciBranch message = do
 -- | Refresh the check runs for the given CI commit.
 refreshCheckRuns :: MonadMergeBot m => Bool -> Text -> GitObjectID -> m ()
 refreshCheckRuns isStart ciBranchName sha = do
-  CICommit{..} <- getCICommit sha checkName
+  ciCommit@CICommit{..} <- getCICommit sha checkName
   when (null parents) $ throwIO $ CICommitMissingParents isStart ciBranchName sha
 
   -- since we check the config in 'createCIBranch', we know that 'extractConfig' here will not fail
@@ -230,9 +230,7 @@ refreshCheckRuns isStart ciBranchName sha = do
     | isTry -> return ()
     -- At this point, the run is a completed merge run
     | otherwise -> do
-        -- get pr information for parent commits
-        let parentSHAs = map fst parents
-        prs <- mapM getPRForCommit parentSHAs
+        prs <- getPRsForCICommit ciCommit
 
         let (mergedPRs, nonMergedPRs) = partition prForCommitIsMerged prs
             getIds = map prForCommitId

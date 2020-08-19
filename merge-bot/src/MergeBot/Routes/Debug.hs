@@ -114,9 +114,8 @@ handleRepositoryPage repoOwner repoName = do
       case Text.stripPrefix "refs/heads/" [get| ref.ref |] >>= Core.fromStagingBranch of
         Nothing -> return Nothing
         Just baseBranch -> do
-          Core.CICommit{parents} <- Core.getCICommit [get| ref.object.sha |] Core.checkRunMerge
-          let parentSHAs = map fst parents
-          prs <- mapM Core.getPRForCommit parentSHAs
+          ciCommit <- Core.getCICommit [get| ref.object.sha |] Core.checkRunMerge
+          prs <- Core.getPRsForCICommit ciCommit
           return $ Just (baseBranch, map Core.prForCommitId prs)
 
   xsrfToken <- getXsrfToken
