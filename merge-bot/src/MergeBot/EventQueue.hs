@@ -38,8 +38,8 @@ queueEventWith mergeBotQueues eventKey event =
 -- new worker thread will be spun up to handle it.
 --
 -- One should take special care to ensure that the given function does not throw
--- an error. If the worker thread throws an exception, the queue will have undefined
--- behavior.
+-- an error. If the worker thread throws an exception, the exception will be
+-- rethrown.
 --
 -- A couple design decisions went into this:
 --   * Each PR should have its own queue, as much as possible, to avoid merge bot
