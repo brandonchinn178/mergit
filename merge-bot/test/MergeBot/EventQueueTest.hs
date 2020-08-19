@@ -193,8 +193,7 @@ withTimeout m = race timeout m >>= \case
   Left _ -> error "Timed out"
   Right x -> return x
   where
-    -- timeout = threadDelay 5000000 -- 5 seconds
-    timeout = threadDelay 10000000
+    timeout = threadDelay 5000000 -- 5 seconds
 
 {- QuickCheck utilities -}
 

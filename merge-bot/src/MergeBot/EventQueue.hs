@@ -36,7 +36,9 @@ queueEvent repo event =
 -- stop the worker thread; when the next event for that EventKey gets queued, a
 -- new worker thread will be spun up to handle it.
 --
--- If the worker thread throws an exception, the exception will be rethrown
+-- One should take special care to ensure that the given function does not throw
+-- an error. If the worker thread throws an exception, the queue will have undefined
+-- behavior.
 --
 -- A couple design decisions went into this:
 --   * Each PR should have its own queue, as much as possible, to avoid merge bot
