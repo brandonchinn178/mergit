@@ -72,10 +72,9 @@ handleBotQueue = handleEvents handleBotEvent
   where
     handleBotEvent eventKey event = handle logException $ do
       let repo = getEventRepo eventKey
-          (repoOwner, repoName) = repo
 
       token <- getTokenForRepo repo
-      runBotApp repoOwner repoName (runBotEvent event) token
+      runBotApp repo (runBotEvent event) token
 
     runBotEvent = \case
       PRCreated prNum sha -> do

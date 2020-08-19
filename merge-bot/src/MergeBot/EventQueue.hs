@@ -18,6 +18,7 @@ import UnliftIO (MonadUnliftIO)
 import UnliftIO.Async (async, link)
 import UnliftIO.STM (STM, atomically)
 
+import MergeBot.Core.GitHub (Repo)
 import MergeBot.EventQueue.Internal hiding (MergeBotQueues(..), WorkerQueue(..))
 import MergeBot.EventQueue.Internal (MergeBotQueues, WorkerQueue)
 

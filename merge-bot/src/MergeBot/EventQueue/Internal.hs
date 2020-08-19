@@ -10,17 +10,11 @@ import Control.Concurrent.STM.TBQueue
 import Control.Concurrent.STM.TVar (TVar, modifyTVar', newTVar, readTVar)
 import Data.Map (Map)
 import qualified Data.Map as Map
-import Data.Text (Text)
 import GHC.Stack (HasCallStack)
-import GitHub.Data.GitObjectID (GitObjectID)
 import UnliftIO.Async (Async)
 import UnliftIO.STM (STM, atomically)
 
-import MergeBot.Core.GitHub (CheckRunId)
-
-type Repo = (Text, Text)
-type PrNum = Int
-type BranchName = Text
+import MergeBot.Core.GitHub (BranchName, CheckRunId, CommitSHA, PrNum, Repo)
 
 -- | A merge bot event to be resolved serially.
 --
@@ -28,13 +22,13 @@ type BranchName = Text
 -- state-modifying events directly, but rather queue events to be run serially in a separate
 -- thread.
 data MergeBotEvent
-  = PRCreated PrNum GitObjectID
-  | CommitPushedToPR PrNum GitObjectID
-  | StartTryJob PrNum GitObjectID BranchName CheckRunId
-  | QueuePR PrNum GitObjectID
-  | DequeuePR PrNum GitObjectID
-  | ResetMerge PrNum GitObjectID
-  | RefreshCheckRun BranchName GitObjectID
+  = PRCreated PrNum CommitSHA
+  | CommitPushedToPR PrNum CommitSHA
+  | StartTryJob PrNum CommitSHA BranchName CheckRunId
+  | QueuePR PrNum CommitSHA
+  | DequeuePR PrNum CommitSHA
+  | ResetMerge PrNum CommitSHA
+  | RefreshCheckRun BranchName CommitSHA
   | DeleteBranch BranchName
   | PollQueues
   deriving (Show, Eq)

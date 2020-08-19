@@ -6,11 +6,14 @@ Portability :  portable
 
 This module defines debugging routes for the MergeBot.
 -}
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DisambiguateRecordFields #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
@@ -26,6 +29,7 @@ import Data.Aeson.Schema (Object, get, schema)
 import qualified Data.HashMap.Strict as HashMap
 import Data.List (intercalate)
 import Data.Maybe (catMaybes, fromMaybe)
+import Data.String (IsString(..))
 import Data.Text (Text)
 import qualified Data.Text as Text
 import GitHub.Data.URL (URL(..))
@@ -47,10 +51,21 @@ import MergeBot.Monad (getInstallations, queueEvent)
 import MergeBot.Routes.Debug.Monad
     (DebugApp, ServerDebug, getUser, getXsrfToken, liftBaseApp, runBotAppDebug)
 
+newtype UrlRepo = UrlRepo (Text, Text)
+
+instance ToHttpApiData UrlRepo where
+  toUrlPiece (UrlRepo (repoOwner, repoName)) = repoOwner <> "/" <> repoName
+
+instance FromHttpApiData UrlRepo where
+  parseUrlPiece urlPiece =
+    case Text.splitOn "/" urlPiece of
+      [repoOwner, repoName] -> Right $ UrlRepo (repoOwner, repoName)
+      _ -> Left $ "Does not match '<repoOwner>/<repoName>': " <> urlPiece
+
 type DebugRoutes =
        IndexPage
-  :<|> "repo" :> Capture "repoOwner" Text :> Capture "repoName" Text :> RepositoryPage
-  :<|> "repo" :> Capture "repoOwner" Text :> Capture "repoName" Text :> "reset-merge-run" :> Capture "baseBranch" Text :> DeleteStagingBranch
+  :<|> RepositoryPage
+  :<|> DeleteStagingBranch
 
 handleDebugRoutes :: ServerDebug DebugRoutes
 handleDebugRoutes =
@@ -78,14 +93,20 @@ handleIndexPage = do
     H.h2 "Available repositories"
     forM_ repositories $ \repo ->
       let (owner, name) = [get| repo.(owner.login, name) |]
-          link = H.toValue $ buildPath ["repo", owner, name]
+          link = fromLink $ linkTo @RepositoryPage (UrlRepo (owner, name))
       in H.li $ H.a ! A.href link $ H.toHtml [get| repo.full_name |]
 
 {- Repository page -}
 
-type RepositoryPage = HtmlPage
-handleRepositoryPage :: Text -> Text -> DebugApp Html
-handleRepositoryPage repoOwner repoName = do
+type RepositoryPage =
+  "repo"
+  :> Capture "repo" UrlRepo
+  :> HtmlPage
+
+handleRepositoryPage :: UrlRepo -> DebugApp Html
+handleRepositoryPage urlRepo@(UrlRepo repo) = do
+  let (repoOwner, repoName) = repo
+
   -- As much as possible, run all GitHub API queries first, to minimize discrepancies
   -- in data changing from underneath us
 
@@ -103,18 +124,18 @@ handleRepositoryPage repoOwner repoName = do
     , ghData = []
     }
 
-  queues <- runBotAppDebug repoOwner repoName $ do
+  queues <- runBotAppDebug repo $ do
     let getPRIds = map $ \(prId, _, _) -> prId
     map (fmap getPRIds) . HashMap.toList <$> Core.getQueues
 
-  -- mergeRuns :: [(Text, [Int])]
+  -- mergeRuns :: [(BranchName, [PrNum])]
   -- mapping of base branch to list of PR ids running a merge against the base branch
-  mergeRuns <- runBotAppDebug repoOwner repoName $
+  mergeRuns <- runBotAppDebug repo $
     fmap catMaybes $ forM allRefs $ \ref -> do
       case Text.stripPrefix "refs/heads/" [get| ref.ref |] >>= Core.fromStagingBranch of
         Nothing -> return Nothing
         Just baseBranch -> do
-          ciCommit <- Core.getCICommit [get| ref.object.sha |] Core.checkRunMerge
+          ciCommit <- Core.getCICommit [get| ref.object.sha |] Core.CheckRunMerge
           prs <- Core.getPRsForCICommit ciCommit
           return $ Just (baseBranch, map Core.prForCommitId prs)
 
@@ -138,8 +159,8 @@ handleRepositoryPage repoOwner repoName = do
         H.h3 $ H.toHtml branch
 
         -- button to delete staging branch
-        let resetStagingPath = buildPath ["repo", repoOwner, repoName, "reset-merge-run", branch]
-        H.form ! A.method "post" ! A.action (H.toValue resetStagingPath) $ do
+        let resetStagingPath = fromLink $ linkTo @DeleteStagingBranch urlRepo branch
+        H.form ! A.method "post" ! A.action resetStagingPath $ do
           xsrfTokenInput xsrfToken
           H.button "Reset merge run"
 
@@ -167,14 +188,19 @@ handleRepositoryPage repoOwner repoName = do
 
 {- Reset staging branch -}
 
-type DeleteStagingBranch = Verb 'POST 303 '[HTML] RedirectResponse
+type DeleteStagingBranch =
+  "repo"
+  :> Capture "repo" UrlRepo
+  :> "reset-merge-run"
+  :> Capture "baseBranch" Core.BranchName
+  :> Verb 'POST 303 '[HTML] RedirectResponse
 
-handleDeleteStagingBranch :: Text -> Text -> Text -> DebugApp RedirectResponse
-handleDeleteStagingBranch repoOwner repoName baseBranch = do
-  runBotAppDebug repoOwner repoName $
+handleDeleteStagingBranch :: UrlRepo -> Text -> DebugApp RedirectResponse
+handleDeleteStagingBranch urlRepo@(UrlRepo repo) baseBranch = do
+  runBotAppDebug repo $
     queueEvent $ DeleteBranch $ Core.toStagingBranch baseBranch
 
-  return $ addHeader (Text.unpack $ buildPath ["repo", repoOwner, repoName]) NoContent
+  return $ addHeader (fromLink $ linkTo @RepositoryPage urlRepo) NoContent
 
 {- Helpers -}
 
@@ -214,8 +240,11 @@ mkTablePRs prs = mkTable ["#", "title"] prs $ \pr -> do
   let link = H.toValue $ unURL [get| pr.html_url |]
   H.td $ H.a ! A.href link $ H.toHtml [get| pr.title |]
 
-buildPath :: [Text] -> Text
-buildPath = Text.concat . map ("/" <>)
+linkTo :: forall endpoint. (IsElem endpoint DebugRoutes, HasLink endpoint) => MkLink endpoint Link
+linkTo = safeLink (Proxy @DebugRoutes) (Proxy @endpoint)
+
+fromLink :: IsString s => Link -> s
+fromLink = fromString . show . linkURI
 
 xsrfTokenInput :: Text -> Html
 xsrfTokenInput xsrfToken =

@@ -43,7 +43,6 @@ import Control.Monad.Reader (ReaderT, asks, runReaderT)
 import Control.Monad.Trans (lift)
 import Data.Aeson (FromJSON)
 import Data.Aeson.Schema (Object, get, schema)
-import Data.Text (Text)
 import GitHub.REST
     (GHEndpoint(..), GitHubState(..), MonadGitHubREST(..), Token, runGitHubT)
 import GitHub.REST.Auth (getJWTToken)
@@ -56,6 +55,7 @@ import UnliftIO (MonadUnliftIO(..), wrappedWithRunInIO)
 import UnliftIO.Exception (catch, throwIO)
 
 import MergeBot.Auth (AuthParams)
+import MergeBot.Core.GitHub (Repo)
 import MergeBot.Core.Monad (BotAppT, BotSettings(..), getRepo, runBotAppT)
 import MergeBot.EventQueue
     (EventKey, MergeBotEvent, MergeBotQueues, handleEventsWith, queueEventWith)
@@ -131,8 +131,8 @@ getInstallations = do
 type BotApp = BotAppT BaseApp
 
 -- | A helper around 'runBotAppT'.
-runBotApp :: Text -> Text -> BotApp a -> Token -> BaseApp a
-runBotApp repoOwner repoName action token = do
+runBotApp :: Repo -> BotApp a -> Token -> BaseApp a
+runBotApp (repoOwner, repoName) action token = do
   GitHubAppParams{ghUserAgent, ghAppId} <- getGitHubAppParams
   let settings = BotSettings
         { userAgent = ghUserAgent
@@ -140,8 +140,6 @@ runBotApp repoOwner repoName action token = do
         , ..
         }
   runBotAppT settings action
-
-type Repo = (Text, Text)
 
 getRepoAndTokens :: BaseApp [(Repo, Token)]
 getRepoAndTokens = do
@@ -173,8 +171,7 @@ runBotAppOnAllRepos :: BotApp a -> BaseApp [(Repo, a)]
 runBotAppOnAllRepos action = mapM runOnRepo =<< getRepoAndTokens
   where
     runOnRepo (repo, token) = do
-      let (repoOwner, repoName) = repo
-      result <- runBotApp repoOwner repoName action token
+      result <- runBotApp repo action token
       return (repo, result)
 
 {- Queues -}

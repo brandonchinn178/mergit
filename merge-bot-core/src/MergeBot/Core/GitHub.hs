@@ -9,6 +9,7 @@ This module defines functions for manipulating GitHub state.
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE ExtendedDefaultRules #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
@@ -20,8 +21,15 @@ This module defines functions for manipulating GitHub state.
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
 module MergeBot.Core.GitHub
-  ( -- * GraphQL
-    Tree
+  ( -- * Types
+    Repo
+  , PrNum
+  , CommitSHA
+  , BranchName
+  , UserName
+  , CheckRunType(..)
+    -- * GraphQL
+  , Tree
   , getBranchTree
   , getBranchSHA
   , CIContext
@@ -78,16 +86,31 @@ import qualified MergeBot.Core.GraphQL.PRIsMerged as PRIsMerged
 import qualified MergeBot.Core.GraphQL.PRReviews as PRReviews
 import qualified MergeBot.Core.GraphQL.QueuedPRs as QueuedPRs
 import MergeBot.Core.Monad (MonadMergeBot(..), queryGitHub')
-import MergeBot.Core.Text (checkRunMerge)
+import MergeBot.Core.Text (checkRunMerge, checkRunTry)
 
 default (Text)
+
+{- Types -}
+
+type Repo = (Text, Text)
+type PrNum = Int
+type CommitSHA = GitObjectID
+type BranchName = Text
+type UserName = Text
+
+data CheckRunType = CheckRunTry | CheckRunMerge
+
+getCheckName :: CheckRunType -> Text
+getCheckName = \case
+  CheckRunTry -> checkRunTry
+  CheckRunMerge -> checkRunMerge
 
 {- GraphQL -}
 
 mkGetter "Tree" "getTree" ''BranchTree.Schema ".repository.ref!.target.tree!"
 
 -- | Get the git tree for the given branch.
-getBranchTree :: MonadMergeBot m => Text -> m Tree
+getBranchTree :: MonadMergeBot m => BranchName -> m Tree
 getBranchTree branch = do
   (repoOwner, repoName) <- getRepo
   getTree <$>
@@ -98,7 +121,7 @@ getBranchTree branch = do
       }
 
 -- | Get the git hash for the given branch, if it exists.
-getBranchSHA :: MonadMergeBot m => Text -> m (Maybe GitObjectID)
+getBranchSHA :: MonadMergeBot m => BranchName -> m (Maybe CommitSHA)
 getBranchSHA branch = do
   (repoOwner, repoName) <- getRepo
   [get| .repository!.ref?.target.oid |] <$>
@@ -113,13 +136,13 @@ type CIContext = [unwrap| (CICommit.Schema).repository!.object!.status!.contexts
 data CICommit = CICommit
   { commitTree     :: Tree
   , commitContexts :: [CIContext]
-  , parents        :: [(GitObjectID, CheckRunId)]
+  , parents        :: [(CommitSHA, CheckRunId)]
     -- ^ The parent commits of a CI commit, not including the base branch
   } deriving (Show)
 
 -- | Get details for the given CI commit; that is, a commit created by 'createCIBranch'.
-getCICommit :: MonadMergeBot m => GitObjectID -> Text -> m CICommit
-getCICommit sha checkName = do
+getCICommit :: MonadMergeBot m => CommitSHA -> CheckRunType -> m CICommit
+getCICommit sha checkRunType = do
   (repoOwner, repoName) <- getRepo
   appId <- getAppId
   (result, parents) <- queryAll $ \after -> do
@@ -156,12 +179,14 @@ getCICommit sha checkName = do
     , commitContexts = fromMaybe [] [get| result.status?.contexts |]
     , parents
     }
+  where
+    checkName = getCheckName checkRunType
 
 type CheckRunId = Int
 
 -- | Get the check run for the given PR and check run name.
-getCheckRun :: MonadMergeBot m => Int -> Text -> m CheckRunId
-getCheckRun prNum checkName = do
+getCheckRun :: MonadMergeBot m => PrNum -> CheckRunType -> m CheckRunId
+getCheckRun prNum checkRunType = do
   (repoOwner, repoName) <- getRepo
   appId <- getAppId
   result <- runQuery PRCheckRun.query PRCheckRun.Args
@@ -178,6 +203,8 @@ getCheckRun prNum checkName = do
   case [get| commit.checkSuites!.nodes![]!.checkRuns!.nodes![]!.databaseId |] of
     [[checkRunId]] -> return checkRunId
     _ -> throwIO $ MissingCheckRunPR prNum checkName
+  where
+    checkName = getCheckName checkRunType
 
 data PRForCommit = PRForCommit
   { prForCommitId       :: Int
@@ -214,7 +241,7 @@ getPRsForCICommit CICommit{..} = forM parents $ \(sha, _) -> do
     prs -> throwIO $ CommitForManyPRs sha $ map [get| .number |] prs
 
 -- | Return the reviews for the given PR as a map from reviewer to review state.
-getPRReviews :: MonadMergeBot m => Int -> m (HashMap Text PullRequestReviewState)
+getPRReviews :: MonadMergeBot m => PrNum -> m (HashMap UserName PullRequestReviewState)
 getPRReviews prNum = do
   (repoOwner, repoName) <- getRepo
   fmap (HashMap.fromListWith resolve) $ queryAll_ $ \after -> do
@@ -243,7 +270,7 @@ getPRReviews prNum = do
         else new
 
 -- | Return True if the given PR is merged.
-isPRMerged :: MonadMergeBot m => Int -> m Bool
+isPRMerged :: MonadMergeBot m => PrNum -> m Bool
 isPRMerged prNum = do
   (repoOwner, repoName) <- getRepo
   [get| .repository!.pullRequest!.merged |] <$>
@@ -254,7 +281,7 @@ isPRMerged prNum = do
       }
 
 -- | Get all queued PRs, by base branch.
-getQueues :: MonadMergeBot m => m (HashMap Text [(Int, GitObjectID, CheckRunId)])
+getQueues :: MonadMergeBot m => m (HashMap Text [(PrNum, CommitSHA, CheckRunId)])
 getQueues  = do
   (repoOwner, repoName) <- getRepo
   appId <- getAppId
@@ -311,7 +338,7 @@ updateCheckRun' checkRunId ghData = void $ queryGitHub' GHEndpoint
 -- | Create a commit.
 --
 -- https://developer.github.com/v3/git/commits/#create-a-commit
-createCommit :: MonadMergeBot m => Text -> GitObjectID -> [GitObjectID] -> m GitObjectID
+createCommit :: MonadMergeBot m => Text -> GitObjectID -> [CommitSHA] -> m CommitSHA
 createCommit message tree parents = (.: "sha") <$> queryGitHub' GHEndpoint
   { method = POST
   , endpoint = "/repos/:owner/:repo/git/commits"
@@ -326,7 +353,7 @@ createCommit message tree parents = (.: "sha") <$> queryGitHub' GHEndpoint
 -- | Create a branch.
 --
 -- https://developer.github.com/v3/git/refs/#create-a-reference
-createBranch :: MonadMergeBot m => Text -> GitObjectID -> m ()
+createBranch :: MonadMergeBot m => BranchName -> CommitSHA -> m ()
 createBranch name sha = void $ queryGitHub' GHEndpoint
   { method = POST
   , endpoint = "/repos/:owner/:repo/git/refs"
@@ -342,7 +369,7 @@ createBranch name sha = void $ queryGitHub' GHEndpoint
 -- Returns False if update is not a fast-forward.
 --
 -- https://developer.github.com/v3/git/refs/#update-a-reference
-updateBranch :: MonadMergeBot m => Bool -> Text -> GitObjectID -> m (Either Text ())
+updateBranch :: MonadMergeBot m => Bool -> BranchName -> CommitSHA -> m (Either Text ())
 updateBranch force branch sha = fmap resolve $ githubTry $ queryGitHub' GHEndpoint
   { method = PATCH
   , endpoint = "/repos/:owner/:repo/git/refs/:ref"
@@ -355,7 +382,7 @@ updateBranch force branch sha = fmap resolve $ githubTry $ queryGitHub' GHEndpoi
 -- | Delete the given branch, ignoring the error if the branch doesn't exist.
 --
 -- https://developer.github.com/v3/git/refs/#delete-a-reference
-deleteBranch :: MonadMergeBot m => Text -> m ()
+deleteBranch :: MonadMergeBot m => BranchName -> m ()
 deleteBranch branch = void $ githubTry $ queryGitHub' GHEndpoint
   { method = DELETE
   , endpoint = "/repos/:owner/:repo/git/refs/:ref"
@@ -368,7 +395,7 @@ deleteBranch branch = void $ githubTry $ queryGitHub' GHEndpoint
 -- Returns False if there was a merge conflict
 --
 -- https://developer.github.com/v3/repos/merging/#perform-a-merge
-mergeBranches :: MonadMergeBot m => Text -> GitObjectID -> Text -> m Bool
+mergeBranches :: MonadMergeBot m => BranchName -> CommitSHA -> Text -> m Bool
 mergeBranches base sha message = fmap isRight $ githubTry' status409 $ queryGitHub' GHEndpoint
   { method = POST
   , endpoint = "/repos/:owner/:repo/merges"
@@ -383,7 +410,7 @@ mergeBranches base sha message = fmap isRight $ githubTry' status409 $ queryGitH
 -- | Close the given PR.
 --
 -- https://developer.github.com/v3/pulls/#update-a-pull-request
-closePR :: MonadMergeBot m => Int -> m ()
+closePR :: MonadMergeBot m => PrNum -> m ()
 closePR prNum = void $ queryGitHub' GHEndpoint
   { method = PATCH
   , endpoint = "/repos/:owner/:repo/pulls/:number"

@@ -40,7 +40,6 @@ import qualified Data.Text as Text
 import qualified Data.Text.Encoding as Text
 import Data.Time (getCurrentTime)
 import Data.Yaml (decodeThrow)
-import GitHub.Data.GitObjectID (GitObjectID)
 import qualified GitHub.Data.PullRequestReviewState as PullRequestReviewState
 import qualified GitHub.Data.StatusState as StatusState
 import UnliftIO.Exception (finally, fromEither, onException, throwIO)
@@ -55,14 +54,14 @@ import MergeBot.Core.Text
 
 default (Text)
 
-createCheckRuns :: MonadMergeBot m => GitObjectID -> m ()
+createCheckRuns :: MonadMergeBot m => CommitSHA -> m ()
 createCheckRuns sha = do
   now <- liftIO getCurrentTime
   createTryCheckRun sha $ tryJobInitData now
   createMergeCheckRun sha $ mergeJobInitData now
 
 -- | Start a new try job.
-startTryJob :: MonadMergeBot m => Int -> GitObjectID -> Text -> CheckRunId -> m ()
+startTryJob :: MonadMergeBot m => PrNum -> CommitSHA -> BranchName -> CheckRunId -> m ()
 startTryJob prNum prSHA base checkRunId = do
   mergeSHA <-
     createCIBranch base [(prNum, prSHA)] tryBranch tryMessage
@@ -79,7 +78,7 @@ startTryJob prNum prSHA base checkRunId = do
     tryMessage = toTryMessage prNum
 
 -- | Add a PR to the queue.
-queuePR :: MonadMergeBot m => Int -> GitObjectID -> m ()
+queuePR :: MonadMergeBot m => PrNum -> CommitSHA -> m ()
 queuePR prNum sha = do
   -- TODO: lookup how many approvals are required
   reviews <- getPRReviews prNum
@@ -87,7 +86,7 @@ queuePR prNum sha = do
   unless (PullRequestReviewState.APPROVED `elem` reviews) $
     throwIO $ UnapprovedPR prNum
 
-  checkRunId <- getCheckRun prNum checkRunMerge
+  checkRunId <- getCheckRun prNum CheckRunMerge
   -- TOOD: batching info
   updateCheckRuns [(sha, checkRunId)] CheckRunUpdates
     { isStart = True -- previous status of merge check run was "Complete: Action Required"
@@ -97,18 +96,18 @@ queuePR prNum sha = do
     }
 
 -- | Remove a PR from the queue.
-dequeuePR :: MonadMergeBot m => Int -> GitObjectID -> m ()
+dequeuePR :: MonadMergeBot m => PrNum -> CommitSHA -> m ()
 dequeuePR = resetMerge
 
 -- | Remove a PR from the queue.
-resetMerge :: MonadMergeBot m => Int -> GitObjectID -> m ()
+resetMerge :: MonadMergeBot m => PrNum -> CommitSHA -> m ()
 resetMerge _ sha = do
   now <- liftIO getCurrentTime
   -- reset check run by completely re-creating it
   createMergeCheckRun sha $ mergeJobInitData now
 
 -- | Handle a notification that the given commit's status has been updated.
-handleStatusUpdate :: MonadMergeBot m => Text -> GitObjectID -> m ()
+handleStatusUpdate :: MonadMergeBot m => BranchName -> CommitSHA -> m ()
 handleStatusUpdate = refreshCheckRuns False
 
 -- | Load all queues and start a merge run if one is not already running.
@@ -144,7 +143,7 @@ pollQueues = do
 -- * Deletes the existing try or merge branch, if one exists.
 -- * Errors if merge conflict
 -- * Errors if the .lymerge.yaml file is missing or invalid
-createCIBranch :: MonadMergeBot m => Text -> [(Int, GitObjectID)] -> Text -> Text -> m GitObjectID
+createCIBranch :: MonadMergeBot m => BranchName -> [(PrNum, CommitSHA)] -> BranchName -> Text -> m CommitSHA
 createCIBranch base prs ciBranch message = do
   deleteBranch ciBranch
   deleteBranch tempBranch
@@ -178,9 +177,9 @@ createCIBranch base prs ciBranch message = do
     (prNums, prSHAs) = unzip prs
 
 -- | Refresh the check runs for the given CI commit.
-refreshCheckRuns :: MonadMergeBot m => Bool -> Text -> GitObjectID -> m ()
+refreshCheckRuns :: MonadMergeBot m => Bool -> BranchName -> CommitSHA -> m ()
 refreshCheckRuns isStart ciBranchName sha = do
-  ciCommit@CICommit{..} <- getCICommit sha checkName
+  ciCommit@CICommit{..} <- getCICommit sha checkRunType
   when (null parents) $ throwIO $ CICommitMissingParents isStart ciBranchName sha
 
   -- since we check the config in 'createCIBranch', we know that 'extractConfig' here will not fail
@@ -243,7 +242,7 @@ refreshCheckRuns isStart ciBranchName sha = do
           else onMergeCompletion prs isSuccess `finally` deleteBranch ciBranchName
   where
     isTry = isTryBranch ciBranchName
-    checkName = if isTry then checkRunTry else checkRunMerge
+    checkRunType = if isTry then CheckRunTry else CheckRunMerge
 
     mkCIBranchUrl = do
       (repoOwner, repoName) <- getRepo
@@ -284,7 +283,7 @@ refreshCheckRuns isStart ciBranchName sha = do
       | otherwise = return ()
 
 -- | Get the configuration file for the given tree.
-extractConfig :: [Int] -> Tree -> Either BotError BotConfig
+extractConfig :: [PrNum] -> Tree -> Either BotError BotConfig
 extractConfig prs tree =
   case filter isConfigFile [get| tree.entries![] |] of
     [] -> Left $ ConfigFileMissing prs

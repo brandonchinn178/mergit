@@ -150,9 +150,7 @@ handlePush o = runBotApp' repo $ do
 
 -- | A helper around 'runBotAppT' for easy use by the Servant handlers.
 runBotApp' :: Object RepoWebhook -> BotApp a -> Token -> BaseApp a
-runBotApp' repo action token = runBotApp repoOwner repoName action token
-  where
-    (repoOwner, repoName) = [get| repo.(owner.login, name) |]
+runBotApp' repo action token = runBotApp [get| repo.(owner.login, name) |] action token
 
 -- | Log the given event for the given object.
 logEvent :: IsSchemaObject schema => Text -> Object schema -> BotApp ()

@@ -26,6 +26,7 @@ import Test.Tasty.QuickCheck
 import UnliftIO.Async (async, asyncThreadId, race, uninterruptibleCancel, wait)
 import UnliftIO.Exception (finally)
 
+import MergeBot.Core.GitHub (Repo)
 import MergeBot.EventQueue
 import MergeBot.EventQueue.Internal
 
