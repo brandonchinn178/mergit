@@ -50,7 +50,7 @@ import MergeBot.Auth (AuthParams(..), loadAuthParams)
 import qualified MergeBot.Core as Core
 import qualified MergeBot.Core.GitHub as Core
 import MergeBot.Core.Monad (getRepo)
-import MergeBot.EventQueue (MergeBotEvent(..), getEventRepo, initMergeBotQueues)
+import MergeBot.EventQueue (getEventRepo, initMergeBotQueues)
 import MergeBot.Monad
 import MergeBot.Routes (MergeBotRoutes, handleMergeBotRoutes)
 

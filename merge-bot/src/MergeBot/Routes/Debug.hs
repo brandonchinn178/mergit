@@ -46,8 +46,7 @@ import qualified Text.Blaze.Html5.Attributes as A
 import MergeBot.Auth (xsrfTokenInputName)
 import qualified MergeBot.Core.GitHub as Core
 import qualified MergeBot.Core.Text as Core
-import MergeBot.EventQueue (MergeBotEvent(..))
-import MergeBot.Monad (getInstallations, queueEvent)
+import MergeBot.Monad (MergeBotEvent(..), getInstallations, queueEvent)
 import MergeBot.Routes.Debug.Monad
     (DebugApp, ServerDebug, getUser, getXsrfToken, liftBaseApp, runBotAppDebug)
 

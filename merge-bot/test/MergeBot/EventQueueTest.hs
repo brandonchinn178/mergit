@@ -20,27 +20,25 @@ import qualified Data.Text as Text
 import Generic.Random (genericArbitrary, uniform)
 import GHC.Generics (Generic)
 import GHC.Stack (HasCallStack)
-import GitHub.Data.GitObjectID (GitObjectID(..))
 import Test.Tasty
 import Test.Tasty.QuickCheck
 import UnliftIO.Async (async, asyncThreadId, race, uninterruptibleCancel, wait)
 import UnliftIO.Exception (finally)
 
-import MergeBot.Core.GitHub (Repo)
 import MergeBot.EventQueue
 import MergeBot.EventQueue.Internal
 
 test :: TestTree
 test = testGroup "MergeBot.EventQueue"
-  [ testProperty "Can handle event after queueing it" $ \repo event ->
+  [ testProperty "Can handle event after queueing it" $ \eventKey event ->
       ioProperty $ withEventQueues $ \EventQueuesManager{..} -> do
-        queueEvent repo event
+        queueEvent eventKey event
         result <- getWorkerEvent <$> getNextWorker
-        return $ result === (repo, event)
+        return $ result === (eventKey, event)
 
-  , testProperty "Works across threads" $ \repo event ->
+  , testProperty "Works across threads" $ \eventKey event ->
       ioProperty $ withEventQueues $ \EventQueuesManager{..} -> do
-        threadQueue <- makeThreadManager $ queueEvent repo event
+        threadQueue <- makeThreadManager $ queueEvent eventKey event
         threadDequeue <- makeThreadManager $ getWorkerEvent <$> getNextWorker
 
         startThread threadQueue
@@ -51,13 +49,13 @@ test = testGroup "MergeBot.EventQueue"
         startThread threadDequeue
         waitForThread threadDequeue
         prop3 <- getThreadResult threadQueue ===^ Just ()
-        prop4 <- getThreadResult threadDequeue ===^ Just (repo, event)
+        prop4 <- getThreadResult threadDequeue ===^ Just (eventKey, event)
 
         return $ conjoin [prop1, prop2, prop3, prop4]
 
-  , testProperty "handleNextEvent blocks" $ \repo event ->
+  , testProperty "handleNextEvent blocks" $ \eventKey event ->
       ioProperty $ withEventQueues $ \EventQueuesManager{..} -> do
-        threadQueue <- makeThreadManager $ queueEvent repo event
+        threadQueue <- makeThreadManager $ queueEvent eventKey event
         threadDequeue <- makeThreadManager $ getWorkerEvent <$> getNextWorker
 
         startThread threadDequeue
@@ -68,29 +66,27 @@ test = testGroup "MergeBot.EventQueue"
         waitForThread threadQueue
         waitForThread threadDequeue
         prop3 <- getThreadResult threadQueue ===^ Just ()
-        prop4 <- getThreadResult threadDequeue ===^ Just (repo, event)
+        prop4 <- getThreadResult threadDequeue ===^ Just (eventKey, event)
 
         return $ conjoin [prop1, prop2, prop3, prop4]
 
-  , testProperty "Events with the same EventKey run on the same thread" $ \eventKey ->
-      forAll (listOf1 $ mergeBotEventWithKey eventKey) $ \events ->
-        ioProperty $ withEventQueues $ \EventQueuesManager{..} -> do
-          let repo = getEventRepo eventKey
-          mapM_ (queueEvent repo) events
+  , testProperty "Events with the same EventKey run on the same thread" $ \eventKey events ->
+      ioProperty $ withEventQueues $ \EventQueuesManager{..} -> do
+        mapM_ (queueEvent eventKey) (events :: [TestEvent])
 
-          waitForGlobalQueueToBeProcessed
+        waitForGlobalQueueToBeProcessed
 
-          workers <- replicateM (length events) getNextWorker
+        workers <- replicateM (length events) getNextWorker
 
-          return $ areAllSame $ map workerThreadId workers
+        return $ areAllSame $ map workerThreadId workers
 
-  , testProperty "Events with different EventKeys run on different threads" $
-      \repo1 event1 repo2 event2 -> ioProperty $ withEventQueues $ \EventQueuesManager{..} -> do
-        let eventKey1 = makeEventKey repo1 event1
-            eventKey2 = makeEventKey repo2 event2
+  , testProperty "Events with different EventKeys run on different threads" $ \eventAndKey1 eventAndKey2 ->
+      ioProperty $ withEventQueues $ \EventQueuesManager{..} -> do
+        let (eventKey1, event1) = eventAndKey1
+            (eventKey2, event2) = eventAndKey2
 
-        queueEvent (getEventRepo eventKey1) event1
-        queueEvent (getEventRepo eventKey2) event2
+        queueEvent eventKey1 event1
+        queueEvent eventKey2 event2
 
         worker1 <- getNextWorker
         worker2 <- getNextWorker
@@ -98,42 +94,30 @@ test = testGroup "MergeBot.EventQueue"
         return $ eventKey1 /= eventKey2 ==> workerThreadId worker1 /= workerThreadId worker2
   ]
 
-{- MergeBot helpers -}
+{- Queueing helpers -}
 
-mergeBotEventWithKey :: EventKey -> Gen MergeBotEvent
-mergeBotEventWithKey = \case
-  OnPR _ prNum -> oneof
-    [ applyArbitrary1 (PRCreated prNum)
-    , applyArbitrary1 (CommitPushedToPR prNum)
-    , applyArbitrary3 (StartTryJob prNum)
-    , applyArbitrary1 (QueuePR prNum)
-    , applyArbitrary1 (DequeuePR prNum)
-    , applyArbitrary1 (ResetMerge prNum)
-    ]
-  OnBranch _ branch -> oneof
-    [ applyArbitrary1 (RefreshCheckRun branch)
-    , applyArbitrary0 (DeleteBranch branch)
-    ]
-  OnRepo _ -> oneof
-    [ applyArbitrary0 PollQueues
-    ]
-  where
-    applyArbitrary0 = pure
-    applyArbitrary1 f = f <$> arbitrary
+data TestEvent = TestEvent
+  { testEventId   :: Int
+  , testEventName :: String
+  }
+  deriving (Show,Eq)
+
+instance Arbitrary TestEvent where
+  arbitrary = TestEvent <$> arbitrary <*> arbitrary
 
 data EventWorker = EventWorker
   { workerThreadId :: ThreadId
   , workerEventKey :: EventKey
-  , workerEvent    :: MergeBotEvent
+  , workerEvent    :: TestEvent
   }
 
-getWorkerEvent :: EventWorker -> (Repo, MergeBotEvent)
-getWorkerEvent EventWorker{..} = (getEventRepo workerEventKey, workerEvent)
+getWorkerEvent :: EventWorker -> (EventKey, TestEvent)
+getWorkerEvent EventWorker{..} = (workerEventKey, workerEvent)
 
 data EventQueuesManager = EventQueuesManager
   { getNextWorker                   :: IO EventWorker
   , waitForGlobalQueueToBeProcessed :: IO ()
-  , queueEvent                      :: Repo -> MergeBotEvent -> IO ()
+  , queueEvent                      :: EventKey -> TestEvent -> IO ()
   }
 
 withEventQueues :: (EventQueuesManager -> IO a) -> IO a
@@ -218,18 +202,10 @@ allEqual expected xs = counterexample msg $ all (== expected) xs
 
 {- Orphans -}
 
-deriving instance Generic MergeBotEvent
-
-instance Arbitrary MergeBotEvent where
-  arbitrary = genericArbitrary uniform
-
 deriving instance Generic EventKey
 
 instance Arbitrary EventKey where
   arbitrary = genericArbitrary uniform
-
-instance Arbitrary GitObjectID where
-  arbitrary = GitObjectID <$> arbitrary
 
 instance Arbitrary Text where
   arbitrary = Text.pack . getPrintableString <$> arbitrary

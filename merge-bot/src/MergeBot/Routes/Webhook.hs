@@ -36,8 +36,8 @@ import UnliftIO.Exception (throwIO)
 import MergeBot.Core.Actions (MergeBotAction(..), parseAction)
 import MergeBot.Core.Error (BotError(..))
 import MergeBot.Core.Text (isStagingBranch, isTryBranch)
-import MergeBot.EventQueue (MergeBotEvent(..))
-import MergeBot.Monad (BaseApp, BotApp, ServerBase, queueEvent, runBotApp)
+import MergeBot.Monad
+    (BaseApp, BotApp, MergeBotEvent(..), ServerBase, queueEvent, runBotApp)
 
 -- TODO: WithToken no longer needed?
 type WebhookRoutes =
