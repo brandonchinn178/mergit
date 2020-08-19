@@ -1,16 +1,20 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module MergeBot.EventQueue.Internal where
 
-import Control.Concurrent.STM.TBQueue (TBQueue, newTBQueueIO)
-import Control.Concurrent.STM.TVar (TVar, newTVarIO, readTVar)
+import Control.Concurrent.STM.TBQueue
+    (TBQueue, newTBQueue, readTBQueue, tryReadTBQueue, writeTBQueue)
+import Control.Concurrent.STM.TVar (TVar, modifyTVar', newTVar, readTVar)
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Text (Text)
+import GHC.Stack (HasCallStack)
 import GitHub.Data.GitObjectID (GitObjectID)
-import System.IO.Unsafe (unsafePerformIO)
 import UnliftIO.Async (Async)
-import UnliftIO.STM (STM)
+import UnliftIO.STM (STM, atomically)
 
 import MergeBot.Core.GitHub (CheckRunId)
 
@@ -61,27 +65,77 @@ getEventRepo = \case
   OnBranch repo _ -> repo
   OnRepo repo -> repo
 
-{- Global state -}
+{- MergeBot queues -}
 
--- | The global queue of all events that occur in the merge bot.
-globalEventQueue :: TBQueue (EventKey, MergeBotEvent)
-globalEventQueue = unsafePerformIO $ newTBQueueIO globalQueueLimit
+data MergeBotQueues = MergeBotQueues
+  { globalEventQueue :: TBQueue (EventKey, MergeBotEvent)
+  , workerQueues     :: TVar (Map EventKey WorkerQueue)
+  }
+
+initMergeBotQueues :: IO MergeBotQueues
+initMergeBotQueues = atomically $ do
+  globalEventQueue <- newTBQueue globalQueueLimit
+  workerQueues <- newTVar Map.empty
+  return MergeBotQueues{..}
   where
     globalQueueLimit = 1000
-{-# NOINLINE globalEventQueue #-}
 
--- | A registry of event queues per repo per possible PR.
-eventWorkerQueues :: TVar (Map EventKey (TBQueue MergeBotEvent))
-eventWorkerQueues = unsafePerformIO $ newTVarIO Map.empty
-{-# NOINLINE eventWorkerQueues #-}
+queueGlobalEvent :: MergeBotQueues -> (EventKey, MergeBotEvent) -> STM ()
+queueGlobalEvent MergeBotQueues{..} = writeTBQueue globalEventQueue
 
--- | Look up the given EventKey in eventWorkerQueues.
-getEventQueue :: EventKey -> STM (Maybe (TBQueue MergeBotEvent))
-getEventQueue eventKey = Map.lookup eventKey <$> readTVar eventWorkerQueues
+getNextGlobalEvent :: MergeBotQueues -> STM (EventKey, MergeBotEvent)
+getNextGlobalEvent MergeBotQueues{..} = readTBQueue globalEventQueue
 
--- | The registry of worker threads.
---
--- Invariant: if an EventKey exists here, it's guaranteed to exist in eventWorkerQueues.
-eventWorkerThreads :: TVar (Map EventKey (Async ()))
-eventWorkerThreads = unsafePerformIO $ newTVarIO Map.empty
-{-# NOINLINE eventWorkerThreads #-}
+{- Worker queues -}
+
+type WorkerThread = Async ()
+
+data WorkerQueue = WorkerQueue
+  { workerEventQueue :: TBQueue MergeBotEvent
+  , workerThread     :: Maybe WorkerThread
+  }
+
+data AddEventResult
+  = AddedToExistingQueue WorkerQueue
+  | AddedToNewQueue WorkerQueue
+
+addEventToWorkerQueue :: MergeBotQueues -> EventKey -> MergeBotEvent -> STM AddEventResult
+addEventToWorkerQueue MergeBotQueues{..} eventKey event = do
+  queues <- readTVar workerQueues
+  case Map.lookup eventKey queues of
+    Nothing -> do
+      -- create a new worker queue and add the event to the queue
+      workerEventQueue <- newTBQueue workerQueueLimit
+      writeTBQueue workerEventQueue event
+
+      let workerQueue = WorkerQueue { workerEventQueue, workerThread = Nothing }
+
+      -- register queue with workerQueues
+      modifyTVar' workerQueues (Map.insert eventKey workerQueue)
+
+      return $ AddedToNewQueue workerQueue
+
+    Just workerQueue -> do
+      -- add the event to the queue
+      writeTBQueue (workerEventQueue workerQueue) event
+
+      return $ AddedToExistingQueue workerQueue
+  where
+    workerQueueLimit = 1000
+
+registerWorkerThread :: HasCallStack => MergeBotQueues -> EventKey -> WorkerThread -> STM ()
+registerWorkerThread MergeBotQueues{..} eventKey workerThread =
+  modifyTVar' workerQueues $ \queues ->
+    case Map.lookup eventKey queues of
+      Just workerQueue ->
+        let workerQueue' = workerQueue { workerThread = Just workerThread }
+        in Map.insert eventKey workerQueue' queues
+
+      -- should not happen
+      Nothing -> error $ "Event key not found in queues: " ++ show eventKey
+
+getNextWorkerEvent :: WorkerQueue -> STM (Maybe MergeBotEvent)
+getNextWorkerEvent WorkerQueue{..} = tryReadTBQueue workerEventQueue
+
+cleanupWorker :: MergeBotQueues -> EventKey -> STM ()
+cleanupWorker MergeBotQueues{..} eventKey = modifyTVar' workerQueues (Map.delete eventKey)

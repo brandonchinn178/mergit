@@ -12,6 +12,7 @@ This module defines the entrypoint for the MergeBot GitHub application.
 {-# LANGUAGE NumDecimals #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -freduction-depth=400 #-}
@@ -19,10 +20,11 @@ This module defines the entrypoint for the MergeBot GitHub application.
 module MergeBot (runMergeBot) where
 
 import Control.Concurrent (threadDelay)
-import Control.Exception (SomeException, displayException)
+import Control.Exception (SomeException, displayException, fromException)
 import Control.Monad (forever, void)
 import Control.Monad.IO.Class (MonadIO(..))
 import Control.Monad.Logger (logInfoN)
+import qualified Data.ByteString.Lazy.Char8 as Char8
 import Data.Proxy (Proxy(..))
 import qualified Data.Text as Text
 import GitHub.Data.GitObjectID (GitObjectID(..))
@@ -32,34 +34,38 @@ import Servant
     , Context(..)
     , Handler
     , HasServer
+    , ServerError(..)
     , ServerT
+    , err500
     , hoistServerWithContext
     , serveWithContext
+    , throwError
     )
 import Servant.GitHub (loadGitHubAppParams)
-import UnliftIO (MonadUnliftIO, async, handle, waitAny)
+import UnliftIO (MonadUnliftIO, withRunInIO)
+import UnliftIO.Async (async, waitAny)
+import UnliftIO.Exception (handle, try)
 
 import MergeBot.Auth (AuthParams(..), loadAuthParams)
 import qualified MergeBot.Core as Core
 import qualified MergeBot.Core.GitHub as Core
 import MergeBot.Core.Monad (getRepo)
-import MergeBot.EventQueue (MergeBotEvent(..), getEventRepo, handleEvents)
+import MergeBot.EventQueue (MergeBotEvent(..), getEventRepo, initMergeBotQueues)
 import MergeBot.Monad
 import MergeBot.Routes (MergeBotRoutes, handleMergeBotRoutes)
 
 -- | Load environment variables and spin up all the merge bot threads.
 runMergeBot :: IO ()
-runMergeBot = concurrentlyAllIO
-  [ handleBotQueue
-  , pollMergeQueues
-  , runServer
-  ]
-  where
-    concurrentlyAllIO :: [BaseApp ()] -> IO ()
-    concurrentlyAllIO actions = do
-      ghAppParams <- loadGitHubAppParams
-      authParams <- loadAuthParams
-      runBaseApp ghAppParams authParams $ concurrentlyAll actions
+runMergeBot = do
+  ghAppParams <- loadGitHubAppParams
+  authParams <- loadAuthParams
+  mergeBotQueues <- initMergeBotQueues
+
+  runBaseApp BaseAppConfig{..} $ concurrentlyAll
+    [ handleBotQueue
+    , pollMergeQueues
+    , runServer
+    ]
 
 handleBotQueue :: BaseApp ()
 handleBotQueue = handleEvents handleBotEvent
@@ -115,7 +121,7 @@ handleBotQueue = handleEvents handleBotEvent
 -- TODO: instead of polling, have the completed merge run start the next merge run
 pollMergeQueues :: BaseApp ()
 pollMergeQueues = forever $ do
-  handle logException $ void $ runBotAppOnAllRepos $ queueEvent' PollQueues
+  handle logException $ void $ runBotAppOnAllRepos $ queueEvent PollQueues
 
   liftIO $ threadDelay $ pollDelayMinutes * 60e6
   where
@@ -126,10 +132,20 @@ runServer = do
   ghAppParams <- getGitHubAppParams
   authParams <- getAuthParams
 
-  let runBaseHandler' = runBaseHandler ghAppParams authParams
-      context = cookieSettings authParams :. jwtSettings authParams :. ghAppParams :. EmptyContext
+  let context = cookieSettings authParams :. jwtSettings authParams :. ghAppParams :. EmptyContext
 
-  liftIO $ Warp.run 3000 $ serveRoutes @MergeBotRoutes runBaseHandler' context handleMergeBotRoutes
+  withRunInIO $ \run -> do
+    let runBaseHandler :: BaseApp a -> Handler a
+        runBaseHandler = ioToHandler . run
+
+    Warp.run 3000 $ serveRoutes @MergeBotRoutes runBaseHandler context handleMergeBotRoutes
+  where
+    ioToHandler :: IO a -> Handler a
+    ioToHandler m = liftIO (try m) >>= \case
+      Right x -> return x
+      Left e
+        | Just servantErr <- fromException e -> throwError servantErr
+        | otherwise -> throwError $ err500 { errBody = Char8.pack $ displayException e }
 
 {- Helpers -}
 

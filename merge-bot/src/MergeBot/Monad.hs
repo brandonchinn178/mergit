@@ -19,79 +19,81 @@ This module defines functions for running GitHubT actions.
 
 module MergeBot.Monad
   ( BaseApp
+  , BaseAppConfig(..)
   , ServerBase
   , runBaseApp
   , getGitHubAppParams
   , getAuthParams
     -- * BaseApp helpers
-  , runBaseHandler
   , getInstallations
   , getRepoAndTokens
     -- * BotAppT helpers
   , BotApp
   , runBotApp
   , runBotAppOnAllRepos
-  , queueEvent'
+    -- * Queueing helpers
+  , handleEvents
+  , queueEvent
   ) where
 
 import Control.Monad (forM)
 import Control.Monad.Except (MonadError(..))
 import Control.Monad.IO.Class (MonadIO(..))
 import Control.Monad.Reader (ReaderT, asks, runReaderT)
+import Control.Monad.Trans (lift)
 import Data.Aeson (FromJSON)
 import Data.Aeson.Schema (Object, get, schema)
-import qualified Data.ByteString.Lazy.Char8 as Char8
-import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import GitHub.REST
     (GHEndpoint(..), GitHubState(..), MonadGitHubREST(..), Token, runGitHubT)
 import GitHub.REST.Auth (getJWTToken)
 import GitHub.Schema.Repository (Repository)
 import Network.HTTP.Types (StdMethod(..))
-import Servant (Handler, ServerError(..), ServerT, err500)
+import Servant (ServerError, ServerT)
 import Servant.GitHub (GitHubAppParams(..))
 import Servant.GitHub.Security (getToken)
-import UnliftIO (MonadUnliftIO(..), UnliftIO(..), withUnliftIO)
-import UnliftIO.Exception
-    (SomeException, catch, displayException, fromException, throwIO, try)
+import UnliftIO (MonadUnliftIO(..), wrappedWithRunInIO)
+import UnliftIO.Exception (catch, throwIO)
 
 import MergeBot.Auth (AuthParams)
 import MergeBot.Core.Monad (BotAppT, BotSettings(..), getRepo, runBotAppT)
-import MergeBot.EventQueue (MergeBotEvent, queueEvent)
+import MergeBot.EventQueue
+    (EventKey, MergeBotEvent, MergeBotQueues, handleEventsWith, queueEventWith)
 
 {- The base monad for all servant routes -}
 
 type ServerBase api = ServerT api BaseApp
 
+data BaseAppConfig = BaseAppConfig
+  { ghAppParams    :: GitHubAppParams
+  , authParams     :: AuthParams
+  , mergeBotQueues :: MergeBotQueues
+  }
+
 newtype BaseApp a = BaseApp
-  { unBaseApp :: ReaderT (GitHubAppParams, AuthParams) IO a
+  { unBaseApp :: ReaderT BaseAppConfig IO a
   } deriving (Functor, Applicative, Monad, MonadIO)
 
 instance MonadUnliftIO BaseApp where
-  askUnliftIO = BaseApp $
-    withUnliftIO $ \u ->
-      return $ UnliftIO (unliftIO u . unBaseApp)
+  withRunInIO = wrappedWithRunInIO BaseApp unBaseApp
 
 instance MonadError ServerError BaseApp where
   throwError = throwIO
   catchError = catch
 
-runBaseApp :: GitHubAppParams -> AuthParams -> BaseApp a -> IO a
-runBaseApp ghAppParams authParams = (`runReaderT` state) . unBaseApp
-  where
-    state = (ghAppParams, authParams)
+runBaseApp :: BaseAppConfig -> BaseApp a -> IO a
+runBaseApp cfg = (`runReaderT` cfg) . unBaseApp
 
 getGitHubAppParams :: BaseApp GitHubAppParams
-getGitHubAppParams = BaseApp $ asks fst
+getGitHubAppParams = BaseApp $ asks ghAppParams
 
 getAuthParams :: BaseApp AuthParams
-getAuthParams = BaseApp $ asks snd
+getAuthParams = BaseApp $ asks authParams
+
+getMergeBotQueues :: BaseApp MergeBotQueues
+getMergeBotQueues = BaseApp $ asks mergeBotQueues
 
 {- BaseApp helpers -}
-
--- | A helper for running BaseApp in Handler.
-runBaseHandler :: GitHubAppParams -> AuthParams -> BaseApp a -> Handler a
-runBaseHandler ghAppParams authParams = runIO . runBaseApp ghAppParams authParams
 
 -- | A helper for generating a JWT token.
 getJWTToken' :: BaseApp Token
@@ -126,7 +128,7 @@ getInstallations = do
 
 {- BotAppT helpers -}
 
-type BotApp = BotAppT IO
+type BotApp = BotAppT BaseApp
 
 -- | A helper around 'runBotAppT'.
 runBotApp :: Text -> Text -> BotApp a -> Token -> BaseApp a
@@ -137,7 +139,7 @@ runBotApp repoOwner repoName action token = do
         , appId = ghAppId
         , ..
         }
-  liftIO $ runBotAppT settings action
+  runBotAppT settings action
 
 type Repo = (Text, Text)
 
@@ -175,18 +177,17 @@ runBotAppOnAllRepos action = mapM runOnRepo =<< getRepoAndTokens
       result <- runBotApp repoOwner repoName action token
       return (repo, result)
 
--- | A helper around 'queueEvent'
-queueEvent' :: MergeBotEvent -> BotApp ()
-queueEvent' event = do
+{- Queues -}
+
+-- | A helper around 'handleEventsWith'
+handleEvents :: (EventKey -> MergeBotEvent -> BaseApp ()) -> BaseApp ()
+handleEvents f = do
+  mergeBotQueues <- getMergeBotQueues
+  handleEventsWith mergeBotQueues f
+
+-- | A helper around 'queueEventWith'
+queueEvent :: MergeBotEvent -> BotApp ()
+queueEvent event = do
+  mergeBotQueues <- lift getMergeBotQueues
   repo <- getRepo
-  liftIO $ queueEvent repo event
-
-{- Helpers -}
-
--- | Run the given IO action, throwing any exceptions as 500 errors.
-runIO :: IO a -> Handler a
-runIO m = liftIO (try @_ @SomeException m) >>= \case
-  Right x -> return x
-  Left e -> throwError . fromMaybe (showErr e) . fromException $ e
-  where
-    showErr e = err500 { errBody = Char8.pack $ displayException e }
+  liftIO $ queueEventWith mergeBotQueues repo event

@@ -33,7 +33,7 @@ import Control.Monad (void)
 import Control.Monad.IO.Class (MonadIO(..))
 import Control.Monad.IO.Unlift (MonadUnliftIO(..), UnliftIO(..), withUnliftIO)
 import Control.Monad.Logger (LoggingT, MonadLogger, logErrorN)
-import Control.Monad.Trans.Class (lift)
+import Control.Monad.Trans.Class (MonadTrans(..))
 import Control.Monad.Trans.Reader (ReaderT, asks, runReaderT)
 import Data.Aeson (Value)
 import qualified Data.Aeson as Aeson
@@ -93,6 +93,9 @@ newtype BotAppT m a = BotAppT
     , MonadIO
     , MonadLogger
     )
+
+instance MonadTrans BotAppT where
+  lift = BotAppT . lift . lift . lift . lift
 
 instance MonadUnliftIO m => MonadGitHubREST (BotAppT m) where
   queryGitHubPage' = retry . (BotAppT . lift . lift . queryGitHubPage')

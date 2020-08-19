@@ -37,7 +37,7 @@ import MergeBot.Core.Actions (MergeBotAction(..), parseAction)
 import MergeBot.Core.Error (BotError(..))
 import MergeBot.Core.Text (isStagingBranch, isTryBranch)
 import MergeBot.EventQueue (MergeBotEvent(..))
-import MergeBot.Monad (BaseApp, BotApp, ServerBase, queueEvent', runBotApp)
+import MergeBot.Monad (BaseApp, BotApp, ServerBase, queueEvent, runBotApp)
 
 -- TODO: WithToken no longer needed?
 type WebhookRoutes =
@@ -68,7 +68,7 @@ handlePullRequest o = runBotApp' repo $ do
   case [get| o.action |] of
     PullRequest.OPENED ->
       let (number, sha) = [get| o.pull_request.(number, head.sha) |]
-      in queueEvent' $ PRCreated number sha
+      in queueEvent $ PRCreated number sha
     _ -> return ()
   where
     repo = [get| o.repository! |]
@@ -82,7 +82,7 @@ handleCheckSuite o = runBotApp' repo $ do
       let (prs, sha) = [get| o.check_suite.(pull_requests, head_sha) |]
       case prs of
         [] -> return ()
-        [pr] -> queueEvent' $ CommitPushedToPR [get| pr.number |] sha
+        [pr] -> queueEvent $ CommitPushedToPR [get| pr.number |] sha
         _ -> throwIO $ NotOnePRInCheckSuite o
     _ -> return ()
   where
@@ -110,10 +110,10 @@ handleCheckRun o = runBotApp' repo $ do
         throwIO $ CommitNotPRHead prNum sha
 
       case parseAction action of
-        Just BotTry -> queueEvent' $ StartTryJob prNum sha prBaseRef checkRunId
-        Just BotQueue -> queueEvent' $ QueuePR prNum sha
-        Just BotDequeue -> queueEvent' $ DequeuePR prNum sha
-        Just BotResetMerge -> queueEvent' $ ResetMerge prNum sha
+        Just BotTry -> queueEvent $ StartTryJob prNum sha prBaseRef checkRunId
+        Just BotQueue -> queueEvent $ QueuePR prNum sha
+        Just BotDequeue -> queueEvent $ DequeuePR prNum sha
+        Just BotResetMerge -> queueEvent $ ResetMerge prNum sha
         Nothing -> return ()
     _ -> return ()
   where
@@ -125,7 +125,7 @@ handleStatus o = runBotApp' repo $ do
   logEvent "status" o
   case [get| o.branches[].name |] of
     [branch] | isTryBranch branch || isStagingBranch branch ->
-      queueEvent' $ RefreshCheckRun branch [get| o.sha |]
+      queueEvent $ RefreshCheckRun branch [get| o.sha |]
     _ -> return ()
   where
     repo = [get| o.repository! |]
@@ -135,7 +135,7 @@ handlePush :: Object PushEvent -> Token -> BaseApp ()
 handlePush o = runBotApp' repo $ do
   logEvent "push" o
   when (isCreated && isCIBranch && not isBot) $ do
-    queueEvent' $ DeleteBranch branch
+    queueEvent $ DeleteBranch branch
     throwIO $ CIBranchPushed o
   where
     repo = [get| o.repository! |]

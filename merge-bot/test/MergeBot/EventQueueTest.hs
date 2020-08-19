@@ -10,10 +10,10 @@ module MergeBot.EventQueueTest where
 import Control.Concurrent (ThreadId, threadDelay)
 import Control.Concurrent.MVar (newEmptyMVar, putMVar, takeMVar, tryReadMVar)
 import Control.Concurrent.STM (atomically, retry)
-import Control.Concurrent.STM.TBQueue (flushTBQueue, isEmptyTBQueue)
+import Control.Concurrent.STM.TBQueue (isEmptyTBQueue)
 import Control.Concurrent.STM.TChan (newTChanIO, readTChan, writeTChan)
-import Control.Concurrent.STM.TVar (readTVar, swapTVar, writeTVar)
-import Control.Monad (join, replicateM, unless, void)
+import Control.Concurrent.STM.TVar (readTVar, readTVarIO)
+import Control.Monad (forM_, replicateM, unless)
 import qualified Data.Map as Map
 import Data.Text (Text)
 import qualified Data.Text as Text
@@ -23,8 +23,7 @@ import GHC.Stack (HasCallStack)
 import GitHub.Data.GitObjectID (GitObjectID(..))
 import Test.Tasty
 import Test.Tasty.QuickCheck
-import UnliftIO.Async
-    (Async, async, asyncThreadId, race, uninterruptibleCancel, wait)
+import UnliftIO.Async (async, asyncThreadId, race, uninterruptibleCancel, wait)
 import UnliftIO.Exception (finally)
 
 import MergeBot.EventQueue
@@ -33,13 +32,13 @@ import MergeBot.EventQueue.Internal
 test :: TestTree
 test = testGroup "MergeBot.EventQueue"
   [ testProperty "Can handle event after queueing it" $ \repo event ->
-      ioProperty $ withEventQueues $ \getNextWorker -> do
+      ioProperty $ withEventQueues $ \EventQueuesManager{..} -> do
         queueEvent repo event
         result <- getWorkerEvent <$> getNextWorker
         return $ result === (repo, event)
 
   , testProperty "Works across threads" $ \repo event ->
-      ioProperty $ withEventQueues $ \getNextWorker -> do
+      ioProperty $ withEventQueues $ \EventQueuesManager{..} -> do
         threadQueue <- makeThreadManager $ queueEvent repo event
         threadDequeue <- makeThreadManager $ getWorkerEvent <$> getNextWorker
 
@@ -56,7 +55,7 @@ test = testGroup "MergeBot.EventQueue"
         return $ conjoin [prop1, prop2, prop3, prop4]
 
   , testProperty "handleNextEvent blocks" $ \repo event ->
-      ioProperty $ withEventQueues $ \getNextWorker -> do
+      ioProperty $ withEventQueues $ \EventQueuesManager{..} -> do
         threadQueue <- makeThreadManager $ queueEvent repo event
         threadDequeue <- makeThreadManager $ getWorkerEvent <$> getNextWorker
 
@@ -74,7 +73,7 @@ test = testGroup "MergeBot.EventQueue"
 
   , testProperty "Events with the same EventKey run on the same thread" $ \eventKey ->
       forAll (listOf1 $ mergeBotEventWithKey eventKey) $ \events ->
-        ioProperty $ withEventQueues $ \getNextWorker -> do
+        ioProperty $ withEventQueues $ \EventQueuesManager{..} -> do
           let repo = getEventRepo eventKey
           mapM_ (queueEvent repo) events
 
@@ -85,7 +84,7 @@ test = testGroup "MergeBot.EventQueue"
           return $ areAllSame $ map workerThreadId workers
 
   , testProperty "Events with different EventKeys run on different threads" $
-      \repo1 event1 repo2 event2 -> ioProperty $ withEventQueues $ \getNextWorker -> do
+      \repo1 event1 repo2 event2 -> ioProperty $ withEventQueues $ \EventQueuesManager{..} -> do
         let eventKey1 = makeEventKey repo1 event1
             eventKey2 = makeEventKey repo2 event2
 
@@ -130,40 +129,45 @@ data EventWorker = EventWorker
 getWorkerEvent :: EventWorker -> (Repo, MergeBotEvent)
 getWorkerEvent EventWorker{..} = (getEventRepo workerEventKey, workerEvent)
 
-withEventQueues :: (IO EventWorker -> IO a) -> IO a
+data EventQueuesManager = EventQueuesManager
+  { getNextWorker                   :: IO EventWorker
+  , waitForGlobalQueueToBeProcessed :: IO ()
+  , queueEvent                      :: Repo -> MergeBotEvent -> IO ()
+  }
+
+withEventQueues :: (EventQueuesManager -> IO a) -> IO a
 withEventQueues f = do
-  clearAllQueuesAndThreads
+  mergeBotQueues <- initMergeBotQueues
 
   workers <- newTChanIO
   handleNextEvent <- newEmptyMVar
 
-  eventThread <- async $ handleEvents $ \workerEventKey workerEvent -> do
+  eventThread <- async $ handleEventsWith mergeBotQueues $ \workerEventKey workerEvent -> do
     takeMVar handleNextEvent
-    workerThreadId <- asyncThreadId <$> getWorkerThread workerEventKey
+
+    workerThreadId <- atomically $ do
+      workerThreads <- readTVar $ workerQueues mergeBotQueues
+      case Map.lookup workerEventKey workerThreads of
+        Just WorkerQueue{workerThread = Just worker} -> return $ asyncThreadId worker
+        _ -> retry
+
     atomically $ writeTChan workers EventWorker{..}
 
-  let getNextWorker = withTimeout $ do
-        putMVar handleNextEvent ()
-        atomically $ readTChan workers
+  let eventQueuesManager = EventQueuesManager
+        { getNextWorker = withTimeout $ do
+            putMVar handleNextEvent ()
+            atomically $ readTChan workers
+        , waitForGlobalQueueToBeProcessed = atomically $ do
+            isEmpty <- isEmptyTBQueue $ globalEventQueue mergeBotQueues
+            unless isEmpty retry
+        , queueEvent = queueEventWith mergeBotQueues
+        }
 
-  f getNextWorker `finally` uninterruptibleCancel eventThread
-
-waitForGlobalQueueToBeProcessed :: IO ()
-waitForGlobalQueueToBeProcessed = atomically $ do
-  isEmpty <- isEmptyTBQueue globalEventQueue
-  unless isEmpty retry
-
-getWorkerThread :: EventKey -> IO (Async ())
-getWorkerThread eventKey = atomically $ do
-  workerThreads <- readTVar eventWorkerThreads
-  maybe retry return $ Map.lookup eventKey workerThreads
-
-clearAllQueuesAndThreads :: IO ()
-clearAllQueuesAndThreads = join $ atomically $ do
-  void $ flushTBQueue globalEventQueue
-  writeTVar eventWorkerQueues Map.empty
-  oldThreads <- swapTVar eventWorkerThreads Map.empty
-  return $ mapM_ uninterruptibleCancel $ Map.elems oldThreads
+  f eventQueuesManager `finally` (do
+    uninterruptibleCancel eventThread
+    queues <- readTVarIO $ workerQueues mergeBotQueues
+    forM_ queues $ \WorkerQueue{..} -> traverse uninterruptibleCancel workerThread
+    )
 
 {- Threading helpers -}
 
