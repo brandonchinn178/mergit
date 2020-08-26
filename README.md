@@ -23,6 +23,17 @@ See the Feature home page [on Notion][feature-home-page] for more details.
 
 [feature-home-page]: https://www.notion.so/leapyear/Merge-Bot-4c28d412fa7b414fb02e5e3264507b44
 
+## Build
+
+`stack build`
+
+### Regenerate graphql files
+
+```bash
+curl -o .graphql/schema.graphql https://docs.github.com/public/schema.docs.graphql
+stack exec graphql-codegen
+```
+
 ## Repo layout
 
 The project is broken up into multiple sub-projects, most of which can be moved
