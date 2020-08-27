@@ -40,11 +40,11 @@ import qualified Data.Aeson as Aeson
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Lazy as ByteStringL
 import Data.GraphQL
-    ( MonadQuery(..)
-    , QuerySettings(..)
-    , QueryT
-    , defaultQuerySettings
-    , runQueryT
+    ( GraphQLQueryT
+    , GraphQLSettings(..)
+    , MonadGraphQLQuery(..)
+    , defaultGraphQLSettings
+    , runGraphQLQueryT
     )
 import qualified Data.HashMap.Strict as HashMap
 import Data.Text (Text)
@@ -65,7 +65,6 @@ import Network.HTTP.Types
 import UnliftIO.Exception (Handler(..), SomeException, catchJust, catches)
 
 import MergeBot.Core.Error (getRelevantPRs)
-import MergeBot.Core.GraphQL.API (API)
 import MergeBot.Core.Logging (runMergeBotLogging)
 
 -- | The monadic state in BotAppT.
@@ -80,7 +79,7 @@ newtype BotAppT m a = BotAppT
       LoggingT
         ( ReaderT BotState
           ( GitHubT
-            ( QueryT API
+            ( GraphQLQueryT
                 m
             )
           )
@@ -115,8 +114,8 @@ instance MonadUnliftIO m => MonadGitHubREST (BotAppT m) where
           -> Just ()
         _ -> Nothing
 
-instance MonadIO m => MonadQuery API (BotAppT m) where
-  runQuerySafe query = BotAppT . lift . lift . lift . runQuerySafe query
+instance MonadIO m => MonadGraphQLQuery (BotAppT m) where
+  runQuerySafe = BotAppT . lift . lift . lift . runQuerySafe
 
 instance MonadUnliftIO m => MonadUnliftIO (BotAppT m) where
   askUnliftIO = BotAppT $
@@ -133,7 +132,7 @@ data BotSettings = BotSettings
 
 runBotAppT :: (MonadIO m, MonadUnliftIO m) => BotSettings -> BotAppT m a -> m a
 runBotAppT BotSettings{..} =
-  runQueryT graphqlSettings
+  runGraphQLQueryT graphqlSettings
   . runGitHubT state
   . (`runReaderT` botState)
   . runMergeBotLogging
@@ -167,7 +166,7 @@ runBotAppT BotSettings{..} =
 
 {- MonadMergeBot class -}
 
-class (MonadGitHubREST m, MonadQuery API m, MonadUnliftIO m) => MonadMergeBot m where
+class (MonadGitHubREST m, MonadGraphQLQuery m, MonadUnliftIO m) => MonadMergeBot m where
   getRepo :: m (Text, Text)
   getAppId :: m Int
 
@@ -191,8 +190,8 @@ queryGitHub' endpoint = do
 
 {- Helpers -}
 
-githubQuerySettings :: QuerySettings API
-githubQuerySettings = defaultQuerySettings
+githubQuerySettings :: GraphQLSettings
+githubQuerySettings = defaultGraphQLSettings
   { url = "https://api.github.com/graphql"
   }
 

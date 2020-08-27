@@ -1,4 +1,4 @@
-query PRForCommit(
+query getPRForCommit(
   $repoOwner: String!,
   $repoName: String!,
   $sha: GitObjectID!,

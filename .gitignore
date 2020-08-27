@@ -9,4 +9,4 @@
 *.tfvars
 /deploy/artifacts/
 
-/core/.graphql
+/.graphql

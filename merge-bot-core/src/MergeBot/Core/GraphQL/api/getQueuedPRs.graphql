@@ -1,4 +1,4 @@
-query QueuedPRs(
+query getQueuedPRs(
   $repoOwner: String!,
   $repoName: String!,
   $after: String,

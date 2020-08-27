@@ -1,4 +1,4 @@
-query PRCheckRun(
+query getPRCheckRun(
   $repoOwner: String!,
   $repoName: String!,
   $prNum: Int!,

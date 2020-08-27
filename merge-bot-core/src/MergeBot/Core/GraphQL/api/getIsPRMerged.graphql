@@ -1,4 +1,4 @@
-query PRIsMerged(
+query getIsPRMerged(
   $repoOwner: String!,
   $repoName: String!,
   $prNum:Int!,

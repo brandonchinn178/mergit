@@ -25,11 +25,12 @@ import qualified Data.HashMap.Strict as HashMap
 import Data.Maybe (mapMaybe)
 import Data.Text (Text)
 import qualified Data.Text as Text
-import GitHub.Data.StatusState (StatusState)
-import qualified GitHub.Data.StatusState as StatusState
+import qualified GitHub.Data.URI as URI
 
 import MergeBot.Core.Config (BotConfig(..))
 import MergeBot.Core.GitHub (CIContext)
+import MergeBot.Core.GraphQL.Enums.StatusState (StatusState)
+import qualified MergeBot.Core.GraphQL.Enums.StatusState as StatusState
 
 type CIContextInfo = [unwrap| CIContext.(context, state, targetUrl) |]
 
@@ -65,7 +66,7 @@ getCIStatus BotConfig{requiredStatuses} contexts =
 resolveCIStatus :: CIStatus -> StatusState
 resolveCIStatus CIStatus{..} =
   if null ciErrorContexts
-    then StatusState.summarize $ map (\(_, state, _) -> state) ciContexts
+    then summarizeStatuses $ map (\(_, state, _) -> state) ciContexts
     else StatusState.ERROR
 
 -- | Get text containing Markdown to display the given CIStatus.
@@ -85,5 +86,13 @@ displayCIStatus CIStatus{..} = Text.unlines $ header ++ map mkLine (ciContexts +
             StatusState.SUCCESS  -> "✅"
           link = case url of
             Nothing -> context
-            Just url' -> "[" <> context <> "](" <> url' <> ")"
+            Just url' -> "[" <> context <> "](" <> URI.unURI url' <> ")"
       in link <> " | " <> emoji
+
+-- | Summarize the given StatusStates as a single StatusState.
+summarizeStatuses :: [StatusState] -> StatusState
+summarizeStatuses states
+  | not (null states) && all (== StatusState.SUCCESS) states = StatusState.SUCCESS
+  | StatusState.ERROR `elem` states = StatusState.ERROR
+  | StatusState.FAILURE `elem` states = StatusState.FAILURE
+  | otherwise = StatusState.PENDING

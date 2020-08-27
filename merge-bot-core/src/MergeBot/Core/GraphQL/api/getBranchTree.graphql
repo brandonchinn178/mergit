@@ -1,4 +1,4 @@
-query BranchTree($repoOwner: String!, $repoName: String!, $name: String!) {
+query getBranchTree($repoOwner: String!, $repoName: String!, $name: String!) {
   repository(owner: $repoOwner, name: $repoName) {
     ref(qualifiedName: $name) {
       target {

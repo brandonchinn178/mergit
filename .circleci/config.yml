@@ -26,8 +26,6 @@ aliases:
           stack.yaml
           hpack.yaml
           github-schemas/package.yaml
-          graphql/package.yaml
-          graphql/example/package.yaml
           merge-bot/package.yaml
           merge-bot-core/package.yaml
           servant-github-app/package.yaml
@@ -71,10 +69,6 @@ aliases:
     run:
       name: Run tests
       command: stack test
-  - &run-graphql-example
-    run:
-      name: Run the graphql example
-      command: stack exec graphql-example
 
 jobs:
   prebuild:
@@ -111,8 +105,6 @@ jobs:
           paths:
             - .stack-work
             - github-schemas/.stack-work
-            - graphql/.stack-work
-            - graphql/example/.stack-work
             - merge-bot/.stack-work
             - merge-bot-core/.stack-work
             - servant-github-app/.stack-work
@@ -140,7 +132,6 @@ jobs:
       - restore_cache:
           key: *cache-key
       - *run-tests
-      - *run-graphql-example
 
 workflows:
   version: 2

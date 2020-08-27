@@ -63,7 +63,6 @@ import Data.Maybe (fromMaybe, mapMaybe)
 import Data.Text (Text)
 import qualified Data.Text as Text
 import GitHub.Data.GitObjectID (GitObjectID)
-import GitHub.Data.PullRequestReviewState (PullRequestReviewState(..))
 import GitHub.REST
     ( GHEndpoint(..)
     , GitHubData
@@ -77,14 +76,21 @@ import Network.HTTP.Types (status409)
 import UnliftIO.Exception (throwIO)
 
 import MergeBot.Core.Error (BotError(..))
-import qualified MergeBot.Core.GraphQL.BranchSHA as BranchSHA
-import qualified MergeBot.Core.GraphQL.BranchTree as BranchTree
-import qualified MergeBot.Core.GraphQL.CICommit as CICommit
-import qualified MergeBot.Core.GraphQL.PRCheckRun as PRCheckRun
-import qualified MergeBot.Core.GraphQL.PRForCommit as PRForCommit
-import qualified MergeBot.Core.GraphQL.PRIsMerged as PRIsMerged
-import qualified MergeBot.Core.GraphQL.PRReviews as PRReviews
-import qualified MergeBot.Core.GraphQL.QueuedPRs as QueuedPRs
+import MergeBot.Core.GraphQL.API
+    ( GetBranchSHAQuery(..)
+    , GetBranchTreeQuery(..)
+    , GetBranchTreeSchema
+    , GetCICommitQuery(..)
+    , GetCICommitSchema
+    , GetIsPRMergedQuery(..)
+    , GetPRCheckRunQuery(..)
+    , GetPRForCommitQuery(..)
+    , GetPRReviewsQuery(..)
+    , GetQueuedPRsQuery(..)
+    )
+import MergeBot.Core.GraphQL.Enums.PullRequestReviewState
+    (PullRequestReviewState)
+import qualified MergeBot.Core.GraphQL.Enums.PullRequestReviewState as PullRequestReviewState
 import MergeBot.Core.Monad (MonadMergeBot(..), queryGitHub')
 import MergeBot.Core.Text (checkRunMerge, checkRunTry)
 
@@ -107,31 +113,31 @@ getCheckName = \case
 
 {- GraphQL -}
 
-mkGetter "Tree" "getTree" ''BranchTree.Schema ".repository.ref!.target.tree!"
+mkGetter "Tree" "getTree" ''GetBranchTreeSchema ".repository!.ref!.target!.__fragment!.tree"
 
 -- | Get the git tree for the given branch.
 getBranchTree :: MonadMergeBot m => BranchName -> m Tree
 getBranchTree branch = do
   (repoOwner, repoName) <- getRepo
   getTree <$>
-    runQuery BranchTree.query BranchTree.Args
-      { _repoOwner = Text.unpack repoOwner
-      , _repoName = Text.unpack repoName
-      , _name = Text.unpack branch
+    runQuery GetBranchTreeQuery
+      { _repoOwner = repoOwner
+      , _repoName = repoName
+      , _name = branch
       }
 
 -- | Get the git hash for the given branch, if it exists.
 getBranchSHA :: MonadMergeBot m => BranchName -> m (Maybe CommitSHA)
 getBranchSHA branch = do
   (repoOwner, repoName) <- getRepo
-  [get| .repository!.ref?.target.oid |] <$>
-    runQuery BranchSHA.query BranchSHA.Args
-      { _repoOwner = Text.unpack repoOwner
-      , _repoName = Text.unpack repoName
-      , _branch = Text.unpack branch
+  [get| .repository!.ref?.target!.oid |] <$>
+    runQuery GetBranchSHAQuery
+      { _repoOwner = repoOwner
+      , _repoName = repoName
+      , _branch = branch
       }
 
-type CIContext = [unwrap| (CICommit.Schema).repository!.object!.status!.contexts[] |]
+type CIContext = [unwrap| GetCICommitSchema.repository!.object!.__fragment!.status!.contexts[] |]
 
 data CICommit = CICommit
   { commitTree     :: Tree
@@ -146,21 +152,21 @@ getCICommit sha checkRunType = do
   (repoOwner, repoName) <- getRepo
   appId <- getAppId
   (result, parents) <- queryAll $ \after -> do
-    result <- runQuery CICommit.query CICommit.Args
-      { _repoOwner = Text.unpack repoOwner
-      , _repoName = Text.unpack repoName
+    result <- runQuery GetCICommitQuery
+      { _repoOwner = repoOwner
+      , _repoName = repoName
       , _appId = appId
       , _after = after
       , _sha = sha
-      , _checkName = Just $ Text.unpack checkName
+      , _checkName = Just checkName
       }
-    let payload = [get| result.repository!.object! |]
-        info = [get| payload.parents!.pageInfo |]
+    let payload = [get| result.repository!.object!.__fragment! |]
+        info = [get| payload.parents.pageInfo |]
         -- ignore base branch, which is always first
-        parents = tail [get| payload.parents!.nodes![]! |]
+        parents = tail [get| payload.parents.nodes![]! |]
 
     chunk <- forM parents $ \parent -> do
-      let getCheckRuns = [get| .checkSuites!.nodes![]!.checkRuns!.nodes![]!.databaseId |]
+      let getCheckRuns = [get| .checkSuites!.nodes![]!.checkRuns!.nodes![]!.databaseId! |]
           parentSHA = [get| parent.oid |]
       case concat $ getCheckRuns parent of
         [] -> throwIO $ MissingCheckRun parentSHA checkName
@@ -175,7 +181,7 @@ getCICommit sha checkRunType = do
       }
 
   return CICommit
-    { commitTree = [get| result.tree! |]
+    { commitTree = [get| result.tree |]
     , commitContexts = fromMaybe [] [get| result.status?.contexts |]
     , parents
     }
@@ -189,18 +195,18 @@ getCheckRun :: MonadMergeBot m => PrNum -> CheckRunType -> m CheckRunId
 getCheckRun prNum checkRunType = do
   (repoOwner, repoName) <- getRepo
   appId <- getAppId
-  result <- runQuery PRCheckRun.query PRCheckRun.Args
-    { _repoOwner = Text.unpack repoOwner
-    , _repoName = Text.unpack repoName
+  result <- runQuery GetPRCheckRunQuery
+    { _repoOwner = repoOwner
+    , _repoName = repoName
     , _prNum = prNum
     , _appId = appId
-    , _checkName = Text.unpack checkName
+    , _checkName = checkName
     }
   commit <- case [get| result.repository!.pullRequest!.commits.nodes![]!.commit |] of
     [] -> error $ "PR #" ++ show prNum ++ " has no commits: " ++ show result
     [c] -> return c
     _ -> error $ "PRCheckRun query returned more than one 'last' commit: " ++ show result
-  case [get| commit.checkSuites!.nodes![]!.checkRuns!.nodes![]!.databaseId |] of
+  case [get| commit.checkSuites!.nodes![]!.checkRuns!.nodes![]!.databaseId! |] of
     [[checkRunId]] -> return checkRunId
     _ -> throwIO $ MissingCheckRunPR prNum checkName
   where
@@ -217,13 +223,13 @@ getPRsForCICommit :: MonadMergeBot m => CICommit -> m [PRForCommit]
 getPRsForCICommit CICommit{..} = forM parents $ \(sha, _) -> do
   (repoOwner, repoName) <- getRepo
   result <- queryAll_ $ \after -> do
-    result <- runQuery PRForCommit.query PRForCommit.Args
-      { _repoOwner = Text.unpack repoOwner
-      , _repoName = Text.unpack repoName
+    result <- runQuery GetPRForCommitQuery
+      { _repoOwner = repoOwner
+      , _repoName = repoName
       , _sha = sha
       , _after = after
       }
-    let payload = [get| result.repository!.object!.associatedPullRequests! |]
+    let payload = [get| result.repository!.object!.__fragment!.associatedPullRequests! |]
         info = [get| payload.pageInfo |]
     return PaginatedResult
       { payload = ()
@@ -245,9 +251,9 @@ getPRReviews :: MonadMergeBot m => PrNum -> m (HashMap UserName PullRequestRevie
 getPRReviews prNum = do
   (repoOwner, repoName) <- getRepo
   fmap (HashMap.fromListWith resolve) $ queryAll_ $ \after -> do
-    result <- runQuery PRReviews.query PRReviews.Args
-      { _repoOwner = Text.unpack repoOwner
-      , _repoName = Text.unpack repoName
+    result <- runQuery GetPRReviewsQuery
+      { _repoOwner = repoOwner
+      , _repoName = repoName
       , _prNum = prNum
       , _after = after
       }
@@ -264,7 +270,11 @@ getPRReviews prNum = do
     -- APPROVED, DISMISSED, or CHANGES_REQUESTED states take precendence over later PENDING or
     -- COMMENTED states.
     resolve new old =
-      let relevantStates = [APPROVED, DISMISSED, CHANGES_REQUESTED]
+      let relevantStates =
+            [ PullRequestReviewState.APPROVED
+            , PullRequestReviewState.DISMISSED
+            , PullRequestReviewState.CHANGES_REQUESTED
+            ]
       in if old `elem` relevantStates && new `notElem` relevantStates
         then old
         else new
@@ -274,9 +284,9 @@ isPRMerged :: MonadMergeBot m => PrNum -> m Bool
 isPRMerged prNum = do
   (repoOwner, repoName) <- getRepo
   [get| .repository!.pullRequest!.merged |] <$>
-    runQuery PRIsMerged.query PRIsMerged.Args
-      { _repoOwner = Text.unpack repoOwner
-      , _repoName = Text.unpack repoName
+    runQuery GetIsPRMergedQuery
+      { _repoOwner = repoOwner
+      , _repoName = repoName
       , _prNum = prNum
       }
 
@@ -286,14 +296,14 @@ getQueues  = do
   (repoOwner, repoName) <- getRepo
   appId <- getAppId
   fmap (HashMap.fromListWith (++)) $ queryAll_ $ \after -> do
-    result <- runQuery QueuedPRs.query QueuedPRs.Args
-      { _repoOwner = Text.unpack repoOwner
-      , _repoName = Text.unpack repoName
+    result <- runQuery GetQueuedPRsQuery
+      { _repoOwner = repoOwner
+      , _repoName = repoName
       , _after = after
       , _appId = appId
-      , _checkName = Text.unpack checkRunMerge
+      , _checkName = checkRunMerge
       }
-    let payload = [get| result.repository!.pullRequests! |]
+    let payload = [get| result.repository!.pullRequests |]
         info = [get| payload.pageInfo |]
     return PaginatedResult
       { payload = ()
@@ -303,9 +313,9 @@ getQueues  = do
       }
   where
     getQueuedPR pr =
-      let prCommit = [get| pr.headRef!.target |]
+      let prCommit = [get| pr.headRef!.target!.__fragment! |]
           (base, number, headRef) = [get| pr.(baseRefName, number, headRefOid) |]
-      in case concat [get| prCommit.checkSuites!.nodes![]!.checkRuns!.nodes![]!.databaseId |] of
+      in case concat [get| prCommit.checkSuites!.nodes![]!.checkRuns!.nodes![]!.databaseId! |] of
         [] -> Nothing -- PR has no merge check run in the "queued" state
         checkRunId:_ -> Just (base, [(number, headRef, checkRunId)])
 
@@ -429,17 +439,17 @@ data PaginatedResult payload a = PaginatedResult
 
 -- | Run a paginated query as many times as possible until all the results have been fetched.
 queryAll :: (Monad m, Show payload, Show a)
-  => (Maybe String -> m (PaginatedResult payload a)) -> m (payload, [a])
+  => (Maybe Text -> m (PaginatedResult payload a)) -> m (payload, [a])
 queryAll doQuery = queryAll' Nothing
   where
     queryAll' cursor = do
       result@PaginatedResult{..} <- doQuery cursor
       (_, next) <- case (hasNext, nextCursor) of
-        (True, Just nextCursor') -> queryAll' . Just . Text.unpack $ nextCursor'
+        (True, Just nextCursor') -> queryAll' $ Just nextCursor'
         (True, Nothing) -> error $ "Paginated result says it has next with no cursor: " ++ show result
         (False, _) -> return (payload, [])
       return (payload, chunk ++ next)
 
 queryAll_ :: (Monad m, Show a)
-  => (Maybe String -> m (PaginatedResult () a)) -> m [a]
+  => (Maybe Text -> m (PaginatedResult () a)) -> m [a]
 queryAll_ = fmap snd . queryAll

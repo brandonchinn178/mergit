@@ -40,14 +40,14 @@ import qualified Data.Text as Text
 import qualified Data.Text.Encoding as Text
 import Data.Time (getCurrentTime)
 import Data.Yaml (decodeThrow)
-import qualified GitHub.Data.PullRequestReviewState as PullRequestReviewState
-import qualified GitHub.Data.StatusState as StatusState
 import UnliftIO.Exception (finally, fromEither, onException, throwIO)
 
 import MergeBot.Core.CheckRun
 import MergeBot.Core.Config
 import MergeBot.Core.Error
 import MergeBot.Core.GitHub
+import qualified MergeBot.Core.GraphQL.Enums.PullRequestReviewState as PullRequestReviewState
+import qualified MergeBot.Core.GraphQL.Enums.StatusState as StatusState
 import MergeBot.Core.Monad
 import MergeBot.Core.Status
 import MergeBot.Core.Text
@@ -288,7 +288,7 @@ extractConfig prs tree =
   case filter isConfigFile [get| tree.entries![] |] of
     [] -> Left $ ConfigFileMissing prs
     [entry] ->
-      let configText = Text.encodeUtf8 [get| entry.object!.text! |]
+      let configText = Text.encodeUtf8 [get| entry.object!.__fragment!.text! |]
       in first (ConfigFileInvalid prs) . decodeThrow $ configText
     _ -> error $ "Multiple '" ++ Text.unpack configFileName ++ "' files found?"
   where
