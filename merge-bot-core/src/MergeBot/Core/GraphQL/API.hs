@@ -12,9 +12,9 @@ module MergeBot.Core.GraphQL.API where
 import Data.GraphQL
 import Data.GraphQL.Bootstrap
 
-import MergeBot.Core.GraphQL.Scalars
 import MergeBot.Core.GraphQL.Enums.PullRequestReviewState
 import MergeBot.Core.GraphQL.Enums.StatusState
+import MergeBot.Core.GraphQL.Scalars
 
 {-----------------------------------------------------------------------------
 * getBranchSHA
@@ -36,8 +36,8 @@ result <- runQuerySafe GetBranchSHAQuery
 
 data GetBranchSHAQuery = GetBranchSHAQuery
   { _repoOwner :: Text
-  , _repoName :: Text
-  , _branch :: Text
+  , _repoName  :: Text
+  , _branch    :: Text
   }
   deriving (Show)
 
@@ -96,8 +96,8 @@ result <- runQuerySafe GetBranchTreeQuery
 
 data GetBranchTreeQuery = GetBranchTreeQuery
   { _repoOwner :: Text
-  , _repoName :: Text
-  , _name :: Text
+  , _repoName  :: Text
+  , _name      :: Text
   }
   deriving (Show)
 
@@ -190,10 +190,10 @@ result <- runQuerySafe GetCICommitQuery
 
 data GetCICommitQuery = GetCICommitQuery
   { _repoOwner :: Text
-  , _repoName :: Text
-  , _sha :: GitObjectID
-  , _after :: Maybe Text
-  , _appId :: Int
+  , _repoName  :: Text
+  , _sha       :: GitObjectID
+  , _after     :: Maybe Text
+  , _appId     :: Int
   , _checkName :: Maybe Text
   }
   deriving (Show)
@@ -332,8 +332,8 @@ result <- runQuerySafe GetIsPRMergedQuery
 
 data GetIsPRMergedQuery = GetIsPRMergedQuery
   { _repoOwner :: Text
-  , _repoName :: Text
-  , _prNum :: Int
+  , _repoName  :: Text
+  , _prNum     :: Int
   }
   deriving (Show)
 
@@ -392,9 +392,9 @@ result <- runQuerySafe GetPRCheckRunQuery
 
 data GetPRCheckRunQuery = GetPRCheckRunQuery
   { _repoOwner :: Text
-  , _repoName :: Text
-  , _prNum :: Int
-  , _appId :: Int
+  , _repoName  :: Text
+  , _prNum     :: Int
+  , _appId     :: Int
   , _checkName :: Text
   }
   deriving (Show)
@@ -482,9 +482,9 @@ result <- runQuerySafe GetPRForCommitQuery
 
 data GetPRForCommitQuery = GetPRForCommitQuery
   { _repoOwner :: Text
-  , _repoName :: Text
-  , _sha :: GitObjectID
-  , _after :: Maybe Text
+  , _repoName  :: Text
+  , _sha       :: GitObjectID
+  , _after     :: Maybe Text
   }
   deriving (Show)
 
@@ -574,9 +574,9 @@ result <- runQuerySafe GetPRReviewsQuery
 
 data GetPRReviewsQuery = GetPRReviewsQuery
   { _repoOwner :: Text
-  , _repoName :: Text
-  , _prNum :: Int
-  , _after :: Maybe Text
+  , _repoName  :: Text
+  , _prNum     :: Int
+  , _after     :: Maybe Text
   }
   deriving (Show)
 
@@ -658,9 +658,9 @@ result <- runQuerySafe GetQueuedPRsQuery
 
 data GetQueuedPRsQuery = GetQueuedPRsQuery
   { _repoOwner :: Text
-  , _repoName :: Text
-  , _after :: Maybe Text
-  , _appId :: Int
+  , _repoName  :: Text
+  , _after     :: Maybe Text
+  , _appId     :: Int
   , _checkName :: Text
   }
   deriving (Show)

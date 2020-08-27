@@ -30,8 +30,7 @@ See the Feature home page [on Notion][feature-home-page] for more details.
 ### Regenerate graphql files
 
 ```bash
-curl -o .graphql/schema.graphql https://docs.github.com/public/schema.docs.graphql
-stack exec graphql-codegen
+scripts/codegen.sh
 ```
 
 ## Repo layout
