@@ -1,7 +1,7 @@
 # Maintainer: Brandon Chinn
 
 terraform {
-  required_version = "0.11.14"
+  required_version = "0.12.21"
 
   backend "s3" {
     bucket         = "leapyear-tfstate"
@@ -30,17 +30,18 @@ data "aws_vpc" "default" {
   default = true
 }
 
-data "aws_availability_zones" "available" {}
+data "aws_availability_zones" "available" {
+}
 
 resource "aws_subnet" "subnets" {
   count = 2
 
   # `count.index` + 2 because subnet conflicts; LBA-XXXX
-  cidr_block        = "${cidrsubnet(data.aws_vpc.default.cidr_block, 8, count.index + 2)}"
-  vpc_id            = "${data.aws_vpc.default.id}"
-  availability_zone = "${data.aws_availability_zones.available.names[count.index]}"
+  cidr_block        = cidrsubnet(data.aws_vpc.default.cidr_block, 8, count.index + 2)
+  vpc_id            = data.aws_vpc.default.id
+  availability_zone = data.aws_availability_zones.available.names[count.index]
 
-  tags = "${local.tags}"
+  tags = local.tags
 
   map_public_ip_on_launch = true
 }
@@ -64,8 +65,8 @@ module "keypair" {
 resource "aws_security_group" "merge_bot" {
   name        = "merge_bot_security"
   description = "Merge Bot security group"
-  vpc_id      = "${data.aws_vpc.default.id}"
-  tags        = "${local.tags}"
+  vpc_id      = data.aws_vpc.default.id
+  tags        = local.tags
 
   ingress {
     from_port = 22
@@ -79,7 +80,7 @@ resource "aws_security_group" "merge_bot" {
     from_port       = 3000
     to_port         = 3000
     protocol        = "tcp"
-    security_groups = ["${aws_security_group.load_balancer.id}"]
+    security_groups = [aws_security_group.load_balancer.id]
   }
 
   egress {
@@ -91,27 +92,29 @@ resource "aws_security_group" "merge_bot" {
 }
 
 resource "aws_instance" "merge_bot" {
-  ami                    = "${local.ami}"
-  instance_type          = "${local.instance_type}"
-  vpc_security_group_ids = ["${aws_security_group.merge_bot.id}"]
-  subnet_id              = "${aws_subnet.subnets.0.id}"
-  tags                   = "${local.tags}"
+  ami                    = local.ami
+  instance_type          = local.instance_type
+  vpc_security_group_ids = [aws_security_group.merge_bot.id]
+  subnet_id              = aws_subnet.subnets[0].id
+  tags                   = local.tags
 
-  key_name = "${module.keypair.id}"
+  key_name = module.keypair.id
 
   connection {
-    user        = "${local.ami_user}"
-    private_key = "${module.keypair.private_key_pem}"
+    host        = coalesce(self.public_ip, self.private_ip)
+    type        = "ssh"
+    user        = local.ami_user
+    private_key = module.keypair.private_key_pem
   }
 
   provisioner "file" {
     destination = "~/merge-bot"
-    source      = "${var.merge_bot}"
+    source      = var.merge_bot
   }
 
   provisioner "file" {
     destination = "~/${local.private_key_name}"
-    source      = "${var.private_key}"
+    source      = var.private_key
   }
 
   provisioner "file" {
@@ -126,7 +129,8 @@ resource "aws_instance" "merge_bot" {
       GITHUB_USER_AGENT=${var.user_agent}
       COOKIE_JWK=${local.bot_conf_dir}/cookie-jwk.pem
       MERGE_BOT_URL=https://merge-bot.build-leapyear.com
-    EOT
+EOT
+
   }
 
   provisioner "file" {
@@ -136,7 +140,7 @@ resource "aws_instance" "merge_bot" {
 
   provisioner "remote-exec" {
     inline = [
-      # merge-bot executable
+      # merge-bot executable 
       "sudo chmod +x merge-bot",
       "sudo mv merge-bot /usr/local/bin/",
 
@@ -149,7 +153,7 @@ resource "aws_instance" "merge_bot" {
       # logging
       "sudo mkdir -p /var/log/merge-bot",
 
-      # systemd
+      # systemd 
       "sudo mv merge-bot.service /usr/lib/systemd/system/",
       "sudo systemctl enable --now merge-bot",
     ]
@@ -165,8 +169,8 @@ locals {
 resource "aws_security_group" "load_balancer" {
   name        = "merge_bot_lb_security"
   description = "Merge Bot Load Balancer security group"
-  vpc_id      = "${data.aws_vpc.default.id}"
-  tags        = "${local.tags}"
+  vpc_id      = data.aws_vpc.default.id
+  tags        = local.tags
 
   ingress {
     from_port   = 80
@@ -193,31 +197,31 @@ resource "aws_security_group" "load_balancer" {
 resource "aws_lb" "load_balancer" {
   name               = "merge-bot-lb"
   load_balancer_type = "application"
-  subnets            = ["${aws_subnet.subnets.*.id}"]
+  subnets            = aws_subnet.subnets.*.id
 
   security_groups = [
-    "${aws_security_group.load_balancer.id}",
+    aws_security_group.load_balancer.id,
   ]
 
-  tags = "${local.tags}"
+  tags = local.tags
 
   enable_cross_zone_load_balancing = false
 }
 
 module "domain" {
-  source = "git@github.com:LeapYear/infrastructure//modules/domain?ref=021dc88e5228787c440f44624fde913894250cb3"
+  source = "git@github.com:LeapYear/infrastructure//modules/domain?ref=9a91f34e3c20faf792372c6c0d32425cf09b0f6a"
 
   domain_name    = "build-leapyear.com"
   subdomain_name = "merge-bot"
 
-  target_dns     = "${aws_lb.load_balancer.dns_name}"
-  target_zone_id = "${aws_lb.load_balancer.zone_id}"
+  target_dns     = aws_lb.load_balancer.dns_name
+  target_zone_id = aws_lb.load_balancer.zone_id
 
-  ssl_cert_tags = "${local.tags}"
+  ssl_cert_tags = local.tags
 }
 
 resource "aws_lb_listener" "lb_listener_http" {
-  load_balancer_arn = "${aws_lb.load_balancer.arn}"
+  load_balancer_arn = aws_lb.load_balancer.arn
   port              = 80
   protocol          = "HTTP"
 
@@ -233,28 +237,28 @@ resource "aws_lb_listener" "lb_listener_http" {
 }
 
 resource "aws_lb_listener" "lb_listener_https" {
-  load_balancer_arn = "${aws_lb.load_balancer.arn}"
+  load_balancer_arn = aws_lb.load_balancer.arn
   port              = 443
   protocol          = "HTTPS"
-  certificate_arn   = "${module.domain.ssl_cert_arn}"
+  certificate_arn   = module.domain.ssl_cert_arn
 
   default_action {
     type             = "forward"
-    target_group_arn = "${aws_lb_target_group.lb_target_group.arn}"
+    target_group_arn = aws_lb_target_group.lb_target_group.arn
   }
 }
 
 resource "aws_lb_target_group" "lb_target_group" {
   name        = "merge-bot-lb-target-group"
-  port        = "${local.merge_bot_port}"
+  port        = local.merge_bot_port
   protocol    = "HTTP"
-  vpc_id      = "${data.aws_vpc.default.id}"
+  vpc_id      = data.aws_vpc.default.id
   target_type = "instance"
-  tags        = "${local.tags}"
+  tags        = local.tags
 }
 
 resource "aws_lb_target_group_attachment" "lb_target_group_attachment" {
-  target_group_arn = "${aws_lb_target_group.lb_target_group.arn}"
-  target_id        = "${aws_instance.merge_bot.id}"
-  port             = "${local.merge_bot_port}"
+  target_group_arn = aws_lb_target_group.lb_target_group.arn
+  target_id        = aws_instance.merge_bot.id
+  port             = local.merge_bot_port
 }
