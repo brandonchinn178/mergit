@@ -28,4 +28,3 @@ variable "user_agent" {
   description = "The user agent to use when the merge bot talks with the GitHub API."
   default     = "LeapYear/merge-bot"
 }
-

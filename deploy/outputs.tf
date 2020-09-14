@@ -14,4 +14,3 @@ output "url" {
 output "ssh_cmd" {
   value = "ssh ${local.ami_user}@${aws_instance.merge_bot.public_ip}"
 }
-

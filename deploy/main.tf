@@ -140,13 +140,20 @@ EOT
 
   provisioner "remote-exec" {
     inline = [
+      # merge-bot executable 
       "sudo chmod +x merge-bot",
       "sudo mv merge-bot /usr/local/bin/",
+
+      # configuration
       "sudo mkdir -p ${local.bot_conf_dir}",
       "sudo mv ${local.private_key_name} ${local.bot_conf_dir}",
       "sudo mv env ${local.bot_conf_dir}",
       "sudo openssl genrsa -out ${local.bot_conf_dir}/cookie-jwk.pem 2048",
+
+      # logging
       "sudo mkdir -p /var/log/merge-bot",
+
+      # systemd 
       "sudo mv merge-bot.service /usr/lib/systemd/system/",
       "sudo systemctl enable --now merge-bot",
     ]
@@ -255,4 +262,3 @@ resource "aws_lb_target_group_attachment" "lb_target_group_attachment" {
   target_id        = aws_instance.merge_bot.id
   port             = local.merge_bot_port
 }
-
