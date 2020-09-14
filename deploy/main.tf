@@ -202,7 +202,7 @@ resource "aws_lb" "load_balancer" {
 }
 
 module "domain" {
-  source = "git@github.com:LeapYear/infrastructure//modules/domain?ref=021dc88e5228787c440f44624fde913894250cb3"
+  source = "git@github.com:LeapYear/infrastructure//modules/domain?ref=9a91f34e3c20faf792372c6c0d32425cf09b0f6a"
 
   domain_name    = "build-leapyear.com"
   subdomain_name = "merge-bot"
