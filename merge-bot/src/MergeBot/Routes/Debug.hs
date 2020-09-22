@@ -50,17 +50,6 @@ import MergeBot.Monad (MergeBotEvent(..), getInstallations, queueEvent)
 import MergeBot.Routes.Debug.Monad
     (DebugApp, ServerDebug, getUser, getXsrfToken, liftBaseApp, runBotAppDebug)
 
-newtype UrlRepo = UrlRepo (Text, Text)
-
-instance ToHttpApiData UrlRepo where
-  toUrlPiece (UrlRepo (repoOwner, repoName)) = repoOwner <> "/" <> repoName
-
-instance FromHttpApiData UrlRepo where
-  parseUrlPiece urlPiece =
-    case Text.splitOn "/" urlPiece of
-      [repoOwner, repoName] -> Right $ UrlRepo (repoOwner, repoName)
-      _ -> Left $ "Does not match '<repoOwner>/<repoName>': " <> urlPiece
-
 type DebugRoutes =
        IndexPage
   :<|> RepositoryPage
@@ -92,19 +81,20 @@ handleIndexPage = do
     H.h2 "Available repositories"
     forM_ repositories $ \repo ->
       let (owner, name) = [get| repo.(owner.login, name) |]
-          link = fromLink $ linkTo @RepositoryPage (UrlRepo (owner, name))
+          link = fromLink $ linkTo @RepositoryPage owner name
       in H.li $ H.a ! A.href link $ H.toHtml [get| repo.full_name |]
 
 {- Repository page -}
 
 type RepositoryPage =
   "repo"
-  :> Capture "repo" UrlRepo
+  :> Capture "repoOwner" Text
+  :> Capture "repoName" Text
   :> HtmlPage
 
-handleRepositoryPage :: UrlRepo -> DebugApp Html
-handleRepositoryPage urlRepo@(UrlRepo repo) = do
-  let (repoOwner, repoName) = repo
+handleRepositoryPage :: Text -> Text -> DebugApp Html
+handleRepositoryPage repoOwner repoName = do
+  let repo = (repoOwner, repoName)
 
   -- As much as possible, run all GitHub API queries first, to minimize discrepancies
   -- in data changing from underneath us
@@ -158,7 +148,7 @@ handleRepositoryPage urlRepo@(UrlRepo repo) = do
         H.h3 $ H.toHtml branch
 
         -- button to delete staging branch
-        let resetStagingPath = fromLink $ linkTo @DeleteStagingBranch urlRepo branch
+        let resetStagingPath = fromLink $ linkTo @DeleteStagingBranch repoOwner repoName branch
         H.form ! A.method "post" ! A.action resetStagingPath $ do
           xsrfTokenInput xsrfToken
           H.button "Reset merge run"
@@ -189,17 +179,20 @@ handleRepositoryPage urlRepo@(UrlRepo repo) = do
 
 type DeleteStagingBranch =
   "repo"
-  :> Capture "repo" UrlRepo
+  :> Capture "repoOwner" Text
+  :> Capture "repoName" Text
   :> "reset-merge-run"
   :> Capture "baseBranch" Core.BranchName
   :> Verb 'POST 303 '[HTML] RedirectResponse
 
-handleDeleteStagingBranch :: UrlRepo -> Text -> DebugApp RedirectResponse
-handleDeleteStagingBranch urlRepo@(UrlRepo repo) baseBranch = do
+handleDeleteStagingBranch :: Text -> Text -> Text -> DebugApp RedirectResponse
+handleDeleteStagingBranch repoOwner repoName baseBranch = do
+  let repo = (repoOwner, repoName)
+
   runBotAppDebug repo $
     queueEvent $ DeleteBranch $ Core.toStagingBranch baseBranch
 
-  return $ addHeader (fromLink $ linkTo @RepositoryPage urlRepo) NoContent
+  return $ addHeader (fromLink $ linkTo @RepositoryPage repoOwner repoName) NoContent
 
 {- Helpers -}
 
