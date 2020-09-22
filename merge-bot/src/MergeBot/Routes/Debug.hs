@@ -243,7 +243,7 @@ linkTo :: forall endpoint. (IsElem endpoint DebugRoutes, HasLink endpoint) => Mk
 linkTo = safeLink (Proxy @DebugRoutes) (Proxy @endpoint)
 
 fromLink :: IsString s => Link -> s
-fromLink = fromString . show . linkURI
+fromLink = fromString . ('/':) . show . linkURI
 
 xsrfTokenInput :: Text -> Html
 xsrfTokenInput xsrfToken =
