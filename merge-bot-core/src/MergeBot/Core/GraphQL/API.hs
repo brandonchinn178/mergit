@@ -236,7 +236,6 @@ type GetCICommitSchema = [schema|
                     checkRuns: Maybe {
                       nodes: Maybe List Maybe {
                         databaseId: Maybe Int,
-                        name: Text,
                       },
                     },
                   },
@@ -290,7 +289,6 @@ instance GraphQLQuery GetCICommitQuery where
                     checkRuns(filterBy: {checkName: $checkName}, first: 2) {
                       nodes {
                         databaseId
-                        name
                       }
                     }
                   }
