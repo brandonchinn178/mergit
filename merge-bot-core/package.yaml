@@ -36,6 +36,5 @@ tests:
     dependencies:
       - aeson-qq
       - merge-bot-core
-      - split
       - tasty
       - tasty-quickcheck
