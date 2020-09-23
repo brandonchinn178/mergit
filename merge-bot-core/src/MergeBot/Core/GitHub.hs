@@ -162,8 +162,7 @@ getCICommit sha checkRunType = do
       }
     let payload = [get| result.repository!.object!.__fragment! |]
         info = [get| payload.parents.pageInfo |]
-        -- ignore base branch, which is always first
-        parents = tail [get| payload.parents.nodes![]! |]
+        parents = [get| payload.parents.nodes![]! |]
 
     chunk <- forM parents $ \parent -> do
       let getCheckRuns = [get| .checkSuites!.nodes![]!.checkRuns!.nodes![]!.databaseId! |]
@@ -183,7 +182,8 @@ getCICommit sha checkRunType = do
   return CICommit
     { commitTree = [get| result.tree |]
     , commitContexts = fromMaybe [] [get| result.status?.contexts |]
-    , parents
+      -- ignore base branch, which is always first
+    , parents = tail parents
     }
   where
     checkName = getCheckName checkRunType
