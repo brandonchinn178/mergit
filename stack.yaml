@@ -10,4 +10,7 @@ extra-deps:
   - aeson-schemas-1.2.0
   - github: LeapYear/github-rest
     commit: 0f90f10eeede4697f0faba569734f87fdc07c61a
-  - graphql-client-1.0.0
+  - github: LeapYear/graphql-client
+    commit: 26689f995878a861e79c0f5554870ebf1ce70d95
+    subdirs:
+      - graphql-client

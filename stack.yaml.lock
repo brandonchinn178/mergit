@@ -23,12 +23,18 @@ packages:
   original:
     url: https://github.com/LeapYear/github-rest/archive/0f90f10eeede4697f0faba569734f87fdc07c61a.tar.gz
 - completed:
-    hackage: graphql-client-1.0.0@sha256:e4a75dd1da432c2e2cf2f4cfae91ae3a9641867b8e96f317e55a4b3df2a4df2f,3909
+    size: 127085
+    subdir: graphql-client
+    url: https://github.com/LeapYear/graphql-client/archive/26689f995878a861e79c0f5554870ebf1ce70d95.tar.gz
+    name: graphql-client
+    version: 1.0.0
+    sha256: 058220f81d2cb645f1a9da1b1cf0fbf642d7b2452356bd706b3986e0a63f2b15
     pantry-tree:
-      size: 1356
-      sha256: bc31a66b6b17721791bf2a421f742211fcabf900eabb7c4c61d1d43205e6e6e1
+      size: 1336
+      sha256: 3ebb0e923b1011c750e5b5e46f9834b1f8a0b0b38146b30b0cd34f92e3b8eff7
   original:
-    hackage: graphql-client-1.0.0
+    subdir: graphql-client
+    url: https://github.com/LeapYear/graphql-client/archive/26689f995878a861e79c0f5554870ebf1ce70d95.tar.gz
 snapshots:
 - completed:
     size: 532380
