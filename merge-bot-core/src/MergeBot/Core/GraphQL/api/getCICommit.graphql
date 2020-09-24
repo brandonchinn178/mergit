@@ -39,7 +39,6 @@ query getCICommit(
                 checkRuns(filterBy: { checkName: $checkName }, first: 2) {
                   nodes {
                     databaseId
-                    name
                   }
                 }
               }
