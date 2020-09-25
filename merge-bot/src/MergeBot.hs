@@ -124,7 +124,7 @@ pollMergeQueues = forever $ do
 
   liftIO $ threadDelay $ pollDelayMinutes * 60e6
   where
-    pollDelayMinutes = 10
+    pollDelayMinutes = 1
 
 runServer :: BaseApp ()
 runServer = do
