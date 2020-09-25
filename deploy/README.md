@@ -33,18 +33,27 @@ requests from GitHub while routing HTTP requests internally to the merge bot.
     webhook_secret = "xxx"
     ```
 
+1. Turn on the VPN
+1. Ensure `terraform --version` matches `.terraform-version`
 1. `terraform init`
-1. `terraform apply -auto-approve`
-1. Upload the file at `terraform output keyfile` to LastPass
+1. `terraform apply`
 
 ## Inspect
 
-To SSH into the EC2 instance running the merge bot, download the keyfile
-(saved as "LY Merge Bot (AWS)" on LastPass) and run
+If you want to get logs or otherwise inspect the EC2 instance running the merge
+bot, run the following:
 
-```
-$(terraform output ssh_cmd) -i path/to/merge-bot-aws.pem
-```
+1. Turn on the VPN
+1. Ensure `terraform --version` matches `.terraform-version`
+1. `terraform init`
+1. `terraform apply`
+    1. Make sure the EC2 instance isn't being changed; just that the keyfile
+       is being created locally
+1. `$(terraform output ssh_cmd)`
+
+Logs may be found at `/var/log/merge-bot/`. You can also view the logs with
+`journalctl -u merge-bot` (probably piped into `less` and/or `grep`). The
+merge bot process can be inspected with `systemctl status merge-bot`.
 
 ## Update
 
