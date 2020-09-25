@@ -33,8 +33,10 @@ requests from GitHub while routing HTTP requests internally to the merge bot.
     webhook_secret = "xxx"
     ```
 
+1. Turn on the VPN
+1. Ensure `terraform --version` matches `.terraform-version`
 1. `terraform init`
-1. `terraform apply -auto-approve`
+1. `terraform apply`
 
 ## Inspect
 
@@ -42,6 +44,7 @@ If you want to get logs or otherwise inspect the EC2 instance running the merge
 bot, run the following:
 
 1. Turn on the VPN
+1. Ensure `terraform --version` matches `.terraform-version`
 1. `terraform init`
 1. `terraform apply`
     1. Make sure the EC2 instance isn't being changed; just that the keyfile
