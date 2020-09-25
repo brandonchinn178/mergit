@@ -3,6 +3,7 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
@@ -35,16 +36,17 @@ test = testGroup "MergeBot.GitHub"
 testGetCICommit :: TestTree
 testGetCICommit = testGroup "getCICommit"
   [ testProperty "Loads the paginated list of parents" $ \baseBranchSHA (NonEmpty parentSHAs) ->
-      forAll (chunks $ baseBranchSHA : parentSHAs) $ \parentSHAsPages ->
-        let mocks = mockGetCICommitQueries mockSHA checkRunTry parentSHAsPages
+      let ciCommitParents = (baseBranchSHA, []) : map (, [1]) parentSHAs
+      in forAll (chunks ciCommitParents) $ \pagedParents ->
+        let mocks = mockGetCICommitQueries mockSHA checkRunTry pagedParents
         in ioProperty $ runTestApp mocks $ do
           CICommit{parents} <- getCICommit mockSHA CheckRunTry
           return $ map fst parents === parentSHAs
   ]
   where
     -- Generate a response to a GetCICommitQuery request.
-    mkGetCICommitResponse :: [GitObjectID] -> Int -> Int -> Value
-    mkGetCICommitResponse parentSHAsInPage pageNum totalPages =
+    mkGetCICommitResponse :: [(GitObjectID, [CheckRunId])] -> Int -> Int -> Value
+    mkGetCICommitResponse parentsInPage pageNum totalPages =
       let hasNextPage = pageNum < totalPages
           endCursor = if hasNextPage then Just $ Text.pack $ show $ pageNum + 1 else Nothing
       in [aesonQQ|
@@ -61,22 +63,22 @@ testGetCICommit = testGroup "getCICommit"
                   "hasNextPage": #{hasNextPage},
                   "endCursor": #{endCursor}
                 },
-                "nodes": #{map mkGetCICommitParentNode parentSHAsInPage}
+                "nodes": #{map mkGetCICommitParentNode parentsInPage}
               }
             }
           }
         }
       |]
 
-    mkGetCICommitParentNode :: GitObjectID -> Value
-    mkGetCICommitParentNode parentSHA = [aesonQQ|
+    mkGetCICommitParentNode :: (GitObjectID, [CheckRunId]) -> Value
+    mkGetCICommitParentNode (parentSHA, checkRunIds) = [aesonQQ|
       {
         "oid": #{parentSHA},
         "checkSuites": {
           "nodes": [
             {
               "checkRuns": {
-                "nodes": [{ "databaseId": 1 }]
+                "nodes": #{map mkGetCICommitCheckRunNode checkRunIds}
               }
             }
           ]
@@ -84,12 +86,15 @@ testGetCICommit = testGroup "getCICommit"
       }
     |]
 
-    mockGetCICommitQueries :: GitObjectID -> Text -> [[GitObjectID]] -> [AnyResultMock]
-    mockGetCICommitQueries ciCommitSHA checkName pagedParentSHAs =
-      let totalPages = length pagedParentSHAs
-          parentSHAsWithPage = zip pagedParentSHAs [1..]
+    mkGetCICommitCheckRunNode :: CheckRunId -> Value
+    mkGetCICommitCheckRunNode checkRunId = [aesonQQ| { "databaseId": #{checkRunId} } |]
 
-      in flip map parentSHAsWithPage $ \(parentSHAsInPage, pageNum) ->
+    mockGetCICommitQueries :: GitObjectID -> Text -> [[(GitObjectID, [CheckRunId])]] -> [AnyResultMock]
+    mockGetCICommitQueries ciCommitSHA checkName pagedParents =
+      let totalPages = length pagedParents
+          parentsWithPageNum = zip pagedParents [1..]
+
+      in flip map parentsWithPageNum $ \(parentsInPage, pageNum) ->
         mocked ResultMock
           { query = GetCICommitQuery
               { _repoOwner = testRepoOwner
@@ -99,7 +104,7 @@ testGetCICommit = testGroup "getCICommit"
               , _sha = ciCommitSHA
               , _checkName = Just checkName
               }
-          , result = mkGetCICommitResponse parentSHAsInPage pageNum totalPages
+          , result = mkGetCICommitResponse parentsInPage pageNum totalPages
           }
 
 {- Mock data -}

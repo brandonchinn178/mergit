@@ -151,7 +151,7 @@ getCICommit :: MonadMergeBot m => CommitSHA -> CheckRunType -> m CICommit
 getCICommit sha checkRunType = do
   (repoOwner, repoName) <- getRepo
   appId <- getAppId
-  (result, parents) <- queryAll $ \after -> do
+  (result, parentsPayload) <- queryAll $ \after -> do
     result <- runQuery GetCICommitQuery
       { _repoOwner = repoOwner
       , _repoName = repoName
@@ -160,11 +160,20 @@ getCICommit sha checkRunType = do
       , _sha = sha
       , _checkName = Just checkName
       }
+
     let payload = [get| result.repository!.object!.__fragment! |]
         info = [get| payload.parents.pageInfo |]
-        parents = [get| payload.parents.nodes![]! |]
 
-    chunk <- forM parents $ \parent -> do
+    return PaginatedResult
+      { payload
+      , chunk = [get| payload.parents.nodes![]! |]
+      , hasNext = [get| info.hasNextPage |]
+      , nextCursor = [get| info.endCursor |]
+      }
+
+  parents <- forM
+    (tail parentsPayload) -- ignore base branch, which is always first
+    $ \parent -> do
       let getCheckRuns = [get| .checkSuites!.nodes![]!.checkRuns!.nodes![]!.databaseId! |]
           parentSHA = [get| parent.oid |]
       case concat $ getCheckRuns parent of
@@ -172,18 +181,10 @@ getCICommit sha checkRunType = do
         [checkRun] -> return (parentSHA, checkRun)
         _ -> error $ "Commit has multiple check runs named '" ++ Text.unpack checkName ++ "': " ++ show parent
 
-    return PaginatedResult
-      { payload
-      , chunk
-      , hasNext = [get| info.hasNextPage |]
-      , nextCursor = [get| info.endCursor |]
-      }
-
   return CICommit
     { commitTree = [get| result.tree |]
     , commitContexts = fromMaybe [] [get| result.status?.contexts |]
-      -- ignore base branch, which is always first
-    , parents = tail parents
+    , parents
     }
   where
     checkName = getCheckName checkRunType
