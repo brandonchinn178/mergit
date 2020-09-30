@@ -7,6 +7,7 @@ Portability :  portable
 This module defines webhook routes for the MergeBot.
 -}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TypeApplications #-}
@@ -21,7 +22,7 @@ module MergeBot.Routes.Webhook
 import Control.Monad (unless, when)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Logger (logDebugN, logInfoN)
-import Data.Aeson.Schema (IsSchemaObject, get)
+import Data.Aeson.Schema (IsSchema, get)
 import Data.Text (Text)
 import qualified Data.Text as Text
 import GitHub.Data.GitObjectID (unOID)
@@ -153,6 +154,6 @@ runBotApp' :: Object RepoWebhook -> BotApp a -> Token -> BaseApp a
 runBotApp' repo action token = runBotApp [get| repo.(owner.login, name) |] action token
 
 -- | Log the given event for the given object.
-logEvent :: IsSchemaObject schema => Text -> Object schema -> BotApp ()
+logEvent :: IsSchema schema => Text -> Object schema -> BotApp ()
 logEvent event o = logDebugN $
   "Received '" <> event <> "' event with payload: " <> Text.pack (show o)
