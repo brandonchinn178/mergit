@@ -31,7 +31,7 @@ module Servant.GitHub.Combinators
 import Control.Monad (unless, (>=>))
 import Control.Monad.IO.Class (liftIO)
 import Data.Aeson (eitherDecode)
-import Data.Aeson.Schema (IsSchemaObject, Object, SchemaType, get)
+import Data.Aeson.Schema (IsSchema, Object, Schema, get)
 import qualified Data.ByteString.Lazy as ByteStringL
 import qualified Data.ByteString.Lazy.Char8 as Char8
 import GitHub.REST (Token)
@@ -67,7 +67,7 @@ instance
   ( HasServer api context
   , HasContextEntry context GitHubAppParams
   , IsGitHubEvent event
-  , IsSchemaObject (EventSchema event)
+  , IsSchema (EventSchema event)
   ) => HasServer (GitHubEvent event :> api) context where
 
   type ServerT (GitHubEvent event :> api) m = Object (EventSchema event) -> ServerT api m
@@ -202,7 +202,7 @@ addPostBodyCheck_ bodyCheck Servant.Delayed{..} =
 
 {- Helpers -}
 
-decodeRequestBody :: forall (schema :: SchemaType). IsSchemaObject schema
+decodeRequestBody :: forall (schema :: Schema). IsSchema schema
   => ByteStringL.ByteString -> Servant.DelayedIO (Object schema)
 decodeRequestBody s = either (Servant.delayedFail . mkErr) return $ eitherDecode @(Object schema) s
   where

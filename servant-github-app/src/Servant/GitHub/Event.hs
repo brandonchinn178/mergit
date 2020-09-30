@@ -10,6 +10,7 @@ Defines all the possible GitHub events that can be sent.
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Servant.GitHub.Event
   ( GitHubEventType(..)
@@ -17,7 +18,7 @@ module Servant.GitHub.Event
   , module Schema
   ) where
 
-import Data.Aeson.Schema (SchemaType)
+import Data.Aeson.Schema (Schema)
 import Data.ByteString.Lazy (ByteString)
 import GitHub.Schema.Event.CheckRun as Schema (CheckRunEvent)
 import GitHub.Schema.Event.CheckSuite as Schema (CheckSuiteEvent)
@@ -87,7 +88,7 @@ data GitHubEventType
   deriving (Show)
 
 class IsGitHubEvent (e :: GitHubEventType) where
-  type EventSchema e :: SchemaType
+  type EventSchema e :: Schema
   eventName :: ByteString
 
 instance IsGitHubEvent 'CheckRunEvent where
