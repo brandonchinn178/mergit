@@ -36,6 +36,6 @@ type Milestone = [schema|
     created_at: UTCTime,
     updated_at: UTCTime,
     closed_at: Maybe UTCTime,
-    due_on: UTCTime,
+    due_on: Maybe UTCTime,
   }
 |]
