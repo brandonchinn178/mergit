@@ -29,7 +29,7 @@ type Milestone = [schema|
     number: Int,
     state: State,
     title: Text,
-    description: Text,
+    description: Maybe Text,
     creator: #UserShort,
     open_issues: Int,
     closed_issues: Int,
