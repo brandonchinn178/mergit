@@ -45,6 +45,7 @@ data BotError
   | NotOnePRInCheckSuite (Object CheckSuiteEvent)
   | SomePRsMerged [PullRequestId] [PullRequestId]
   | UnapprovedPR PullRequestId
+  | TreeNotUpdated [PullRequestId] PullRequestId
 
 instance Exception BotError
 
@@ -81,6 +82,13 @@ instance Show BotError where
     NotOnePRInCheckSuite o -> "Check suite did not have exactly one PR: " <> show o
     SomePRsMerged mergedPRs nonMergedPRs -> "PRs " <> fromPRs nonMergedPRs <> " found not merged while PRs " <> fromPRs mergedPRs <> " are merged"
     UnapprovedPR prNum -> "PR #" <> show prNum <> " is not approved"
+    TreeNotUpdated _ pr -> unlines
+      [ "UNEXPECTED ERROR: Tree not updated when merging PR #" <> show pr <> "."
+      , ""
+      , "Either the PR did not make any changes, or something went wrong on GitHub's end. Please notify the #merge-bot Slack channel and requeue your PR."
+      , ""
+      , "More information: https://leapyear.atlassian.net/browse/QA-178"
+      ]
     where
       fromPRs = unwords . map (('#':) . show)
 
@@ -104,3 +112,4 @@ getRelevantPRs = \case
   NotOnePRInCheckSuite{} -> []
   SomePRsMerged mergedPRs nonMergedPRs -> mergedPRs ++ nonMergedPRs
   UnapprovedPR pr -> [pr]
+  TreeNotUpdated allPRs _ -> allPRs
