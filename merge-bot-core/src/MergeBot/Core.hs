@@ -27,8 +27,9 @@ module MergeBot.Core
   , pollQueues
   ) where
 
-import Control.Monad (forM_, unless, void, when)
-import Control.Monad.IO.Class (liftIO)
+import Control.Concurrent (threadDelay)
+import Control.Monad (forM_, unless, void, when, (<=<))
+import Control.Monad.IO.Class (MonadIO(..))
 import Control.Monad.Loops (whileM_)
 import Data.Bifunctor (first)
 import Data.GraphQL (get)
@@ -155,9 +156,19 @@ createCIBranch base prs ciBranch message = do
     createBranch tempBranch baseSHA
 
     -- merge prs into temp branch
-    forM_ prSHAs $ \prSHA -> do
+    forM_ prs $ \(prNum, prSHA) -> do
+      treeInitial <- getBranchTree tempBranch
+
       success <- mergeBranches tempBranch prSHA "[ci skip] merge into temp"
       unless success $ throwIO $ MergeConflict prNums
+
+      -- check that tree was updated
+      -- https://leapyear.atlassian.net/browse/QA-178
+      maybe (throwIO $ TreeNotUpdated prNums prNum) return <=< retry 3 $ do
+        treeUpdated <- getBranchTree tempBranch
+        return $ if treeUpdated == treeInitial
+          then Nothing
+          else Just ()
 
     -- get tree for temp branch
     tree <- getBranchTree tempBranch
@@ -175,6 +186,16 @@ createCIBranch base prs ciBranch message = do
   where
     tempBranch = "temp-" <> ciBranch
     (prNums, prSHAs) = unzip prs
+
+    retry :: MonadIO m => Int -> m (Maybe a) -> m (Maybe a)
+    retry n action =
+      if n <= 0
+        then return Nothing
+        else action >>= \case
+          Just a -> return $ Just a
+          Nothing -> do
+            liftIO $ threadDelay 1000000
+            retry (n - 1) action
 
 -- | Refresh the check runs for the given CI commit.
 refreshCheckRuns :: MonadMergeBot m => Bool -> BranchName -> CommitSHA -> m ()
