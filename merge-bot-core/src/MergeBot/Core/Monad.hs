@@ -157,12 +157,16 @@ runBotAppT BotSettings{..} =
     handleBotErr e = do
       let msg = displayException e
       mapM_ (`commentOnPR` msg) $ getRelevantPRs e
-      logErrorN $ Text.pack msg
+      logError msg
       errorWithoutStackTrace "<<MergeBot Error>>"
     handleSomeException (e :: SomeException) = do
       let msg = displayException e
-      logErrorN $ Text.pack msg
+      logError msg
       errorWithoutStackTrace "<<Other Error>>"
+
+    -- log error message, replacing newlines with spaces
+    logError msg = logErrorN $ removeNewlines $ Text.pack msg
+    removeNewlines = Text.unwords . filter (not . Text.null) . Text.lines
 
 {- MonadMergeBot class -}
 
