@@ -46,9 +46,14 @@ tryJobLabelRunning = "Try run in progress"
 tryJobLabelDone :: Text
 tryJobLabelDone = "Try run finished"
 
--- | The summary text to display when the try check run is completed.
-tryJobSummaryDone :: Text
-tryJobSummaryDone =
+-- | The summary text to display when the try check run failed.
+tryJobSummaryFailed :: Text
+tryJobSummaryFailed =
+  "To re-run try job, click the \"Run Try\" button again, **NOT** any of the \"Re-run\" links."
+
+-- | The summary text to display when the try check run was successful.
+tryJobSummarySuccess :: Text
+tryJobSummarySuccess =
   "To re-run try job, click the \"Run Try\" button again, **NOT** any of the \"Re-run\" links."
 
 tryJobInitData :: UTCTime -> [KeyValue]
