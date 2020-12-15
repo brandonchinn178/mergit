@@ -70,8 +70,10 @@ updateCheckRuns checkRuns CheckRunUpdates{..} = do
   mapM_ (doUpdateCheckRun checkRunData) checkRuns
   where
     actions = case checkRunStatus of
-      CheckRunComplete True -> [BotResetMerge]
-      CheckRunComplete False -> if isTry then [BotTry] else [BotQueue]
+      CheckRunComplete isSuccess
+        | isTry -> [BotTry]
+        | isSuccess -> [BotResetMerge]
+        | otherwise -> [BotQueue]
       CheckRunInProgress -> []
       CheckRunQueued -> [BotDequeue]
 
