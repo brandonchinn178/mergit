@@ -48,8 +48,11 @@ tryJobLabelDone = "Try run finished"
 
 -- | The summary text to display when the try check run failed.
 tryJobSummaryFailed :: Text
-tryJobSummaryFailed =
-  "To re-run try job, click the \"Run Try\" button again, **NOT** any of the \"Re-run\" links."
+tryJobSummaryFailed = Text.unwords
+  [ "Try run failed. If the failures are unrelated to your changes, navigate to the Circle CI"
+  , "workflow page and click \"Rerun\" > \"Rerun Workflow from Failed\". Otherwise, make the"
+  , "fixes, push up a new commit, and run try on that commit."
+  ]
 
 -- | The summary text to display when the try check run was successful.
 tryJobSummarySuccess :: Text
