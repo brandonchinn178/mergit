@@ -81,14 +81,14 @@ handleCheckSuite o = runBotApp' repo $ do
   logEvent "check_suite" o
   appId <- getAppId
   when ([get| o.check_suite.app.id |] == appId) $
-  case [get| o.action |] of
-    CheckSuite.REQUESTED -> do
-      let (prs, sha) = [get| o.check_suite.(pull_requests, head_sha) |]
-      case prs of
-        [] -> return ()
-        [pr] -> queueEvent $ CommitPushedToPR [get| pr.number |] sha
-        _ -> throwIO $ NotOnePRInCheckSuite o
-    _ -> return ()
+    case [get| o.action |] of
+      CheckSuite.REQUESTED -> do
+        let (prs, sha) = [get| o.check_suite.(pull_requests, head_sha) |]
+        case prs of
+          [] -> return ()
+          [pr] -> queueEvent $ CommitPushedToPR [get| pr.number |] sha
+          _ -> throwIO $ NotOnePRInCheckSuite o
+      _ -> return ()
   where
     repo = [get| o.repository! |]
 
