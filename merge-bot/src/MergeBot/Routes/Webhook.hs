@@ -36,6 +36,7 @@ import UnliftIO.Exception (throwIO)
 
 import MergeBot.Core.Actions (MergeBotAction(..), parseAction)
 import MergeBot.Core.Error (BotError(..))
+import MergeBot.Core.Monad (getAppId)
 import MergeBot.Core.Text (isStagingBranch, isTryBranch)
 import MergeBot.Monad
     (BaseApp, BotApp, MergeBotEvent(..), ServerBase, queueEvent, runBotApp)
@@ -78,6 +79,8 @@ handlePullRequest o = runBotApp' repo $ do
 handleCheckSuite :: Object CheckSuiteEvent -> Token -> BaseApp ()
 handleCheckSuite o = runBotApp' repo $ do
   logEvent "check_suite" o
+  appId <- getAppId
+  when ([get| o.check_suite.app.id |] == appId) $
   case [get| o.action |] of
     CheckSuite.REQUESTED -> do
       let (prs, sha) = [get| o.check_suite.(pull_requests, head_sha) |]
