@@ -38,6 +38,11 @@ type CheckSuiteEvent = [schema|
       conclusion: Maybe CheckRunConclusion,
       url: URL,
       pull_requests: List #PullRequestShort,
+      app: {
+        id: Int,
+        slug: Text,
+        name: Text,
+      },
     },
     #BaseEvent,
   }
