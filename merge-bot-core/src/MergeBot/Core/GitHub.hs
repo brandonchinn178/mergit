@@ -59,7 +59,7 @@ import Data.Either (isRight)
 import Data.GraphQL (get, mkGetter, runQuery, unwrap)
 import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HashMap
-import Data.Maybe (fromJust, fromMaybe, isJust, mapMaybe)
+import Data.Maybe (catMaybes, fromMaybe, mapMaybe)
 import Data.Text (Text)
 import qualified Data.Text as Text
 import GitHub.Data.GitObjectID (GitObjectID)
@@ -221,7 +221,7 @@ data PRForCommit = PRForCommit
 
 -- | Get the PR number and branch name for the given CI commit.
 getPRsForCICommit :: MonadMergeBot m => CICommit -> m [PRForCommit]
-getPRsForCICommit CICommit{..} = liftM (map (fromJust) . filter isJust) $ forM parents $ \(sha, _) -> do
+getPRsForCICommit CICommit{..} = liftM catMaybes $ forM parents $ \(sha, _) -> do
   (repoOwner, repoName) <- getRepo
   result <- queryAll_ $ \after -> do
     result <- runQuery GetPRForCommitQuery
