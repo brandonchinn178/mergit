@@ -53,13 +53,13 @@ module MergeBot.Core.GitHub
   , closePR
   ) where
 
-import Control.Monad (forM, void)
+import Control.Monad (forM, liftM, void)
 import Data.Bifunctor (bimap)
 import Data.Either (isRight)
 import Data.GraphQL (get, mkGetter, runQuery, unwrap)
 import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HashMap
-import Data.Maybe (fromMaybe, mapMaybe)
+import Data.Maybe (fromJust, fromMaybe, isJust, mapMaybe)
 import Data.Text (Text)
 import qualified Data.Text as Text
 import GitHub.Data.GitObjectID (GitObjectID)
@@ -221,7 +221,7 @@ data PRForCommit = PRForCommit
 
 -- | Get the PR number and branch name for the given CI commit.
 getPRsForCICommit :: MonadMergeBot m => CICommit -> m [PRForCommit]
-getPRsForCICommit CICommit{..} = forM parents $ \(sha, _) -> do
+getPRsForCICommit CICommit{..} = liftM (map (fromJust) . filter isJust) $ forM parents $ \(sha, _) -> do
   (repoOwner, repoName) <- getRepo
   result <- queryAll_ $ \after -> do
     result <- runQuery GetPRForCommitQuery
@@ -239,12 +239,12 @@ getPRsForCICommit CICommit{..} = forM parents $ \(sha, _) -> do
       , nextCursor = [get| info.endCursor |]
       }
   case filter ((== sha) . [get| .headRefOid |]) result of
-    [] -> throwIO $ CommitLacksPR sha
-    [pr] -> return PRForCommit
+    [] -> return Nothing
+    [pr] -> return (Just $ PRForCommit
       { prForCommitId = [get| pr.number |]
       , prForCommitBranch = [get| pr.headRef!.name |]
       , prForCommitIsMerged = [get| pr.merged |]
-      }
+      })
     prs -> throwIO $ CommitForManyPRs sha $ map [get| .number |] prs
 
 -- | Return the reviews for the given PR as a map from reviewer to review state.
