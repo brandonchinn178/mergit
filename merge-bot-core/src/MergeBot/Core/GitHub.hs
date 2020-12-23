@@ -53,7 +53,7 @@ module MergeBot.Core.GitHub
   , closePR
   ) where
 
-import Control.Monad (forM, liftM, void)
+import Control.Monad (forM, void)
 import Data.Bifunctor (bimap)
 import Data.Either (isRight)
 import Data.GraphQL (get, mkGetter, runQuery, unwrap)
@@ -221,7 +221,7 @@ data PRForCommit = PRForCommit
 
 -- | Get the PR number and branch name for the given CI commit.
 getPRsForCICommit :: MonadMergeBot m => CICommit -> m [PRForCommit]
-getPRsForCICommit CICommit{..} = liftM catMaybes $ forM parents $ \(sha, _) -> do
+getPRsForCICommit CICommit{..} = fmap catMaybes $ forM parents $ \(sha, _) -> do
   (repoOwner, repoName) <- getRepo
   result <- queryAll_ $ \after -> do
     result <- runQuery GetPRForCommitQuery
