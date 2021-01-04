@@ -231,9 +231,12 @@ refreshCheckRuns isStart ciBranchName sha = do
         let ciInfo = "CI running in the [" <> ciBranchName <> "](" <> ciBranchUrl <> ") branch."
             message
               | not isComplete = ciInfo
-              | isTry          = tryJobSummaryDone
-              | not isSuccess  = mergeJobSummaryFailed
-              | otherwise      = mergeJobSummarySuccess
+              | otherwise =
+                  case (isTry, isSuccess) of
+                    (True, False)  -> tryJobSummaryFailed
+                    (True, True)   -> tryJobSummarySuccess
+                    (False, False) -> mergeJobSummaryFailed
+                    (False, True)  -> mergeJobSummarySuccess
         in [message, displayCIStatus ciStatus]
     }
 
