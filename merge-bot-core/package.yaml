@@ -9,7 +9,6 @@ dependencies:
 - aeson-schemas
 - base
 - bytestring
-- filepath
 - github-rest
 - github-schemas
 - graphql-client

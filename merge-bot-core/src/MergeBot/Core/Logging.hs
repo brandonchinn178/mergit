@@ -14,25 +14,11 @@ module MergeBot.Core.Logging
 import Control.Monad.Logger
     (LoggingT, defaultLogStr, fromLogStr, runLoggingT, toLogStr)
 import qualified Data.ByteString.Char8 as Char8
-import Data.Time (UTCTime, defaultTimeLocale, formatTime, getCurrentTime)
-import System.FilePath ((</>))
-import System.IO (IOMode(..), stderr, withFile)
+import Data.Time (defaultTimeLocale, formatTime, getCurrentTime)
 
--- | The directory for logs.
-logDir :: FilePath
-logDir = "/var/log/merge-bot/"
-
--- | Get the file to log to.
-logDest :: UTCTime -> FilePath
-logDest date = formatTime defaultTimeLocale "merge-bot__%Y-%m-%d.log" date
-
--- | Run the given action, sending logs to 'logDest' and 'stderr'.
+-- | Run the given action, sending logs to stdout.
 runMergeBotLogging :: LoggingT m a -> m a
 runMergeBotLogging = flip runLoggingT $ \loc src lvl str -> do
   now <- getCurrentTime
-  let dest = logDir </> logDest now
-      message = toLogStr (formatTime defaultTimeLocale "[%H:%M:%S] " now) <> str
-      doLog h = Char8.hPutStr h $ fromLogStr $ defaultLogStr loc src lvl message
-
-  withFile dest AppendMode doLog
-  doLog stderr
+  let message = toLogStr (formatTime defaultTimeLocale "[%H:%M:%S] " now) <> str
+  Char8.putStr $ fromLogStr $ defaultLogStr loc src lvl message
