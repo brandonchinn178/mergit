@@ -11,12 +11,12 @@ module MergeBot.Core.Logging
   ( runMergeBotLogging
   ) where
 
-import Control.Monad.Logger (LoggingT, defaultLogStr, runLoggingT, toLogStr)
+import Control.Monad.Logger
+    (LoggingT, defaultLogStr, fromLogStr, runLoggingT, toLogStr)
 import qualified Data.ByteString.Char8 as Char8
 import Data.Time (UTCTime, defaultTimeLocale, formatTime, getCurrentTime)
 import System.FilePath ((</>))
 import System.IO (IOMode(..), stderr, withFile)
-import System.Log.FastLogger (fromLogStr)
 
 -- | The directory for logs.
 logDir :: FilePath

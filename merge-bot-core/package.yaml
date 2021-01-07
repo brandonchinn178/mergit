@@ -9,7 +9,6 @@ dependencies:
 - aeson-schemas
 - base
 - bytestring
-- fast-logger
 - filepath
 - github-rest
 - github-schemas
