@@ -500,9 +500,7 @@ type GetPRForCommitSchema = [schema|
               nodes: Maybe List Maybe {
                 headRefOid: GitObjectID,
                 number: Int,
-                headRef: Maybe {
-                  name: Text,
-                },
+                headRefName: Text,
                 merged: Bool,
               },
             },
@@ -531,9 +529,7 @@ instance GraphQLQuery GetPRForCommitQuery where
               nodes {
                 headRefOid
                 number
-                headRef {
-                  name
-                }
+                headRefName
                 merged
               }
             }

@@ -242,7 +242,7 @@ getPRsForCICommit CICommit{..} = forM parents $ \(sha, _) -> do
     [] -> throwIO $ CommitLacksPR sha
     [pr] -> return PRForCommit
       { prForCommitId = [get| pr.number |]
-      , prForCommitBranch = [get| pr.headRef!.name |]
+      , prForCommitBranch = [get| pr.headRefName |]
       , prForCommitIsMerged = [get| pr.merged |]
       }
     prs -> throwIO $ CommitForManyPRs sha $ map [get| .number |] prs
