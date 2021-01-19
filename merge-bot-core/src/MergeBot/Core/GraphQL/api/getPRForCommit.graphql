@@ -13,8 +13,8 @@ query getPRForCommit(
             endCursor
           }
           nodes {
-            headRefOid
             number
+            headRefOid
             headRefName
             merged
           }
