@@ -46,6 +46,7 @@ data BotError
   | SomePRsMerged [PullRequestId] [PullRequestId]
   | UnapprovedPR PullRequestId
   | TreeNotUpdated [PullRequestId] PullRequestId
+  | PRWasUpdatedDuringMergeRun [PullRequestId] PullRequestId GitObjectID
 
 instance Exception BotError
 
@@ -89,10 +90,11 @@ instance Show BotError where
       , ""
       , "More information: https://leapyear.atlassian.net/browse/QA-178"
       ]
+    PRWasUpdatedDuringMergeRun _ prNum sha -> "PR #" <> show prNum <> " was updated while the merge run was running. Expected SHA: `" <> unOID' sha <> "`"
     where
       fromPRs = unwords . map (('#':) . show)
 
--- | Get the PRs relevant to the given BotError.
+-- | Get the PRs that should be notified when throwing the given BotError.
 getRelevantPRs :: BotError -> [PullRequestId]
 getRelevantPRs = \case
   BadUpdate _ prs _ _ -> prs
@@ -113,3 +115,4 @@ getRelevantPRs = \case
   SomePRsMerged mergedPRs nonMergedPRs -> mergedPRs ++ nonMergedPRs
   UnapprovedPR pr -> [pr]
   TreeNotUpdated allPRs _ -> allPRs
+  PRWasUpdatedDuringMergeRun allPRs _ _ -> allPRs

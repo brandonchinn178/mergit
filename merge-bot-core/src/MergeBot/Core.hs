@@ -28,7 +28,7 @@ module MergeBot.Core
   ) where
 
 import Control.Concurrent (threadDelay)
-import Control.Monad (forM_, unless, void, when, (<=<))
+import Control.Monad (forM, forM_, unless, void, when, (<=<))
 import Control.Monad.IO.Class (MonadIO(..))
 import Control.Monad.Loops (whileM_)
 import Data.Bifunctor (first)
@@ -200,7 +200,7 @@ createCIBranch base prs ciBranch message = do
 -- | Refresh the check runs for the given CI commit.
 refreshCheckRuns :: MonadMergeBot m => Bool -> BranchName -> CommitSHA -> m ()
 refreshCheckRuns isStart ciBranchName sha = do
-  ciCommit@CICommit{..} <- getCICommit sha checkRunType
+  CICommit{..} <- getCICommit sha checkRunType
   when (null parents) $ throwIO $ CICommitMissingParents isStart ciBranchName sha
 
   -- since we check the config in 'createCIBranch', we know that 'extractConfig' here will not fail
@@ -253,7 +253,12 @@ refreshCheckRuns isStart ciBranchName sha = do
     | isTry -> return ()
     -- At this point, the run is a completed merge run
     | otherwise -> do
-        prs <- getPRsForCICommit ciCommit
+        prsAndSHAs <- forM parents $ \(parentSHA, _) -> do
+          pr <- getPRForCommit parentSHA
+          return (pr, parentSHA)
+
+        let prs = map fst prsAndSHAs
+
         allPRsMerged <- areAllPRsMerged prs
 
         if allPRsMerged
@@ -263,7 +268,7 @@ refreshCheckRuns isStart ciBranchName sha = do
           -- If all of the PRs are still open, run the merge post-run actions and delete the
           -- staging branch when finished, even if the merge run failed (so that the next
           -- merge run can start).
-          else onMergeCompletion prs isSuccess `finally` deleteBranch ciBranchName
+          else onMergeCompletion prsAndSHAs isSuccess `finally` deleteBranch ciBranchName
   where
     isTry = isTryBranch ciBranchName
     checkRunType = if isTry then CheckRunTry else CheckRunMerge
@@ -282,9 +287,16 @@ refreshCheckRuns isStart ciBranchName sha = do
         -- If there are some PRs merged and some not, then the merge bot is in a really bad state.
         (_, _) -> throwIO $ SomePRsMerged (getIds mergedPRs) (getIds nonMergedPRs)
 
-    onMergeCompletion prs isSuccess
+    onMergeCompletion prsAndSHAs isSuccess
       | isSuccess = do
-          let prNums = map prForCommitId prs
+          let prs = map fst prsAndSHAs
+              prNums = map prForCommitId prs
+
+          -- check if any PRs were updated underneath us
+          -- https://leapyear.atlassian.net/browse/QA-129
+          forM_ prsAndSHAs $ \(pr, parentSHA) ->
+            unless (prForCommitSHA pr == parentSHA) $
+              throwIO $ PRWasUpdatedDuringMergeRun prNums (prForCommitId pr) parentSHA
 
           -- merge into base
           let invalidStagingBranch = throwIO $ InvalidStaging prNums ciBranchName
