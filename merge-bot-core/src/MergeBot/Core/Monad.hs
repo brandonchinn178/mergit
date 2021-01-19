@@ -158,11 +158,11 @@ runBotAppT BotSettings{..} =
       let msg = displayException e
       mapM_ (`commentOnPR` msg) $ getRelevantPRs e
       logError msg
-      errorWithoutStackTrace "<<MergeBot Error>>"
+      errorWithoutStackTrace $ "MergeBot Error: " ++ msg
     handleSomeException (e :: SomeException) = do
       let msg = displayException e
       logError msg
-      errorWithoutStackTrace "<<Other Error>>"
+      errorWithoutStackTrace $ "Other Error: " ++ msg
 
     -- log error message, replacing newlines with spaces
     logError msg = logErrorN $ removeNewlines $ Text.pack msg
