@@ -53,7 +53,7 @@ module MergeBot.Core.GitHub
   , closePR
   ) where
 
-import Control.Monad (forM, void)
+import Control.Monad (forM, unless, void)
 import Data.Bifunctor (bimap)
 import Data.Either (isRight)
 import Data.GraphQL (get, mkGetter, runQuery, unwrap)
@@ -214,38 +214,49 @@ getCheckRun prNum checkRunType = do
     checkName = getCheckName checkRunType
 
 data PRForCommit = PRForCommit
-  { prForCommitId       :: Int
-  , prForCommitBranch   :: Text
-  , prForCommitIsMerged :: Bool
+  { prForCommitId         :: Int
+  , prForCommitBaseBranch :: Text
+  , prForCommitSHA        :: GitObjectID
+  , prForCommitBranch     :: Text
+  , prForCommitIsMerged   :: Bool
   }
+
+-- | Get information for the associated PR for the given commit.
+--
+-- We expect the given commit to only be associated with one PR. The given commit does
+-- not have to be the HEAD of the PR.
+getPRForCommit :: MonadMergeBot m => GitObjectID -> m PRForCommit
+getPRForCommit sha = do
+  (repoOwner, repoName) <- getRepo
+
+  result <- runQuery GetPRForCommitQuery
+    { _repoOwner = repoOwner
+    , _repoName = repoName
+    , _sha = sha
+    }
+
+  let prs = [get| result.repository!.object!.__fragment!.associatedPullRequests!.nodes![]! |]
+
+  case prs of
+    [] -> throwIO $ CommitLacksPR sha
+    [pr] -> return PRForCommit
+      { prForCommitId = [get| pr.number |]
+      , prForCommitBaseBranch = [get| pr.baseRefName |]
+      , prForCommitSHA = [get| pr.headRefOid |]
+      , prForCommitBranch = [get| pr.headRefName |]
+      , prForCommitIsMerged = [get| pr.merged |]
+      }
+    _ -> throwIO $ CommitForManyPRs sha $ map [get| .number |] prs
 
 -- | Get the PR number and branch name for the given CI commit.
 getPRsForCICommit :: MonadMergeBot m => CICommit -> m [PRForCommit]
 getPRsForCICommit CICommit{..} = forM parents $ \(sha, _) -> do
-  (repoOwner, repoName) <- getRepo
-  result <- queryAll_ $ \after -> do
-    result <- runQuery GetPRForCommitQuery
-      { _repoOwner = repoOwner
-      , _repoName = repoName
-      , _sha = sha
-      , _after = after
-      }
-    let payload = [get| result.repository!.object!.__fragment!.associatedPullRequests! |]
-        info = [get| payload.pageInfo |]
-    return PaginatedResult
-      { payload = ()
-      , chunk = [get| payload.nodes![]! |]
-      , hasNext = [get| info.hasNextPage |]
-      , nextCursor = [get| info.endCursor |]
-      }
-  case filter ((== sha) . [get| .headRefOid |]) result of
-    [] -> throwIO $ CommitLacksPR sha
-    [pr] -> return PRForCommit
-      { prForCommitId = [get| pr.number |]
-      , prForCommitBranch = [get| pr.headRefName |]
-      , prForCommitIsMerged = [get| pr.merged |]
-      }
-    prs -> throwIO $ CommitForManyPRs sha $ map [get| .number |] prs
+  pr <- getPRForCommit sha
+
+  unless (prForCommitSHA == sha) $
+    throwIO $ CommitLacksPR sha
+
+  return pr
 
 -- | Return the reviews for the given PR as a map from reviewer to review state.
 getPRReviews :: MonadMergeBot m => PrNum -> m (HashMap UserName PullRequestReviewState)
