@@ -19,8 +19,6 @@ import Data.Aeson.Schema (Object)
 import Data.Text (Text)
 import qualified Data.Text as Text
 import GitHub.Data.GitObjectID (GitObjectID, unOID')
-import GitHub.Schema.Event.CheckRun (CheckRunEvent)
-import GitHub.Schema.Event.CheckSuite (CheckSuiteEvent)
 import GitHub.Schema.Event.Push (PushEvent)
 
 import MergeBot.Core.Config (configFileName)
@@ -33,7 +31,6 @@ data BotError
   | CICommitMissingParents Bool Text GitObjectID
   | CommitForManyPRs GitObjectID [PullRequestId]
   | CommitLacksPR GitObjectID
-  | CommitNotPRHead PullRequestId GitObjectID
   | ConfigFileMissing [PullRequestId]
   | ConfigFileInvalid [PullRequestId] SomeException
   | InvalidStaging [PullRequestId] Text
@@ -41,11 +38,10 @@ data BotError
   | MissingBaseBranch [PullRequestId] Text
   | MissingCheckRun GitObjectID Text
   | MissingCheckRunPR PullRequestId Text
-  | NotOnePRInCheckRun (Object CheckRunEvent)
-  | NotOnePRInCheckSuite (Object CheckSuiteEvent)
   | SomePRsMerged [PullRequestId] [PullRequestId]
   | UnapprovedPR PullRequestId
   | TreeNotUpdated [PullRequestId] PullRequestId
+  | PRWasUpdatedDuringMergeRun [PullRequestId] PullRequestId GitObjectID
 
 instance Exception BotError
 
@@ -70,7 +66,6 @@ instance Show BotError where
       ]
     CommitForManyPRs sha prs -> "Commit `" <> unOID' sha <> "` found as HEAD for multiple PRs: " <> fromPRs prs
     CommitLacksPR sha -> "Commit `" <> unOID' sha <> "` does not have an associated pull request"
-    CommitNotPRHead pr sha -> "Commit `" <> unOID' sha <> "` is not HEAD for PR #" <> show pr
     ConfigFileMissing prs -> "Merging " <> fromPRs prs <> " lacks a `" <> Text.unpack configFileName <> "` config file"
     ConfigFileInvalid prs e -> "Merging " <> fromPRs prs <> " has an invalid `" <> Text.unpack configFileName <> "` config file: " <> displayException e
     InvalidStaging _ branch -> "Invalid staging branch: " <> Text.unpack branch
@@ -78,8 +73,6 @@ instance Show BotError where
     MissingBaseBranch _ branch -> "Base branch does not exist: " <> Text.unpack branch
     MissingCheckRun sha checkName -> "Commit `" <> unOID' sha <> "` missing check run named: " <> Text.unpack checkName
     MissingCheckRunPR pr checkName -> "PR #" <> show pr <> " missing check run named: " <> Text.unpack checkName
-    NotOnePRInCheckRun o -> "Check run did not have exactly one PR: " <> show o
-    NotOnePRInCheckSuite o -> "Check suite did not have exactly one PR: " <> show o
     SomePRsMerged mergedPRs nonMergedPRs -> "PRs " <> fromPRs nonMergedPRs <> " found not merged while PRs " <> fromPRs mergedPRs <> " are merged"
     UnapprovedPR prNum -> "PR #" <> show prNum <> " is not approved"
     TreeNotUpdated _ pr -> unlines
@@ -89,10 +82,11 @@ instance Show BotError where
       , ""
       , "More information: https://leapyear.atlassian.net/browse/QA-178"
       ]
+    PRWasUpdatedDuringMergeRun _ prNum sha -> "PR #" <> show prNum <> " was updated while the merge run was running. Expected SHA: `" <> unOID' sha <> "`"
     where
       fromPRs = unwords . map (('#':) . show)
 
--- | Get the PRs relevant to the given BotError.
+-- | Get the PRs that should be notified when throwing the given BotError.
 getRelevantPRs :: BotError -> [PullRequestId]
 getRelevantPRs = \case
   BadUpdate _ prs _ _ -> prs
@@ -100,7 +94,6 @@ getRelevantPRs = \case
   CICommitMissingParents{} -> []
   CommitForManyPRs _ prs -> prs
   CommitLacksPR{} -> []
-  CommitNotPRHead pr _ -> [pr]
   ConfigFileMissing prs -> prs
   ConfigFileInvalid prs _ -> prs
   InvalidStaging prs _ -> prs
@@ -108,8 +101,7 @@ getRelevantPRs = \case
   MissingBaseBranch prs _ -> prs
   MissingCheckRun{} -> []
   MissingCheckRunPR pr _ -> [pr]
-  NotOnePRInCheckRun{} -> []
-  NotOnePRInCheckSuite{} -> []
   SomePRsMerged mergedPRs nonMergedPRs -> mergedPRs ++ nonMergedPRs
   UnapprovedPR pr -> [pr]
   TreeNotUpdated allPRs _ -> allPRs
+  PRWasUpdatedDuringMergeRun allPRs _ _ -> allPRs

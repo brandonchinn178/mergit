@@ -19,13 +19,12 @@ module MergeBot.Routes.Webhook
   , handleWebhookRoutes
   ) where
 
-import Control.Monad (unless, when)
+import Control.Monad (when)
 import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Logger (logDebugN, logInfoN)
+import Control.Monad.Logger (logDebugN)
 import Data.Aeson.Schema (IsSchema, get)
 import Data.Text (Text)
 import qualified Data.Text as Text
-import GitHub.Data.GitObjectID (unOID)
 import qualified GitHub.Schema.Event.CheckRun as CheckRun
 import qualified GitHub.Schema.Event.CheckSuite as CheckSuite
 import qualified GitHub.Schema.Event.PullRequest as PullRequest
@@ -36,6 +35,7 @@ import UnliftIO.Exception (throwIO)
 
 import MergeBot.Core.Actions (MergeBotAction(..), parseAction)
 import MergeBot.Core.Error (BotError(..))
+import MergeBot.Core.GitHub (PRForCommit(..), getPRForCommit)
 import MergeBot.Core.Monad (getAppId)
 import MergeBot.Core.Text (isStagingBranch, isTryBranch)
 import MergeBot.Monad
@@ -83,11 +83,8 @@ handleCheckSuite o = runBotApp' repo $ do
   when ([get| o.check_suite.app.id |] == appId) $
     case [get| o.action |] of
       CheckSuite.REQUESTED -> do
-        let (prs, sha) = [get| o.check_suite.(pull_requests, head_sha) |]
-        case prs of
-          [] -> return ()
-          [pr] -> queueEvent $ CommitPushedToPR [get| pr.number |] sha
-          _ -> throwIO $ NotOnePRInCheckSuite o
+        pr <- getPRForCommit [get| o.check_suite.head_sha |]
+        queueEvent $ CommitPushedToPR (prForCommitId pr) (prForCommitSHA pr)
       _ -> return ()
   where
     repo = [get| o.repository! |]
@@ -98,20 +95,13 @@ handleCheckRun o = runBotApp' repo $ do
   logEvent "check_run" o
   case [get| o.action |] of
     CheckRun.REQUESTED_ACTION -> do
-      pr <- case [get| o.check_run.pull_requests[] |] of
-        [pr'] -> return pr'
-        _ -> throwIO $ NotOnePRInCheckRun o
+      pr <- getPRForCommit [get| o.check_run.head_sha |]
 
-      let prNum = [get| pr.number |]
-          prNum' = Text.pack $ show prNum
-          prBaseRef = [get| pr.base.ref |]
+      let prNum = prForCommitId pr
+          prBaseRef = prForCommitBaseBranch pr
           checkRunId = [get| o.check_run.id |]
-          sha = [get| o.check_run.head_sha |]
+          sha = prForCommitSHA pr
           action = [get| o.requested_action!.identifier |]
-
-      unless (sha == [get| pr.head.sha |]) $ do
-        logInfoN $ "Received action `" <> action <> "` for commit `" <> unOID sha <> "` on PR #" <> prNum'
-        throwIO $ CommitNotPRHead prNum sha
 
       case parseAction action of
         Just BotTry -> queueEvent $ StartTryJob prNum sha prBaseRef checkRunId
