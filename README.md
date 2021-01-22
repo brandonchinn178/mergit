@@ -131,3 +131,9 @@ statuses:
 1. Set the "Bot Merge" check as a required status check (for protected branches)
 1. Uncheck "Require branches to be up to date before merging"
 1. Use the merge bot to merge in the PR!
+
+#### Troubleshooting
+
+* `This branch must not contain merge commits.`
+
+    If you're getting this error, make sure to disable "Require linear history" for the base branch.
