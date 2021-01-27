@@ -39,6 +39,7 @@ module MergeBot.Core.GitHub
   , getCheckRun
   , PullRequest(..)
   , getPRForCommit
+  , getPRById
   , getPRReviews
   , isPRMerged
   , getQueues
@@ -83,6 +84,7 @@ import MergeBot.Core.GraphQL.API
     , GetCICommitQuery(..)
     , GetCICommitSchema
     , GetIsPRMergedQuery(..)
+    , GetPRByIdQuery(..)
     , GetPRCheckRunQuery(..)
     , GetPRForCommitQuery(..)
     , GetPRReviewsQuery(..)
@@ -253,6 +255,27 @@ getPRForCommit sha = do
       , prIsMerged = [get| pr.merged |]
       }
     _ -> throwIO $ CommitForManyPRs sha $ map [get| .number |] prs
+
+-- | Get information for the given PR.
+getPRById :: MonadMergeBot m => Int -> m PullRequest
+getPRById prId = do
+  (repoOwner, repoName) <- getRepo
+
+  result <- runQuery GetPRByIdQuery
+    { _repoOwner = repoOwner
+    , _repoName = repoName
+    , _id = prId
+    }
+
+  let pr = [get| result.repository!.pullRequest! |]
+
+  return PullRequest
+    { prId = [get| pr.number |]
+    , prBaseBranch = [get| pr.baseRefName |]
+    , prSHA = [get| pr.headRefOid |]
+    , prBranch = [get| pr.headRefName |]
+    , prIsMerged = [get| pr.merged |]
+    }
 
 -- | Return the reviews for the given PR as a map from reviewer to review state.
 getPRReviews :: MonadMergeBot m => PrNum -> m (HashMap UserName PullRequestReviewState)

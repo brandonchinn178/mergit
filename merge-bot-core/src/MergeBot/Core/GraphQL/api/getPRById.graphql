@@ -1,0 +1,15 @@
+query getPRById(
+  $repoOwner: String!,
+  $repoName: String!,
+  $id: Int!,
+) {
+  repository(owner: $repoOwner, name: $repoName) {
+    pullRequest(number: $id) {
+      number
+      baseRefName
+      headRefOid
+      headRefName
+      merged
+    }
+  }
+}
