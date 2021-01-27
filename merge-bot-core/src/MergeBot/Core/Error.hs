@@ -19,6 +19,7 @@ import Data.Aeson.Schema (Object)
 import Data.Text (Text)
 import qualified Data.Text as Text
 import GitHub.Data.GitObjectID (GitObjectID, unOID')
+import GitHub.Schema.Event.CheckRun (CheckRunEvent)
 import GitHub.Schema.Event.Push (PushEvent)
 
 import MergeBot.Core.Config (configFileName)
@@ -27,6 +28,7 @@ type PullRequestId = Int
 
 data BotError
   = BadUpdate GitObjectID [PullRequestId] Text Text
+  | CannotDetermineCheckRunPR (Object CheckRunEvent)
   | CIBranchPushed (Object PushEvent)
   | CICommitMissingParents Bool Text GitObjectID
   | CommitForManyPRs GitObjectID [PullRequestId]
@@ -55,6 +57,7 @@ instance Show BotError where
       , "` (" ++ unOID' sha ++ "): "
       , Text.unpack message
       ]
+    CannotDetermineCheckRunPR o -> "Cannot determine PR for check run: " <> show o
     CIBranchPushed o -> "User tried to manually create CI branch: " <> show o
     CICommitMissingParents isStart branch sha -> concat
       [ "Commit `"
@@ -93,6 +96,7 @@ instance Show BotError where
 getRelevantPRs :: BotError -> [PullRequestId]
 getRelevantPRs = \case
   BadUpdate _ prs _ _ -> prs
+  CannotDetermineCheckRunPR{} -> []
   CIBranchPushed{} -> []
   CICommitMissingParents{} -> []
   CommitForManyPRs _ prs -> prs

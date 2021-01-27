@@ -34,7 +34,7 @@ import UnliftIO.Exception (throwIO)
 
 import MergeBot.Core.Actions (MergeBotAction(..), parseAction)
 import MergeBot.Core.Error (BotError(..))
-import MergeBot.Core.GitHub (PullRequest(..), getPRForCommit)
+import MergeBot.Core.GitHub (PullRequest(..), getPRById, getPRForCommit)
 import MergeBot.Core.Text (isStagingBranch, isTryBranch)
 import MergeBot.Monad
     (BaseApp, BotApp, MergeBotEvent(..), ServerBase, queueEvent, runBotApp)
@@ -77,7 +77,13 @@ handleCheckRun o = runBotApp' repo $ do
   logEvent "check_run" o
   case [get| o.action |] of
     CheckRun.REQUESTED_ACTION -> do
-      pr <- getPRForCommit [get| o.check_run.head_sha |]
+      -- GitHub sometimes flakily sends an empty array here. First check the array, in
+      -- case a given commit is on multiple branches (e.g. one PR blocked on another), but
+      -- we'll fall back to trying to find an associated PR for the commit.
+      pr <- case [get| o.check_run.pull_requests[].number |] of
+        [prNum] -> getPRById prNum
+        [] -> getPRForCommit [get| o.check_run.head_sha |]
+        _ -> throwIO $ CannotDetermineCheckRunPR o
 
       let prNum = prId pr
           prBaseRef = prBaseBranch pr
