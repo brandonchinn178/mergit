@@ -29,7 +29,7 @@ import MergeBot.Core.Monad (MonadMergeBot(..))
 import MergeBot.Core.Text (checkRunTry)
 
 test :: TestTree
-test = testGroup "MergeBot.GitHub"
+test = testGroup "MergeBot.Core.GitHub"
   [ testGetCICommit
   ]
 
