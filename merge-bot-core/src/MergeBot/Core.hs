@@ -28,7 +28,7 @@ module MergeBot.Core
   ) where
 
 import Control.Concurrent (threadDelay)
-import Control.Monad (forM, forM_, unless, void, when, (<=<))
+import Control.Monad (forM_, unless, void, when, (<=<))
 import Control.Monad.IO.Class (MonadIO(..))
 import Control.Monad.Loops (whileM_)
 import Data.Bifunctor (first)
@@ -253,11 +253,7 @@ refreshCheckRuns isStart ciBranchName sha = do
     | isTry -> return ()
     -- At this point, the run is a completed merge run
     | otherwise -> do
-        prsAndSHAs <- forM parents $ \(parentSHA, _) -> do
-          pr <- getPRForCommit parentSHA
-          return (pr, parentSHA)
-
-        let prs = map fst prsAndSHAs
+        prs <- mapM getPRById prsFromMessage
 
         allPRsMerged <- areAllPRsMerged prs
 
@@ -268,7 +264,7 @@ refreshCheckRuns isStart ciBranchName sha = do
           -- If all of the PRs are still open, run the merge post-run actions and delete the
           -- staging branch when finished, even if the merge run failed (so that the next
           -- merge run can start).
-          else onMergeCompletion prsAndSHAs isSuccess `finally` deleteBranch ciBranchName
+          else onMergeCompletion parents prs isSuccess `finally` deleteBranch ciBranchName
   where
     isTry = isTryBranch ciBranchName
     checkRunType = if isTry then CheckRunTry else CheckRunMerge
@@ -287,16 +283,19 @@ refreshCheckRuns isStart ciBranchName sha = do
         -- If there are some PRs merged and some not, then the merge bot is in a really bad state.
         (_, _) -> throwIO $ SomePRsMerged (getIds mergedPRs) (getIds nonMergedPRs)
 
-    onMergeCompletion prsAndSHAs isSuccess
+    onMergeCompletion parents prs isSuccess
       | isSuccess = do
-          let prs = map fst prsAndSHAs
-              prNums = map prId prs
+          let prNums = map prId prs
 
           -- check if any PRs were updated underneath us
           -- https://leapyear.atlassian.net/browse/QA-129
-          forM_ prsAndSHAs $ \(pr, parentSHA) ->
-            unless (prSHA pr == parentSHA) $
-              throwIO $ PRWasUpdatedDuringMergeRun prNums (prId pr) parentSHA
+          let parentSHAs = map fst parents
+          case filter (\pr -> prSHA pr `notElem` parentSHAs) prs of
+            [] -> return ()
+            updatedPRs -> do
+              let prSHAs = map prSHA prs
+                  unaccountedSHAs = filter (`notElem` prSHAs) parentSHAs
+              throwIO $ PRWasUpdatedDuringMergeRun prNums (map prId updatedPRs) unaccountedSHAs
 
           -- merge into base
           let invalidStagingBranch = throwIO $ InvalidStaging prNums ciBranchName

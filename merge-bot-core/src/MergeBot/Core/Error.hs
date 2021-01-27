@@ -41,7 +41,7 @@ data BotError
   | SomePRsMerged [PullRequestId] [PullRequestId]
   | UnapprovedPR PullRequestId
   | TreeNotUpdated [PullRequestId] PullRequestId
-  | PRWasUpdatedDuringMergeRun [PullRequestId] PullRequestId GitObjectID
+  | PRWasUpdatedDuringMergeRun [PullRequestId] [PullRequestId] [GitObjectID]
 
 instance Exception BotError
 
@@ -82,7 +82,10 @@ instance Show BotError where
       , ""
       , "More information: https://leapyear.atlassian.net/browse/QA-178"
       ]
-    PRWasUpdatedDuringMergeRun _ prNum sha -> "PR #" <> show prNum <> " was updated while the merge run was running. Expected SHA: `" <> unOID' sha <> "`"
+    PRWasUpdatedDuringMergeRun _ prNums shas ->
+      case (prNums, shas) of
+        ([prNum], [sha]) -> "PR #" <> show prNum <> " was updated while the merge run was running. Expected SHA: `" <> unOID' sha <> "`"
+        _ -> "PRs " <> fromPRs prNums <> " were updated while the merge run was running."
     where
       fromPRs = unwords . map (('#':) . show)
 

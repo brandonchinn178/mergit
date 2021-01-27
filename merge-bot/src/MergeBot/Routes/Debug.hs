@@ -125,7 +125,7 @@ handleRepositoryPage repoOwner repoName = do
         Nothing -> return Nothing
         Just baseBranch -> do
           ciCommit <- Core.getCICommit [get| ref.object.sha |] Core.CheckRunMerge
-          prs <- mapM (Core.getPRForCommit . fst) (Core.parents ciCommit)
+          prs <- mapM Core.getPRById $ Core.prsFromMessage ciCommit
           return $ Just (baseBranch, map Core.prId prs)
 
   xsrfToken <- getXsrfToken
