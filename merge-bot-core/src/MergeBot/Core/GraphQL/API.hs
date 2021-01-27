@@ -204,6 +204,7 @@ type GetCICommitSchema = [schema|
       object: Maybe {
         [__fragment]: Try (
           {
+            message: Text,
             tree: {
               oid: GitObjectID,
               entries: Maybe List {
@@ -259,6 +260,7 @@ instance GraphQLQuery GetCICommitQuery where
       repository(owner: $repoOwner, name: $repoName) {
         object(oid: $sha) {
           ... on Commit {
+            message
             tree {
               oid
               entries {
@@ -364,6 +366,70 @@ instance GraphQLQuery GetIsPRMergedQuery where
     [ "repoOwner" .= _repoOwner (query :: GetIsPRMergedQuery)
     , "repoName" .= _repoName (query :: GetIsPRMergedQuery)
     , "prNum" .= _prNum (query :: GetIsPRMergedQuery)
+    ]
+
+{-----------------------------------------------------------------------------
+* getPRById
+
+-- result :: Object GetPRByIdSchema; throws a GraphQL exception on errors
+result <- runQuery GetPRByIdQuery
+  { _repoOwner = ...
+  , _repoName = ...
+  , _id = ...
+  }
+
+-- result :: GraphQLResult (Object GetPRByIdSchema)
+result <- runQuerySafe GetPRByIdQuery
+  { _repoOwner = ...
+  , _repoName = ...
+  , _id = ...
+  }
+-----------------------------------------------------------------------------}
+
+data GetPRByIdQuery = GetPRByIdQuery
+  { _repoOwner :: Text
+  , _repoName  :: Text
+  , _id        :: Int
+  }
+  deriving (Show)
+
+type GetPRByIdSchema = [schema|
+  {
+    repository: Maybe {
+      pullRequest: Maybe {
+        number: Int,
+        baseRefName: Text,
+        headRefOid: GitObjectID,
+        headRefName: Text,
+        merged: Bool,
+      },
+    },
+  }
+|]
+
+instance GraphQLQuery GetPRByIdQuery where
+  type ResultSchema GetPRByIdQuery = GetPRByIdSchema
+
+  getQueryName _ = "getPRById"
+
+  getQueryText _ = [query|
+    query getPRById($repoOwner: String!, $repoName: String!, $id: Int!) {
+      repository(owner: $repoOwner, name: $repoName) {
+        pullRequest(number: $id) {
+          number
+          baseRefName
+          headRefOid
+          headRefName
+          merged
+        }
+      }
+    }
+  |]
+
+  getArgs query = object
+    [ "repoOwner" .= _repoOwner (query :: GetPRByIdQuery)
+    , "repoName" .= _repoName (query :: GetPRByIdQuery)
+    , "id" .= _id (query :: GetPRByIdQuery)
     ]
 
 {-----------------------------------------------------------------------------

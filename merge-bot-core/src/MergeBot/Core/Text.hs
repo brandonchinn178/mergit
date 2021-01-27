@@ -126,8 +126,14 @@ output title summary = [ "title" := title, "summary" := summary ]
 {- CI branches -}
 
 -- | Display the pull request number.
-fromId :: Int -> Text
-fromId = Text.pack . ('#':) . show
+showId :: Int -> Text
+showId = Text.pack . ('#':) . show
+
+-- | Parse a pull request number.
+parseId :: Text -> Maybe Int
+parseId s = case Text.unpack s of
+  '#':num -> readMaybe num
+  _ -> Nothing
 
 -- | Get the name of the try branch for the given pull request.
 toTryBranch :: Int -> Text
@@ -143,7 +149,7 @@ fromTryBranch = readMaybe . Text.unpack <=< Text.stripPrefix "trying-"
 
 -- | Get the try commit message for the given pull request.
 toTryMessage :: Int -> Text
-toTryMessage prNum = Text.unwords ["Try", fromId prNum]
+toTryMessage prNum = Text.unwords ["Try", showId prNum]
 
 -- | Get the name of the staging branch for the given base branch.
 toStagingBranch :: Text -> Text
@@ -159,4 +165,17 @@ fromStagingBranch = Text.stripPrefix "staging-"
 
 -- | Get the commit message for the merge run for the given pull requests.
 toStagingMessage :: Text -> [Int] -> Text
-toStagingMessage base prs = Text.unwords $ ["Merge"] ++ map fromId prs ++ ["into", base]
+toStagingMessage base prs = Text.unwords $ ["Merge"] ++ map showId prs ++ ["into", base]
+
+-- | Get the pull requests from the given staging branch message.
+fromStagingMessage :: Text -> Maybe (Text, [Int])
+fromStagingMessage = traverse (traverse parseId) <=< getPRsFromMessage
+  where
+    getPRsFromMessage :: Text -> Maybe (Text, [Text])
+    getPRsFromMessage msg =
+      -- Parse out ["Merge", pr1, pr2, ..., "into", "base_branch"]
+      case Text.words msg of
+        "Merge":rest
+          | base:"into":prsRev <- reverse rest
+          -> Just (base, reverse prsRev)
+        _ -> Nothing

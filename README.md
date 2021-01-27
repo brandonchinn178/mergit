@@ -66,7 +66,6 @@ provide an access token to use for the duration of a request.
         * Commit statuses: Read-only
     1. Events:
         * Check run
-        * Check suite
         * Pull request
         * Push
         * Status

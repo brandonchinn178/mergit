@@ -4,7 +4,7 @@ set -eux -o pipefail
 
 builtin cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
-if [[ ! -d .graphql/schema.graphql ]]; then
+if [[ ! -f .graphql/schema.graphql ]]; then
     curl -sSL -o .graphql/schema.graphql \
         https://docs.github.com/public/schema.docs.graphql
 fi

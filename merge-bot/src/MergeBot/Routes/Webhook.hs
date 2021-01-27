@@ -26,7 +26,6 @@ import Data.Aeson.Schema (IsSchema, get)
 import Data.Text (Text)
 import qualified Data.Text as Text
 import qualified GitHub.Schema.Event.CheckRun as CheckRun
-import qualified GitHub.Schema.Event.CheckSuite as CheckSuite
 import qualified GitHub.Schema.Event.PullRequest as PullRequest
 import GitHub.Schema.Repository (RepoWebhook)
 import Servant
@@ -35,8 +34,7 @@ import UnliftIO.Exception (throwIO)
 
 import MergeBot.Core.Actions (MergeBotAction(..), parseAction)
 import MergeBot.Core.Error (BotError(..))
-import MergeBot.Core.GitHub (PRForCommit(..), getPRForCommit)
-import MergeBot.Core.Monad (getAppId)
+import MergeBot.Core.GitHub (PullRequest(..), getPRById, getPRForCommit)
 import MergeBot.Core.Text (isStagingBranch, isTryBranch)
 import MergeBot.Monad
     (BaseApp, BotApp, MergeBotEvent(..), ServerBase, queueEvent, runBotApp)
@@ -45,7 +43,6 @@ import MergeBot.Monad
 type WebhookRoutes =
   GitHubEvent 'PingEvent :> GitHubAction
   :<|> GitHubEvent 'PullRequestEvent :> WithToken :> GitHubAction
-  :<|> GitHubEvent 'CheckSuiteEvent :> WithToken :> GitHubAction
   :<|> GitHubEvent 'CheckRunEvent :> WithToken :> GitHubAction
   :<|> GitHubEvent 'StatusEvent :> WithToken :> GitHubAction
   :<|> GitHubEvent 'PushEvent :> WithToken :> GitHubAction
@@ -54,7 +51,6 @@ handleWebhookRoutes :: ServerBase WebhookRoutes
 handleWebhookRoutes =
   handlePing
   :<|> handlePullRequest
-  :<|> handleCheckSuite
   :<|> handleCheckRun
   :<|> handleStatus
   :<|> handlePush
@@ -67,25 +63,11 @@ handlePing o = liftIO $ putStrLn $ "Got ping from app #" ++ show [get| o.hook.ap
 handlePullRequest :: Object PullRequestEvent -> Token -> BaseApp ()
 handlePullRequest o = runBotApp' repo $ do
   logEvent "pull_request" o
+  let (number, sha) = [get| o.pull_request.(number, head.sha) |]
   case [get| o.action |] of
-    PullRequest.OPENED ->
-      let (number, sha) = [get| o.pull_request.(number, head.sha) |]
-      in queueEvent $ PRCreated number sha
+    PullRequest.OPENED -> queueEvent $ PRCreated number sha
+    PullRequest.SYNCHRONIZE -> queueEvent $ CommitPushedToPR number sha
     _ -> return ()
-  where
-    repo = [get| o.repository! |]
-
--- | Handle the 'check_suite' GitHub event.
-handleCheckSuite :: Object CheckSuiteEvent -> Token -> BaseApp ()
-handleCheckSuite o = runBotApp' repo $ do
-  logEvent "check_suite" o
-  appId <- getAppId
-  when ([get| o.check_suite.app.id |] == appId) $
-    case [get| o.action |] of
-      CheckSuite.REQUESTED -> do
-        pr <- getPRForCommit [get| o.check_suite.head_sha |]
-        queueEvent $ CommitPushedToPR (prForCommitId pr) (prForCommitSHA pr)
-      _ -> return ()
   where
     repo = [get| o.repository! |]
 
@@ -95,12 +77,18 @@ handleCheckRun o = runBotApp' repo $ do
   logEvent "check_run" o
   case [get| o.action |] of
     CheckRun.REQUESTED_ACTION -> do
-      pr <- getPRForCommit [get| o.check_run.head_sha |]
+      -- GitHub sometimes flakily sends an empty array here. First check the array, in
+      -- case a given commit is on multiple branches (e.g. one PR blocked on another), but
+      -- we'll fall back to trying to find an associated PR for the commit.
+      pr <- case [get| o.check_run.pull_requests[].number |] of
+        [prNum] -> getPRById prNum
+        [] -> getPRForCommit [get| o.check_run.head_sha |]
+        _ -> throwIO $ CannotDetermineCheckRunPR o
 
-      let prNum = prForCommitId pr
-          prBaseRef = prForCommitBaseBranch pr
+      let prNum = prId pr
+          prBaseRef = prBaseBranch pr
           checkRunId = [get| o.check_run.id |]
-          sha = prForCommitSHA pr
+          sha = prSHA pr
           action = [get| o.requested_action!.identifier |]
 
       case parseAction action of

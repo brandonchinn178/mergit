@@ -19,6 +19,7 @@ import Data.Aeson.Schema (Object)
 import Data.Text (Text)
 import qualified Data.Text as Text
 import GitHub.Data.GitObjectID (GitObjectID, unOID')
+import GitHub.Schema.Event.CheckRun (CheckRunEvent)
 import GitHub.Schema.Event.Push (PushEvent)
 
 import MergeBot.Core.Config (configFileName)
@@ -27,6 +28,7 @@ type PullRequestId = Int
 
 data BotError
   = BadUpdate GitObjectID [PullRequestId] Text Text
+  | CannotDetermineCheckRunPR (Object CheckRunEvent)
   | CIBranchPushed (Object PushEvent)
   | CICommitMissingParents Bool Text GitObjectID
   | CommitForManyPRs GitObjectID [PullRequestId]
@@ -41,7 +43,7 @@ data BotError
   | SomePRsMerged [PullRequestId] [PullRequestId]
   | UnapprovedPR PullRequestId
   | TreeNotUpdated [PullRequestId] PullRequestId
-  | PRWasUpdatedDuringMergeRun [PullRequestId] PullRequestId GitObjectID
+  | PRWasUpdatedDuringMergeRun [PullRequestId] [PullRequestId] [GitObjectID]
 
 instance Exception BotError
 
@@ -55,6 +57,7 @@ instance Show BotError where
       , "` (" ++ unOID' sha ++ "): "
       , Text.unpack message
       ]
+    CannotDetermineCheckRunPR o -> "Cannot determine PR for check run: " <> show o
     CIBranchPushed o -> "User tried to manually create CI branch: " <> show o
     CICommitMissingParents isStart branch sha -> concat
       [ "Commit `"
@@ -64,7 +67,7 @@ instance Show BotError where
       ,  "`) when "
       , if isStart then "starting check run" else "updating check run"
       ]
-    CommitForManyPRs sha prs -> "Commit `" <> unOID' sha <> "` found as HEAD for multiple PRs: " <> fromPRs prs
+    CommitForManyPRs sha prs -> "Commit `" <> unOID' sha <> "` found in multiple PRs: " <> fromPRs prs
     CommitLacksPR sha -> "Commit `" <> unOID' sha <> "` does not have an associated pull request"
     ConfigFileMissing prs -> "Merging " <> fromPRs prs <> " lacks a `" <> Text.unpack configFileName <> "` config file"
     ConfigFileInvalid prs e -> "Merging " <> fromPRs prs <> " has an invalid `" <> Text.unpack configFileName <> "` config file: " <> displayException e
@@ -82,7 +85,10 @@ instance Show BotError where
       , ""
       , "More information: https://leapyear.atlassian.net/browse/QA-178"
       ]
-    PRWasUpdatedDuringMergeRun _ prNum sha -> "PR #" <> show prNum <> " was updated while the merge run was running. Expected SHA: `" <> unOID' sha <> "`"
+    PRWasUpdatedDuringMergeRun _ prNums shas ->
+      case (prNums, shas) of
+        ([prNum], [sha]) -> "PR #" <> show prNum <> " was updated while the merge run was running. Expected SHA: `" <> unOID' sha <> "`"
+        _ -> "PRs " <> fromPRs prNums <> " were updated while the merge run was running."
     where
       fromPRs = unwords . map (('#':) . show)
 
@@ -90,6 +96,7 @@ instance Show BotError where
 getRelevantPRs :: BotError -> [PullRequestId]
 getRelevantPRs = \case
   BadUpdate _ prs _ _ -> prs
+  CannotDetermineCheckRunPR{} -> []
   CIBranchPushed{} -> []
   CICommitMissingParents{} -> []
   CommitForManyPRs _ prs -> prs
