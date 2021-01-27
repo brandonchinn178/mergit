@@ -34,7 +34,7 @@ import UnliftIO.Exception (throwIO)
 
 import MergeBot.Core.Actions (MergeBotAction(..), parseAction)
 import MergeBot.Core.Error (BotError(..))
-import MergeBot.Core.GitHub (PRForCommit(..), getPRForCommit)
+import MergeBot.Core.GitHub (PullRequest(..), getPRForCommit)
 import MergeBot.Core.Text (isStagingBranch, isTryBranch)
 import MergeBot.Monad
     (BaseApp, BotApp, MergeBotEvent(..), ServerBase, queueEvent, runBotApp)
@@ -79,10 +79,10 @@ handleCheckRun o = runBotApp' repo $ do
     CheckRun.REQUESTED_ACTION -> do
       pr <- getPRForCommit [get| o.check_run.head_sha |]
 
-      let prNum = prForCommitId pr
-          prBaseRef = prForCommitBaseBranch pr
+      let prNum = prId pr
+          prBaseRef = prBaseBranch pr
           checkRunId = [get| o.check_run.id |]
-          sha = prForCommitSHA pr
+          sha = prSHA pr
           action = [get| o.requested_action!.identifier |]
 
       case parseAction action of

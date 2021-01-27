@@ -37,7 +37,7 @@ module MergeBot.Core.GitHub
   , getCICommit
   , CheckRunId
   , getCheckRun
-  , PRForCommit(..)
+  , PullRequest(..)
   , getPRForCommit
   , getPRReviews
   , isPRMerged
@@ -219,19 +219,19 @@ getCheckRun prNum checkRunType = do
   where
     checkName = getCheckName checkRunType
 
-data PRForCommit = PRForCommit
-  { prForCommitId         :: Int
-  , prForCommitBaseBranch :: Text
-  , prForCommitSHA        :: GitObjectID
-  , prForCommitBranch     :: Text
-  , prForCommitIsMerged   :: Bool
+data PullRequest = PullRequest
+  { prId         :: Int
+  , prBaseBranch :: Text
+  , prSHA        :: GitObjectID
+  , prBranch     :: Text
+  , prIsMerged   :: Bool
   }
 
 -- | Get information for the associated PR for the given commit.
 --
 -- We expect the given commit to only be associated with one PR. The given commit does
 -- not have to be the HEAD of the PR.
-getPRForCommit :: MonadMergeBot m => GitObjectID -> m PRForCommit
+getPRForCommit :: MonadMergeBot m => GitObjectID -> m PullRequest
 getPRForCommit sha = do
   (repoOwner, repoName) <- getRepo
 
@@ -245,12 +245,12 @@ getPRForCommit sha = do
 
   case prs of
     [] -> throwIO $ CommitLacksPR sha
-    [pr] -> return PRForCommit
-      { prForCommitId = [get| pr.number |]
-      , prForCommitBaseBranch = [get| pr.baseRefName |]
-      , prForCommitSHA = [get| pr.headRefOid |]
-      , prForCommitBranch = [get| pr.headRefName |]
-      , prForCommitIsMerged = [get| pr.merged |]
+    [pr] -> return PullRequest
+      { prId = [get| pr.number |]
+      , prBaseBranch = [get| pr.baseRefName |]
+      , prSHA = [get| pr.headRefOid |]
+      , prBranch = [get| pr.headRefName |]
+      , prIsMerged = [get| pr.merged |]
       }
     _ -> throwIO $ CommitForManyPRs sha $ map [get| .number |] prs
 

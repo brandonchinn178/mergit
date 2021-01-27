@@ -278,8 +278,8 @@ refreshCheckRuns isStart ciBranchName sha = do
       return $ "https://github.com/" <> repoOwner <> "/" <> repoName <> "/commits/" <> ciBranchName
 
     areAllPRsMerged prs = do
-      let (mergedPRs, nonMergedPRs) = partition prForCommitIsMerged prs
-          getIds = map prForCommitId
+      let (mergedPRs, nonMergedPRs) = partition prIsMerged prs
+          getIds = map prId
 
       case (mergedPRs, nonMergedPRs) of
         (_, []) -> return True
@@ -290,13 +290,13 @@ refreshCheckRuns isStart ciBranchName sha = do
     onMergeCompletion prsAndSHAs isSuccess
       | isSuccess = do
           let prs = map fst prsAndSHAs
-              prNums = map prForCommitId prs
+              prNums = map prId prs
 
           -- check if any PRs were updated underneath us
           -- https://leapyear.atlassian.net/browse/QA-129
           forM_ prsAndSHAs $ \(pr, parentSHA) ->
-            unless (prForCommitSHA pr == parentSHA) $
-              throwIO $ PRWasUpdatedDuringMergeRun prNums (prForCommitId pr) parentSHA
+            unless (prSHA pr == parentSHA) $
+              throwIO $ PRWasUpdatedDuringMergeRun prNums (prId pr) parentSHA
 
           -- merge into base
           let invalidStagingBranch = throwIO $ InvalidStaging prNums ciBranchName
@@ -307,8 +307,8 @@ refreshCheckRuns isStart ciBranchName sha = do
 
           -- close PRs and delete branches
           forM_ prs $ \pr -> do
-            let prNum = prForCommitId pr
-                branch = prForCommitBranch pr
+            let prNum = prId pr
+                branch = prBranch pr
 
             -- wait until PR is marked "merged"
             whileM_ (not <$> isPRMerged prNum) $ return ()
