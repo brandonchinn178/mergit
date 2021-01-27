@@ -204,6 +204,7 @@ type GetCICommitSchema = [schema|
       object: Maybe {
         [__fragment]: Try (
           {
+            message: Text,
             tree: {
               oid: GitObjectID,
               entries: Maybe List {
@@ -259,6 +260,7 @@ instance GraphQLQuery GetCICommitQuery where
       repository(owner: $repoOwner, name: $repoName) {
         object(oid: $sha) {
           ... on Commit {
+            message
             tree {
               oid
               entries {

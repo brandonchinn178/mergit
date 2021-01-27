@@ -92,7 +92,7 @@ import MergeBot.Core.GraphQL.Enums.PullRequestReviewState
     (PullRequestReviewState)
 import qualified MergeBot.Core.GraphQL.Enums.PullRequestReviewState as PullRequestReviewState
 import MergeBot.Core.Monad (MonadMergeBot(..), queryGitHub')
-import MergeBot.Core.Text (checkRunMerge, checkRunTry)
+import MergeBot.Core.Text (checkRunMerge, checkRunTry, fromStagingMessage)
 
 default (Text)
 
@@ -142,6 +142,9 @@ type CIContext = [unwrap| GetCICommitSchema.repository!.object!.__fragment!.stat
 data CICommit = CICommit
   { commitTree     :: Tree
   , commitContexts :: [CIContext]
+  , prsFromMessage :: [Int]
+    -- ^ Pull request numbers parsed from the commit message. Not guaranteed to be in any
+    -- order corresponding to the 'parents' list.
   , parents        :: [(CommitSHA, CheckRunId)]
     -- ^ The parent commits of a CI commit, not including the base branch
   } deriving (Show)
@@ -184,6 +187,9 @@ getCICommit sha checkRunType = do
   return CICommit
     { commitTree = [get| result.tree |]
     , commitContexts = fromMaybe [] [get| result.status?.contexts |]
+    , prsFromMessage = case fromStagingMessage [get| result.message |] of
+        Just (_, prIds) -> prIds
+        Nothing -> error $ "Could not parse CI commit message: " ++ Text.unpack [get| result.message |]
     , parents
     }
   where

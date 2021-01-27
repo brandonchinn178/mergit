@@ -9,6 +9,7 @@ query getCICommit(
   repository(owner: $repoOwner, name: $repoName) {
     object(oid: $sha) {
       ... on Commit {
+        message
         tree {
           oid
           entries {

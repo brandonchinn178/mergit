@@ -53,6 +53,7 @@ testGetCICommit = testGroup "getCICommit"
         {
           "repository": {
             "object": {
+              "message": "Fake message",
               "tree": {
                 "oid": #{mockSHA},
                 "entries": []
