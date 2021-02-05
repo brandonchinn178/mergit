@@ -27,11 +27,11 @@ import MergeBot.Core.Config (configFileName)
 type PullRequestId = Int
 
 data BotError
-  = BadUpdate GitObjectID [PullRequestId] Text Text
+  = AmbiguousPRForCommit GitObjectID
+  | BadUpdate GitObjectID [PullRequestId] Text Text
   | CannotDetermineCheckRunPR (Object CheckRunEvent)
   | CIBranchPushed (Object PushEvent)
   | CICommitMissingParents Bool Text GitObjectID
-  | CommitForManyPRs GitObjectID [PullRequestId]
   | CommitLacksPR GitObjectID
   | ConfigFileInvalid [PullRequestId] SomeException
   | ConfigFileMissing [PullRequestId]
@@ -49,6 +49,7 @@ instance Exception BotError
 
 instance Show BotError where
   show = \case
+    AmbiguousPRForCommit sha -> "Could not determine PR for commit: `" <> unOID' sha <> "`"
     BadUpdate sha prs base message -> concat
       [ "Could not merge PRs "
       , fromPRs prs
@@ -67,7 +68,6 @@ instance Show BotError where
       ,  "`) when "
       , if isStart then "starting check run" else "updating check run"
       ]
-    CommitForManyPRs sha prs -> "Commit `" <> unOID' sha <> "` found in multiple PRs: " <> fromPRs prs
     CommitLacksPR sha -> "Commit `" <> unOID' sha <> "` does not have an associated pull request"
     ConfigFileInvalid prs e -> "Merging " <> fromPRs prs <> " has an invalid `" <> Text.unpack configFileName <> "` config file: " <> displayException e
     ConfigFileMissing prs -> "Merging " <> fromPRs prs <> " lacks a `" <> Text.unpack configFileName <> "` config file"
@@ -95,11 +95,11 @@ instance Show BotError where
 -- | Get the PRs that should be notified when throwing the given BotError.
 getRelevantPRs :: BotError -> [PullRequestId]
 getRelevantPRs = \case
+  AmbiguousPRForCommit{} -> []
   BadUpdate _ prs _ _ -> prs
   CannotDetermineCheckRunPR{} -> []
   CIBranchPushed{} -> []
   CICommitMissingParents{} -> []
-  CommitForManyPRs _ prs -> prs
   CommitLacksPR{} -> []
   ConfigFileInvalid prs _ -> prs
   ConfigFileMissing prs -> prs

@@ -254,7 +254,7 @@ getPRForCommit sha = do
       , prBranch = [get| pr.headRefName |]
       , prIsMerged = [get| pr.merged |]
       }
-    _ -> throwIO $ CommitForManyPRs sha $ map [get| .number |] prs
+    _ -> throwIO $ AmbiguousPRForCommit sha
 
 -- | Get information for the given PR.
 getPRById :: MonadMergeBot m => Int -> m PullRequest
