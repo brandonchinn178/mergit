@@ -14,7 +14,7 @@ module MergeBot.Core.Error
   , getRelevantPRs
   ) where
 
-import Control.Exception (Exception, SomeException, displayException)
+import Control.Exception (Exception)
 import Data.Aeson.Schema (Object)
 import Data.Text (Text)
 import qualified Data.Text as Text
@@ -33,7 +33,7 @@ data BotError
   | CIBranchPushed (Object PushEvent)
   | CICommitMissingParents Bool Text GitObjectID
   | CommitLacksPR GitObjectID
-  | ConfigFileInvalid [PullRequestId] SomeException
+  | ConfigFileInvalid [PullRequestId] String
   | ConfigFileMissing [PullRequestId]
   | InvalidStaging [PullRequestId] Text
   | MergeConflict [PullRequestId]
@@ -69,7 +69,7 @@ instance Show BotError where
       , if isStart then "starting check run" else "updating check run"
       ]
     CommitLacksPR sha -> "Commit `" <> unOID' sha <> "` does not have an associated pull request"
-    ConfigFileInvalid prs e -> "Merging " <> fromPRs prs <> " has an invalid `" <> Text.unpack configFileName <> "` config file: " <> displayException e
+    ConfigFileInvalid prs msg -> "Merging " <> fromPRs prs <> " has an invalid `" <> Text.unpack configFileName <> "` config file: " <> msg
     ConfigFileMissing prs -> "Merging " <> fromPRs prs <> " lacks a `" <> Text.unpack configFileName <> "` config file"
     InvalidStaging _ branch -> "Invalid staging branch: " <> Text.unpack branch
     MergeConflict prs -> "Merge conflict: " <> fromPRs prs
