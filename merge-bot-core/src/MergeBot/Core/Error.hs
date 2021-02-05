@@ -44,6 +44,7 @@ data BotError
   | SomePRsMerged [PullRequestId] [PullRequestId]
   | TreeNotUpdated [PullRequestId] PullRequestId
   | UnapprovedPR PullRequestId
+  deriving (Eq)
 
 instance Exception BotError
 
