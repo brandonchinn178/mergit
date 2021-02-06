@@ -30,7 +30,6 @@ module MergeBot.Core
 import Control.Concurrent (threadDelay)
 import Control.Monad (forM_, unless, void, when, (<=<))
 import Control.Monad.IO.Class (MonadIO(..))
-import Control.Monad.Loops (whileM_)
 import Data.Bifunctor (first)
 import Data.GraphQL (get)
 import qualified Data.HashMap.Strict as HashMap
@@ -310,7 +309,12 @@ refreshCheckRuns isStart ciBranchName sha = do
                 branch = prBranch pr
 
             -- wait until PR is marked "merged"
-            whileM_ (not <$> isPRMerged prNum) $ return ()
+            let waitUntilPRIsMerged = do
+                  prIsMerged <- isPRMerged prNum
+                  unless prIsMerged $ do
+                    liftIO $ threadDelay 1000
+                    waitUntilPRIsMerged
+            waitUntilPRIsMerged
 
             closePR prNum
             deleteBranch branch
