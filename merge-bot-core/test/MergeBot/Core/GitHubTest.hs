@@ -119,6 +119,14 @@ testGetPRForCommit = testGroup "getPRForCommit"
       let mocks = mockGetPRForCommitQueries sha [[pr]]
       result <- runTestApp mocks $ getPRForCommit sha
       return $ result === pr
+  , testProperty "Returns pull request with matching SHA" $ \sha pr' ->
+      let pr = pr' { prSHA = sha } in
+      forAll (listOf $ prNotMatching sha) $ \otherPRs ->
+        forAll (shuffledChunks $ pr:otherPRs) $ \pagedPRs ->
+          ioProperty $ do
+            let mocks = mockGetPRForCommitQueries sha pagedPRs
+            result <- runTestApp mocks $ getPRForCommit sha
+            return $ result === pr
   , testProperty "Errors with no associated pull requests" $ \sha -> ioProperty $ do
       let mocks = mockGetPRForCommitQueries sha [[]]
       result <- try $ runTestApp mocks $ getPRForCommit sha

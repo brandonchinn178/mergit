@@ -77,9 +77,11 @@ handleCheckRun o = runBotApp' repo $ do
   logEvent "check_run" o
   case [get| o.action |] of
     CheckRun.REQUESTED_ACTION -> do
-      -- GitHub sometimes flakily sends an empty array here. First check the array, in
-      -- case a given commit is on multiple branches (e.g. one PR blocked on another), but
-      -- we'll fall back to trying to find an associated PR for the commit.
+      -- GitHub sometimes sends an empty array here, usually seems to happen on commits that
+      -- have merged in one PR and are being merged in a new one (e.g. commit merged via PR
+      -- to feature branch now merging to master). We'll first check the array (since it has
+      -- the best information), but we'll fall back to trying to find an associated PR for
+      -- the commit.
       pr <- case [get| o.check_run.pull_requests[].number |] of
         [prNum] -> getPRById prNum
         [] -> getPRForCommit [get| o.check_run.head_sha |]
