@@ -29,7 +29,7 @@ import UnliftIO.Exception (try)
 import MergeBot.Core.Error (BotError(..))
 import MergeBot.Core.GitHub
 import MergeBot.Core.GraphQL.API (GetCICommitQuery(..), GetPRForCommitQuery(..))
-import MergeBot.Core.Monad (MonadMergeBot(..))
+import MergeBot.Core.Monad (MonadMergeBotEnv(..))
 import MergeBot.Core.Text (checkRunTry)
 
 test :: TestTree
@@ -200,7 +200,7 @@ runTestApp mocks = (`runMockQueryT` mocks) . unTestApp
 instance MonadGitHubREST TestApp where
   queryGitHubPage' = error "MonadGitHubREST not implemented for TestApp"
 
-instance MonadMergeBot TestApp where
+instance MonadMergeBotEnv TestApp where
   getRepo = pure (testRepoOwner, testRepoName)
   getAppId = pure testAppId
 

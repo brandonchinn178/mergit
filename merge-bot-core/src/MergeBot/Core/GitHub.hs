@@ -94,7 +94,7 @@ import MergeBot.Core.GraphQL.API
 import MergeBot.Core.GraphQL.Enums.PullRequestReviewState
     (PullRequestReviewState)
 import qualified MergeBot.Core.GraphQL.Enums.PullRequestReviewState as PullRequestReviewState
-import MergeBot.Core.Monad (MonadMergeBot(..), queryGitHub')
+import MergeBot.Core.Monad (MonadMergeBot, MonadMergeBotEnv(..), queryGitHub')
 import MergeBot.Core.Text (checkRunMerge, checkRunTry, fromStagingMessage)
 
 default (Text)

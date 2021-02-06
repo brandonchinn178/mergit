@@ -6,6 +6,7 @@ Portability :  portable
 
 This module defines the monad used by the MergeBot.
 -}
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -22,7 +23,8 @@ This module defines the monad used by the MergeBot.
 module MergeBot.Core.Monad
   ( BotAppT
   , runBotAppT
-  , MonadMergeBot(..)
+  , MonadMergeBot
+  , MonadMergeBotEnv(..)
   , BotSettings(..)
   , queryGitHub'
   ) where
@@ -170,7 +172,14 @@ runBotAppT BotSettings{..} =
 
 {- MonadMergeBot class -}
 
-class (MonadGitHubREST m, MonadGraphQLQuery m, MonadUnliftIO m) => MonadMergeBot m where
+type MonadMergeBot m =
+  ( MonadGitHubREST m
+  , MonadGraphQLQuery m
+  , MonadUnliftIO m
+  , MonadMergeBotEnv m
+  )
+
+class Monad m => MonadMergeBotEnv m where
   getRepo :: m (Text, Text)
   getAppId :: m Int
 
@@ -178,7 +187,7 @@ class (MonadGitHubREST m, MonadGraphQLQuery m, MonadUnliftIO m) => MonadMergeBot
 botAsks :: Monad m => (BotState -> a) -> BotAppT m a
 botAsks = BotAppT . lift . asks
 
-instance (MonadIO m, MonadUnliftIO m) => MonadMergeBot (BotAppT m) where
+instance Monad m => MonadMergeBotEnv (BotAppT m) where
   getRepo = (,) <$> botAsks repoOwner <*> botAsks repoName
   getAppId = botAsks appId
 
