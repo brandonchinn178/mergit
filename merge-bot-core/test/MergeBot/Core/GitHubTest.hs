@@ -223,7 +223,7 @@ data Page a = Page
   }
 
 withPaged :: (Page a -> b) -> [[a]] -> [b]
-withPaged f pages = map (f . mkPage) $ zip pages [1..]
+withPaged f pages = zipWith (curry (f . mkPage)) pages [1..]
   where
     totalPages = length pages
     mkPage (pageData, pageNum) =
