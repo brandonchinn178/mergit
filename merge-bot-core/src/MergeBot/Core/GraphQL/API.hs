@@ -532,6 +532,7 @@ result <- runQuery GetPRForCommitQuery
   { _repoOwner = ...
   , _repoName = ...
   , _sha = ...
+  , _after = ...
   }
 
 -- result :: GraphQLResult (Object GetPRForCommitSchema)
@@ -539,6 +540,7 @@ result <- runQuerySafe GetPRForCommitQuery
   { _repoOwner = ...
   , _repoName = ...
   , _sha = ...
+  , _after = ...
   }
 -----------------------------------------------------------------------------}
 
@@ -546,6 +548,7 @@ data GetPRForCommitQuery = GetPRForCommitQuery
   { _repoOwner :: Text
   , _repoName  :: Text
   , _sha       :: GitObjectID
+  , _after     :: Maybe Text
   }
   deriving (Show)
 
@@ -556,6 +559,10 @@ type GetPRForCommitSchema = [schema|
         [__fragment]: Try (
           {
             associatedPullRequests: Maybe {
+              pageInfo: {
+                hasNextPage: Bool,
+                endCursor: Maybe Text,
+              },
               nodes: Maybe List Maybe {
                 number: Int,
                 baseRefName: Text,
@@ -577,11 +584,15 @@ instance GraphQLQuery GetPRForCommitQuery where
   getQueryName _ = "getPRForCommit"
 
   getQueryText _ = [query|
-    query getPRForCommit($repoOwner: String!, $repoName: String!, $sha: GitObjectID!) {
+    query getPRForCommit($repoOwner: String!, $repoName: String!, $sha: GitObjectID!, $after: String) {
       repository(owner: $repoOwner, name: $repoName) {
         object(oid: $sha) {
           ... on Commit {
-            associatedPullRequests(first: 2) {
+            associatedPullRequests(first: 10, after: $after) {
+              pageInfo {
+                hasNextPage
+                endCursor
+              }
               nodes {
                 number
                 baseRefName
@@ -600,6 +611,7 @@ instance GraphQLQuery GetPRForCommitQuery where
     [ "repoOwner" .= _repoOwner (query :: GetPRForCommitQuery)
     , "repoName" .= _repoName (query :: GetPRForCommitQuery)
     , "sha" .= _sha (query :: GetPRForCommitQuery)
+    , "after" .= _after (query :: GetPRForCommitQuery)
     ]
 
 {-----------------------------------------------------------------------------

@@ -237,13 +237,20 @@ getPRForCommit :: MonadMergeBot m => GitObjectID -> m PullRequest
 getPRForCommit sha = do
   (repoOwner, repoName) <- getRepo
 
-  result <- runQuery GetPRForCommitQuery
-    { _repoOwner = repoOwner
-    , _repoName = repoName
-    , _sha = sha
-    }
-
-  let prs = [get| result.repository!.object!.__fragment!.associatedPullRequests!.nodes![]! |]
+  prs <- queryAll_ $ \after -> do
+    result <- runQuery GetPRForCommitQuery
+      { _repoOwner = repoOwner
+      , _repoName = repoName
+      , _sha = sha
+      , _after = after
+      }
+    let payload = [get| result.repository!.object!.__fragment!.associatedPullRequests! |]
+    return PaginatedResult
+      { payload = ()
+      , chunk = [get| payload.nodes![]! |]
+      , hasNext = [get| payload.pageInfo.hasNextPage |]
+      , nextCursor = [get| payload.pageInfo.endCursor |]
+      }
 
   case prs of
     [] -> throwIO $ CommitLacksPR sha
