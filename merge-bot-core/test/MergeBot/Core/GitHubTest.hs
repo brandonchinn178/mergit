@@ -12,7 +12,6 @@ module MergeBot.Core.GitHubTest where
 
 import Control.Monad ((>=>))
 import Control.Monad.IO.Class (MonadIO)
-import Control.Monad.IO.Unlift (MonadUnliftIO(..))
 import Data.Aeson.QQ (aesonQQ)
 import Data.GraphQL (MonadGraphQLQuery)
 import Data.GraphQL.TestUtils
@@ -21,7 +20,6 @@ import Data.Maybe (fromJust, maybeToList)
 import Data.Text (Text)
 import qualified Data.Text as Text
 import GitHub.Data.GitObjectID (GitObjectID(..))
-import GitHub.REST (MonadGitHubREST(..))
 import Test.Tasty
 import Test.Tasty.QuickCheck
 import UnliftIO.Exception (try)
@@ -197,17 +195,9 @@ newtype TestApp a = TestApp { unTestApp :: MockQueryT IO a }
 runTestApp :: [AnyResultMock] -> TestApp a -> IO a
 runTestApp mocks = (`runMockQueryT` mocks) . unTestApp
 
-instance MonadGitHubREST TestApp where
-  queryGitHubPage' = error "MonadGitHubREST not implemented for TestApp"
-
 instance MonadMergeBotEnv TestApp where
   getRepo = pure (testRepoOwner, testRepoName)
   getAppId = pure testAppId
-
-instance MonadUnliftIO TestApp where
-  -- Note: If you implement this, be sure that only one MockQueryT action is unlifted at a time.
-  -- See MonadUnliftIO warnings on implementing it for StateT for more information.
-  withRunInIO _ = error "MonadUnliftIO not implemented for TestApp"
 
 {- Pagination helpers -}
 
