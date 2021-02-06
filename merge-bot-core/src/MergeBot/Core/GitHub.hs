@@ -227,7 +227,7 @@ data PullRequest = PullRequest
   , prSHA        :: GitObjectID
   , prBranch     :: Text
   , prIsMerged   :: Bool
-  }
+  } deriving (Show, Eq)
 
 -- | Get information for the associated PR for the given commit.
 --
