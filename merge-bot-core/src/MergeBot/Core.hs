@@ -309,12 +309,15 @@ refreshCheckRuns isStart ciBranchName sha = do
                 branch = prBranch pr
 
             -- wait until PR is marked "merged"
-            let waitUntilPRIsMerged = do
+            let waitUntilPRIsMerged i = do
                   prIsMerged <- isPRMerged prNum
                   unless prIsMerged $ do
-                    liftIO $ threadDelay 1000
-                    waitUntilPRIsMerged
-            waitUntilPRIsMerged
+                    -- sleep for 1 second, try 5 times
+                    liftIO $ threadDelay 1000000
+                    if i < 5
+                      then waitUntilPRIsMerged $ i + 1
+                      else throwIO $ BadUpdate sha prNums base $ "PR did not merge: " <> Text.pack (show prNum)
+            waitUntilPRIsMerged (0 :: Int)
 
             closePR prNum
             deleteBranch branch
