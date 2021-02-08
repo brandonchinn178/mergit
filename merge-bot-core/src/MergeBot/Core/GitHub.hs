@@ -56,9 +56,10 @@ module MergeBot.Core.GitHub
   ) where
 
 import Control.Monad (forM, void)
+import Control.Monad.IO.Class (MonadIO)
 import Data.Bifunctor (bimap)
 import Data.Either (isRight)
-import Data.GraphQL (get, mkGetter, runQuery, unwrap)
+import Data.GraphQL (MonadGraphQLQuery, get, mkGetter, runQuery, unwrap)
 import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HashMap
 import Data.Maybe (fromMaybe, mapMaybe)
@@ -94,7 +95,7 @@ import MergeBot.Core.GraphQL.API
 import MergeBot.Core.GraphQL.Enums.PullRequestReviewState
     (PullRequestReviewState)
 import qualified MergeBot.Core.GraphQL.Enums.PullRequestReviewState as PullRequestReviewState
-import MergeBot.Core.Monad (MonadMergeBot(..), queryGitHub')
+import MergeBot.Core.Monad (MonadMergeBot, MonadMergeBotEnv(..), queryGitHub')
 import MergeBot.Core.Text (checkRunMerge, checkRunTry, fromStagingMessage)
 
 default (Text)
@@ -153,7 +154,12 @@ data CICommit = CICommit
   } deriving (Show)
 
 -- | Get details for the given CI commit; that is, a commit created by 'createCIBranch'.
-getCICommit :: MonadMergeBot m => CommitSHA -> CheckRunType -> m CICommit
+getCICommit
+  :: ( MonadIO m
+     , MonadGraphQLQuery m
+     , MonadMergeBotEnv m
+     )
+  => CommitSHA -> CheckRunType -> m CICommit
 getCICommit sha checkRunType = do
   (repoOwner, repoName) <- getRepo
   appId <- getAppId
@@ -235,7 +241,12 @@ data PullRequest = PullRequest
 -- If the commit is only associated with one PR, return it. Otherwise, find a single
 -- PR with the given commit as its HEAD. If we still can't narrow down to a single PR,
 -- throw an error.
-getPRForCommit :: MonadMergeBot m => GitObjectID -> m PullRequest
+getPRForCommit
+  :: ( MonadIO m
+     , MonadGraphQLQuery m
+     , MonadMergeBotEnv m
+     )
+  => GitObjectID -> m PullRequest
 getPRForCommit sha = do
   (repoOwner, repoName) <- getRepo
 
