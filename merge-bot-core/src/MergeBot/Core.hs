@@ -40,7 +40,7 @@ import Data.Text (Text)
 import qualified Data.Text as Text
 import qualified Data.Text.Encoding as Text
 import Data.Time (getCurrentTime)
-import Data.Yaml (decodeThrow)
+import Data.Yaml (decodeEither')
 import UnliftIO.Exception (finally, fromEither, onException, throwIO)
 
 import MergeBot.Core.CheckRun
@@ -323,8 +323,8 @@ extractConfig prs tree =
   case filter isConfigFile [get| tree.entries![] |] of
     [] -> Left $ ConfigFileMissing prs
     [entry] ->
-      let configText = Text.encodeUtf8 [get| entry.object!.__fragment!.text! |]
-      in first (ConfigFileInvalid prs) . decodeThrow $ configText
+      let configText = [get| entry.object!.__fragment!.text! |]
+      in first (ConfigFileInvalid prs . show) . decodeEither' . Text.encodeUtf8 $ configText
     _ -> error $ "Multiple '" ++ Text.unpack configFileName ++ "' files found?"
   where
     isConfigFile = (== configFileName) . [get| .name |]

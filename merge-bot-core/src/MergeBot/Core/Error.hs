@@ -14,7 +14,7 @@ module MergeBot.Core.Error
   , getRelevantPRs
   ) where
 
-import Control.Exception (Exception, SomeException, displayException)
+import Control.Exception (Exception)
 import Data.Aeson.Schema (Object)
 import Data.Text (Text)
 import qualified Data.Text as Text
@@ -27,28 +27,30 @@ import MergeBot.Core.Config (configFileName)
 type PullRequestId = Int
 
 data BotError
-  = BadUpdate GitObjectID [PullRequestId] Text Text
+  = AmbiguousPRForCommit GitObjectID
+  | BadUpdate GitObjectID [PullRequestId] Text Text
   | CannotDetermineCheckRunPR (Object CheckRunEvent)
   | CIBranchPushed (Object PushEvent)
   | CICommitMissingParents Bool Text GitObjectID
-  | CommitForManyPRs GitObjectID [PullRequestId]
   | CommitLacksPR GitObjectID
+  | ConfigFileInvalid [PullRequestId] String
   | ConfigFileMissing [PullRequestId]
-  | ConfigFileInvalid [PullRequestId] SomeException
   | InvalidStaging [PullRequestId] Text
   | MergeConflict [PullRequestId]
   | MissingBaseBranch [PullRequestId] Text
   | MissingCheckRun GitObjectID Text
   | MissingCheckRunPR PullRequestId Text
-  | SomePRsMerged [PullRequestId] [PullRequestId]
-  | UnapprovedPR PullRequestId
-  | TreeNotUpdated [PullRequestId] PullRequestId
   | PRWasUpdatedDuringMergeRun [PullRequestId] [PullRequestId] [GitObjectID]
+  | SomePRsMerged [PullRequestId] [PullRequestId]
+  | TreeNotUpdated [PullRequestId] PullRequestId
+  | UnapprovedPR PullRequestId
+  deriving (Eq)
 
 instance Exception BotError
 
 instance Show BotError where
   show = \case
+    AmbiguousPRForCommit sha -> "Could not determine PR for commit: `" <> unOID' sha <> "`"
     BadUpdate sha prs base message -> concat
       [ "Could not merge PRs "
       , fromPRs prs
@@ -67,17 +69,19 @@ instance Show BotError where
       ,  "`) when "
       , if isStart then "starting check run" else "updating check run"
       ]
-    CommitForManyPRs sha prs -> "Commit `" <> unOID' sha <> "` found in multiple PRs: " <> fromPRs prs
     CommitLacksPR sha -> "Commit `" <> unOID' sha <> "` does not have an associated pull request"
+    ConfigFileInvalid prs msg -> "Merging " <> fromPRs prs <> " has an invalid `" <> Text.unpack configFileName <> "` config file: " <> msg
     ConfigFileMissing prs -> "Merging " <> fromPRs prs <> " lacks a `" <> Text.unpack configFileName <> "` config file"
-    ConfigFileInvalid prs e -> "Merging " <> fromPRs prs <> " has an invalid `" <> Text.unpack configFileName <> "` config file: " <> displayException e
     InvalidStaging _ branch -> "Invalid staging branch: " <> Text.unpack branch
     MergeConflict prs -> "Merge conflict: " <> fromPRs prs
     MissingBaseBranch _ branch -> "Base branch does not exist: " <> Text.unpack branch
     MissingCheckRun sha checkName -> "Commit `" <> unOID' sha <> "` missing check run named: " <> Text.unpack checkName
     MissingCheckRunPR pr checkName -> "PR #" <> show pr <> " missing check run named: " <> Text.unpack checkName
+    PRWasUpdatedDuringMergeRun _ prNums shas ->
+      case (prNums, shas) of
+        ([prNum], [sha]) -> "PR #" <> show prNum <> " was updated while the merge run was running. Expected SHA: `" <> unOID' sha <> "`"
+        _ -> "PRs " <> fromPRs prNums <> " were updated while the merge run was running."
     SomePRsMerged mergedPRs nonMergedPRs -> "PRs " <> fromPRs nonMergedPRs <> " found not merged while PRs " <> fromPRs mergedPRs <> " are merged"
-    UnapprovedPR prNum -> "PR #" <> show prNum <> " is not approved"
     TreeNotUpdated _ pr -> unlines
       [ "UNEXPECTED ERROR: Tree not updated when merging PR #" <> show pr <> "."
       , ""
@@ -85,30 +89,27 @@ instance Show BotError where
       , ""
       , "More information: https://leapyear.atlassian.net/browse/QA-178"
       ]
-    PRWasUpdatedDuringMergeRun _ prNums shas ->
-      case (prNums, shas) of
-        ([prNum], [sha]) -> "PR #" <> show prNum <> " was updated while the merge run was running. Expected SHA: `" <> unOID' sha <> "`"
-        _ -> "PRs " <> fromPRs prNums <> " were updated while the merge run was running."
+    UnapprovedPR prNum -> "PR #" <> show prNum <> " is not approved"
     where
       fromPRs = unwords . map (('#':) . show)
 
 -- | Get the PRs that should be notified when throwing the given BotError.
 getRelevantPRs :: BotError -> [PullRequestId]
 getRelevantPRs = \case
+  AmbiguousPRForCommit{} -> []
   BadUpdate _ prs _ _ -> prs
   CannotDetermineCheckRunPR{} -> []
   CIBranchPushed{} -> []
   CICommitMissingParents{} -> []
-  CommitForManyPRs _ prs -> prs
   CommitLacksPR{} -> []
-  ConfigFileMissing prs -> prs
   ConfigFileInvalid prs _ -> prs
+  ConfigFileMissing prs -> prs
   InvalidStaging prs _ -> prs
   MergeConflict prs -> prs
   MissingBaseBranch prs _ -> prs
   MissingCheckRun{} -> []
   MissingCheckRunPR pr _ -> [pr]
-  SomePRsMerged mergedPRs nonMergedPRs -> mergedPRs ++ nonMergedPRs
-  UnapprovedPR pr -> [pr]
-  TreeNotUpdated allPRs _ -> allPRs
   PRWasUpdatedDuringMergeRun allPRs _ _ -> allPRs
+  SomePRsMerged mergedPRs nonMergedPRs -> mergedPRs ++ nonMergedPRs
+  TreeNotUpdated allPRs _ -> allPRs
+  UnapprovedPR pr -> [pr]

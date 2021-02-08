@@ -10,6 +10,7 @@ This module defines functions for manipulating GitHub state.
 {-# LANGUAGE ExtendedDefaultRules #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
@@ -227,34 +228,45 @@ data PullRequest = PullRequest
   , prSHA        :: GitObjectID
   , prBranch     :: Text
   , prIsMerged   :: Bool
-  }
+  } deriving (Show, Eq)
 
 -- | Get information for the associated PR for the given commit.
 --
--- We expect the given commit to only be associated with one PR. The given commit does
--- not have to be the HEAD of the PR.
+-- If the commit is only associated with one PR, return it. Otherwise, find a single
+-- PR with the given commit as its HEAD. If we still can't narrow down to a single PR,
+-- throw an error.
 getPRForCommit :: MonadMergeBot m => GitObjectID -> m PullRequest
 getPRForCommit sha = do
   (repoOwner, repoName) <- getRepo
 
-  result <- runQuery GetPRForCommitQuery
-    { _repoOwner = repoOwner
-    , _repoName = repoName
-    , _sha = sha
-    }
+  prs <- queryAll_ $ \after -> do
+    result <- runQuery GetPRForCommitQuery
+      { _repoOwner = repoOwner
+      , _repoName = repoName
+      , _sha = sha
+      , _after = after
+      }
+    let payload = [get| result.repository!.object!.__fragment!.associatedPullRequests! |]
+    return PaginatedResult
+      { payload = ()
+      , chunk = [get| payload.nodes![]! |]
+      , hasNext = [get| payload.pageInfo.hasNextPage |]
+      , nextCursor = [get| payload.pageInfo.endCursor |]
+      }
 
-  let prs = [get| result.repository!.object!.__fragment!.associatedPullRequests!.nodes![]! |]
+  pr <- if
+    | null prs -> throwIO $ CommitLacksPR sha
+    | [pr] <- prs -> return pr
+    | [pr] <- filter ((== sha) . [get| .headRefOid |]) prs -> return pr
+    | otherwise -> throwIO $ AmbiguousPRForCommit sha
 
-  case prs of
-    [] -> throwIO $ CommitLacksPR sha
-    [pr] -> return PullRequest
+  return PullRequest
       { prId = [get| pr.number |]
       , prBaseBranch = [get| pr.baseRefName |]
       , prSHA = [get| pr.headRefOid |]
       , prBranch = [get| pr.headRefName |]
       , prIsMerged = [get| pr.merged |]
       }
-    _ -> throwIO $ CommitForManyPRs sha $ map [get| .number |] prs
 
 -- | Get information for the given PR.
 getPRById :: MonadMergeBot m => Int -> m PullRequest
