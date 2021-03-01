@@ -62,9 +62,9 @@ runMergeBot = do
   mergeBotQueues <- initMergeBotQueues
 
   runBaseApp BaseAppConfig{..} $ concurrentlyAll
-    [ handleBotQueue
+    [ runServer
+    , handleBotQueue
     , pollMergeQueues
-    , runServer
     ]
 
 handleBotQueue :: BaseApp ()
