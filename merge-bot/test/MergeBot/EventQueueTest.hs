@@ -29,13 +29,13 @@ import MergeBot.EventQueue.Internal
 test :: TestTree
 test = testGroup "MergeBot.EventQueue"
   [ testProperty "Can handle event after queueing it" $ \eventKey event ->
-      ioProperty $ withEventQueues $ \EventQueuesManager{..} -> do
+      ioProperty $ withEventQueues $ \EventQueuesTester{..} -> do
         queueEvent eventKey event
         result <- getWorkerEvent <$> getNextWorker
         return $ result === (eventKey, event)
 
   , testProperty "Works across threads" $ \eventKey event ->
-      ioProperty $ withEventQueues $ \EventQueuesManager{..} -> do
+      ioProperty $ withEventQueues $ \EventQueuesTester{..} -> do
         threadQueue <- makeThreadManager $ queueEvent eventKey event
         threadDequeue <- makeThreadManager $ getWorkerEvent <$> getNextWorker
 
@@ -52,7 +52,7 @@ test = testGroup "MergeBot.EventQueue"
         return $ conjoin [prop1, prop2, prop3, prop4]
 
   , testProperty "handleNextEvent blocks" $ \eventKey event ->
-      ioProperty $ withEventQueues $ \EventQueuesManager{..} -> do
+      ioProperty $ withEventQueues $ \EventQueuesTester{..} -> do
         threadQueue <- makeThreadManager $ queueEvent eventKey event
         threadDequeue <- makeThreadManager $ getWorkerEvent <$> getNextWorker
 
@@ -69,7 +69,7 @@ test = testGroup "MergeBot.EventQueue"
         return $ conjoin [prop1, prop2, prop3, prop4]
 
   , testProperty "Events with the same event key run on the same thread" $ \eventKey events ->
-      ioProperty $ withEventQueues $ \EventQueuesManager{..} -> do
+      ioProperty $ withEventQueues $ \EventQueuesTester{..} -> do
         mapM_ (queueEvent eventKey) (events :: [TestEvent])
 
         waitForGlobalQueueToBeProcessed
@@ -79,7 +79,7 @@ test = testGroup "MergeBot.EventQueue"
         return $ areAllSame $ map workerThreadId workers
 
   , testProperty "Events with different event keys run on different threads" $ \eventAndKey1 eventAndKey2 ->
-      ioProperty $ withEventQueues $ \EventQueuesManager{..} -> do
+      ioProperty $ withEventQueues $ \EventQueuesTester{..} -> do
         let (eventKey1, event1) = eventAndKey1
             (eventKey2, event2) = eventAndKey2
 
@@ -118,13 +118,13 @@ data EventWorker = EventWorker
 getWorkerEvent :: EventWorker -> (TestEventKey, TestEvent)
 getWorkerEvent EventWorker{..} = (workerEventKey, workerEvent)
 
-data EventQueuesManager = EventQueuesManager
+data EventQueuesTester = EventQueuesTester
   { getNextWorker                   :: IO EventWorker
   , waitForGlobalQueueToBeProcessed :: IO ()
   , queueEvent                      :: TestEventKey -> TestEvent -> IO ()
   }
 
-withEventQueues :: (EventQueuesManager -> IO a) -> IO a
+withEventQueues :: (EventQueuesTester -> IO a) -> IO a
 withEventQueues f = do
   mergeBotQueues <- initMergeBotQueues
 
@@ -142,7 +142,7 @@ withEventQueues f = do
 
     atomically $ writeTChan workers EventWorker{..}
 
-  let eventQueuesManager = EventQueuesManager
+  let eventQueuesTester = EventQueuesTester
         { getNextWorker = withTimeout $ do
             putMVar handleNextEvent ()
             atomically $ readTChan workers
@@ -152,7 +152,7 @@ withEventQueues f = do
         , queueEvent = queueEventWith mergeBotQueues
         }
 
-  f eventQueuesManager `finally` (do
+  f eventQueuesTester `finally` (do
     uninterruptibleCancel eventThread
     queues <- readTVarIO $ workerQueues mergeBotQueues
     forM_ queues $ \WorkerQueue{..} -> traverse uninterruptibleCancel workerThread
