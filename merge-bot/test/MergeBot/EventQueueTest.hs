@@ -126,16 +126,16 @@ data EventQueuesTester = EventQueuesTester
 
 withEventQueues :: (EventQueuesTester -> IO a) -> IO a
 withEventQueues f = do
-  mergeBotQueues <- initMergeBotQueues
+  eventQueuesManager <- initEventQueuesManager
 
   workers <- newTChanIO
   handleNextEvent <- newEmptyMVar
 
-  eventThread <- async $ handleEventsWith mergeBotQueues $ \workerEventKey workerEvent -> do
+  eventThread <- async $ handleEventsWith eventQueuesManager $ \workerEventKey workerEvent -> do
     takeMVar handleNextEvent
 
     workerThreadId <- atomically $ do
-      workerThreads <- readTVar $ workerQueues mergeBotQueues
+      workerThreads <- readTVar $ workerQueues eventQueuesManager
       case Map.lookup workerEventKey workerThreads of
         Just WorkerQueue{workerThread = Just worker} -> return $ asyncThreadId worker
         _ -> retry
@@ -147,14 +147,14 @@ withEventQueues f = do
             putMVar handleNextEvent ()
             atomically $ readTChan workers
         , waitForGlobalQueueToBeProcessed = atomically $ do
-            isEmpty <- isEmptyTBQueue $ globalEventQueue mergeBotQueues
+            isEmpty <- isEmptyTBQueue $ globalEventQueue eventQueuesManager
             unless isEmpty retry
-        , queueEvent = queueEventWith mergeBotQueues
+        , queueEvent = queueEventWith eventQueuesManager
         }
 
   f eventQueuesTester `finally` (do
     uninterruptibleCancel eventThread
-    queues <- readTVarIO $ workerQueues mergeBotQueues
+    queues <- readTVarIO $ workerQueues eventQueuesManager
     forM_ queues $ \WorkerQueue{..} -> traverse uninterruptibleCancel workerThread
     )
 

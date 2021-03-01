@@ -3,8 +3,8 @@
 
 module MergeBot.EventQueue
   ( -- * Queueing events
-    MergeBotQueues
-  , initMergeBotQueues
+    EventQueuesManager
+  , initEventQueuesManager
   , queueEventWith
   , handleEventsWith
   ) where
@@ -14,16 +14,16 @@ import UnliftIO (MonadUnliftIO)
 import UnliftIO.Async (async, link)
 import UnliftIO.STM (STM, atomically)
 
-import MergeBot.EventQueue.Internal hiding (MergeBotQueues(..), WorkerQueue(..))
-import MergeBot.EventQueue.Internal (MergeBotQueues, WorkerQueue)
+import MergeBot.EventQueue.Internal hiding (EventQueuesManager(..), WorkerQueue(..))
+import MergeBot.EventQueue.Internal (EventQueuesManager, WorkerQueue)
 
 -- | Add the given event to the global queue.
-queueEventWith :: MergeBotQueues key event -> key -> event -> IO ()
-queueEventWith mergeBotQueues eventKey event =
+queueEventWith :: EventQueuesManager key event -> key -> event -> IO ()
+queueEventWith eventQueuesManager eventKey event =
   -- TODO: (optimization) if the event is RefreshCheckRun, see if the same
   -- RefreshCheckRun event is already in the queue. If so, don't add the
   -- event.
-  atomically $ queueGlobalEvent mergeBotQueues (eventKey, event)
+  atomically $ queueGlobalEvent eventQueuesManager (eventKey, event)
 
 -- | For each event coming in from the globalEventQueue, add it to the queue
 -- corresponding to the event key.
@@ -46,32 +46,32 @@ queueEventWith mergeBotQueues eventKey event =
 --     thread being started/stopped when a PR is created/opened, we'll spin up
 --     worker threads on demand
 handleEventsWith :: forall m key event. (MonadUnliftIO m, Ord key, Show key)
-  => MergeBotQueues key event
+  => EventQueuesManager key event
   -> (key -> event -> m ())
   -> m ()
-handleEventsWith mergeBotQueues f = forever $ atomicallyThenRun $ do
-    (eventKey, event) <- getNextGlobalEvent mergeBotQueues
-    mkPostQueueAction eventKey <$> addEventToWorkerQueue mergeBotQueues eventKey event
+handleEventsWith eventQueuesManager f = forever $ atomicallyThenRun $ do
+    (eventKey, event) <- getNextGlobalEvent eventQueuesManager
+    mkPostQueueAction eventKey <$> addEventToWorkerQueue eventQueuesManager eventKey event
   where
     mkPostQueueAction :: key -> AddEventResult event -> m ()
     mkPostQueueAction eventKey = \case
       AddedToNewQueue workerQueue -> do
-        workerThread <- async $ runWorker mergeBotQueues workerQueue eventKey f
+        workerThread <- async $ runWorker eventQueuesManager workerQueue eventKey f
         -- the worker shouldn't throw an exception, but if it happens to, crash this process
         link workerThread
-        atomically $ registerWorkerThread mergeBotQueues eventKey workerThread
+        atomically $ registerWorkerThread eventQueuesManager eventKey workerThread
 
       AddedToExistingQueue _ -> return ()
 
 -- | Read and process events from the given queue. When the queue is empty, clean up
 -- eventWorkerQueues and eventWorkerThreads and exit.
 runWorker :: (MonadUnliftIO m, Ord key)
-  => MergeBotQueues key event
+  => EventQueuesManager key event
   -> WorkerQueue event
   -> key
   -> (key -> event -> m ())
   -> m ()
-runWorker mergeBotQueues workerQueue eventKey f = go
+runWorker eventQueuesManager workerQueue eventKey f = go
   where
     go = atomicallyThenRun $ getNextWorkerEvent workerQueue >>= \case
       -- process event, then loop
@@ -79,7 +79,7 @@ runWorker mergeBotQueues workerQueue eventKey f = go
 
       -- finished everything in queue; clean up and exit
       Nothing -> do
-        cleanupWorker mergeBotQueues eventKey
+        cleanupWorker eventQueuesManager eventKey
         return $ return ()
 
 {- Utilities -}

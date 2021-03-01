@@ -59,16 +59,16 @@ import UnliftIO.Exception (catch, throwIO)
 import MergeBot.Auth (AuthParams)
 import MergeBot.Core.GitHub (BranchName, CheckRunId, CommitSHA, PrNum, Repo)
 import MergeBot.Core.Monad (BotAppT, BotSettings(..), getRepo, runBotAppT)
-import MergeBot.EventQueue (MergeBotQueues, handleEventsWith, queueEventWith)
+import MergeBot.EventQueue (EventQueuesManager, handleEventsWith, queueEventWith)
 
 {- The base monad for all servant routes -}
 
 type ServerBase api = ServerT api BaseApp
 
 data BaseAppConfig = BaseAppConfig
-  { ghAppParams    :: GitHubAppParams
-  , authParams     :: AuthParams
-  , mergeBotQueues :: MergeBotQueues MergeBotEventKey MergeBotEvent
+  { ghAppParams        :: GitHubAppParams
+  , authParams         :: AuthParams
+  , eventQueuesManager :: EventQueuesManager MergeBotEventKey MergeBotEvent
   }
 
 newtype BaseApp a = BaseApp
@@ -91,8 +91,8 @@ getGitHubAppParams = BaseApp $ asks ghAppParams
 getAuthParams :: BaseApp AuthParams
 getAuthParams = BaseApp $ asks authParams
 
-getMergeBotQueues :: BaseApp (MergeBotQueues MergeBotEventKey MergeBotEvent)
-getMergeBotQueues = BaseApp $ asks mergeBotQueues
+getEventQueuesManager :: BaseApp (EventQueuesManager MergeBotEventKey MergeBotEvent)
+getEventQueuesManager = BaseApp $ asks eventQueuesManager
 
 {- BaseApp helpers -}
 
@@ -221,13 +221,13 @@ makeEventKey repo = \case
 -- | A helper around 'handleEventsWith'
 handleEvents :: (MergeBotEventKey -> MergeBotEvent -> BaseApp ()) -> BaseApp ()
 handleEvents f = do
-  mergeBotQueues <- getMergeBotQueues
-  handleEventsWith mergeBotQueues f
+  eventQueuesManager <- getEventQueuesManager
+  handleEventsWith eventQueuesManager f
 
 -- | A helper around 'queueEventWith'
 queueEvent :: MergeBotEvent -> BotApp ()
 queueEvent event = do
-  mergeBotQueues <- lift getMergeBotQueues
+  eventQueuesManager <- lift getEventQueuesManager
   repo <- getRepo
   let eventKey = makeEventKey repo event
-  liftIO $ queueEventWith mergeBotQueues eventKey event
+  liftIO $ queueEventWith eventQueuesManager eventKey event

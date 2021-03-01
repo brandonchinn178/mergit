@@ -16,24 +16,24 @@ import UnliftIO.STM (STM, atomically)
 
 {- MergeBot queues -}
 
-data MergeBotQueues key event = MergeBotQueues
+data EventQueuesManager key event = EventQueuesManager
   { globalEventQueue :: TBQueue (key, event)
   , workerQueues     :: TVar (Map key (WorkerQueue event))
   }
 
-initMergeBotQueues :: IO (MergeBotQueues key event)
-initMergeBotQueues = atomically $ do
+initEventQueuesManager :: IO (EventQueuesManager key event)
+initEventQueuesManager = atomically $ do
   globalEventQueue <- newTBQueue globalQueueLimit
   workerQueues <- newTVar Map.empty
-  return MergeBotQueues{..}
+  return EventQueuesManager{..}
   where
     globalQueueLimit = 1000
 
-queueGlobalEvent :: MergeBotQueues key event -> (key, event) -> STM ()
-queueGlobalEvent MergeBotQueues{..} = writeTBQueue globalEventQueue
+queueGlobalEvent :: EventQueuesManager key event -> (key, event) -> STM ()
+queueGlobalEvent EventQueuesManager{..} = writeTBQueue globalEventQueue
 
-getNextGlobalEvent :: MergeBotQueues key event -> STM (key, event)
-getNextGlobalEvent MergeBotQueues{..} = readTBQueue globalEventQueue
+getNextGlobalEvent :: EventQueuesManager key event -> STM (key, event)
+getNextGlobalEvent EventQueuesManager{..} = readTBQueue globalEventQueue
 
 {- Worker queues -}
 
@@ -48,8 +48,8 @@ data AddEventResult event
   = AddedToExistingQueue (WorkerQueue event)
   | AddedToNewQueue (WorkerQueue event)
 
-addEventToWorkerQueue :: Ord key => MergeBotQueues key event -> key -> event -> STM (AddEventResult event)
-addEventToWorkerQueue MergeBotQueues{..} eventKey event = do
+addEventToWorkerQueue :: Ord key => EventQueuesManager key event -> key -> event -> STM (AddEventResult event)
+addEventToWorkerQueue EventQueuesManager{..} eventKey event = do
   queues <- readTVar workerQueues
   case Map.lookup eventKey queues of
     Nothing -> do
@@ -72,8 +72,8 @@ addEventToWorkerQueue MergeBotQueues{..} eventKey event = do
   where
     workerQueueLimit = 1000
 
-registerWorkerThread :: (HasCallStack, Ord key, Show key) => MergeBotQueues key event -> key -> WorkerThread -> STM ()
-registerWorkerThread MergeBotQueues{..} eventKey workerThread =
+registerWorkerThread :: (HasCallStack, Ord key, Show key) => EventQueuesManager key event -> key -> WorkerThread -> STM ()
+registerWorkerThread EventQueuesManager{..} eventKey workerThread =
   modifyTVar' workerQueues $ \queues ->
     case Map.lookup eventKey queues of
       Just workerQueue ->
@@ -86,5 +86,5 @@ registerWorkerThread MergeBotQueues{..} eventKey workerThread =
 getNextWorkerEvent :: WorkerQueue event -> STM (Maybe event)
 getNextWorkerEvent WorkerQueue{..} = tryReadTBQueue workerEventQueue
 
-cleanupWorker :: Ord key => MergeBotQueues key event -> key -> STM ()
-cleanupWorker MergeBotQueues{..} eventKey = modifyTVar' workerQueues (Map.delete eventKey)
+cleanupWorker :: Ord key => EventQueuesManager key event -> key -> STM ()
+cleanupWorker EventQueuesManager{..} eventKey = modifyTVar' workerQueues (Map.delete eventKey)
