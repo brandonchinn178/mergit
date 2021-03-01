@@ -32,12 +32,12 @@ getEventRepo = \case
 
 {- MergeBot queues -}
 
-data MergeBotQueues event = MergeBotQueues
-  { globalEventQueue :: TBQueue (EventKey, event)
-  , workerQueues     :: TVar (Map EventKey (WorkerQueue event))
+data MergeBotQueues key event = MergeBotQueues
+  { globalEventQueue :: TBQueue (key, event)
+  , workerQueues     :: TVar (Map key (WorkerQueue event))
   }
 
-initMergeBotQueues :: IO (MergeBotQueues event)
+initMergeBotQueues :: IO (MergeBotQueues key event)
 initMergeBotQueues = atomically $ do
   globalEventQueue <- newTBQueue globalQueueLimit
   workerQueues <- newTVar Map.empty
@@ -45,10 +45,10 @@ initMergeBotQueues = atomically $ do
   where
     globalQueueLimit = 1000
 
-queueGlobalEvent :: MergeBotQueues event -> (EventKey, event) -> STM ()
+queueGlobalEvent :: MergeBotQueues key event -> (key, event) -> STM ()
 queueGlobalEvent MergeBotQueues{..} = writeTBQueue globalEventQueue
 
-getNextGlobalEvent :: MergeBotQueues event -> STM (EventKey, event)
+getNextGlobalEvent :: MergeBotQueues key event -> STM (key, event)
 getNextGlobalEvent MergeBotQueues{..} = readTBQueue globalEventQueue
 
 {- Worker queues -}
@@ -64,7 +64,7 @@ data AddEventResult event
   = AddedToExistingQueue (WorkerQueue event)
   | AddedToNewQueue (WorkerQueue event)
 
-addEventToWorkerQueue :: MergeBotQueues event -> EventKey -> event -> STM (AddEventResult event)
+addEventToWorkerQueue :: Ord key => MergeBotQueues key event -> key -> event -> STM (AddEventResult event)
 addEventToWorkerQueue MergeBotQueues{..} eventKey event = do
   queues <- readTVar workerQueues
   case Map.lookup eventKey queues of
@@ -88,7 +88,7 @@ addEventToWorkerQueue MergeBotQueues{..} eventKey event = do
   where
     workerQueueLimit = 1000
 
-registerWorkerThread :: HasCallStack => MergeBotQueues event -> EventKey -> WorkerThread -> STM ()
+registerWorkerThread :: (HasCallStack, Ord key, Show key) => MergeBotQueues key event -> key -> WorkerThread -> STM ()
 registerWorkerThread MergeBotQueues{..} eventKey workerThread =
   modifyTVar' workerQueues $ \queues ->
     case Map.lookup eventKey queues of
@@ -102,5 +102,5 @@ registerWorkerThread MergeBotQueues{..} eventKey workerThread =
 getNextWorkerEvent :: WorkerQueue event -> STM (Maybe event)
 getNextWorkerEvent WorkerQueue{..} = tryReadTBQueue workerEventQueue
 
-cleanupWorker :: MergeBotQueues event -> EventKey -> STM ()
+cleanupWorker :: Ord key => MergeBotQueues key event -> key -> STM ()
 cleanupWorker MergeBotQueues{..} eventKey = modifyTVar' workerQueues (Map.delete eventKey)

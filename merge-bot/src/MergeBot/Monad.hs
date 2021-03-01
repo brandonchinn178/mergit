@@ -68,7 +68,7 @@ type ServerBase api = ServerT api BaseApp
 data BaseAppConfig = BaseAppConfig
   { ghAppParams    :: GitHubAppParams
   , authParams     :: AuthParams
-  , mergeBotQueues :: MergeBotQueues MergeBotEvent
+  , mergeBotQueues :: MergeBotQueues EventKey MergeBotEvent
   }
 
 newtype BaseApp a = BaseApp
@@ -91,7 +91,7 @@ getGitHubAppParams = BaseApp $ asks ghAppParams
 getAuthParams :: BaseApp AuthParams
 getAuthParams = BaseApp $ asks authParams
 
-getMergeBotQueues :: BaseApp (MergeBotQueues MergeBotEvent)
+getMergeBotQueues :: BaseApp (MergeBotQueues EventKey MergeBotEvent)
 getMergeBotQueues = BaseApp $ asks mergeBotQueues
 
 {- BaseApp helpers -}

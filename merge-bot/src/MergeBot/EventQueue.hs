@@ -21,7 +21,7 @@ import MergeBot.EventQueue.Internal hiding (MergeBotQueues(..), WorkerQueue(..))
 import MergeBot.EventQueue.Internal (MergeBotQueues, WorkerQueue)
 
 -- | Add the given event to the global queue.
-queueEventWith :: MergeBotQueues event -> EventKey -> event -> IO ()
+queueEventWith :: MergeBotQueues key event -> key -> event -> IO ()
 queueEventWith mergeBotQueues eventKey event =
   -- TODO: (optimization) if the event is RefreshCheckRun, see if the same
   -- RefreshCheckRun event is already in the queue. If so, don't add the
@@ -48,15 +48,15 @@ queueEventWith mergeBotQueues eventKey event =
 --   * A closed PR should not have a running worker thread. Instead of a worker
 --     thread being started/stopped when a PR is created/opened, we'll spin up
 --     worker threads on demand
-handleEventsWith :: forall m event. MonadUnliftIO m
-  => MergeBotQueues event
-  -> (EventKey -> event -> m ())
+handleEventsWith :: forall m key event. (MonadUnliftIO m, Ord key, Show key)
+  => MergeBotQueues key event
+  -> (key -> event -> m ())
   -> m ()
 handleEventsWith mergeBotQueues f = forever $ atomicallyThenRun $ do
     (eventKey, event) <- getNextGlobalEvent mergeBotQueues
     mkPostQueueAction eventKey <$> addEventToWorkerQueue mergeBotQueues eventKey event
   where
-    mkPostQueueAction :: EventKey -> AddEventResult event -> m ()
+    mkPostQueueAction :: key -> AddEventResult event -> m ()
     mkPostQueueAction eventKey = \case
       AddedToNewQueue workerQueue -> do
         workerThread <- async $ runWorker mergeBotQueues workerQueue eventKey f
@@ -68,11 +68,11 @@ handleEventsWith mergeBotQueues f = forever $ atomicallyThenRun $ do
 
 -- | Read and process events from the given queue. When the queue is empty, clean up
 -- eventWorkerQueues and eventWorkerThreads and exit.
-runWorker :: MonadUnliftIO m
-  => MergeBotQueues event
+runWorker :: (MonadUnliftIO m, Ord key)
+  => MergeBotQueues key event
   -> WorkerQueue event
-  -> EventKey
-  -> (EventKey -> event -> m ())
+  -> key
+  -> (key -> event -> m ())
   -> m ()
 runWorker mergeBotQueues workerQueue eventKey f = go
   where
