@@ -14,22 +14,6 @@ import GHC.Stack (HasCallStack)
 import UnliftIO.Async (Async)
 import UnliftIO.STM (STM, atomically)
 
-import MergeBot.Core.GitHub (BranchName, PrNum, Repo)
-
-{- EventKey -}
-
-data EventKey
-  = OnPR Repo PrNum
-  | OnBranch Repo BranchName
-  | OnRepo Repo
-  deriving (Show, Eq, Ord)
-
-getEventRepo :: EventKey -> Repo
-getEventRepo = \case
-  OnPR repo _ -> repo
-  OnBranch repo _ -> repo
-  OnRepo repo -> repo
-
 {- MergeBot queues -}
 
 data MergeBotQueues key event = MergeBotQueues

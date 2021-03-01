@@ -33,6 +33,7 @@ module MergeBot.Monad
   , runBotAppOnAllRepos
     -- * Queueing helpers
   , MergeBotEvent(..)
+  , getEventRepo
   , handleEvents
   , queueEvent
   ) where
@@ -58,8 +59,7 @@ import UnliftIO.Exception (catch, throwIO)
 import MergeBot.Auth (AuthParams)
 import MergeBot.Core.GitHub (BranchName, CheckRunId, CommitSHA, PrNum, Repo)
 import MergeBot.Core.Monad (BotAppT, BotSettings(..), getRepo, runBotAppT)
-import MergeBot.EventQueue
-    (EventKey(..), MergeBotQueues, handleEventsWith, queueEventWith)
+import MergeBot.EventQueue (MergeBotQueues, handleEventsWith, queueEventWith)
 
 {- The base monad for all servant routes -}
 
@@ -176,6 +176,18 @@ runBotAppOnAllRepos action = mapM runOnRepo =<< getRepoAndTokens
       return (repo, result)
 
 {- Queues -}
+
+data EventKey
+  = OnPR Repo PrNum
+  | OnBranch Repo BranchName
+  | OnRepo Repo
+  deriving (Show, Eq, Ord)
+
+getEventRepo :: EventKey -> Repo
+getEventRepo = \case
+  OnPR repo _ -> repo
+  OnBranch repo _ -> repo
+  OnRepo repo -> repo
 
 -- | A merge bot event to be resolved serially.
 --

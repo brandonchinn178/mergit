@@ -7,9 +7,6 @@ module MergeBot.EventQueue
   , initMergeBotQueues
   , queueEventWith
   , handleEventsWith
-    -- * EventKey
-  , EventKey(..)
-  , getEventRepo
   ) where
 
 import Control.Monad (forever, join)
@@ -29,12 +26,12 @@ queueEventWith mergeBotQueues eventKey event =
   atomically $ queueGlobalEvent mergeBotQueues (eventKey, event)
 
 -- | For each event coming in from the globalEventQueue, add it to the queue
--- corresponding to the EventKey.
+-- corresponding to the event key.
 --
 -- If the event is the first one in the queue, spin off a worker thread to process
 -- the event with the given handler. Otherwise, add it to the queue and have the
 -- worker thread process it on the next loop. When no more events are in the queue,
--- stop the worker thread; when the next event for that EventKey gets queued, a
+-- stop the worker thread; when the next event for that event key gets queued, a
 -- new worker thread will be spun up to handle it.
 --
 -- One should take special care to ensure that the given function does not throw
