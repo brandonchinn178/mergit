@@ -60,7 +60,7 @@ runMergeBot = do
   ghAppParams <- loadGitHubAppParams
   authParams <- loadAuthParams
   eventQueuesManager <- initEventQueuesManager EventQueuesConfig
-    { globalQueueLimit = 1000
+    { globalQueueLimit = 10000
     , workerQueueLimit = 1000
     }
 
