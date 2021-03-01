@@ -126,7 +126,10 @@ data EventQueuesTester = EventQueuesTester
 
 withEventQueues :: (EventQueuesTester -> IO a) -> IO a
 withEventQueues f = do
-  eventQueuesManager <- initEventQueuesManager
+  eventQueuesManager <- initEventQueuesManager EventQueuesConfig
+    { globalQueueLimit = 1000
+    , workerQueueLimit = 1000
+    }
 
   workers <- newTChanIO
   handleNextEvent <- newEmptyMVar

@@ -1,3 +1,4 @@
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
@@ -10,6 +11,7 @@ import Control.Concurrent.STM.TBQueue
 import Control.Concurrent.STM.TVar (TVar, modifyTVar', newTVar, readTVar)
 import Data.Map (Map)
 import qualified Data.Map as Map
+import GHC.Natural (Natural)
 import GHC.Stack (HasCallStack)
 import UnliftIO.Async (Async)
 import UnliftIO.STM (STM, atomically)
@@ -19,15 +21,19 @@ import UnliftIO.STM (STM, atomically)
 data EventQueuesManager key event = EventQueuesManager
   { globalEventQueue :: TBQueue (key, event)
   , workerQueues     :: TVar (Map key (WorkerQueue event))
+  , workerQueueLimit :: Natural
   }
 
-initEventQueuesManager :: IO (EventQueuesManager key event)
-initEventQueuesManager = atomically $ do
+data EventQueuesConfig = EventQueuesConfig
+  { globalQueueLimit :: Natural
+  , workerQueueLimit :: Natural
+  }
+
+initEventQueuesManager :: EventQueuesConfig -> IO (EventQueuesManager key event)
+initEventQueuesManager EventQueuesConfig{..} = atomically $ do
   globalEventQueue <- newTBQueue globalQueueLimit
   workerQueues <- newTVar Map.empty
   return EventQueuesManager{..}
-  where
-    globalQueueLimit = 1000
 
 queueGlobalEvent :: EventQueuesManager key event -> (key, event) -> STM ()
 queueGlobalEvent EventQueuesManager{..} = writeTBQueue globalEventQueue
@@ -69,8 +75,6 @@ addEventToWorkerQueue EventQueuesManager{..} eventKey event = do
       writeTBQueue (workerEventQueue workerQueue) event
 
       return $ AddedToExistingQueue workerQueue
-  where
-    workerQueueLimit = 1000
 
 registerWorkerThread :: (HasCallStack, Ord key, Show key) => EventQueuesManager key event -> key -> WorkerThread -> STM ()
 registerWorkerThread EventQueuesManager{..} eventKey workerThread =

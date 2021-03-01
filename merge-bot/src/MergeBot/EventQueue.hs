@@ -2,8 +2,8 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module MergeBot.EventQueue
-  ( -- * Queueing events
-    EventQueuesManager
+  ( EventQueuesManager
+  , EventQueuesConfig(..)
   , initEventQueuesManager
   , queueEventWith
   , handleEventsWith
