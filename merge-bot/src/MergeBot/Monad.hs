@@ -68,7 +68,7 @@ type ServerBase api = ServerT api BaseApp
 data BaseAppConfig = BaseAppConfig
   { ghAppParams    :: GitHubAppParams
   , authParams     :: AuthParams
-  , mergeBotQueues :: MergeBotQueues EventKey MergeBotEvent
+  , mergeBotQueues :: MergeBotQueues MergeBotEventKey MergeBotEvent
   }
 
 newtype BaseApp a = BaseApp
@@ -91,7 +91,7 @@ getGitHubAppParams = BaseApp $ asks ghAppParams
 getAuthParams :: BaseApp AuthParams
 getAuthParams = BaseApp $ asks authParams
 
-getMergeBotQueues :: BaseApp (MergeBotQueues EventKey MergeBotEvent)
+getMergeBotQueues :: BaseApp (MergeBotQueues MergeBotEventKey MergeBotEvent)
 getMergeBotQueues = BaseApp $ asks mergeBotQueues
 
 {- BaseApp helpers -}
@@ -177,13 +177,13 @@ runBotAppOnAllRepos action = mapM runOnRepo =<< getRepoAndTokens
 
 {- Queues -}
 
-data EventKey
+data MergeBotEventKey
   = OnPR Repo PrNum
   | OnBranch Repo BranchName
   | OnRepo Repo
   deriving (Show, Eq, Ord)
 
-getEventRepo :: EventKey -> Repo
+getEventRepo :: MergeBotEventKey -> Repo
 getEventRepo = \case
   OnPR repo _ -> repo
   OnBranch repo _ -> repo
@@ -206,7 +206,7 @@ data MergeBotEvent
   | PollQueues
   deriving (Show, Eq)
 
-makeEventKey :: Repo -> MergeBotEvent -> EventKey
+makeEventKey :: Repo -> MergeBotEvent -> MergeBotEventKey
 makeEventKey repo = \case
   PRCreated prNum _        -> OnPR repo prNum
   CommitPushedToPR prNum _ -> OnPR repo prNum
@@ -219,7 +219,7 @@ makeEventKey repo = \case
   PollQueues               -> OnRepo repo
 
 -- | A helper around 'handleEventsWith'
-handleEvents :: (EventKey -> MergeBotEvent -> BaseApp ()) -> BaseApp ()
+handleEvents :: (MergeBotEventKey -> MergeBotEvent -> BaseApp ()) -> BaseApp ()
 handleEvents f = do
   mergeBotQueues <- getMergeBotQueues
   handleEventsWith mergeBotQueues f
