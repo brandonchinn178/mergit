@@ -1,5 +1,5 @@
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE RecordWildCards #-}
 
@@ -10,46 +10,35 @@ import Control.Concurrent.STM.TBQueue
 import Control.Concurrent.STM.TVar (TVar, modifyTVar', newTVar, readTVar)
 import Data.Map (Map)
 import qualified Data.Map as Map
+import GHC.Natural (Natural)
 import GHC.Stack (HasCallStack)
 import UnliftIO.Async (Async)
 import UnliftIO.STM (STM, atomically)
 
-import MergeBot.Core.GitHub (BranchName, PrNum, Repo)
-
-{- EventKey -}
-
-data EventKey
-  = OnPR Repo PrNum
-  | OnBranch Repo BranchName
-  | OnRepo Repo
-  deriving (Show, Eq, Ord)
-
-getEventRepo :: EventKey -> Repo
-getEventRepo = \case
-  OnPR repo _ -> repo
-  OnBranch repo _ -> repo
-  OnRepo repo -> repo
-
 {- MergeBot queues -}
 
-data MergeBotQueues event = MergeBotQueues
-  { globalEventQueue :: TBQueue (EventKey, event)
-  , workerQueues     :: TVar (Map EventKey (WorkerQueue event))
+data EventQueuesManager key event = EventQueuesManager
+  { globalEventQueue :: TBQueue (key, event)
+  , workerQueues     :: TVar (Map key (WorkerQueue event))
+  , workerQueueLimit :: Natural
   }
 
-initMergeBotQueues :: IO (MergeBotQueues event)
-initMergeBotQueues = atomically $ do
+data EventQueuesConfig = EventQueuesConfig
+  { globalQueueLimit :: Natural
+  , workerQueueLimit :: Natural
+  }
+
+initEventQueuesManager :: EventQueuesConfig -> IO (EventQueuesManager key event)
+initEventQueuesManager EventQueuesConfig{..} = atomically $ do
   globalEventQueue <- newTBQueue globalQueueLimit
   workerQueues <- newTVar Map.empty
-  return MergeBotQueues{..}
-  where
-    globalQueueLimit = 1000
+  return EventQueuesManager{..}
 
-queueGlobalEvent :: MergeBotQueues event -> (EventKey, event) -> STM ()
-queueGlobalEvent MergeBotQueues{..} = writeTBQueue globalEventQueue
+queueGlobalEvent :: EventQueuesManager key event -> (key, event) -> STM ()
+queueGlobalEvent EventQueuesManager{..} = writeTBQueue globalEventQueue
 
-getNextGlobalEvent :: MergeBotQueues event -> STM (EventKey, event)
-getNextGlobalEvent MergeBotQueues{..} = readTBQueue globalEventQueue
+getNextGlobalEvent :: EventQueuesManager key event -> STM (key, event)
+getNextGlobalEvent EventQueuesManager{..} = readTBQueue globalEventQueue
 
 {- Worker queues -}
 
@@ -64,8 +53,8 @@ data AddEventResult event
   = AddedToExistingQueue (WorkerQueue event)
   | AddedToNewQueue (WorkerQueue event)
 
-addEventToWorkerQueue :: MergeBotQueues event -> EventKey -> event -> STM (AddEventResult event)
-addEventToWorkerQueue MergeBotQueues{..} eventKey event = do
+addEventToWorkerQueue :: Ord key => EventQueuesManager key event -> key -> event -> STM (AddEventResult event)
+addEventToWorkerQueue EventQueuesManager{..} eventKey event = do
   queues <- readTVar workerQueues
   case Map.lookup eventKey queues of
     Nothing -> do
@@ -85,11 +74,9 @@ addEventToWorkerQueue MergeBotQueues{..} eventKey event = do
       writeTBQueue (workerEventQueue workerQueue) event
 
       return $ AddedToExistingQueue workerQueue
-  where
-    workerQueueLimit = 1000
 
-registerWorkerThread :: HasCallStack => MergeBotQueues event -> EventKey -> WorkerThread -> STM ()
-registerWorkerThread MergeBotQueues{..} eventKey workerThread =
+registerWorkerThread :: (HasCallStack, Ord key, Show key) => EventQueuesManager key event -> key -> WorkerThread -> STM ()
+registerWorkerThread EventQueuesManager{..} eventKey workerThread =
   modifyTVar' workerQueues $ \queues ->
     case Map.lookup eventKey queues of
       Just workerQueue ->
@@ -102,5 +89,5 @@ registerWorkerThread MergeBotQueues{..} eventKey workerThread =
 getNextWorkerEvent :: WorkerQueue event -> STM (Maybe event)
 getNextWorkerEvent WorkerQueue{..} = tryReadTBQueue workerEventQueue
 
-cleanupWorker :: MergeBotQueues event -> EventKey -> STM ()
-cleanupWorker MergeBotQueues{..} eventKey = modifyTVar' workerQueues (Map.delete eventKey)
+cleanupWorker :: Ord key => EventQueuesManager key event -> key -> STM ()
+cleanupWorker EventQueuesManager{..} eventKey = modifyTVar' workerQueues (Map.delete eventKey)

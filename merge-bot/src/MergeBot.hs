@@ -50,7 +50,7 @@ import MergeBot.Auth (AuthParams(..), loadAuthParams)
 import qualified MergeBot.Core as Core
 import qualified MergeBot.Core.GitHub as Core
 import MergeBot.Core.Monad (getRepo)
-import MergeBot.EventQueue (getEventRepo, initMergeBotQueues)
+import MergeBot.EventQueue (EventQueuesConfig(..), initEventQueuesManager)
 import MergeBot.Monad
 import MergeBot.Routes (MergeBotRoutes, handleMergeBotRoutes)
 
@@ -59,12 +59,15 @@ runMergeBot :: IO ()
 runMergeBot = do
   ghAppParams <- loadGitHubAppParams
   authParams <- loadAuthParams
-  mergeBotQueues <- initMergeBotQueues
+  eventQueuesManager <- initEventQueuesManager EventQueuesConfig
+    { globalQueueLimit = 10000
+    , workerQueueLimit = 1000
+    }
 
   runBaseApp BaseAppConfig{..} $ concurrentlyAll
-    [ handleBotQueue
+    [ runServer
+    , handleBotQueue
     , pollMergeQueues
-    , runServer
     ]
 
 handleBotQueue :: BaseApp ()

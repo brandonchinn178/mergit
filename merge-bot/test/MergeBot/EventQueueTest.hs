@@ -1,8 +1,6 @@
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE StandaloneDeriving #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module MergeBot.EventQueueTest where
@@ -17,8 +15,6 @@ import Control.Monad (forM_, replicateM, unless)
 import qualified Data.Map as Map
 import Data.Text (Text)
 import qualified Data.Text as Text
-import Generic.Random (genericArbitrary, uniform)
-import GHC.Generics (Generic)
 import GHC.Stack (HasCallStack)
 import Test.Tasty
 import Test.Tasty.QuickCheck
@@ -31,13 +27,13 @@ import MergeBot.EventQueue.Internal
 test :: TestTree
 test = testGroup "MergeBot.EventQueue"
   [ testProperty "Can handle event after queueing it" $ \eventKey event ->
-      ioProperty $ withEventQueues $ \EventQueuesManager{..} -> do
+      ioProperty $ withEventQueues $ \EventQueuesTester{..} -> do
         queueEvent eventKey event
         result <- getWorkerEvent <$> getNextWorker
         return $ result === (eventKey, event)
 
   , testProperty "Works across threads" $ \eventKey event ->
-      ioProperty $ withEventQueues $ \EventQueuesManager{..} -> do
+      ioProperty $ withEventQueues $ \EventQueuesTester{..} -> do
         threadQueue <- makeThreadManager $ queueEvent eventKey event
         threadDequeue <- makeThreadManager $ getWorkerEvent <$> getNextWorker
 
@@ -54,7 +50,7 @@ test = testGroup "MergeBot.EventQueue"
         return $ conjoin [prop1, prop2, prop3, prop4]
 
   , testProperty "handleNextEvent blocks" $ \eventKey event ->
-      ioProperty $ withEventQueues $ \EventQueuesManager{..} -> do
+      ioProperty $ withEventQueues $ \EventQueuesTester{..} -> do
         threadQueue <- makeThreadManager $ queueEvent eventKey event
         threadDequeue <- makeThreadManager $ getWorkerEvent <$> getNextWorker
 
@@ -70,8 +66,8 @@ test = testGroup "MergeBot.EventQueue"
 
         return $ conjoin [prop1, prop2, prop3, prop4]
 
-  , testProperty "Events with the same EventKey run on the same thread" $ \eventKey events ->
-      ioProperty $ withEventQueues $ \EventQueuesManager{..} -> do
+  , testProperty "Events with the same event key run on the same thread" $ \eventKey events ->
+      ioProperty $ withEventQueues $ \EventQueuesTester{..} -> do
         mapM_ (queueEvent eventKey) (events :: [TestEvent])
 
         waitForGlobalQueueToBeProcessed
@@ -80,8 +76,8 @@ test = testGroup "MergeBot.EventQueue"
 
         return $ areAllSame $ map workerThreadId workers
 
-  , testProperty "Events with different EventKeys run on different threads" $ \eventAndKey1 eventAndKey2 ->
-      ioProperty $ withEventQueues $ \EventQueuesManager{..} -> do
+  , testProperty "Events with different event keys run on different threads" $ \eventAndKey1 eventAndKey2 ->
+      ioProperty $ withEventQueues $ \EventQueuesTester{..} -> do
         let (eventKey1, event1) = eventAndKey1
             (eventKey2, event2) = eventAndKey2
 
@@ -96,6 +92,12 @@ test = testGroup "MergeBot.EventQueue"
 
 {- Queueing helpers -}
 
+newtype TestEventKey = TestEventKey Text
+  deriving (Show,Eq,Ord)
+
+instance Arbitrary TestEventKey where
+  arbitrary = TestEventKey . Text.pack . getPrintableString <$> arbitrary
+
 data TestEvent = TestEvent
   { testEventId   :: Int
   , testEventName :: String
@@ -107,50 +109,53 @@ instance Arbitrary TestEvent where
 
 data EventWorker = EventWorker
   { workerThreadId :: ThreadId
-  , workerEventKey :: EventKey
+  , workerEventKey :: TestEventKey
   , workerEvent    :: TestEvent
   }
 
-getWorkerEvent :: EventWorker -> (EventKey, TestEvent)
+getWorkerEvent :: EventWorker -> (TestEventKey, TestEvent)
 getWorkerEvent EventWorker{..} = (workerEventKey, workerEvent)
 
-data EventQueuesManager = EventQueuesManager
+data EventQueuesTester = EventQueuesTester
   { getNextWorker                   :: IO EventWorker
   , waitForGlobalQueueToBeProcessed :: IO ()
-  , queueEvent                      :: EventKey -> TestEvent -> IO ()
+  , queueEvent                      :: TestEventKey -> TestEvent -> IO ()
   }
 
-withEventQueues :: (EventQueuesManager -> IO a) -> IO a
+withEventQueues :: (EventQueuesTester -> IO a) -> IO a
 withEventQueues f = do
-  mergeBotQueues <- initMergeBotQueues
+  eventQueuesManager <- initEventQueuesManager EventQueuesConfig
+    { globalQueueLimit = 1000
+    , workerQueueLimit = 1000
+    }
 
   workers <- newTChanIO
   handleNextEvent <- newEmptyMVar
 
-  eventThread <- async $ handleEventsWith mergeBotQueues $ \workerEventKey workerEvent -> do
+  eventThread <- async $ handleEventsWith eventQueuesManager $ \workerEventKey workerEvent -> do
     takeMVar handleNextEvent
 
     workerThreadId <- atomically $ do
-      workerThreads <- readTVar $ workerQueues mergeBotQueues
+      workerThreads <- readTVar $ workerQueues eventQueuesManager
       case Map.lookup workerEventKey workerThreads of
         Just WorkerQueue{workerThread = Just worker} -> return $ asyncThreadId worker
         _ -> retry
 
     atomically $ writeTChan workers EventWorker{..}
 
-  let eventQueuesManager = EventQueuesManager
+  let eventQueuesTester = EventQueuesTester
         { getNextWorker = withTimeout $ do
             putMVar handleNextEvent ()
             atomically $ readTChan workers
         , waitForGlobalQueueToBeProcessed = atomically $ do
-            isEmpty <- isEmptyTBQueue $ globalEventQueue mergeBotQueues
+            isEmpty <- isEmptyTBQueue $ globalEventQueue eventQueuesManager
             unless isEmpty retry
-        , queueEvent = queueEventWith mergeBotQueues
+        , queueEvent = queueEventWith eventQueuesManager
         }
 
-  f eventQueuesManager `finally` (do
+  f eventQueuesTester `finally` (do
     uninterruptibleCancel eventThread
-    queues <- readTVarIO $ workerQueues mergeBotQueues
+    queues <- readTVarIO $ workerQueues eventQueuesManager
     forM_ queues $ \WorkerQueue{..} -> traverse uninterruptibleCancel workerThread
     )
 
@@ -199,13 +204,3 @@ allEqual :: (Show a, Eq a) => a -> [a] -> Property
 allEqual expected xs = counterexample msg $ all (== expected) xs
   where
     msg = "Expected all to be " ++ show expected ++ ", got: " ++ show xs
-
-{- Orphans -}
-
-deriving instance Generic EventKey
-
-instance Arbitrary EventKey where
-  arbitrary = genericArbitrary uniform
-
-instance Arbitrary Text where
-  arbitrary = Text.pack . getPrintableString <$> arbitrary
