@@ -59,7 +59,8 @@ import UnliftIO.Exception (catch, throwIO)
 import MergeBot.Auth (AuthParams)
 import MergeBot.Core.GitHub (BranchName, CheckRunId, CommitSHA, PrNum, Repo)
 import MergeBot.Core.Monad (BotAppT, BotSettings(..), getRepo, runBotAppT)
-import MergeBot.EventQueue (EventQueuesManager, handleEventsWith, queueEventWith)
+import MergeBot.EventQueue
+    (EventQueuesManager, handleEventsWith, queueEventWith)
 
 {- The base monad for all servant routes -}
 

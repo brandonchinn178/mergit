@@ -14,7 +14,8 @@ import UnliftIO (MonadUnliftIO)
 import UnliftIO.Async (async, link)
 import UnliftIO.STM (STM, atomically)
 
-import MergeBot.EventQueue.Internal hiding (EventQueuesManager(..), WorkerQueue(..))
+import MergeBot.EventQueue.Internal hiding
+    (EventQueuesManager(..), WorkerQueue(..))
 import MergeBot.EventQueue.Internal (EventQueuesManager, WorkerQueue)
 
 -- | Add the given event to the global queue.
