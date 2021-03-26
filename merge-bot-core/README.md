@@ -20,15 +20,15 @@ intensive process, for a few reasons:
 
 Here are the steps we would take to create a merge branch using the GitHub API:
 
-1. Say we have two PRs against `master`, one for the `feature1` branch, and one
-   for the `feature2` branch. The `master` branch is at commit `1` with the
+1. Say we have two PRs against `main`, one for the `feature1` branch, and one
+   for the `feature2` branch. The `main` branch is at commit `1` with the
    tree hash `A`. Similarly, the `feature1` branch is at commit `2` with the
    tree hash `B`, and the `feature2` branch is at commit `3` with the tree hash
-   `C`. We want to merge both of these branches/PRs into `master`.
+   `C`. We want to merge both of these branches/PRs into `main`.
 
     ![](docs/MergeStep0.png)
 
-1. First, we create the `staging` branch off `master`.
+1. First, we create the `staging` branch off `main`.
 
     ![](docs/MergeStep1.png)
 
@@ -44,7 +44,7 @@ Here are the steps we would take to create a merge branch using the GitHub API:
     ![](docs/MergeStep3.png)
 
 1. Now we take the final tree hash `ABC` and create a new commit with it,
-   specifying the commit's parents as the `master` branch, and then the two
+   specifying the commit's parents as the `main` branch, and then the two
    `feature*` branches.
 
     ![](docs/MergeStep4.png)

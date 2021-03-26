@@ -79,7 +79,7 @@ handleCheckRun o = runBotApp' repo $ do
     CheckRun.REQUESTED_ACTION -> do
       -- GitHub sometimes sends an empty array here, usually seems to happen on commits that
       -- have merged in one PR and are being merged in a new one (e.g. commit merged via PR
-      -- to feature branch now merging to master). We'll first check the array (since it has
+      -- to feature branch now merging to main). We'll first check the array (since it has
       -- the best information), but we'll fall back to trying to find an associated PR for
       -- the commit.
       pr <- case [get| o.check_run.pull_requests[].number |] of
