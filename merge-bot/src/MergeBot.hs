@@ -9,6 +9,7 @@ This module defines the entrypoint for the MergeBot GitHub application.
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE NumDecimals #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
@@ -24,9 +25,10 @@ import Control.Exception (SomeException, displayException, fromException)
 import Control.Monad (forever, void)
 import Control.Monad.IO.Class (MonadIO(..))
 import Control.Monad.Logger (logInfoN)
-import qualified Data.ByteString.Lazy.Char8 as Char8
 import Data.Proxy (Proxy(..))
 import qualified Data.Text as Text
+import qualified Data.Text.Lazy as TextL
+import qualified Data.Text.Lazy.Encoding as TextL
 import GitHub.Data.GitObjectID (GitObjectID(..))
 import qualified Network.Wai.Handler.Warp as Warp
 import Servant
@@ -48,6 +50,7 @@ import UnliftIO.Exception (handle, try)
 
 import MergeBot.Auth (AuthParams(..), loadAuthParams)
 import qualified MergeBot.Core as Core
+import MergeBot.Core.Error (getBotError)
 import qualified MergeBot.Core.GitHub as Core
 import MergeBot.Core.Monad (getRepo)
 import MergeBot.EventQueue (EventQueuesConfig(..), initEventQueuesManager)
@@ -145,9 +148,12 @@ runServer = do
     ioToHandler :: IO a -> Handler a
     ioToHandler m = liftIO (try m) >>= \case
       Right x -> return x
-      Left e
-        | Just servantErr <- fromException e -> throwError servantErr
-        | otherwise -> throwError $ err500 { errBody = Char8.pack $ displayException e }
+      Left e -> throwError $ if
+        | Just servantErr <- fromException e -> servantErr
+        | Just botError <- fromException e -> to500 $ getBotError botError
+        | otherwise -> to500 $ Text.pack $ displayException e
+
+    to500 msg = err500 { errBody = TextL.encodeUtf8 $ TextL.fromStrict msg }
 
 {- Helpers -}
 

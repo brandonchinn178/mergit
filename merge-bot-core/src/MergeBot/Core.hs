@@ -331,7 +331,7 @@ extractConfig prs tree =
     [] -> Left $ ConfigFileMissing prs
     [entry] ->
       let configText = [get| entry.object!.__fragment!.text! |]
-      in first (ConfigFileInvalid prs . show) . decodeEither' . Text.encodeUtf8 $ configText
+      in first (ConfigFileInvalid prs . Text.pack . show) . decodeEither' . Text.encodeUtf8 $ configText
     _ -> error $ "Multiple '" ++ Text.unpack configFileName ++ "' files found?"
   where
     isConfigFile = (== configFileName) . [get| .name |]
