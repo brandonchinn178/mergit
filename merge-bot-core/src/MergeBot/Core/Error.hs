@@ -49,8 +49,8 @@ data BotError
 
 instance Exception BotError
 
-getBotError :: BotError -> String
-getBotError = \case
+getBotError :: BotError -> Text
+getBotError = Text.pack . \case
   AmbiguousPRForCommit sha -> "Could not determine PR for commit: `" <> Text.unpack (unOID sha) <> "`"
   BadUpdate sha prs base message -> concat
     [ "Could not merge PRs "

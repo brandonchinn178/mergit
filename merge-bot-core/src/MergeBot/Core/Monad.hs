@@ -160,14 +160,14 @@ runBotAppT BotSettings{..} =
       let msg = getBotError e
       mapM_ (`commentOnPR` msg) $ getRelevantPRs e
       logError msg
-      errorWithoutStackTrace $ "MergeBot Error: " ++ msg
+      errorWithoutStackTrace $ "MergeBot Error: " ++ Text.unpack msg
     handleSomeException (e :: SomeException) = do
       let msg = displayException e
-      logError msg
+      logError $ Text.pack msg
       errorWithoutStackTrace $ "Other Error: " ++ msg
 
     -- log error message, replacing newlines with spaces
-    logError msg = logErrorN $ removeNewlines $ Text.pack msg
+    logError = logErrorN . removeNewlines
     removeNewlines = Text.unwords . filter (not . Text.null) . Text.lines
 
 {- MonadMergeBot class -}
@@ -211,7 +211,7 @@ githubQuerySettings = defaultGraphQLSettings
 -- | Add a comment to the given PR.
 --
 -- https://developer.github.com/v3/issues/comments/#create-a-comment
-commentOnPR :: MonadMergeBot m => Int -> String -> m ()
+commentOnPR :: MonadMergeBot m => Int -> Text -> m ()
 commentOnPR prNum comment = void $ queryGitHub' GHEndpoint
   { method = POST
   , endpoint = "/repos/:owner/:repo/issues/:number/comments"
