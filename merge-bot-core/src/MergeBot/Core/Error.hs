@@ -19,7 +19,7 @@ import Control.Exception (Exception)
 import Data.Aeson.Schema (Object)
 import Data.Text (Text)
 import qualified Data.Text as Text
-import GitHub.Data.GitObjectID (GitObjectID, unOID')
+import GitHub.Data.GitObjectID (GitObjectID(..))
 import GitHub.Schema.Event.CheckRun (CheckRunEvent)
 import GitHub.Schema.Event.Push (PushEvent)
 
@@ -51,36 +51,36 @@ instance Exception BotError
 
 getBotError :: BotError -> String
 getBotError = \case
-  AmbiguousPRForCommit sha -> "Could not determine PR for commit: `" <> unOID' sha <> "`"
+  AmbiguousPRForCommit sha -> "Could not determine PR for commit: `" <> Text.unpack (unOID sha) <> "`"
   BadUpdate sha prs base message -> concat
     [ "Could not merge PRs "
     , fromPRs prs
     , " into `"
     , Text.unpack base
-    , "` (" ++ unOID' sha ++ "): "
+    , "` (" ++ Text.unpack (unOID sha) ++ "): "
     , Text.unpack message
     ]
   CannotDetermineCheckRunPR o -> "Cannot determine PR for check run: " <> show o
   CIBranchPushed o -> "User tried to manually create CI branch: " <> show o
   CICommitMissingParents isStart branch sha -> concat
     [ "Commit `"
-    , unOID' sha
+    , Text.unpack (unOID sha)
     , "` has no parents (on branch `"
     , Text.unpack branch
     ,  "`) when "
     , if isStart then "starting check run" else "updating check run"
     ]
-  CommitLacksPR sha -> "Commit `" <> unOID' sha <> "` does not have an associated pull request"
+  CommitLacksPR sha -> "Commit `" <> Text.unpack (unOID sha) <> "` does not have an associated pull request"
   ConfigFileInvalid prs msg -> "Merging " <> fromPRs prs <> " has an invalid `" <> Text.unpack configFileName <> "` config file: " <> Text.unpack msg
   ConfigFileMissing prs -> "Merging " <> fromPRs prs <> " lacks a `" <> Text.unpack configFileName <> "` config file"
   InvalidStaging _ branch -> "Invalid staging branch: " <> Text.unpack branch
   MergeConflict prs -> "Merge conflict: " <> fromPRs prs
   MissingBaseBranch _ branch -> "Base branch does not exist: " <> Text.unpack branch
-  MissingCheckRun sha checkName -> "Commit `" <> unOID' sha <> "` missing check run named: " <> Text.unpack checkName
+  MissingCheckRun sha checkName -> "Commit `" <> Text.unpack (unOID sha) <> "` missing check run named: " <> Text.unpack checkName
   MissingCheckRunPR pr checkName -> "PR #" <> show pr <> " missing check run named: " <> Text.unpack checkName
   PRWasUpdatedDuringMergeRun _ prNums shas ->
     case (prNums, shas) of
-      ([prNum], [sha]) -> "PR #" <> show prNum <> " was updated while the merge run was running. Expected SHA: `" <> unOID' sha <> "`"
+      ([prNum], [sha]) -> "PR #" <> show prNum <> " was updated while the merge run was running. Expected SHA: `" <> Text.unpack (unOID sha) <> "`"
       _ -> "PRs " <> fromPRs prNums <> " were updated while the merge run was running."
   SomePRsMerged mergedPRs nonMergedPRs -> "PRs " <> fromPRs nonMergedPRs <> " found not merged while PRs " <> fromPRs mergedPRs <> " are merged"
   TreeNotUpdated _ pr -> unlines
