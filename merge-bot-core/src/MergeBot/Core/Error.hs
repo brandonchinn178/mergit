@@ -41,6 +41,7 @@ data BotError
   | MissingBaseBranch [PullRequestId] Text
   | MissingCheckRun GitObjectID Text
   | MissingCheckRunPR PullRequestId Text
+  | PRNotMergeable PullRequestId Text
   | PRWasUpdatedDuringMergeRun [PullRequestId] [PullRequestId] [GitObjectID]
   | SomePRsMerged [PullRequestId] [PullRequestId]
   | TreeNotUpdated [PullRequestId] PullRequestId
@@ -78,6 +79,7 @@ getBotError = \case
   MissingBaseBranch _ branch -> "Base branch does not exist: " <> branch
   MissingCheckRun sha checkName -> "Commit `" <> unOID sha <> "` missing check run named: " <> checkName
   MissingCheckRunPR pr checkName -> "PR #" <> showT pr <> " missing check run named: " <> checkName
+  PRNotMergeable prNum msg -> "PR #" <> showT prNum <> " is not mergeable: " <> msg
   PRWasUpdatedDuringMergeRun _ prNums shas ->
     case (prNums, shas) of
       ([prNum], [sha]) -> "PR #" <> showT prNum <> " was updated while the merge run was running. Expected SHA: `" <> unOID sha <> "`"
@@ -113,6 +115,7 @@ getRelevantPRs = \case
   MissingBaseBranch prs _ -> prs
   MissingCheckRun{} -> []
   MissingCheckRunPR pr _ -> [pr]
+  PRNotMergeable pr _ -> [pr]
   PRWasUpdatedDuringMergeRun allPRs _ _ -> allPRs
   SomePRsMerged mergedPRs nonMergedPRs -> mergedPRs ++ nonMergedPRs
   TreeNotUpdated allPRs _ -> allPRs

@@ -42,6 +42,7 @@ module MergeBot.Core.GitHub
   , getPRForCommit
   , getPRById
   , getPRReviews
+  , isPRMergeable
   , isPRMerged
   , getQueues
     -- * REST
@@ -92,6 +93,7 @@ import MergeBot.Core.GraphQL.API
     , GetPRReviewsQuery(..)
     , GetQueuedPRsQuery(..)
     )
+import qualified MergeBot.Core.GraphQL.Enums.MergeableState as MergeableState
 import MergeBot.Core.GraphQL.Enums.PullRequestReviewState
     (PullRequestReviewState)
 import qualified MergeBot.Core.GraphQL.Enums.PullRequestReviewState as PullRequestReviewState
@@ -332,6 +334,25 @@ getPRReviews prNum = do
       in if old `elem` relevantStates && new `notElem` relevantStates
         then old
         else new
+
+-- | Check if the given PR is mergeable.
+isPRMergeable :: MonadMergeBot m => PrNum -> m (Either BotError ())
+isPRMergeable prNum = do
+  (repoOwner, repoName) <- getRepo
+  result <- runQuery GetIsPRMergeableQuery
+    { _repoOwner = repoOwner
+    , _repoName = repoName
+    , _prNum = prNum
+    }
+  let (mergeable, headRef) = [get| result.repository!.pullRequest!.(mergeable, headRef) |]
+
+  return $ do
+    let notMergeable = Left . PRNotMergeable prNum
+
+    case mergeable of
+      MergeableState.MERGEABLE -> return ()
+      MergeableState.CONFLICTING -> notMergeable "PR has merge conflicts"
+      MergeableState.UNKNOWN -> notMergeable ""
 
 -- | Return True if the given PR is merged.
 isPRMerged :: MonadMergeBot m => PrNum -> m Bool

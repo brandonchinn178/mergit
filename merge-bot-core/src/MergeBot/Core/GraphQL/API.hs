@@ -12,6 +12,7 @@ module MergeBot.Core.GraphQL.API where
 import Data.GraphQL
 import Data.GraphQL.Bootstrap
 
+import MergeBot.Core.GraphQL.Enums.MergeableState
 import MergeBot.Core.GraphQL.Enums.PullRequestReviewState
 import MergeBot.Core.GraphQL.Enums.StatusState
 import MergeBot.Core.GraphQL.Scalars
@@ -612,6 +613,88 @@ instance GraphQLQuery GetPRForCommitQuery where
     , "repoName" .= _repoName (query :: GetPRForCommitQuery)
     , "sha" .= _sha (query :: GetPRForCommitQuery)
     , "after" .= _after (query :: GetPRForCommitQuery)
+    ]
+
+{-----------------------------------------------------------------------------
+* getPRMergeableInfo
+
+-- result :: Object GetPRMergeableInfoSchema; throws a GraphQL exception on errors
+result <- runQuery GetPRMergeableInfoQuery
+  { _repoOwner = ...
+  , _repoName = ...
+  , _prNum = ...
+  }
+
+-- result :: GraphQLResult (Object GetPRMergeableInfoSchema)
+result <- runQuerySafe GetPRMergeableInfoQuery
+  { _repoOwner = ...
+  , _repoName = ...
+  , _prNum = ...
+  }
+-----------------------------------------------------------------------------}
+
+data GetPRMergeableInfoQuery = GetPRMergeableInfoQuery
+  { _repoOwner :: Text
+  , _repoName  :: Text
+  , _prNum     :: Int
+  }
+  deriving (Show)
+
+type GetPRMergeableInfoSchema = [schema|
+  {
+    repository: Maybe {
+      pullRequest: Maybe {
+        mergeable: MergeableState,
+        headRef: Maybe {
+          target: Maybe {
+            [__fragment]: Try (
+              {
+                status: Maybe {
+                  contexts: List {
+                    context: Text,
+                    state: StatusState,
+                  },
+                },
+              }
+            ),
+          },
+        },
+      },
+    },
+  }
+|]
+
+instance GraphQLQuery GetPRMergeableInfoQuery where
+  type ResultSchema GetPRMergeableInfoQuery = GetPRMergeableInfoSchema
+
+  getQueryName _ = "getPRMergeableInfo"
+
+  getQueryText _ = [query|
+    query getPRMergeableInfo($repoOwner: String!, $repoName: String!, $prNum: Int!) {
+      repository(owner: $repoOwner, name: $repoName) {
+        pullRequest(number: $prNum) {
+          mergeable
+          headRef {
+            target {
+              ... on Commit {
+                status {
+                  contexts {
+                    context
+                    state
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  |]
+
+  getArgs query = object
+    [ "repoOwner" .= _repoOwner (query :: GetPRMergeableInfoQuery)
+    , "repoName" .= _repoName (query :: GetPRMergeableInfoQuery)
+    , "prNum" .= _prNum (query :: GetPRMergeableInfoQuery)
     ]
 
 {-----------------------------------------------------------------------------

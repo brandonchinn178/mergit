@@ -1,0 +1,24 @@
+query getPRMergeableInfo(
+  $repoOwner: String!,
+  $repoName: String!,
+  $prNum: Int!,
+) {
+  repository(owner: $repoOwner, name: $repoName) {
+    pullRequest(number: $prNum) {
+      mergeable
+      headRef {
+        target {
+          ... on Commit {
+            status {
+              contexts {
+                context
+                state
+                isRequired(pullRequestNumber: $prNum)
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

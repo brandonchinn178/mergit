@@ -39,7 +39,6 @@ import MergeBot.Core.Text (isStagingBranch, isTryBranch)
 import MergeBot.Monad
     (BaseApp, BotApp, MergeBotEvent(..), ServerBase, queueEvent, runBotApp)
 
--- TODO: WithToken no longer needed?
 type WebhookRoutes =
   GitHubEvent 'PingEvent :> GitHubAction
   :<|> GitHubEvent 'PullRequestEvent :> WithToken :> GitHubAction
