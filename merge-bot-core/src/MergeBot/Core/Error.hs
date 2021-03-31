@@ -34,7 +34,7 @@ data BotError
   | CIBranchPushed (Object PushEvent)
   | CICommitMissingParents Bool Text GitObjectID
   | CommitLacksPR GitObjectID
-  | ConfigFileInvalid [PullRequestId] String
+  | ConfigFileInvalid [PullRequestId] Text
   | ConfigFileMissing [PullRequestId]
   | InvalidStaging [PullRequestId] Text
   | MergeConflict [PullRequestId]
@@ -71,7 +71,7 @@ getBotError = \case
     , if isStart then "starting check run" else "updating check run"
     ]
   CommitLacksPR sha -> "Commit `" <> unOID' sha <> "` does not have an associated pull request"
-  ConfigFileInvalid prs msg -> "Merging " <> fromPRs prs <> " has an invalid `" <> Text.unpack configFileName <> "` config file: " <> msg
+  ConfigFileInvalid prs msg -> "Merging " <> fromPRs prs <> " has an invalid `" <> Text.unpack configFileName <> "` config file: " <> Text.unpack msg
   ConfigFileMissing prs -> "Merging " <> fromPRs prs <> " lacks a `" <> Text.unpack configFileName <> "` config file"
   InvalidStaging _ branch -> "Invalid staging branch: " <> Text.unpack branch
   MergeConflict prs -> "Merge conflict: " <> fromPRs prs
