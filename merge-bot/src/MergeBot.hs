@@ -9,6 +9,7 @@ This module defines the entrypoint for the MergeBot GitHub application.
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE NumDecimals #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
@@ -145,9 +146,9 @@ runServer = do
     ioToHandler :: IO a -> Handler a
     ioToHandler m = liftIO (try m) >>= \case
       Right x -> return x
-      Left e
-        | Just servantErr <- fromException e -> throwError servantErr
-        | otherwise -> throwError $ err500 { errBody = Char8.pack $ displayException e }
+      Left e -> throwError $ if
+        | Just servantErr <- fromException e -> servantErr
+        | otherwise -> err500 { errBody = Char8.pack $ displayException e }
 
 {- Helpers -}
 
