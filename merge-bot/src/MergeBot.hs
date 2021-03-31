@@ -49,6 +49,7 @@ import UnliftIO.Exception (handle, try)
 
 import MergeBot.Auth (AuthParams(..), loadAuthParams)
 import qualified MergeBot.Core as Core
+import MergeBot.Core.Error (getBotError)
 import qualified MergeBot.Core.GitHub as Core
 import MergeBot.Core.Monad (getRepo)
 import MergeBot.EventQueue (EventQueuesConfig(..), initEventQueuesManager)
@@ -148,7 +149,10 @@ runServer = do
       Right x -> return x
       Left e -> throwError $ if
         | Just servantErr <- fromException e -> servantErr
-        | otherwise -> err500 { errBody = Char8.pack $ displayException e }
+        | Just botError <- fromException e -> to500 $ getBotError botError
+        | otherwise -> to500 $ displayException e
+
+    to500 msg = err500 { errBody = Char8.pack msg }
 
 {- Helpers -}
 

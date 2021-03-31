@@ -66,7 +66,7 @@ import Network.HTTP.Types
     (StdMethod(..), hAccept, hAuthorization, hUserAgent, status401)
 import UnliftIO.Exception (Handler(..), SomeException, catchJust, catches)
 
-import MergeBot.Core.Error (getRelevantPRs)
+import MergeBot.Core.Error (getBotError, getRelevantPRs)
 import MergeBot.Core.Logging (runMergeBotLogging)
 
 -- | The monadic state in BotAppT.
@@ -157,7 +157,7 @@ runBotAppT BotSettings{..} =
         }
       }
     handleBotErr e = do
-      let msg = displayException e
+      let msg = getBotError e
       mapM_ (`commentOnPR` msg) $ getRelevantPRs e
       logError msg
       errorWithoutStackTrace $ "MergeBot Error: " ++ msg

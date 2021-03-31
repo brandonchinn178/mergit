@@ -11,6 +11,7 @@ This module defines the errors thrown by the MergeBot.
 
 module MergeBot.Core.Error
   ( BotError(..)
+  , getBotError
   , getRelevantPRs
   ) where
 
@@ -44,12 +45,12 @@ data BotError
   | SomePRsMerged [PullRequestId] [PullRequestId]
   | TreeNotUpdated [PullRequestId] PullRequestId
   | UnapprovedPR PullRequestId
-  deriving (Eq)
+  deriving (Show, Eq)
 
 instance Exception BotError
 
-instance Show BotError where
-  show = \case
+getBotError :: BotError -> String
+getBotError = \case
     AmbiguousPRForCommit sha -> "Could not determine PR for commit: `" <> unOID' sha <> "`"
     BadUpdate sha prs base message -> concat
       [ "Could not merge PRs "
