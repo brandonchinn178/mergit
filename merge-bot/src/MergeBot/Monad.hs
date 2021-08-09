@@ -46,7 +46,12 @@ import Control.Monad.Trans (lift)
 import Data.Aeson (FromJSON)
 import Data.Aeson.Schema (Object, get, schema)
 import GitHub.REST
-    (GHEndpoint(..), GitHubSettings(..), MonadGitHubREST(..), Token, runGitHubT)
+    ( GHEndpoint(..)
+    , GitHubSettings(..)
+    , MonadGitHubREST(..)
+    , Token
+    , runGitHubT
+    )
 import GitHub.REST.Auth (getJWTToken)
 import GitHub.Schema.Repository (Repository)
 import Network.HTTP.Types (StdMethod(..))
