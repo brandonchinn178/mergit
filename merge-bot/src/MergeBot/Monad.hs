@@ -46,7 +46,7 @@ import Control.Monad.Trans (lift)
 import Data.Aeson (FromJSON)
 import Data.Aeson.Schema (Object, get, schema)
 import GitHub.REST
-    (GHEndpoint(..), GitHubState(..), MonadGitHubREST(..), Token, runGitHubT)
+    (GHEndpoint(..), GitHubSettings(..), MonadGitHubREST(..), Token, runGitHubT)
 import GitHub.REST.Auth (getJWTToken)
 import GitHub.Schema.Repository (Repository)
 import Network.HTTP.Types (StdMethod(..))
@@ -107,13 +107,13 @@ getJWTToken' = do
 queryGitHub' :: FromJSON a => GHEndpoint -> Token -> BaseApp a
 queryGitHub' endpoint token = do
   GitHubAppParams{ghUserAgent} <- getGitHubAppParams
-  let ghState = GitHubState
+  let ghSettings = GitHubSettings
         { token = Just token
         , userAgent = ghUserAgent
         , apiVersion = "machine-man-preview"
         }
 
-  liftIO $ runGitHubT ghState $ queryGitHub endpoint
+  liftIO $ runGitHubT ghSettings $ queryGitHub endpoint
 
 -- | A helper for getting all the installation IDs for this GitHub app.
 getInstallations :: BaseApp [Int]

@@ -13,7 +13,7 @@ import Data.Aeson.Schema (get)
 import qualified Data.Text as Text
 import GitHub.Data.URL (URL(..))
 import GitHub.REST
-    (GHEndpoint(..), GitHubState(..), KeyValue(..), queryGitHub, runGitHubT)
+    (GHEndpoint(..), GitHubSettings(..), KeyValue(..), queryGitHub, runGitHubT)
 import GitHub.Schema.Repository (RepoWebhook)
 import Network.Wai.Handler.Warp (run)
 import Servant
@@ -36,10 +36,10 @@ handleInstallationEvent o token = liftIO $ do
   putStrLn $ "Installation ID: " ++ show [get| o.installation.id |]
 
   GitHubAppParams{ghUserAgent} <- loadGitHubAppParams
-  let state = GitHubState (Just token) ghUserAgent "v3"
+  let settings = GitHubSettings (Just token) ghUserAgent "v3"
 
   forM_ [get| o.repositories[].full_name |] $ \repoName -> do
-    repo <- runGitHubT state $
+    repo <- runGitHubT settings $
       queryGitHub @_ @(Object RepoWebhook) GHEndpoint
         { method = GET
         , endpoint = "/repos/:full_repo_name"

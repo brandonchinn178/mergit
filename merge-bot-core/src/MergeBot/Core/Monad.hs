@@ -53,7 +53,7 @@ import Data.Text (Text)
 import qualified Data.Text as Text
 import GitHub.REST
     ( GHEndpoint(..)
-    , GitHubState(..)
+    , GitHubSettings(..)
     , GitHubT
     , KeyValue(..)
     , MonadGitHubREST(..)
@@ -99,7 +99,7 @@ instance MonadTrans BotAppT where
   lift = BotAppT . lift . lift . lift . lift
 
 instance MonadUnliftIO m => MonadGitHubREST (BotAppT m) where
-  queryGitHubPage' = retry . (BotAppT . lift . lift . queryGitHubPage')
+  queryGitHubPage = retry . (BotAppT . lift . lift . queryGitHubPage)
     where
       retry m =
         let go i = catchJust (getBadCredentialsError i) m $ \_ -> do
@@ -135,7 +135,7 @@ data BotSettings = BotSettings
 runBotAppT :: (MonadIO m, MonadUnliftIO m) => BotSettings -> BotAppT m a -> m a
 runBotAppT BotSettings{..} =
   runGraphQLQueryT graphqlSettings
-  . runGitHubT state
+  . runGitHubT ghSettings
   . (`runReaderT` botState)
   . runMergeBotLogging
   . unBotAppT
@@ -145,7 +145,7 @@ runBotAppT BotSettings{..} =
       ]
     )
   where
-    state = GitHubState { token = Just token, userAgent, apiVersion = "antiope-preview" }
+    ghSettings = GitHubSettings { token = Just token, userAgent, apiVersion = "antiope-preview" }
     botState = BotState{..}
     graphqlSettings = githubQuerySettings
       { modifyReq = \req -> req

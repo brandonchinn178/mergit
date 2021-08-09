@@ -29,7 +29,7 @@ import qualified Data.Text as Text
 import qualified Data.Text.Encoding as Text
 import GitHub.REST
     ( GHEndpoint(..)
-    , GitHubState(..)
+    , GitHubSettings(..)
     , KeyValue(..)
     , Token(..)
     , queryGitHub
@@ -60,12 +60,12 @@ doesSignatureMatch key payload = constEq digest
 getToken :: Signer -> Int -> ByteString -> Int -> IO Token
 getToken signer appId userAgent installationId = do
   jwtToken <- getJWTToken signer appId
-  let state = GitHubState
+  let settings = GitHubSettings
         { token = Just jwtToken
         , apiVersion = "machine-man-preview"
         , userAgent
         }
-  runGitHubT state $ AccessToken . Text.encodeUtf8 . [get| .token |] <$> createToken
+  runGitHubT settings $ AccessToken . Text.encodeUtf8 . [get| .token |] <$> createToken
   where
     createToken =
       queryGitHub @_ @(Object [schema| { token: Text } |]) GHEndpoint
