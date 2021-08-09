@@ -54,7 +54,9 @@ View the logs with `journalctl -u merge-bot`. You might want to pipe this into `
 
 The merge bot process can be inspected with `systemctl status merge-bot`. You can manually restart the merge bot process with `systemctl restart merge-bot`
 
-## Update
+## Redeploy
+
+TODO: Set up CD for the merge bot and remove this section (https://leapyear.atlassian.net/browse/QA-183)
 
 The `github-app.pem` private key and the `terraform.tfvars` values should be
 in LastPass under "LY Merge Bot".
