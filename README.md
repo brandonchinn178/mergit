@@ -52,6 +52,8 @@ provide an access token to use for the duration of a request.
 
 * `merge-bot`: The web service that serves the merge bot as a GitHub app.
 
+See [ARCHITECTURE.md](ARCHITECTURE.md) for more information.
+
 ## Configuration
 
 1. Follow [these instructions][create-github-app] to create a GitHub app.
