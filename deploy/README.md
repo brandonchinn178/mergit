@@ -20,6 +20,7 @@ requests from GitHub while routing HTTP requests internally to the merge bot.
 
 ## Steps
 
+1. Turn on the VPN
 1. `cd` to this directory
 1. `mkdir artifacts/`
 1. Save the private key as `artifacts/github-app.pem`
@@ -33,8 +34,6 @@ requests from GitHub while routing HTTP requests internally to the merge bot.
     webhook_secret = "xxx"
     ```
 
-1. Turn on the VPN
-1. Ensure `terraform --version` matches `.terraform-version`
 1. `terraform init`
 1. `terraform apply`
 
@@ -44,7 +43,7 @@ If you want to get logs or otherwise inspect the EC2 instance running the merge
 bot, run the following:
 
 1. Turn on the VPN
-1. Ensure `terraform --version` matches `.terraform-version`
+1. `cd` to this directory
 1. `terraform init`
 1. `terraform apply`
     1. Make sure the EC2 instance isn't being changed; just that the keyfile
@@ -60,6 +59,8 @@ merge bot process can be inspected with `systemctl status merge-bot`.
 The `github-app.pem` private key and the `terraform.tfvars` values should be
 in LastPass under "LY Merge Bot".
 
+1. Turn on the VPN
+1. `cd` to this directory
 1. Ensure that `artifacts/github-app.pem` still exists
 1. Put the new `merge-bot` binary in `artifacts/`
 1. `terraform taint aws_instance.merge_bot`
