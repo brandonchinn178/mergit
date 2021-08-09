@@ -27,7 +27,8 @@ import Control.Monad.Except (MonadError(..))
 import Control.Monad.IO.Class (MonadIO(..))
 import Control.Monad.Reader (ReaderT, asks, lift, runReaderT)
 import Data.Text (Text)
-import GitHub.REST (GitHubState(..), GitHubT, MonadGitHubREST(..), runGitHubT)
+import GitHub.REST
+    (GitHubSettings(..), GitHubT, MonadGitHubREST(..), runGitHubT)
 import GitHub.REST.Auth (Token)
 import Servant (ServerError, ServerT)
 import Servant.GitHub (GitHubAppParams(..))
@@ -56,7 +57,7 @@ newtype DebugApp a = DebugApp
     )
 
 instance MonadGitHubREST DebugApp where
-  queryGitHubPage' = DebugApp . lift . queryGitHubPage'
+  queryGitHubPage = DebugApp . lift . queryGitHubPage
 
 instance MonadError ServerError DebugApp where
   throwError = throwIO
@@ -71,13 +72,13 @@ runDebugApp :: DebugState -> DebugApp a -> BaseApp a
 runDebugApp debugState action = do
   GitHubAppParams{ghUserAgent} <- getGitHubAppParams
 
-  let ghState = GitHubState
+  let ghSettings = GitHubSettings
         { token = Just $ debugToken debugState
         , userAgent = ghUserAgent
         , apiVersion = "machine-man-preview"
         }
 
-  runGitHubT ghState
+  runGitHubT ghSettings
     . (`runReaderT` debugState)
     . unDebugApp
     $ action
