@@ -50,9 +50,9 @@ bot, run the following:
        is being created locally
 1. `$(terraform output ssh_cmd)`
 
-Logs may be found at `/var/log/merge-bot/`. You can also view the logs with
-`journalctl -u merge-bot` (probably piped into `less` and/or `grep`). The
-merge bot process can be inspected with `systemctl status merge-bot`.
+View the logs with `journalctl -u merge-bot`. You might want to pipe this into `less` and/or `grep` — see `man journalctl` for more information.
+
+The merge bot process can be inspected with `systemctl status merge-bot`. You can manually restart the merge bot process with `systemctl restart merge-bot`
 
 ## Update
 
