@@ -14,11 +14,11 @@ requests from GitHub while routing HTTP requests internally to the merge bot.
 
 ## Pre-Requisites
 
-1. Install at least Terraform 0.11.13
+1. Install [`tfenv`](https://github.com/tfutils/tfenv)
 1. Get the app ID, webhook secret, and private key from LastPass.
 1. Download the `merge-bot` binary from a CI job.
 
-## Steps
+## Deploy for the first time
 
 1. Turn on the VPN
 1. `cd` to this directory
