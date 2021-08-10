@@ -46,6 +46,7 @@ type WebhookRoutes =
   :<|> GitHubEvent 'CheckRunEvent :> WithToken :> GitHubAction
   :<|> GitHubEvent 'StatusEvent :> WithToken :> GitHubAction
   :<|> GitHubEvent 'PushEvent :> WithToken :> GitHubAction
+  :<|> Post '[PlainText] Text
 
 handleWebhookRoutes :: ServerBase WebhookRoutes
 handleWebhookRoutes =
@@ -54,6 +55,7 @@ handleWebhookRoutes =
   :<|> handleCheckRun
   :<|> handleStatus
   :<|> handlePush
+  :<|> handleOtherEvent
 
 -- | Handle the 'ping' GitHub event.
 handlePing :: Object PingEvent -> BaseApp ()
@@ -129,6 +131,9 @@ handlePush o = runBotApp' repo $ do
     branch = case Text.splitOn "/" [get| o.ref |] of
       [] -> error $ "Bad ref: " ++ Text.unpack [get| o.ref |]
       l -> last l
+
+handleOtherEvent :: BaseApp Text
+handleOtherEvent = pure "webhook got unknown request"
 
 {- Helpers -}
 
