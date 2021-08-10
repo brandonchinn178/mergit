@@ -76,7 +76,7 @@ type PullRequestWebhook = [schema|
     locked: Bool,
     title: Text,
     user: #UserShort,
-    body: Text,
+    body: Maybe Text,
     created_at: UTCTime,
     updated_at: UTCTime,
     closed_at: Maybe UTCTime,
