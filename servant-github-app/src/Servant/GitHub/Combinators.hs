@@ -204,6 +204,6 @@ addPostBodyCheck_ bodyCheck Servant.Delayed{..} =
 
 decodeRequestBody :: forall (schema :: Schema). IsSchema schema
   => ByteStringL.ByteString -> Servant.DelayedIO (Object schema)
-decodeRequestBody s = either (Servant.delayedFail . mkErr) return $ eitherDecode @(Object schema) s
+decodeRequestBody s = either (Servant.delayedFailFatal . mkErr) return $ eitherDecode @(Object schema) s
   where
     mkErr e = err400 { errBody = "Could not decode: " <> Char8.pack e <> "\n" <> s }
