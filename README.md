@@ -138,3 +138,8 @@ statuses:
 * `This branch must not contain merge commits.`
 
     If you're getting this error, make sure to disable "Require linear history" for the base branch.
+
+## Useful links
+
+* [Runbook](https://www.notion.so/leapyear/Merge-Bot-Runbook-651a19edfff64217afd12b199a4491b2)
+* [JIRA tracker](https://leapyear.atlassian.net/issues/?filter=10814)

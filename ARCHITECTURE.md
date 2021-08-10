@@ -2,7 +2,7 @@
 
 This document will go over how the merge bot project is architected, which may be useful for you if you are either developing on the merge bot or troubleshooting the merge bot.
 
-Broadly speaking, the two projects in this repo you care about are `merge-bot-core` and `merge-bot`. The other two projects, `github-schemas` and `servant-github-app`, you can think of as third-party libraries. They will be broken out into separate repos at some point.
+Broadly speaking, the two projects in this repo to focus on are `merge-bot-core` and `merge-bot`. The other two projects, `github-schemas` and `servant-github-app`, you can think of as third-party libraries. They will be broken out into separate repos at some point.
 
 `merge-bot-core` contains the core functionality of the merge bot. All the business logic for the merge bot (e.g. "merge branch A into `main`") is exposed as a function in this package.
 

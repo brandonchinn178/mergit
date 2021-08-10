@@ -58,12 +58,18 @@ The merge bot process can be inspected with `systemctl status merge-bot`. You ca
 
 TODO: Set up CD for the merge bot and remove this section (https://leapyear.atlassian.net/browse/QA-183)
 
-The `github-app.pem` private key and the `terraform.tfvars` values should be
-in LastPass under "LY Merge Bot".
+Run the following steps to redeploy the Merge Bot; e.g. after merging a PR that fixes a bug.
 
 1. Turn on the VPN
+1. Download the new `merge-bot` binary from Circle CI
+    1. Find the appropriate workflow on https://app.circleci.com/pipelines/github/LeapYear/merge-bot
+    1. Go to the `build` CI job
+    1. Go to Artifacts, and download the `merge-bot` binary.
 1. `cd` to this directory
 1. Ensure that `artifacts/github-app.pem` still exists
 1. Put the new `merge-bot` binary in `artifacts/`
 1. `terraform taint aws_instance.merge_bot`
 1. `terraform apply -auto-approve`
+
+The `github-app.pem` private key and the `terraform.tfvars` values should be
+in LastPass under "LY Merge Bot".
