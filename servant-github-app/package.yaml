@@ -31,3 +31,20 @@ executables:
     dependencies:
     - servant-github-app
     - warp
+
+tests:
+  servant-github-app-test:
+    source-dirs: test
+    main: Main.hs
+    dependencies:
+    - aeson
+    - aeson-qq
+    - bytestring
+    - http-types
+    - jwt
+    - servant-github-app
+    - tasty
+    - tasty-hunit
+    - text
+    - wai
+    - wai-extra

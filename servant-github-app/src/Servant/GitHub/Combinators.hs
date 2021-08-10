@@ -157,7 +157,7 @@ instance
     where
       provideToken = mkTokenGenerator context
 
--- | An alias for @Post '[JSON] ()@, since GitHub sends JSON data, and webhook handlers shouldn't
+-- | An alias for @Post '[JSON] NoContent@, since GitHub sends JSON data, and webhook handlers shouldn't
 -- return anything (they're only consumers).
 --
 -- This combinator MUST be used in order to clear the request body cache.
@@ -168,7 +168,7 @@ instance HasServer GitHubAction context where
 
   hoistServerWithContext _ _ nt s = nt s
 
-  route _ context = route (Proxy @(Post '[JSON] ())) context . addPostBodyCheck_ clearRequestBody
+  route _ context = route (Proxy @(Post '[JSON] NoContent)) context . fmap (fmap $ const NoContent) . addPostBodyCheck_ clearRequestBody
 
 {- Servant internal functions -}
 
@@ -204,6 +204,6 @@ addPostBodyCheck_ bodyCheck Servant.Delayed{..} =
 
 decodeRequestBody :: forall (schema :: Schema). IsSchema schema
   => ByteStringL.ByteString -> Servant.DelayedIO (Object schema)
-decodeRequestBody s = either (Servant.delayedFail . mkErr) return $ eitherDecode @(Object schema) s
+decodeRequestBody s = either (Servant.delayedFailFatal . mkErr) return $ eitherDecode @(Object schema) s
   where
     mkErr e = err400 { errBody = "Could not decode: " <> Char8.pack e <> "\n" <> s }

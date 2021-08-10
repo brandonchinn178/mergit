@@ -16,6 +16,9 @@ module Servant.GitHub.Security
   ( parseSignature
   , doesSignatureMatch
   , getToken
+
+  -- * Helpers
+  , sha1sum
   ) where
 
 import Control.Monad ((>=>))
@@ -52,9 +55,7 @@ parseSignature signature =
 --
 -- Uses `constEq` to avoid timing attacks.
 doesSignatureMatch :: ByteString -> ByteString -> Digest SHA1 -> Bool
-doesSignatureMatch key payload = constEq digest
-  where
-    digest = hmacGetDigest @SHA1 $ hmac key payload
+doesSignatureMatch key payload = constEq (sha1sum key payload)
 
 -- | Create an installation token.
 getToken :: Signer -> Int -> ByteString -> Int -> IO Token
@@ -79,3 +80,6 @@ getToken signer appId userAgent installationId = do
 
 convertFromBase16 :: ByteString -> Maybe ByteString
 convertFromBase16 = either (const Nothing) Just . convertFromBase Base16
+
+sha1sum :: ByteString -> ByteString -> Digest SHA1
+sha1sum key payload = hmacGetDigest @SHA1 $ hmac key payload
