@@ -62,24 +62,22 @@ createCheckRuns sha = do
 
 -- | Start a new try job.
 startTryJob :: MonadMergeBot m => PrNum -> CommitSHA -> BranchName -> CheckRunId -> m ()
-startTryJob prNum prSHA base checkRunId = do
-  let setCheckRunFailed =
-        updateCheckRuns
-          [(prSHA, checkRunId)]
-          CheckRunUpdates
-            { isStart = True
-            , isTry = True
-            , checkRunStatus = CheckRunComplete False
-            , checkRunBody = ["Unable to start try job."]
-            }
-  mergeSHA <-
-    createCIBranch base [(prNum, prSHA)] tryBranch tryMessage
-      `onException` setCheckRunFailed
-
-  refreshCheckRuns True tryBranch mergeSHA
+startTryJob prNum prSHA base checkRunId =
+  (`onException` setCheckRunFailed) $ do
+    mergeSHA <- createCIBranch base [(prNum, prSHA)] tryBranch tryMessage
+    refreshCheckRuns True tryBranch mergeSHA
   where
     tryBranch = toTryBranch prNum
     tryMessage = toTryMessage prNum
+    setCheckRunFailed =
+      updateCheckRuns
+        [(prSHA, checkRunId)]
+        CheckRunUpdates
+          { isStart = True
+          , isTry = True
+          , checkRunStatus = CheckRunComplete False
+          , checkRunBody = ["Unable to start try job."]
+          }
 
 -- | Add a PR to the queue.
 queuePR :: MonadMergeBot m => PrNum -> CommitSHA -> m ()
@@ -130,9 +128,6 @@ pollQueues = do
           prNumsAndSHAs = zip prNums prSHAs
           prSHAsAndCheckRunIds = zip prSHAs checkRunIds
 
-          stagingBranch = toStagingBranch base
-          stagingMessage = toStagingMessage base prNums
-
       let setCheckRunFailed =
             updateCheckRuns
               prSHAsAndCheckRunIds
@@ -142,11 +137,12 @@ pollQueues = do
                 , checkRunStatus = CheckRunComplete False
                 , checkRunBody = ["Unable to start merge job."]
                 }
-      mergeSHA <-
-        createCIBranch base prNumsAndSHAs stagingBranch stagingMessage
-          `onException` setCheckRunFailed
 
-      refreshCheckRuns True stagingBranch mergeSHA
+      (`onException` setCheckRunFailed) $ do
+        let stagingBranch = toStagingBranch base
+            stagingMessage = toStagingMessage base prNums
+        mergeSHA <- createCIBranch base prNumsAndSHAs stagingBranch stagingMessage
+        refreshCheckRuns True stagingBranch mergeSHA
 
 {- Helpers -}
 
