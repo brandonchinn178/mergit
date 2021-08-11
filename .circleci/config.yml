@@ -96,10 +96,12 @@ commands:
         type: steps
     steps:
       - restore_cache:
-          key: v1-{{ checksum "cache-key.txt" }}
+          keys:
+            - v1-{{ checksum "cache-key.txt" }}-{{ .Environment.CIRCLE_JOB }}
+            - v1-{{ checksum "cache-key.txt" }}
       - << parameters.steps >>
       - save_cache:
-          key: v1-{{ checksum "cache-key.txt" }}
+          key: v1-{{ checksum "cache-key.txt" }}-{{ .Environment.CIRCLE_JOB }}
           paths:
             - ~/.stack
 
