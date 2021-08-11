@@ -63,16 +63,18 @@ createCheckRuns sha = do
 -- | Start a new try job.
 startTryJob :: MonadMergeBot m => PrNum -> CommitSHA -> BranchName -> CheckRunId -> m ()
 startTryJob prNum prSHA base checkRunId = do
+  let setCheckRunFailed =
+        updateCheckRuns
+          [(prSHA, checkRunId)]
+          CheckRunUpdates
+            { isStart = True
+            , isTry = True
+            , checkRunStatus = CheckRunComplete False
+            , checkRunBody = ["Unable to start try job."]
+            }
   mergeSHA <-
     createCIBranch base [(prNum, prSHA)] tryBranch tryMessage
-      `onException` updateCheckRuns
-        [(prSHA, checkRunId)]
-        CheckRunUpdates
-          { isStart = True
-          , isTry = True
-          , checkRunStatus = CheckRunComplete False
-          , checkRunBody = ["Unable to start try job."]
-          }
+      `onException` setCheckRunFailed
 
   refreshCheckRuns True tryBranch mergeSHA
   where
@@ -131,16 +133,18 @@ pollQueues = do
           stagingBranch = toStagingBranch base
           stagingMessage = toStagingMessage base prNums
 
+      let setCheckRunFailed =
+            updateCheckRuns
+              prSHAsAndCheckRunIds
+              CheckRunUpdates
+                { isStart = True
+                , isTry = False
+                , checkRunStatus = CheckRunComplete False
+                , checkRunBody = ["Unable to start merge job."]
+                }
       mergeSHA <-
         createCIBranch base prNumsAndSHAs stagingBranch stagingMessage
-          `onException` updateCheckRuns
-            prSHAsAndCheckRunIds
-            CheckRunUpdates
-              { isStart = True
-              , isTry = False
-              , checkRunStatus = CheckRunComplete False
-              , checkRunBody = ["Unable to start merge job."]
-              }
+          `onException` setCheckRunFailed
 
       refreshCheckRuns True stagingBranch mergeSHA
 
@@ -271,12 +275,14 @@ refreshCheckRuns isStart ciBranchName sha = do
         allPRsMerged <- areAllPRsMerged prs
 
         if allPRsMerged
-          then -- If all PRs are merged, then this status was from a post-merge, non-blocking
-          -- CI job. Don't attempt to merge PRs / delete branches again.
+          then do
+            -- If all PRs are merged, then this status was from a post-merge, non-blocking
+            -- CI job. Don't attempt to merge PRs / delete branches again.
             return ()
-          else -- If all of the PRs are still open, run the merge post-run actions and delete the
-          -- staging branch when finished, even if the merge run failed (so that the next
-          -- merge run can start).
+          else do
+            -- If all of the PRs are still open, run the merge post-run actions and delete the
+            -- staging branch when finished, even if the merge run failed (so that the next
+            -- merge run can start).
             onMergeCompletion parents prs isSuccess `finally` deleteBranch ciBranchName
   where
     isTry = isTryBranch ciBranchName

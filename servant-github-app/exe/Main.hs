@@ -1,10 +1,12 @@
--- An example usage of a Servant website that allows GitHub events at the '/webhook/' route.
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
+
+-- | An example usage of a Servant website that allows GitHub events at the '/webhook/' route.
+module Main where
 
 import Control.Monad (forM_)
 import Control.Monad.IO.Class (liftIO)

@@ -431,9 +431,9 @@ createCheckRun ghData =
  https://developer.github.com/v3/checks/runs/#update-a-check-run
 -}
 updateCheckRun' :: MonadMergeBot m => CheckRunId -> GitHubData -> m ()
-updateCheckRun' checkRunId ghData =
-  void $
-    queryGitHub'
+updateCheckRun' checkRunId ghData = void $ queryGitHub' endpoint
+  where
+    endpoint =
       GHEndpoint
         { method = PATCH
         , endpoint = "/repos/:owner/:repo/check-runs/:check_run_id"
@@ -446,9 +446,9 @@ updateCheckRun' checkRunId ghData =
  https://developer.github.com/v3/git/commits/#create-a-commit
 -}
 createCommit :: MonadMergeBot m => Text -> GitObjectID -> [CommitSHA] -> m CommitSHA
-createCommit message tree parents =
-  (.: "sha")
-    <$> queryGitHub'
+createCommit message tree parents = (.: "sha") <$> queryGitHub' endpoint
+  where
+    endpoint =
       GHEndpoint
         { method = POST
         , endpoint = "/repos/:owner/:repo/git/commits"
@@ -465,9 +465,9 @@ createCommit message tree parents =
  https://developer.github.com/v3/git/refs/#create-a-reference
 -}
 createBranch :: MonadMergeBot m => BranchName -> CommitSHA -> m ()
-createBranch name sha =
-  void $
-    queryGitHub'
+createBranch name sha = void $ queryGitHub' endpoint
+  where
+    endpoint =
       GHEndpoint
         { method = POST
         , endpoint = "/repos/:owner/:repo/git/refs"
@@ -485,34 +485,31 @@ createBranch name sha =
  https://developer.github.com/v3/git/refs/#update-a-reference
 -}
 updateBranch :: MonadMergeBot m => Bool -> BranchName -> CommitSHA -> m (Either Text ())
-updateBranch force branch sha =
-  fmap resolve $
-    githubTry $
-      queryGitHub'
-        GHEndpoint
-          { method = PATCH
-          , endpoint = "/repos/:owner/:repo/git/refs/:ref"
-          , endpointVals = ["ref" := "heads/" <> branch]
-          , ghData = ["sha" := sha, "force" := force]
-          }
+updateBranch force branch sha = fmap resolve $ githubTry $ queryGitHub' endpoint
   where
     resolve = bimap (.: "message") (const ())
+    endpoint =
+      GHEndpoint
+        { method = PATCH
+        , endpoint = "/repos/:owner/:repo/git/refs/:ref"
+        , endpointVals = ["ref" := "heads/" <> branch]
+        , ghData = ["sha" := sha, "force" := force]
+        }
 
 {- | Delete the given branch, ignoring the error if the branch doesn't exist.
 
  https://developer.github.com/v3/git/refs/#delete-a-reference
 -}
 deleteBranch :: MonadMergeBot m => BranchName -> m ()
-deleteBranch branch =
-  void $
-    githubTry $
-      queryGitHub'
-        GHEndpoint
-          { method = DELETE
-          , endpoint = "/repos/:owner/:repo/git/refs/:ref"
-          , endpointVals = ["ref" := "heads/" <> branch]
-          , ghData = []
-          }
+deleteBranch branch = void $ githubTry $ queryGitHub' endpoint
+  where
+    endpoint =
+      GHEndpoint
+        { method = DELETE
+        , endpoint = "/repos/:owner/:repo/git/refs/:ref"
+        , endpointVals = ["ref" := "heads/" <> branch]
+        , ghData = []
+        }
 
 {- | Merge two branches, returning the merge commit information.
 
@@ -521,29 +518,28 @@ deleteBranch branch =
  https://developer.github.com/v3/repos/merging/#perform-a-merge
 -}
 mergeBranches :: MonadMergeBot m => BranchName -> CommitSHA -> Text -> m Bool
-mergeBranches base sha message =
-  fmap isRight $
-    githubTry' status409 $
-      queryGitHub'
-        GHEndpoint
-          { method = POST
-          , endpoint = "/repos/:owner/:repo/merges"
-          , endpointVals = []
-          , ghData =
-              [ "base" := base
-              , "head" := sha
-              , "commit_message" := message
-              ]
-          }
+mergeBranches base sha message = fmap isRight $ githubTry' status409 $ queryGitHub' endpoint
+  where
+    endpoint =
+      GHEndpoint
+        { method = POST
+        , endpoint = "/repos/:owner/:repo/merges"
+        , endpointVals = []
+        , ghData =
+            [ "base" := base
+            , "head" := sha
+            , "commit_message" := message
+            ]
+        }
 
 {- | Close the given PR.
 
  https://developer.github.com/v3/pulls/#update-a-pull-request
 -}
 closePR :: MonadMergeBot m => PrNum -> m ()
-closePR prNum =
-  void $
-    queryGitHub'
+closePR prNum = void $ queryGitHub' endpoint
+  where
+    endpoint =
       GHEndpoint
         { method = PATCH
         , endpoint = "/repos/:owner/:repo/pulls/:number"

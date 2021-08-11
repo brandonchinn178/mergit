@@ -44,6 +44,7 @@ import GitHub.Schema.Event.PullRequest as Schema (PullRequestEvent)
 import GitHub.Schema.Event.Push as Schema (PushEvent)
 import GitHub.Schema.Event.Status as Schema (StatusEvent)
 
+{- ORMOLU_DISABLE -}
 -- | TODO: Finish implementing other events.
 data GitHubEventType
   = CheckRunEvent
@@ -62,32 +63,33 @@ data GitHubEventType
   | IssueCommentEvent
   | IssuesEvent
   | LabelEvent
-  | -- TODO: MarketplacePurchaseEvent
-    -- TODO: MemberEvent
-    -- TODO: MembershipEvent
-    -- TODO: MilestoneEvent
-    -- TODO: OrganizationEvent
-    -- TODO: OrgBlockEvent
-    -- TODO: PageBuildEvent
-    PingEvent
-  | -- TODO: ProjectCardEvent
-    -- TODO: ProjectColumnEvent
-    -- TODO: ProjectEvent
-    -- TODO: PublicEvent
-    PullRequestEvent
-  | -- TODO: PullRequestReviewEvent
-    -- TODO: PullRequestReviewCommentEvent
-    PushEvent
-  | -- TODO: ReleaseEvent
-    -- TODO: RepositoryEvent
-    -- TODO: RepositoryImportEvent
-    -- TODO: RepositoryVulnerabilityAlertEvent
-    -- TODO: SecurityAdvisoryEvent
-    StatusEvent
+  -- TODO: MarketplacePurchaseEvent
+  -- TODO: MemberEvent
+  -- TODO: MembershipEvent
+  -- TODO: MilestoneEvent
+  -- TODO: OrganizationEvent
+  -- TODO: OrgBlockEvent
+  -- TODO: PageBuildEvent
+  | PingEvent
+  -- TODO: ProjectCardEvent
+  -- TODO: ProjectColumnEvent
+  -- TODO: ProjectEvent
+  -- TODO: PublicEvent
+  | PullRequestEvent
+  -- TODO: PullRequestReviewEvent
+  -- TODO: PullRequestReviewCommentEvent
+  | PushEvent
+  -- TODO: ReleaseEvent
+  -- TODO: RepositoryEvent
+  -- TODO: RepositoryImportEvent
+  -- TODO: RepositoryVulnerabilityAlertEvent
+  -- TODO: SecurityAdvisoryEvent
+  | StatusEvent
   -- TODO: TeamEvent
   -- TODO: TeamAddEvent
   -- TODO: WatchEvent
   deriving (Show)
+{- ORMOLU_ENABLE -}
 
 class IsGitHubEvent (e :: GitHubEventType) where
   type EventSchema e :: Schema

@@ -64,13 +64,13 @@ handleLoginRoute :: BaseApp (RedirectResult '[])
 handleLoginRoute = do
   AuthParams{..} <- getAuthParams
 
-  let redirectUrl =
-        "https://github.com/login/oauth/authorize"
-          <> renderSimpleQuery
-            True
-            [ ("client_id", Char8.pack ghClientId)
-            , ("redirect_uri", Char8.pack $ ghBaseUrl <> "/auth/callback")
-            ]
+  let redirectUrl = "https://github.com/login/oauth/authorize" <> queryParams
+      queryParams =
+        renderSimpleQuery
+          True
+          [ ("client_id", Char8.pack ghClientId)
+          , ("redirect_uri", Char8.pack $ ghBaseUrl <> "/auth/callback")
+          ]
   return $ addHeader (Char8.unpack redirectUrl) NoContent
 
 type SetCookieHeaders =

@@ -227,9 +227,9 @@ githubQuerySettings =
  https://developer.github.com/v3/issues/comments/#create-a-comment
 -}
 commentOnPR :: MonadMergeBot m => Int -> Text -> m ()
-commentOnPR prNum comment =
-  void $
-    queryGitHub'
+commentOnPR prNum comment = void $ queryGitHub' endpoint
+  where
+    endpoint =
       GHEndpoint
         { method = POST
         , endpoint = "/repos/:owner/:repo/issues/:number/comments"
