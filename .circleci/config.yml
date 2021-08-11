@@ -13,15 +13,6 @@ workflows:
           requires:
             - build
 
-aliases:
-  # build steps
-  - &copy-artifacts
-    run:
-      name: Copy artifacts
-      command: |
-        mkdir -p artifacts/
-        cp "$(stack exec -- bash -c 'type -P merge-bot')" artifacts/
-
 jobs:
   build:
     executor: docker-centos7
@@ -33,9 +24,7 @@ jobs:
           steps:
             - run: scripts/install-stack-deps.sh
       - run: stack build --test --no-run-tests
-      - *copy-artifacts
-      - store_artifacts:
-          path: artifacts/
+      - upload_artifacts
       - persist_to_workspace:
           root: .
           paths:
@@ -113,3 +102,13 @@ commands:
           key: v1-{{ checksum "cache-key.txt" }}
           paths:
             - ~/.stack
+
+  upload_artifacts:
+    steps:
+      - run:
+          name: Collect artifacts
+          command: |
+            mkdir -p artifacts/
+            cp "$(stack exec -- bash -c 'type -P merge-bot')" artifacts/
+      - store_artifacts:
+          path: artifacts/
