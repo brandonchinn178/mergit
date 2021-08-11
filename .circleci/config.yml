@@ -109,6 +109,6 @@ commands:
           name: Collect artifacts
           command: |
             mkdir -p artifacts/
-            cp "$(stack exec -- bash -c 'type -P merge-bot')" artifacts/
+            cp -v "$(stack exec -- bash -c 'type -P merge-bot')" artifacts/
       - store_artifacts:
           path: artifacts/
