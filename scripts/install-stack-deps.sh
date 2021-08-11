@@ -8,4 +8,3 @@ set -ex -o pipefail
 stack build haskell-src-meta
 
 stack build --test --only-dependencies
-stack build hlint stylish-haskell

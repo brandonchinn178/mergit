@@ -140,7 +140,7 @@ EOT
 
   provisioner "remote-exec" {
     inline = [
-      # merge-bot executable 
+      # merge-bot executable
       "sudo chmod +x merge-bot",
       "sudo mv merge-bot /usr/local/bin/",
 
@@ -153,7 +153,7 @@ EOT
       # logging
       "sudo mkdir -p /var/log/merge-bot",
 
-      # systemd 
+      # systemd
       "sudo mv merge-bot.service /usr/lib/systemd/system/",
       "sudo systemctl enable --now merge-bot",
     ]
