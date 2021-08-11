@@ -59,7 +59,8 @@ jobs:
       - install_stack
       - with_stack_cache:
           steps:
-            - run: stack test
+            # https://github.com/commercialhaskell/stack/issues/5024
+            - run: stack test -j1
 
 executors:
   docker-centos7:
