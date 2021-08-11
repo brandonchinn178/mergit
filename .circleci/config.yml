@@ -41,6 +41,7 @@ jobs:
       - install_stack
       - with_stack_cache:
           steps:
+            - run: stack build --fast hlint stylish-haskell
             - run: scripts/hlint.sh
             - run: scripts/stylish-haskell.sh
 
