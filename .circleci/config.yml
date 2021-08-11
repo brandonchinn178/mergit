@@ -38,12 +38,19 @@ jobs:
     executor: docker-centos7
     steps:
       - init_ci_job
+      - run:
+          name: Install pre-commit
+          command: |
+            curl https://pre-commit.com/install-local.py | python -
+            ln -sf ~/bin/pre-commit /usr/local/bin/pre-commit
+            pre-commit --version
       - install_stack
       - with_stack_cache:
           steps:
             - run: stack build --fast hlint stylish-haskell
-            - run: scripts/hlint.sh
-            - run: scripts/stylish-haskell.sh
+            - run:
+                name: Lint via pre-commit
+                command: pre-commit run --all-files -v --show-diff-on-failure
 
   test:
     executor: docker-centos7
