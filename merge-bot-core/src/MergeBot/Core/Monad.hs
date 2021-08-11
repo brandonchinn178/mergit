@@ -33,7 +33,7 @@ import Control.Concurrent (threadDelay)
 import Control.Exception (displayException)
 import Control.Monad (void)
 import Control.Monad.IO.Class (MonadIO(..))
-import Control.Monad.IO.Unlift (MonadUnliftIO(..), UnliftIO(..), withUnliftIO)
+import Control.Monad.IO.Unlift (MonadUnliftIO)
 import Control.Monad.Logger (LoggingT, MonadLogger, logErrorN)
 import Control.Monad.Trans.Class (MonadTrans(..))
 import Control.Monad.Trans.Reader (ReaderT, asks, runReaderT)
@@ -92,6 +92,7 @@ newtype BotAppT m a = BotAppT
     , Applicative
     , Monad
     , MonadIO
+    , MonadUnliftIO
     , MonadLogger
     )
 
@@ -118,11 +119,6 @@ instance MonadUnliftIO m => MonadGitHubREST (BotAppT m) where
 
 instance MonadIO m => MonadGraphQLQuery (BotAppT m) where
   runQuerySafe = BotAppT . lift . lift . lift . runQuerySafe
-
-instance MonadUnliftIO m => MonadUnliftIO (BotAppT m) where
-  askUnliftIO = BotAppT $
-    withUnliftIO $ \u ->
-      return $ UnliftIO (unliftIO u . unBotAppT)
 
 data BotSettings = BotSettings
   { token     :: Token

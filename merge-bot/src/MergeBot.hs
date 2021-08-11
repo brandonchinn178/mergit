@@ -8,6 +8,7 @@ This module defines the entrypoint for the MergeBot GitHub application.
 -}
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE NumDecimals #-}
@@ -16,6 +17,7 @@ This module defines the entrypoint for the MergeBot GitHub application.
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeOperators #-}
 {-# OPTIONS_GHC -freduction-depth=400 #-}
 
 module MergeBot (runMergeBot) where
@@ -34,7 +36,10 @@ import qualified Network.Wai.Handler.Warp as Warp
 import Servant
     ( Application
     , Context(..)
+    , DefaultErrorFormatters
+    , ErrorFormatters
     , Handler
+    , HasContextEntry
     , HasServer
     , ServerError(..)
     , ServerT
@@ -42,6 +47,7 @@ import Servant
     , hoistServerWithContext
     , serveWithContext
     , throwError
+    , type (.++)
     )
 import Servant.GitHub (loadGitHubAppParams)
 import UnliftIO (MonadUnliftIO, withRunInIO)
@@ -168,9 +174,15 @@ concurrentlyAll actions = do
   threads <- mapM async actions
   void $ waitAny threads
 
-serveRoutes :: forall api context m
-  . (HasServer api context)
-  => (forall x. m x -> Handler x) -> Context context -> ServerT api m -> Application
+serveRoutes ::
+  forall api context m.
+  ( HasServer api context
+  , HasContextEntry (context .++ DefaultErrorFormatters) ErrorFormatters
+  )
+  => (forall x. m x -> Handler x)
+  -> Context context
+  -> ServerT api m
+  -> Application
 serveRoutes f context routes =
   serveWithContext (Proxy @api) context $
     hoistServerWithContext (Proxy @api) (Proxy @context) f routes

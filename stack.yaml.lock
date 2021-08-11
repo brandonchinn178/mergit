@@ -5,29 +5,15 @@
 
 packages:
 - completed:
-    hackage: aeson-schemas-1.3.2@sha256:0fe60c91e7388308efd114b81a17affa9821da18304b7eee57bfda8231c275c0,5750
-    pantry-tree:
-      size: 5366
-      sha256: 800f2f00b01eb2e345d2333ed73c4cc01bb8d49dcb0bbc504ffa3f24d1683c31
-  original:
-    hackage: aeson-schemas-1.3.2
-- completed:
     hackage: github-rest-1.1.0@sha256:ef5dd05c35eb00fdc9fe132a36bb667cfb31dfbcbea812b24a7b664955f83623,3206
     pantry-tree:
       size: 1247
       sha256: d86ae449e65f1cea96b323f1adb834ef8ec89d3d5b1ed37030826e948c843d47
   original:
     hackage: github-rest-1.1.0
-- completed:
-    hackage: graphql-client-1.1.0@sha256:775194b2ab1f19de706bc5c6bcadd7c5bc33bc01ff4cbbad06a7d59abb98985f,3909
-    pantry-tree:
-      size: 1356
-      sha256: 59d18602e89d844df408e367adbe60c760ebc04c24432a81cd6ff9a8f933d5b6
-  original:
-    hackage: graphql-client-1.1.0
 snapshots:
 - completed:
-    size: 532380
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/16/9.yaml
-    sha256: 14a7cec114424e4286adde73364438927a553ed248cc50f069a30a67e3ee1e69
-  original: lts-16.9
+    size: 585817
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/18/5.yaml
+    sha256: 22d24d0dacad9c1450b9a174c28d203f9bb482a2a8da9710a2f2a9f4afee2887
+  original: lts-18.5

@@ -32,7 +32,7 @@ import GitHub.REST
 import GitHub.REST.Auth (Token)
 import Servant (ServerError, ServerT)
 import Servant.GitHub (GitHubAppParams(..))
-import UnliftIO (MonadUnliftIO(..), UnliftIO(..), withUnliftIO)
+import UnliftIO (MonadUnliftIO)
 import UnliftIO.Exception (catch, throwIO)
 
 import MergeBot.Auth (XsrfToken)
@@ -54,6 +54,7 @@ newtype DebugApp a = DebugApp
     , Applicative
     , Monad
     , MonadIO
+    , MonadUnliftIO
     )
 
 instance MonadGitHubREST DebugApp where
@@ -62,11 +63,6 @@ instance MonadGitHubREST DebugApp where
 instance MonadError ServerError DebugApp where
   throwError = throwIO
   catchError = catch
-
-instance MonadUnliftIO DebugApp where
-  askUnliftIO = DebugApp $
-    withUnliftIO $ \u ->
-      return $ UnliftIO (unliftIO u . unDebugApp)
 
 runDebugApp :: DebugState -> DebugApp a -> BaseApp a
 runDebugApp debugState action = do

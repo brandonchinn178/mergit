@@ -47,6 +47,7 @@ jobs:
       - install_stack
       - with_stack_cache:
           steps:
+            - run: yum install -y ncurses-devel
             - run: stack build --fast hlint stylish-haskell
             - run:
                 name: Lint via pre-commit
