@@ -101,7 +101,6 @@ jobs:
     executor: docker-centos7
     steps:
       - init_ci_job
-      - *install-system-deps # https://github.com/commercialhaskell/stack/issues/4893
       - *install-stack
       - restore_cache:
           key: *cache-key
