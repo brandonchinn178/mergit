@@ -1,0 +1,26 @@
+repos:
+  - repo: local
+    hooks:
+      - id: stylish-haskell
+        name: stylish-haskell
+        entry: stack exec -- stylish-haskell --inplace
+        language: system
+        files: '\.hs$'
+        require_serial: true
+
+      - id: hlint
+        name: HLint
+        entry: stack exec -- hlint
+        language: system
+        files: '\.hs$'
+        require_serial: true
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v2.3.0
+    hooks:
+      - id: check-merge-conflict
+      - id: check-symlinks
+      - id: no-commit-to-branch
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+        exclude: merge-bot-core/src/MergeBot/Core/GraphQL/(API.hs|Enums/)

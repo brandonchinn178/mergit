@@ -23,7 +23,9 @@ See the Feature home page [on Notion][feature-home-page] for more details.
 
 [feature-home-page]: https://www.notion.so/leapyear/Merge-Bot-4c28d412fa7b414fb02e5e3264507b44
 
-## Build
+## Development
+
+### Build
 
 `stack build`
 
@@ -32,6 +34,16 @@ See the Feature home page [on Notion][feature-home-page] for more details.
 ```bash
 scripts/codegen.sh
 ```
+
+### Pre-commit hooks
+
+To enable pre-commit hooks, do the following:
+
+1. Install [pre-commit](https://pre-commit.com)
+1. `stack build hlint stylish-haskell`
+1. `pre-commit install`
+
+These are also checked in CI, so setting this up is optional, but highly recommended.
 
 ## Repo layout
 
