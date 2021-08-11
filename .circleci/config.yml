@@ -14,17 +14,7 @@ workflows:
             - build
 
 aliases:
-  # system dependencies
-  - &install-stack
-    run:
-      name: Install stack
-      command: |
-        curl -sSL https://get.haskellstack.org/ | sh
-        stack --version
-
   # cache
-  - &cache-key
-    v1-{{ checksum "cache-key.txt" }}
   - &install-system-deps
     run:
       name: Install system dependencies
@@ -66,14 +56,10 @@ jobs:
     steps:
       - init_ci_job
       - *install-system-deps
-      - *install-stack
-      - restore_cache:
-          key: *cache-key
-      - *install-stack-deps
-      - save_cache:
-          key: *cache-key
-          paths:
-            - ~/.stack
+      - install_stack
+      - with_stack_cache:
+          steps:
+            - *install-stack-deps
       - *run-build
       - *copy-artifacts
       - store_artifacts:
@@ -91,20 +77,20 @@ jobs:
     executor: docker-centos7
     steps:
       - init_ci_job
-      - *install-stack
-      - restore_cache:
-          key: *cache-key
-      - *run-hlint
-      - *run-stylish-haskell
+      - install_stack
+      - with_stack_cache:
+          steps:
+            - *run-hlint
+            - *run-stylish-haskell
 
   test:
     executor: docker-centos7
     steps:
       - init_ci_job
-      - *install-stack
-      - restore_cache:
-          key: *cache-key
-      - *run-tests
+      - install_stack
+      - with_stack_cache:
+          steps:
+            - *run-tests
 
 executors:
   docker-centos7:
@@ -134,3 +120,24 @@ commands:
             )
             cat "${FILES[@]}" > cache-key.txt
             curl -sSL https://get.haskellstack.org/ | sed -n 's/^STACK_VERSION="\(.*\)"/\1/p' >> cache-key.txt
+
+  install_stack:
+    steps:
+      - run:
+          name: Install stack
+          command: |
+            curl -sSL https://get.haskellstack.org/ | sh
+            stack --version
+
+  with_stack_cache:
+    parameters:
+      steps:
+        type: steps
+    steps:
+      - restore_cache:
+          key: v1-{{ checksum "cache-key.txt" }}
+      - << parameters.steps >>
+      - save_cache:
+          key: v1-{{ checksum "cache-key.txt" }}
+          paths:
+            - ~/.stack
