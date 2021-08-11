@@ -10,7 +10,3 @@ if [[ ! -f .graphql/schema.graphql ]]; then
 fi
 
 stack exec graphql-codegen
-
-scripts/stylish-haskell.sh --apply \
-    merge-bot-core/src/MergeBot/Core/GraphQL/API.hs \
-    merge-bot-core/src/MergeBot/Core/GraphQL/Enums/*.hs

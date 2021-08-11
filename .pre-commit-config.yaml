@@ -23,4 +23,5 @@ repos:
       - id: no-commit-to-branch
       - id: trailing-whitespace
       - id: end-of-file-fixer
-        exclude: merge-bot-core/src/MergeBot/Core/GraphQL/(API.hs|Enums/)
+
+exclude: merge-bot-core/src/MergeBot/Core/GraphQL/(API.hs|Enums/)
