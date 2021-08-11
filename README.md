@@ -40,7 +40,7 @@ scripts/codegen.sh
 To enable pre-commit hooks, do the following:
 
 1. Install [pre-commit](https://pre-commit.com)
-1. `stack build hlint stylish-haskell`
+1. `stack build hlint fourmolu`
 1. `pre-commit install`
 
 These are also checked in CI, so setting this up is optional, but highly recommended.
