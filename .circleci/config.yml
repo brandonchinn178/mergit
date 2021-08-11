@@ -14,21 +14,7 @@ workflows:
             - build
 
 aliases:
-  # cache
-  - &install-system-deps
-    run:
-      name: Install system dependencies
-      command: scripts/install-system-deps.sh
-  - &install-stack-deps
-    run:
-      name: Build external dependencies
-      command: scripts/install-stack-deps.sh
-
   # build steps
-  - &run-build
-    run:
-      name: Build packages
-      command: stack build --test --no-run-tests
   - &copy-artifacts
     run:
       name: Copy artifacts
@@ -36,31 +22,17 @@ aliases:
         mkdir -p artifacts/
         cp "$(stack exec -- bash -c 'type -P merge-bot')" artifacts/
 
-  # test steps
-  - &run-hlint
-    run:
-      name: Run hlint
-      command: scripts/hlint.sh
-  - &run-stylish-haskell
-    run:
-      name: Run stylish-haskell
-      command: scripts/stylish-haskell.sh
-  - &run-tests
-    run:
-      name: Run tests
-      command: stack test
-
 jobs:
   build:
     executor: docker-centos7
     steps:
       - init_ci_job
-      - *install-system-deps
+      - run: scripts/install-system-deps.sh
       - install_stack
       - with_stack_cache:
           steps:
-            - *install-stack-deps
-      - *run-build
+            - run: scripts/install-stack-deps.sh
+      - run: stack build --test --no-run-tests
       - *copy-artifacts
       - store_artifacts:
           path: artifacts/
@@ -80,8 +52,8 @@ jobs:
       - install_stack
       - with_stack_cache:
           steps:
-            - *run-hlint
-            - *run-stylish-haskell
+            - run: scripts/hlint.sh
+            - run: scripts/stylish-haskell.sh
 
   test:
     executor: docker-centos7
@@ -90,7 +62,7 @@ jobs:
       - install_stack
       - with_stack_cache:
           steps:
-            - *run-tests
+            - run: stack test
 
 executors:
   docker-centos7:
