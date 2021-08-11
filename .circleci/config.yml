@@ -23,21 +23,6 @@ aliases:
         stack --version
 
   # cache
-  - &build-cache-key
-    run:
-      name: Build cache key
-      command: |
-        FILES=(
-          stack.yaml
-          hpack.yaml
-          github-schemas/package.yaml
-          merge-bot/package.yaml
-          merge-bot-core/package.yaml
-          servant-github-app/package.yaml
-          scripts/install-stack-deps.sh
-        )
-        cat "${FILES[@]}" > cache-key.txt
-        curl -sSL https://get.haskellstack.org/ | sed -n 's/^STACK_VERSION="\(.*\)"/\1/p' >> cache-key.txt
   - &cache-key
     v1-{{ checksum "cache-key.txt" }}
   - &install-system-deps
@@ -79,8 +64,7 @@ jobs:
   build:
     executor: docker-centos7
     steps:
-      - checkout
-      - *build-cache-key
+      - init_ci_job
       - *install-system-deps
       - *install-stack
       - restore_cache:
@@ -106,10 +90,7 @@ jobs:
   lint:
     executor: docker-centos7
     steps:
-      - checkout
-      - *build-cache-key
-      - attach_workspace:
-          at: .
+      - init_ci_job
       - *install-stack
       - restore_cache:
           key: *cache-key
@@ -119,10 +100,7 @@ jobs:
   test:
     executor: docker-centos7
     steps:
-      - checkout
-      - *build-cache-key
-      - attach_workspace:
-          at: .
+      - init_ci_job
       - *install-system-deps # https://github.com/commercialhaskell/stack/issues/4893
       - *install-stack
       - restore_cache:
@@ -136,3 +114,24 @@ executors:
     working_directory: /root/src
     environment:
       LANG: en_US.UTF-8
+
+commands:
+  init_ci_job:
+    steps:
+      - checkout
+      - attach_workspace:
+          at: .
+      - run:
+          name: Build cache key
+          command: |
+            FILES=(
+              stack.yaml
+              hpack.yaml
+              github-schemas/package.yaml
+              merge-bot/package.yaml
+              merge-bot-core/package.yaml
+              servant-github-app/package.yaml
+              scripts/install-stack-deps.sh
+            )
+            cat "${FILES[@]}" > cache-key.txt
+            curl -sSL https://get.haskellstack.org/ | sed -n 's/^STACK_VERSION="\(.*\)"/\1/p' >> cache-key.txt
