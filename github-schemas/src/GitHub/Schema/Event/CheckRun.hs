@@ -1,4 +1,8 @@
-{-|
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
+
+{- |
 Module      :  GitHub.Schema.Event.CheckRun
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
@@ -6,10 +10,6 @@ Portability :  portable
 
 Defines the schema for CheckRunEvent.
 -}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE QuasiQuotes #-}
-{-# LANGUAGE TemplateHaskell #-}
-
 module GitHub.Schema.Event.CheckRun where
 
 import Data.Aeson.Schema (schema)
@@ -20,14 +20,16 @@ import GitHub.Data.GitObjectID (GitObjectID)
 import GitHub.Schema.BaseEvent (BaseEvent)
 import GitHub.Schema.PullRequest (PullRequestShort)
 
-mkEnum "CheckRunAction"
+mkEnum
+  "CheckRunAction"
   [ "CREATED"
   , "REREQUESTED"
   , "REQUESTED_ACTION"
   , "COMPLETED"
   ]
 
-mkEnum "CheckRunConclusion"
+mkEnum
+  "CheckRunConclusion"
   [ "SUCCESS"
   , "FAILURE"
   , "NEUTRAL"
@@ -36,7 +38,8 @@ mkEnum "CheckRunConclusion"
   , "ACTION_REQUIRED"
   ]
 
-type CheckRunEvent = [schema|
+type CheckRunEvent =
+  [schema|
   {
     action: CheckRunAction,
     check_run: {

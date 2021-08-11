@@ -1,4 +1,8 @@
-{-|
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
+
+{- |
 Module      :  GitHub.Schema.Event.CheckSuite
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
@@ -6,10 +10,6 @@ Portability :  portable
 
 Defines the schema for CheckSuiteEvent.
 -}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE QuasiQuotes #-}
-{-# LANGUAGE TemplateHaskell #-}
-
 module GitHub.Schema.Event.CheckSuite where
 
 import Data.Aeson.Schema (schema)
@@ -22,13 +22,15 @@ import GitHub.Schema.BaseEvent (BaseEvent)
 import GitHub.Schema.Event.CheckRun (CheckRunConclusion)
 import GitHub.Schema.PullRequest (PullRequestShort)
 
-mkEnum "CheckSuiteAction"
+mkEnum
+  "CheckSuiteAction"
   [ "COMPLETED"
   , "REQUESTED"
   , "REREQUESTED"
   ]
 
-type CheckSuiteEvent = [schema|
+type CheckSuiteEvent =
+  [schema|
   {
     action: CheckSuiteAction,
     check_suite: {

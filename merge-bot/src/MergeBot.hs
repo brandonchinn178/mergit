@@ -1,11 +1,3 @@
-{-|
-Module      :  MergeBot
-Maintainer  :  Brandon Chinn <brandon@leapyear.io>
-Stability   :  experimental
-Portability :  portable
-
-This module defines the entrypoint for the MergeBot GitHub application.
--}
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -20,46 +12,54 @@ This module defines the entrypoint for the MergeBot GitHub application.
 {-# LANGUAGE TypeOperators #-}
 {-# OPTIONS_GHC -freduction-depth=400 #-}
 
+{- |
+Module      :  MergeBot
+Maintainer  :  Brandon Chinn <brandon@leapyear.io>
+Stability   :  experimental
+Portability :  portable
+
+This module defines the entrypoint for the MergeBot GitHub application.
+-}
 module MergeBot (runMergeBot) where
 
 import Control.Concurrent (threadDelay)
 import Control.Exception (SomeException, displayException, fromException)
 import Control.Monad (forever, void)
-import Control.Monad.IO.Class (MonadIO(..))
+import Control.Monad.IO.Class (MonadIO (..))
 import Control.Monad.Logger (logInfoN)
-import Data.Proxy (Proxy(..))
+import Data.Proxy (Proxy (..))
 import qualified Data.Text as Text
 import qualified Data.Text.Lazy as TextL
 import qualified Data.Text.Lazy.Encoding as TextL
-import GitHub.Data.GitObjectID (GitObjectID(..))
+import GitHub.Data.GitObjectID (GitObjectID (..))
 import qualified Network.Wai.Handler.Warp as Warp
-import Servant
-    ( Application
-    , Context(..)
-    , DefaultErrorFormatters
-    , ErrorFormatters
-    , Handler
-    , HasContextEntry
-    , HasServer
-    , ServerError(..)
-    , ServerT
-    , err500
-    , hoistServerWithContext
-    , serveWithContext
-    , throwError
-    , type (.++)
-    )
+import Servant (
+  Application,
+  Context (..),
+  DefaultErrorFormatters,
+  ErrorFormatters,
+  Handler,
+  HasContextEntry,
+  HasServer,
+  ServerError (..),
+  ServerT,
+  err500,
+  hoistServerWithContext,
+  serveWithContext,
+  throwError,
+  type (.++),
+ )
 import Servant.GitHub (loadGitHubAppParams)
 import UnliftIO (MonadUnliftIO, withRunInIO)
 import UnliftIO.Async (async, waitAny)
 import UnliftIO.Exception (handle, try)
 
-import MergeBot.Auth (AuthParams(..), loadAuthParams)
+import MergeBot.Auth (AuthParams (..), loadAuthParams)
 import qualified MergeBot.Core as Core
 import MergeBot.Core.Error (getBotError)
 import qualified MergeBot.Core.GitHub as Core
 import MergeBot.Core.Monad (getRepo)
-import MergeBot.EventQueue (EventQueuesConfig(..), initEventQueuesManager)
+import MergeBot.EventQueue (EventQueuesConfig (..), initEventQueuesManager)
 import MergeBot.Monad
 import MergeBot.Routes (MergeBotRoutes, handleMergeBotRoutes)
 
@@ -68,16 +68,19 @@ runMergeBot :: IO ()
 runMergeBot = do
   ghAppParams <- loadGitHubAppParams
   authParams <- loadAuthParams
-  eventQueuesManager <- initEventQueuesManager EventQueuesConfig
-    { globalQueueLimit = 10000
-    , workerQueueLimit = 1000
-    }
+  eventQueuesManager <-
+    initEventQueuesManager
+      EventQueuesConfig
+        { globalQueueLimit = 10000
+        , workerQueueLimit = 1000
+        }
 
-  runBaseApp BaseAppConfig{..} $ concurrentlyAll
-    [ runServer
-    , handleBotQueue
-    , pollMergeQueues
-    ]
+  runBaseApp BaseAppConfig{..} $
+    concurrentlyAll
+      [ runServer
+      , handleBotQueue
+      , pollMergeQueues
+      ]
 
 handleBotQueue :: BaseApp ()
 handleBotQueue = handleEvents handleBotEvent
@@ -152,23 +155,27 @@ runServer = do
     Warp.run 3000 $ serveRoutes @MergeBotRoutes runBaseHandler context handleMergeBotRoutes
   where
     ioToHandler :: IO a -> Handler a
-    ioToHandler m = liftIO (try m) >>= \case
-      Right x -> return x
-      Left e -> throwError $ if
-        | Just servantErr <- fromException e -> servantErr
-        | Just botError <- fromException e -> to500 $ getBotError botError
-        | otherwise -> to500 $ Text.pack $ displayException e
+    ioToHandler m =
+      liftIO (try m) >>= \case
+        Right x -> return x
+        Left e ->
+          throwError $
+            if
+                | Just servantErr <- fromException e -> servantErr
+                | Just botError <- fromException e -> to500 $ getBotError botError
+                | otherwise -> to500 $ Text.pack $ displayException e
 
-    to500 msg = err500 { errBody = TextL.encodeUtf8 $ TextL.fromStrict msg }
+    to500 msg = err500{errBody = TextL.encodeUtf8 $ TextL.fromStrict msg}
 
 {- Helpers -}
 
 logException :: MonadIO m => SomeException -> m ()
 logException = liftIO . putStrLn . displayException
 
--- | Run each of the given actions in a separate thread.
---
--- If any action throws an exception, rethrow the exception.
+{- | Run each of the given actions in a separate thread.
+
+ If any action throws an exception, rethrow the exception.
+-}
 concurrentlyAll :: MonadUnliftIO m => [m ()] -> m ()
 concurrentlyAll actions = do
   threads <- mapM async actions
@@ -178,11 +185,11 @@ serveRoutes ::
   forall api context m.
   ( HasServer api context
   , HasContextEntry (context .++ DefaultErrorFormatters) ErrorFormatters
-  )
-  => (forall x. m x -> Handler x)
-  -> Context context
-  -> ServerT api m
-  -> Application
+  ) =>
+  (forall x. m x -> Handler x) ->
+  Context context ->
+  ServerT api m ->
+  Application
 serveRoutes f context routes =
   serveWithContext (Proxy @api) context $
     hoistServerWithContext (Proxy @api) (Proxy @context) f routes

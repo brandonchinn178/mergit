@@ -1,11 +1,3 @@
-{-|
-Module      :  MergeBot.Routes.Debug
-Maintainer  :  Brandon Chinn <brandon@leapyear.io>
-Stability   :  experimental
-Portability :  portable
-
-This module defines debugging routes for the MergeBot.
--}
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DisambiguateRecordFields #-}
@@ -18,10 +10,18 @@ This module defines debugging routes for the MergeBot.
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 
-module MergeBot.Routes.Debug
-  ( DebugRoutes
-  , handleDebugRoutes
-  ) where
+{- |
+Module      :  MergeBot.Routes.Debug
+Maintainer  :  Brandon Chinn <brandon@leapyear.io>
+Stability   :  experimental
+Portability :  portable
+
+This module defines debugging routes for the MergeBot.
+-}
+module MergeBot.Routes.Debug (
+  DebugRoutes,
+  handleDebugRoutes,
+) where
 
 import Control.Arrow ((&&&))
 import Control.Monad (forM, forM_)
@@ -29,11 +29,11 @@ import Data.Aeson.Schema (Object, get, schema)
 import qualified Data.HashMap.Strict as HashMap
 import Data.List (intercalate)
 import Data.Maybe (catMaybes, fromMaybe)
-import Data.String (IsString(..))
+import Data.String (IsString (..))
 import Data.Text (Text)
 import qualified Data.Text as Text
-import GitHub.Data.URL (URL(..))
-import GitHub.REST (GHEndpoint(..), KeyValue(..), queryGitHub, queryGitHubAll)
+import GitHub.Data.URL (URL (..))
+import GitHub.REST (GHEndpoint (..), KeyValue (..), queryGitHub, queryGitHubAll)
 import GitHub.Schema.PullRequest (PullRequest)
 import GitHub.Schema.Ref (Ref)
 import GitHub.Schema.Repository (Repository)
@@ -46,20 +46,26 @@ import qualified Text.Blaze.Html5.Attributes as A
 import MergeBot.Auth (xsrfTokenInputName)
 import qualified MergeBot.Core.GitHub as Core
 import qualified MergeBot.Core.Text as Core
-import MergeBot.Monad (MergeBotEvent(..), getInstallations, queueEvent)
-import MergeBot.Routes.Debug.Monad
-    (DebugApp, ServerDebug, getUser, getXsrfToken, liftBaseApp, runBotAppDebug)
+import MergeBot.Monad (MergeBotEvent (..), getInstallations, queueEvent)
+import MergeBot.Routes.Debug.Monad (
+  DebugApp,
+  ServerDebug,
+  getUser,
+  getXsrfToken,
+  liftBaseApp,
+  runBotAppDebug,
+ )
 
 type DebugRoutes =
-       IndexPage
-  :<|> RepositoryPage
-  :<|> DeleteStagingBranch
+  IndexPage
+    :<|> RepositoryPage
+    :<|> DeleteStagingBranch
 
 handleDebugRoutes :: ServerDebug DebugRoutes
 handleDebugRoutes =
-       handleIndexPage
-  :<|> handleRepositoryPage
-  :<|> handleDeleteStagingBranch
+  handleIndexPage
+    :<|> handleRepositoryPage
+    :<|> handleDeleteStagingBranch
 
 {- Index page -}
 
@@ -68,29 +74,31 @@ handleIndexPage :: DebugApp Html
 handleIndexPage = do
   installations <- liftBaseApp getInstallations
 
-  repositories <- fmap concat $ forM installations $ \installationId ->
-    [get| .repositories |] <$>
-      queryGitHub @_ @(Object [schema| { repositories: List #Repository } |]) GHEndpoint
-        { method = GET
-        , endpoint = "/user/installations/:installation_id/repositories"
-        , endpointVals = [ "installation_id" := installationId ]
-        , ghData = []
-        }
+  repositories <- fmap concat $
+    forM installations $ \installationId ->
+      [get| .repositories |]
+        <$> queryGitHub @_ @(Object [schema| { repositories: List #Repository } |])
+          GHEndpoint
+            { method = GET
+            , endpoint = "/user/installations/:installation_id/repositories"
+            , endpointVals = ["installation_id" := installationId]
+            , ghData = []
+            }
 
   render $ do
     H.h2 "Available repositories"
     forM_ repositories $ \repo ->
       let (owner, name) = [get| repo.(owner.login, name) |]
           link = fromLink $ linkTo @RepositoryPage owner name
-      in H.li $ H.a ! A.href link $ H.toHtml [get| repo.full_name |]
+       in H.li $ H.a ! A.href link $ H.toHtml [get| repo.full_name |]
 
 {- Repository page -}
 
 type RepositoryPage =
   "repo"
-  :> Capture "repoOwner" Text
-  :> Capture "repoName" Text
-  :> HtmlPage
+    :> Capture "repoOwner" Text
+    :> Capture "repoName" Text
+    :> HtmlPage
 
 handleRepositoryPage :: Text -> Text -> DebugApp Html
 handleRepositoryPage repoOwner repoName = do
@@ -99,19 +107,23 @@ handleRepositoryPage repoOwner repoName = do
   -- As much as possible, run all GitHub API queries first, to minimize discrepancies
   -- in data changing from underneath us
 
-  allRefs <- queryGitHubAll @_ @[Object Ref] GHEndpoint
-    { method = GET
-    , endpoint = "/repos/:repoOwner/:repoName/git/refs/heads"
-    , endpointVals = [ "repoOwner" := repoOwner, "repoName" := repoName ]
-    , ghData = []
-    }
+  allRefs <-
+    queryGitHubAll @_ @[Object Ref]
+      GHEndpoint
+        { method = GET
+        , endpoint = "/repos/:repoOwner/:repoName/git/refs/heads"
+        , endpointVals = ["repoOwner" := repoOwner, "repoName" := repoName]
+        , ghData = []
+        }
 
-  allPRs <- queryGitHubAll @_ @[Object PullRequest] GHEndpoint
-    { method = GET
-    , endpoint = "/repos/:repoOwner/:repoName/pulls"
-    , endpointVals = [ "repoOwner" := repoOwner, "repoName" := repoName ]
-    , ghData = []
-    }
+  allPRs <-
+    queryGitHubAll @_ @[Object PullRequest]
+      GHEndpoint
+        { method = GET
+        , endpoint = "/repos/:repoOwner/:repoName/pulls"
+        , endpointVals = ["repoOwner" := repoOwner, "repoName" := repoName]
+        , ghData = []
+        }
 
   queues <- runBotAppDebug repo $ do
     let getPRIds = map $ \(prId, _, _) -> prId
@@ -120,13 +132,14 @@ handleRepositoryPage repoOwner repoName = do
   -- mergeRuns :: [(BranchName, [PrNum])]
   -- mapping of base branch to list of PR ids running a merge against the base branch
   mergeRuns <- runBotAppDebug repo $
-    fmap catMaybes $ forM allRefs $ \ref -> do
-      case Text.stripPrefix "refs/heads/" [get| ref.ref |] >>= Core.fromStagingBranch of
-        Nothing -> return Nothing
-        Just baseBranch -> do
-          ciCommit <- Core.getCICommit [get| ref.object.sha |] Core.CheckRunMerge
-          prs <- mapM Core.getPRById $ Core.prsFromMessage ciCommit
-          return $ Just (baseBranch, map Core.prId prs)
+    fmap catMaybes $
+      forM allRefs $ \ref -> do
+        case Text.stripPrefix "refs/heads/" [get| ref.ref |] >>= Core.fromStagingBranch of
+          Nothing -> return Nothing
+          Just baseBranch -> do
+            ciCommit <- Core.getCICommit [get| ref.object.sha |] Core.CheckRunMerge
+            prs <- mapM Core.getPRById $ Core.prsFromMessage ciCommit
+            return $ Just (baseBranch, map Core.prId prs)
 
   xsrfToken <- getXsrfToken
 
@@ -166,9 +179,10 @@ handleRepositoryPage repoOwner repoName = do
         H.h3 $ H.toHtml branch
 
         -- should not error, because a queued PR, by definition, is open
-        let idToPR prId = fromMaybe
-              (error $ "Could not find open PR #" ++ show prId)
-              (lookupPR prId)
+        let idToPR prId =
+              fromMaybe
+                (error $ "Could not find open PR #" ++ show prId)
+                (lookupPR prId)
 
         mkTablePRs $ map idToPR prIds
 
@@ -179,11 +193,11 @@ handleRepositoryPage repoOwner repoName = do
 
 type DeleteStagingBranch =
   "repo"
-  :> Capture "repoOwner" Text
-  :> Capture "repoName" Text
-  :> "reset-merge-run"
-  :> Capture "baseBranch" Core.BranchName
-  :> Verb 'POST 303 '[HTML] RedirectResponse
+    :> Capture "repoOwner" Text
+    :> Capture "repoName" Text
+    :> "reset-merge-run"
+    :> Capture "baseBranch" Core.BranchName
+    :> Verb 'POST 303 '[HTML] RedirectResponse
 
 handleDeleteStagingBranch :: Text -> Text -> Text -> DebugApp RedirectResponse
 handleDeleteStagingBranch repoOwner repoName baseBranch = do
@@ -203,16 +217,17 @@ type RedirectResponse = Headers '[Header "Location" String] NoContent
 render :: Html -> DebugApp Html
 render body = do
   user <- getUser
-  return $ H.html $ do
-    H.head $
-      H.title "LeapYear Merge Bot"
-    H.body $ do
-      H.header $ do
-        H.h1 "LeapYear Merge Bot"
-        H.p $ do
-          "Logged in as: "
-          H.strong $ H.toHtml user
-      H.main body
+  return $
+    H.html $ do
+      H.head $
+        H.title "LeapYear Merge Bot"
+      H.body $ do
+        H.header $ do
+          H.h1 "LeapYear Merge Bot"
+          H.p $ do
+            "Logged in as: "
+            H.strong $ H.toHtml user
+        H.main body
 
 -- | Render a basic table.
 mkTable :: [Text] -> [a] -> (a -> Html) -> Html
@@ -236,7 +251,7 @@ linkTo :: forall endpoint. (IsElem endpoint DebugRoutes, HasLink endpoint) => Mk
 linkTo = safeLink (Proxy @DebugRoutes) (Proxy @endpoint)
 
 fromLink :: IsString s => Link -> s
-fromLink = fromString . ('/':) . show . linkURI
+fromLink = fromString . ('/' :) . show . linkURI
 
 xsrfTokenInput :: Text -> Html
 xsrfTokenInput xsrfToken =

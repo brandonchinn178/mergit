@@ -1,11 +1,3 @@
-{-|
-Module      :  MergeBot.Monad
-Maintainer  :  Brandon Chinn <brandon@leapyear.io>
-Stability   :  experimental
-Portability :  portable
-
-This module defines functions for running GitHubT actions.
--}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
@@ -17,69 +9,84 @@ This module defines functions for running GitHubT actions.
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
 
-module MergeBot.Monad
-  ( BaseApp
-  , BaseAppConfig(..)
-  , ServerBase
-  , runBaseApp
-  , getGitHubAppParams
-  , getAuthParams
-    -- * BaseApp helpers
-  , getInstallations
-  , getRepoAndTokens
-    -- * BotAppT helpers
-  , BotApp
-  , runBotApp
-  , runBotAppOnAllRepos
-    -- * Queueing helpers
-  , MergeBotEvent(..)
-  , getEventRepo
-  , handleEvents
-  , queueEvent
-  ) where
+{- |
+Module      :  MergeBot.Monad
+Maintainer  :  Brandon Chinn <brandon@leapyear.io>
+Stability   :  experimental
+Portability :  portable
+
+This module defines functions for running GitHubT actions.
+-}
+module MergeBot.Monad (
+  BaseApp,
+  BaseAppConfig (..),
+  ServerBase,
+  runBaseApp,
+  getGitHubAppParams,
+  getAuthParams,
+
+  -- * BaseApp helpers
+  getInstallations,
+  getRepoAndTokens,
+
+  -- * BotAppT helpers
+  BotApp,
+  runBotApp,
+  runBotAppOnAllRepos,
+
+  -- * Queueing helpers
+  MergeBotEvent (..),
+  getEventRepo,
+  handleEvents,
+  queueEvent,
+) where
 
 import Control.Monad (forM)
-import Control.Monad.Except (MonadError(..))
-import Control.Monad.IO.Class (MonadIO(..))
+import Control.Monad.Except (MonadError (..))
+import Control.Monad.IO.Class (MonadIO (..))
 import Control.Monad.Reader (ReaderT, asks, runReaderT)
 import Control.Monad.Trans (lift)
 import Data.Aeson (FromJSON)
 import Data.Aeson.Schema (Object, get, schema)
-import GitHub.REST
-    ( GHEndpoint(..)
-    , GitHubSettings(..)
-    , MonadGitHubREST(..)
-    , Token
-    , runGitHubT
-    )
+import GitHub.REST (
+  GHEndpoint (..),
+  GitHubSettings (..),
+  MonadGitHubREST (..),
+  Token,
+  runGitHubT,
+ )
 import GitHub.REST.Auth (getJWTToken)
 import GitHub.Schema.Repository (Repository)
-import Network.HTTP.Types (StdMethod(..))
+import Network.HTTP.Types (StdMethod (..))
 import Servant (ServerError, ServerT)
-import Servant.GitHub (GitHubAppParams(..))
+import Servant.GitHub (GitHubAppParams (..))
 import Servant.GitHub.Security (getToken)
-import UnliftIO (MonadUnliftIO(..), wrappedWithRunInIO)
+import UnliftIO (MonadUnliftIO (..), wrappedWithRunInIO)
 import UnliftIO.Exception (catch, throwIO)
 
 import MergeBot.Auth (AuthParams)
 import MergeBot.Core.GitHub (BranchName, CheckRunId, CommitSHA, PrNum, Repo)
-import MergeBot.Core.Monad (BotAppT, BotSettings(..), getRepo, runBotAppT)
-import MergeBot.EventQueue
-    (EventQueuesManager, handleEventsWith, queueEventWith)
+import MergeBot.Core.Monad (BotAppT, BotSettings (..), getRepo, runBotAppT)
+import MergeBot.EventQueue (
+  EventQueuesManager,
+  handleEventsWith,
+  queueEventWith,
+ )
 
 {- The base monad for all servant routes -}
 
 type ServerBase api = ServerT api BaseApp
 
 data BaseAppConfig = BaseAppConfig
-  { ghAppParams        :: GitHubAppParams
-  , authParams         :: AuthParams
+  { ghAppParams :: GitHubAppParams
+  , authParams :: AuthParams
   , eventQueuesManager :: EventQueuesManager MergeBotEventKey MergeBotEvent
   }
 
 newtype BaseApp a = BaseApp
   { unBaseApp :: ReaderT BaseAppConfig IO a
-  } deriving (Functor, Applicative, Monad, MonadIO)
+  }
+  deriving (Functor, Applicative, Monad, MonadIO)
 
 instance MonadUnliftIO BaseApp where
   withRunInIO = wrappedWithRunInIO BaseApp unBaseApp
@@ -112,11 +119,12 @@ getJWTToken' = do
 queryGitHub' :: FromJSON a => GHEndpoint -> Token -> BaseApp a
 queryGitHub' endpoint token = do
   GitHubAppParams{ghUserAgent} <- getGitHubAppParams
-  let ghSettings = GitHubSettings
-        { token = Just token
-        , userAgent = ghUserAgent
-        , apiVersion = "machine-man-preview"
-        }
+  let ghSettings =
+        GitHubSettings
+          { token = Just token
+          , userAgent = ghUserAgent
+          , apiVersion = "machine-man-preview"
+          }
 
   liftIO $ runGitHubT ghSettings $ queryGitHub endpoint
 
@@ -126,12 +134,14 @@ getInstallations = do
   jwtToken <- getJWTToken'
   map [get| .id |] <$> getInstallations' jwtToken
   where
-    getInstallations' = queryGitHub' @[Object [schema| { id: Int } |]] GHEndpoint
-      { method = GET
-      , endpoint = "/app/installations"
-      , endpointVals = []
-      , ghData = []
-      }
+    getInstallations' =
+      queryGitHub' @[Object [schema| { id: Int } |]]
+        GHEndpoint
+          { method = GET
+          , endpoint = "/app/installations"
+          , endpointVals = []
+          , ghData = []
+          }
 
 {- BotAppT helpers -}
 
@@ -141,11 +151,12 @@ type BotApp = BotAppT BaseApp
 runBotApp :: Repo -> BotApp a -> Token -> BaseApp a
 runBotApp (repoOwner, repoName) action token = do
   GitHubAppParams{ghUserAgent, ghAppId} <- getGitHubAppParams
-  let settings = BotSettings
-        { userAgent = ghUserAgent
-        , appId = ghAppId
-        , ..
-        }
+  let settings =
+        BotSettings
+          { userAgent = ghUserAgent
+          , appId = ghAppId
+          , ..
+          }
   runBotAppT settings action
 
 getRepoAndTokens :: BaseApp [(Repo, Token)]
@@ -155,25 +166,29 @@ getRepoAndTokens = do
   -- get all installations
   installations <- getInstallations
 
-  fmap concat $ forM installations $ \installationId -> do
-    -- get a token that can be used for this installation (expires in an hour)
-    installToken <- liftIO $ getToken ghSigner ghAppId ghUserAgent installationId
+  fmap concat $
+    forM installations $ \installationId -> do
+      -- get a token that can be used for this installation (expires in an hour)
+      installToken <- liftIO $ getToken ghSigner ghAppId ghUserAgent installationId
 
-    -- get list of repositories
-    repositories <- [get| .repositories[].(owner.login, name) |] <$> getRepositories installToken
+      -- get list of repositories
+      repositories <- [get| .repositories[].(owner.login, name) |] <$> getRepositories installToken
 
-    return $ map (, installToken) repositories
+      return $ map (,installToken) repositories
   where
-    getRepositories = queryGitHub' @(Object [schema| { repositories: List #Repository } |]) GHEndpoint
-      { method = GET
-      , endpoint = "/installation/repositories"
-      , endpointVals = []
-      , ghData = []
-      }
+    getRepositories =
+      queryGitHub' @(Object [schema| { repositories: List #Repository } |])
+        GHEndpoint
+          { method = GET
+          , endpoint = "/installation/repositories"
+          , endpointVals = []
+          , ghData = []
+          }
 
--- | A helper that runs the given action for every repository that the merge bot is installed on.
---
--- Returns a list of the results, along with the repository that produced each result.
+{- | A helper that runs the given action for every repository that the merge bot is installed on.
+
+ Returns a list of the results, along with the repository that produced each result.
+-}
 runBotAppOnAllRepos :: BotApp a -> BaseApp [(Repo, a)]
 runBotAppOnAllRepos action = mapM runOnRepo =<< getRepoAndTokens
   where
@@ -195,11 +210,12 @@ getEventRepo = \case
   OnBranch repo _ -> repo
   OnRepo repo -> repo
 
--- | A merge bot event to be resolved serially.
---
--- In order to ensure that mergebot events are resolved atomically, merge-bot code shouldn't run
--- state-modifying events directly, but rather queue events to be run serially in a separate
--- thread.
+{- | A merge bot event to be resolved serially.
+
+ In order to ensure that mergebot events are resolved atomically, merge-bot code shouldn't run
+ state-modifying events directly, but rather queue events to be run serially in a separate
+ thread.
+-}
 data MergeBotEvent
   = PRCreated PrNum CommitSHA
   | CommitPushedToPR PrNum CommitSHA
@@ -214,15 +230,15 @@ data MergeBotEvent
 
 makeEventKey :: Repo -> MergeBotEvent -> MergeBotEventKey
 makeEventKey repo = \case
-  PRCreated prNum _        -> OnPR repo prNum
+  PRCreated prNum _ -> OnPR repo prNum
   CommitPushedToPR prNum _ -> OnPR repo prNum
-  StartTryJob prNum _ _ _  -> OnPR repo prNum
-  QueuePR prNum _          -> OnPR repo prNum
-  DequeuePR prNum _        -> OnPR repo prNum
-  ResetMerge prNum _       -> OnPR repo prNum
+  StartTryJob prNum _ _ _ -> OnPR repo prNum
+  QueuePR prNum _ -> OnPR repo prNum
+  DequeuePR prNum _ -> OnPR repo prNum
+  ResetMerge prNum _ -> OnPR repo prNum
   RefreshCheckRun branch _ -> OnBranch repo branch
-  DeleteBranch branch      -> OnBranch repo branch
-  PollQueues               -> OnRepo repo
+  DeleteBranch branch -> OnBranch repo branch
+  PollQueues -> OnRepo repo
 
 -- | A helper around 'handleEventsWith'
 handleEvents :: (MergeBotEventKey -> MergeBotEvent -> BaseApp ()) -> BaseApp ()

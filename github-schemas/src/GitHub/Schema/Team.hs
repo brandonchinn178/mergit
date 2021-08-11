@@ -1,4 +1,7 @@
-{-|
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE QuasiQuotes #-}
+
+{- |
 Module      :  GitHub.Schema.Team
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
@@ -6,9 +9,6 @@ Portability :  portable
 
 Defines schemas related to teams.
 -}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE QuasiQuotes #-}
-
 module GitHub.Schema.Team where
 
 import Data.Aeson.Schema (schema)
@@ -16,7 +16,8 @@ import Data.Aeson.Schema (schema)
 import GitHub.Data.TeamPrivacy (TeamPrivacy)
 import GitHub.Data.URL (URL)
 
-type Team = [schema|
+type Team =
+  [schema|
   {
     id: Int,
     node_id: Text,

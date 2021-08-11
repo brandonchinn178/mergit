@@ -1,5 +1,4 @@
--- | An example usage of a Servant website that allows GitHub events at the '/webhook/' route.
-
+-- An example usage of a Servant website that allows GitHub events at the '/webhook/' route.
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -11,21 +10,26 @@ import Control.Monad (forM_)
 import Control.Monad.IO.Class (liftIO)
 import Data.Aeson.Schema (get)
 import qualified Data.Text as Text
-import GitHub.Data.URL (URL(..))
-import GitHub.REST
-    (GHEndpoint(..), GitHubSettings(..), KeyValue(..), queryGitHub, runGitHubT)
+import GitHub.Data.URL (URL (..))
+import GitHub.REST (
+  GHEndpoint (..),
+  GitHubSettings (..),
+  KeyValue (..),
+  queryGitHub,
+  runGitHubT,
+ )
 import GitHub.Schema.Repository (RepoWebhook)
 import Network.Wai.Handler.Warp (run)
 import Servant
 import Servant.GitHub
 
-type ExampleGitHubEvents
-  = GitHubEvent 'InstallationEvent :> WithToken :> GitHubAction
-  :<|> GitHubAction
+type ExampleGitHubEvents =
+  GitHubEvent 'InstallationEvent :> WithToken :> GitHubAction
+    :<|> GitHubAction
 
-type ExampleApp
-  = Get '[PlainText] String
-  :<|> "webhook" :> ExampleGitHubEvents
+type ExampleApp =
+  Get '[PlainText] String
+    :<|> "webhook" :> ExampleGitHubEvents
 
 getHelloWorld :: Handler String
 getHelloWorld = pure "Hello world"
@@ -39,13 +43,15 @@ handleInstallationEvent o token = liftIO $ do
   let settings = GitHubSettings (Just token) ghUserAgent "v3"
 
   forM_ [get| o.repositories[].full_name |] $ \repoName -> do
-    repo <- runGitHubT settings $
-      queryGitHub @_ @(Object RepoWebhook) GHEndpoint
-        { method = GET
-        , endpoint = "/repos/:full_repo_name"
-        , endpointVals = [ "full_repo_name" := repoName ]
-        , ghData = []
-        }
+    repo <-
+      runGitHubT settings $
+        queryGitHub @_ @(Object RepoWebhook)
+          GHEndpoint
+            { method = GET
+            , endpoint = "/repos/:full_repo_name"
+            , endpointVals = ["full_repo_name" := repoName]
+            , ghData = []
+            }
     putStrLn $ "Repository name: " ++ Text.unpack repoName
     putStrLn $ "URL: " ++ (Text.unpack . unURL $ [get| repo.html_url |])
     putStrLn $ "Description: " ++ maybe "N/A" Text.unpack [get| repo.description |]

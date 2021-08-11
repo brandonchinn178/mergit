@@ -1,4 +1,7 @@
-{-|
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE QuasiQuotes #-}
+
+{- |
 Module      :  GitHub.Schema.Milestone
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
@@ -6,9 +9,6 @@ Portability :  portable
 
 Defines schemas related to milestones.
 -}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE QuasiQuotes #-}
-
 module GitHub.Schema.Milestone where
 
 import Data.Aeson.Schema (schema)
@@ -19,7 +19,8 @@ import GitHub.Data.URL (URL)
 import GitHub.Schema.User (UserShort)
 
 -- | https://developer.github.com/v3/issues/milestones/#get-a-single-milestone
-type Milestone = [schema|
+type Milestone =
+  [schema|
   {
     url: URL,
     html_url: URL,

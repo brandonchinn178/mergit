@@ -1,11 +1,3 @@
-{-|
-Module      :  Servant.GitHub.Combinators
-Maintainer  :  Brandon Chinn <brandon@leapyear.io>
-Stability   :  experimental
-Portability :  portable
-
-Defines Servant combinators for serving a GitHub App.
--}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -20,13 +12,21 @@ Defines Servant combinators for serving a GitHub App.
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Servant.GitHub.Combinators
-  ( GitHubEvent
-  , WithToken
-  , WithToken'
-  , TokenType(..)
-  , GitHubAction
-  ) where
+{- |
+Module      :  Servant.GitHub.Combinators
+Maintainer  :  Brandon Chinn <brandon@leapyear.io>
+Stability   :  experimental
+Portability :  portable
+
+Defines Servant combinators for serving a GitHub App.
+-}
+module Servant.GitHub.Combinators (
+  GitHubEvent,
+  WithToken,
+  WithToken',
+  TokenType (..),
+  GitHubAction,
+) where
 
 import Control.Monad (unless, (>=>))
 import Control.Monad.IO.Class (liftIO)
@@ -40,27 +40,28 @@ import Network.Wai (Request)
 import Servant
 import qualified Servant.Server.Internal as Servant
 
-import Servant.GitHub.Context (GitHubAppParams(..))
-import Servant.GitHub.Event (GitHubEventType, IsGitHubEvent(..))
+import Servant.GitHub.Context (GitHubAppParams (..))
+import Servant.GitHub.Event (GitHubEventType, IsGitHubEvent (..))
 import Servant.GitHub.Internal.Request
 import Servant.GitHub.Security (doesSignatureMatch, getToken, parseSignature)
 
--- | A combinator for matching incoming requests with a given GitHub event.
---
--- The handler function will be passed an 'Object' containing the data sent with the event.
--- Automatically verifies that the request is signed by GitHub.
---
--- Usage:
---
--- > import Servant.GitHub
--- >
--- > type MyApi = "webhook" :>
--- >   (    GitHubEvent 'InstallationEvent :> GitHubAction
--- >   :<|> GitHubEvent 'PushEvent :> GitHubAction
--- >   )
--- >
--- > handleInstallationEvent :: Object InstallationEvent -> Handler ()
--- > handlePushEvent :: Object PushEvent -> Handler ()
+{- | A combinator for matching incoming requests with a given GitHub event.
+
+ The handler function will be passed an 'Object' containing the data sent with the event.
+ Automatically verifies that the request is signed by GitHub.
+
+ Usage:
+
+ > import Servant.GitHub
+ >
+ > type MyApi = "webhook" :>
+ >   (    GitHubEvent 'InstallationEvent :> GitHubAction
+ >   :<|> GitHubEvent 'PushEvent :> GitHubAction
+ >   )
+ >
+ > handleInstallationEvent :: Object InstallationEvent -> Handler ()
+ > handlePushEvent :: Object PushEvent -> Handler ()
+-}
 data GitHubEvent (event :: GitHubEventType)
 
 instance
@@ -68,8 +69,9 @@ instance
   , HasContextEntry context GitHubAppParams
   , IsGitHubEvent event
   , IsSchema (EventSchema event)
-  ) => HasServer (GitHubEvent event :> api) context where
-
+  ) =>
+  HasServer (GitHubEvent event :> api) context
+  where
   type ServerT (GitHubEvent event :> api) m = Object (EventSchema event) -> ServerT api m
 
   hoistServerWithContext _ _ f s = hoistServerWithContext (Proxy @api) (Proxy @context) f . s
@@ -93,38 +95,42 @@ instance
 
         decodeRequestBody @(EventSchema event) body
 
-      wrongEvent e = err400 { errBody = "Unhandled event: " <> e }
-      invalidSignature = err401 { errBody = "Invalid signature found" }
-      badSignature = err401 { errBody = "Signature did not match payload" }
+      wrongEvent e = err400{errBody = "Unhandled event: " <> e}
+      invalidSignature = err401{errBody = "Invalid signature found"}
+      badSignature = err401{errBody = "Signature did not match payload"}
 
--- | A combinator for providing an access token to an endpoint that provides access to the GitHub
--- API. The token provided expires after 10 minutes. For different options, see 'WithToken''.
---
--- Usage:
---
--- > import GitHub.REST (Token)
--- > type MyGitHubEvents = WithToken :> GitHubAction
--- > server :: Server MyGitHubEvents
--- > server = handle
---
--- > handle :: Token -> Handler ()
--- > handle token = ...
+{- | A combinator for providing an access token to an endpoint that provides access to the GitHub
+ API. The token provided expires after 10 minutes. For different options, see 'WithToken''.
+
+ Usage:
+
+ > import GitHub.REST (Token)
+ > type MyGitHubEvents = WithToken :> GitHubAction
+ > server :: Server MyGitHubEvents
+ > server = handle
+
+ > handle :: Token -> Handler ()
+ > handle token = ...
+-}
 type WithToken = WithToken' 'SingleToken
 
 data TokenType
-  = SingleToken
-    -- ^ Generates a single token to use
-  | TokenMaker
-    -- ^ Provides a value @IO Token@ that generates a token. Useful for hooks that might take a
+  = -- | Generates a single token to use
+    SingleToken
+  | -- | Provides a value @IO Token@ that generates a token. Useful for hooks that might take a
     -- long time and/or you want finer-grained control over token generation
+    TokenMaker
 
 data WithToken' (tokenType :: TokenType)
 
 -- Generates a token that expires in the given number of minutes
 type TokenGenerator = IO Token
 
-mkTokenGenerator :: HasContextEntry context GitHubAppParams
-  => Context context -> Request -> Servant.DelayedIO TokenGenerator
+mkTokenGenerator ::
+  HasContextEntry context GitHubAppParams =>
+  Context context ->
+  Request ->
+  Servant.DelayedIO TokenGenerator
 mkTokenGenerator context request = do
   event <- decodeRequestBody @BaseEvent =<< getRequestBody request
   return $ getToken ghSigner ghAppId ghUserAgent [get| event.installation!.id |]
@@ -134,8 +140,9 @@ mkTokenGenerator context request = do
 instance
   ( HasServer api context
   , HasContextEntry context GitHubAppParams
-  ) => HasServer (WithToken' 'SingleToken :> api) context where
-
+  ) =>
+  HasServer (WithToken' 'SingleToken :> api) context
+  where
   type ServerT (WithToken' 'SingleToken :> api) m = Token -> ServerT api m
 
   hoistServerWithContext _ _ f s = hoistServerWithContext (Proxy @api) (Proxy @context) f . s
@@ -147,8 +154,9 @@ instance
 instance
   ( HasServer api context
   , HasContextEntry context GitHubAppParams
-  ) => HasServer (WithToken' 'TokenMaker :> api) context where
-
+  ) =>
+  HasServer (WithToken' 'TokenMaker :> api) context
+  where
   type ServerT (WithToken' 'TokenMaker :> api) m = TokenGenerator -> ServerT api m
 
   hoistServerWithContext _ _ f s = hoistServerWithContext (Proxy @api) (Proxy @context) f . s
@@ -157,10 +165,11 @@ instance
     where
       provideToken = mkTokenGenerator context
 
--- | An alias for @Post '[JSON] NoContent@, since GitHub sends JSON data, and webhook handlers shouldn't
--- return anything (they're only consumers).
---
--- This combinator MUST be used in order to clear the request body cache.
+{- | An alias for @Post '[JSON] NoContent@, since GitHub sends JSON data, and webhook handlers shouldn't
+ return anything (they're only consumers).
+
+ This combinator MUST be used in order to clear the request body cache.
+-}
 data GitHubAction
 
 instance HasServer GitHubAction context where
@@ -175,7 +184,7 @@ instance HasServer GitHubAction context where
 -- | The function I wish 'Servant.addHeaderCheck' actually was.
 addHeaderCheck_ :: (Request -> Servant.DelayedIO ()) -> Servant.Delayed env a -> Servant.Delayed env a
 addHeaderCheck_ headerCheck Servant.Delayed{..} =
-  Servant.Delayed { Servant.headersD = Servant.withRequest headerCheck >> headersD, .. }
+  Servant.Delayed{Servant.headersD = Servant.withRequest headerCheck >> headersD, ..}
 
 -- | The function I wish 'Servant.addBodyCheck' actually was.
 addBodyCheck :: (Request -> Servant.DelayedIO a) -> Servant.Delayed env (a -> b) -> Servant.Delayed env b
@@ -202,8 +211,11 @@ addPostBodyCheck_ bodyCheck Servant.Delayed{..} =
 
 {- Helpers -}
 
-decodeRequestBody :: forall (schema :: Schema). IsSchema schema
-  => ByteStringL.ByteString -> Servant.DelayedIO (Object schema)
+decodeRequestBody ::
+  forall (schema :: Schema).
+  IsSchema schema =>
+  ByteStringL.ByteString ->
+  Servant.DelayedIO (Object schema)
 decodeRequestBody s = either (Servant.delayedFailFatal . mkErr) return $ eitherDecode @(Object schema) s
   where
-    mkErr e = err400 { errBody = "Could not decode: " <> Char8.pack e <> "\n" <> s }
+    mkErr e = err400{errBody = "Could not decode: " <> Char8.pack e <> "\n" <> s}

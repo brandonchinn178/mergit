@@ -1,4 +1,8 @@
-{-|
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
+
+{- |
 Module      :  GitHub.Schema.Event.PullRequest
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
@@ -6,10 +10,6 @@ Portability :  portable
 
 Defines the schema for PullRequestEvent.
 -}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE QuasiQuotes #-}
-{-# LANGUAGE TemplateHaskell #-}
-
 module GitHub.Schema.Event.PullRequest where
 
 import Data.Aeson.Schema (schema)
@@ -19,7 +19,8 @@ import GitHub.Schema.BaseEvent (BaseEvent)
 import GitHub.Schema.PullRequest (PullRequestWebhook)
 
 -- https://docs.github.com/en/actions/reference/events-that-trigger-workflows#pull_request
-mkEnum "PullRequestAction"
+mkEnum
+  "PullRequestAction"
   [ "ASSIGNED"
   , "UNASSIGNED"
   , "LABELED"
@@ -36,7 +37,8 @@ mkEnum "PullRequestAction"
   , "REVIEW_REQUEST_REMOVED"
   ]
 
-type PullRequestEvent = [schema|
+type PullRequestEvent =
+  [schema|
   {
     action: PullRequestAction,
     number: Int,

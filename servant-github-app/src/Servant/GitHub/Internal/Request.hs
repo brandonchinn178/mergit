@@ -1,4 +1,7 @@
-{-|
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TupleSections #-}
+
+{- |
 Module      :  Servant.GitHub.Internal.Request
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
@@ -6,9 +9,6 @@ Portability :  portable
 
 Helper functions for getting information from Request objects.
 -}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TupleSections #-}
-
 module Servant.GitHub.Internal.Request where
 
 import Control.Concurrent.MVar (MVar, modifyMVar, modifyMVar_, newMVar)
@@ -58,7 +58,7 @@ clearRequestBody request = do
 getHeader :: CI ByteString -> Request -> Servant.DelayedIO ByteString
 getHeader header = maybe (Servant.delayedFailFatal e) return . lookup header . requestHeaders
   where
-    e = err400 { errBody = ByteStringL.fromStrict (original header) <> " header not found" }
+    e = err400{errBody = ByteStringL.fromStrict (original header) <> " header not found"}
 
 getSignature :: Request -> Servant.DelayedIO ByteString
 getSignature = getHeader "x-hub-signature"

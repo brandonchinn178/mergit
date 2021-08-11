@@ -1,4 +1,8 @@
-{-|
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
+
+{- |
 Module      :  GitHub.Schema.Event.Status
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
@@ -6,10 +10,6 @@ Portability :  portable
 
 Defines the schema for StatusEvent.
 -}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE QuasiQuotes #-}
-{-# LANGUAGE TemplateHaskell #-}
-
 module GitHub.Schema.Event.Status where
 
 import Data.Aeson.Schema (schema)
@@ -19,14 +19,16 @@ import GitHub.Data.GitObjectID (GitObjectID)
 import GitHub.Data.URL (URL)
 import GitHub.Schema.BaseEvent (BaseEvent)
 
-mkEnum "StatusState"
+mkEnum
+  "StatusState"
   [ "PENDING"
   , "SUCCESS"
   , "FAILURE"
   , "ERROR"
   ]
 
-type StatusEvent = [schema|
+type StatusEvent =
+  [schema|
   {
     id: Int,
     sha: GitObjectID,

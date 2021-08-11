@@ -1,4 +1,7 @@
-{-|
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE QuasiQuotes #-}
+
+{- |
 Module      :  GitHub.Schema.Issue
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
@@ -6,9 +9,6 @@ Portability :  portable
 
 Defines schemas related to issues.
 -}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE QuasiQuotes #-}
-
 module GitHub.Schema.Issue where
 
 import Data.Aeson.Schema (schema)
@@ -21,7 +21,8 @@ import GitHub.Schema.Milestone (Milestone)
 import GitHub.Schema.User (UserShort)
 
 -- | https://developer.github.com/v3/issues/#get-a-single-issue
-type Issue = [schema|
+type Issue =
+  [schema|
   {
     id: Int,
     node_id: Text,

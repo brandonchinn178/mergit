@@ -1,4 +1,9 @@
-{-|
+{-# LANGUAGE ExtendedDefaultRules #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# OPTIONS_GHC -fno-warn-type-defaults #-}
+
+{- |
 Module      :  MergeBot.Core.Actions
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
@@ -9,33 +14,28 @@ This module defines check run actions that can be requested in the MergeBot.
 https://developer.github.com/v3/checks/runs/#actions-object
 https://developer.github.com/apps/quickstart-guides/creating-ci-tests-with-the-checks-api/#step-25-updating-the-check-run-with-ci-test-results
 -}
-{-# LANGUAGE ExtendedDefaultRules #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# OPTIONS_GHC -fno-warn-type-defaults #-}
-
-module MergeBot.Core.Actions
-  ( MergeBotAction(..)
-  , parseAction
-  , renderAction
-  ) where
+module MergeBot.Core.Actions (
+  MergeBotAction (..),
+  parseAction,
+  renderAction,
+) where
 
 import Data.Text (Text)
-import GitHub.REST (KeyValue(..))
+import GitHub.REST (KeyValue (..))
 
 default (Text)
 
 -- | An action that renders as a button in the check run and runs a given merge bot action.
 data MergeBotAction
-  = BotTry
-    -- ^ Available in the try check run. Starts a try job.
-  | BotQueue
-    -- ^ Available in the merge check run. Queues a PR.
-  | BotDequeue
-    -- ^ Available in the merge check run. Dequeues a PR.
-  | BotResetMerge
-    -- ^ Available in the merge check run. Resets check run to initial state.
-  deriving (Show,Eq)
+  = -- | Available in the try check run. Starts a try job.
+    BotTry
+  | -- | Available in the merge check run. Queues a PR.
+    BotQueue
+  | -- | Available in the merge check run. Dequeues a PR.
+    BotDequeue
+  | -- | Available in the merge check run. Resets check run to initial state.
+    BotResetMerge
+  deriving (Show, Eq)
 
 parseAction :: Text -> Maybe MergeBotAction
 parseAction = \case
@@ -47,22 +47,22 @@ parseAction = \case
 
 renderAction :: MergeBotAction -> [KeyValue]
 renderAction BotTry =
-  [ "label"       := "Run Try"
+  [ "label" := "Run Try"
   , "description" := "Start a try run"
-  , "identifier"  := "lybot_run_try"
+  , "identifier" := "lybot_run_try"
   ]
 renderAction BotQueue =
-  [ "label"       := "Queue"
+  [ "label" := "Queue"
   , "description" := "Queue this PR"
-  , "identifier"  := "lybot_queue"
+  , "identifier" := "lybot_queue"
   ]
 renderAction BotDequeue =
-  [ "label"       := "Dequeue"
+  [ "label" := "Dequeue"
   , "description" := "Dequeue this PR"
-  , "identifier"  := "lybot_dequeue"
+  , "identifier" := "lybot_dequeue"
   ]
 renderAction BotResetMerge =
-  [ "label"       := "Reset"
+  [ "label" := "Reset"
   , "description" := "Reset this check run"
-  , "identifier"  := "lybot_reset_merge"
+  , "identifier" := "lybot_reset_merge"
   ]

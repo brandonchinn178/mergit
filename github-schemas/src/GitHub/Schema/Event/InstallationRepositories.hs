@@ -1,4 +1,8 @@
-{-|
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
+
+{- |
 Module      :  GitHub.Schema.Event.InstallationRepositories
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
@@ -6,10 +10,6 @@ Portability :  portable
 
 Defines the schema for InstallationRepositoriesEvent.
 -}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE QuasiQuotes #-}
-{-# LANGUAGE TemplateHaskell #-}
-
 module GitHub.Schema.Event.InstallationRepositories where
 
 import Data.Aeson.Schema (schema)
@@ -19,17 +19,20 @@ import GitHub.Schema.BaseEvent (BaseEvent)
 import GitHub.Schema.Installation (Installation)
 import GitHub.Schema.Repository (RepositoryShort)
 
-mkEnum "InstallationRepoAction"
+mkEnum
+  "InstallationRepoAction"
   [ "ADDED"
   , "REMOVED"
   ]
 
-mkEnum "InstallationRepoSelection"
+mkEnum
+  "InstallationRepoSelection"
   [ "SELECTED"
   , "ALL"
   ]
 
-type InstallationRepositoriesEvent = [schema|
+type InstallationRepositoriesEvent =
+  [schema|
   {
     action: InstallationRepoAction,
     installation: #Installation,

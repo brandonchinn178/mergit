@@ -1,4 +1,7 @@
-{-|
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE QuasiQuotes #-}
+
+{- |
 Module      :  GitHub.Schema.User
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
@@ -6,9 +9,6 @@ Portability :  portable
 
 Defines schemas related to users.
 -}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE QuasiQuotes #-}
-
 module GitHub.Schema.User where
 
 import Data.Aeson.Schema (schema)
@@ -16,7 +16,8 @@ import Data.Aeson.Schema (schema)
 import GitHub.Data.URL (URL)
 
 -- | A user returned by normal endpoints, e.g. /user
-type User = [schema|
+type User =
+  [schema|
   {
     login: Text,
     id: Int,
@@ -53,7 +54,8 @@ type User = [schema|
 |]
 
 -- | An abbreviated user, good for webhooks, and endpoints like `/repos/:owner/:repo`.
-type UserShort = [schema|
+type UserShort =
+  [schema|
   {
     login: Text,
     id: Int,

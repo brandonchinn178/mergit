@@ -1,4 +1,7 @@
-{-|
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE QuasiQuotes #-}
+
+{- |
 Module      :  GitHub.Schema.Installation
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
@@ -6,9 +9,6 @@ Portability :  portable
 
 Defines schemas related to installations.
 -}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE QuasiQuotes #-}
-
 module GitHub.Schema.Installation where
 
 import Data.Aeson.Schema (schema)
@@ -16,7 +16,8 @@ import Data.Aeson.Schema (schema)
 import GitHub.Data.URL (URL)
 import GitHub.Schema.User (UserShort)
 
-type Installation = [schema|
+type Installation =
+  [schema|
   {
     id: Int,
     account: #UserShort,

@@ -1,4 +1,8 @@
-{-|
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
+
+{- |
 Module      :  GitHub.Schema.Event.DeploymentStatus
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
@@ -6,10 +10,6 @@ Portability :  portable
 
 Defines the schema for DeploymentStatusEvent.
 -}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE QuasiQuotes #-}
-{-# LANGUAGE TemplateHaskell #-}
-
 module GitHub.Schema.Event.DeploymentStatus where
 
 import Data.Aeson.Schema (schema)
@@ -20,14 +20,16 @@ import GitHub.Schema.BaseEvent (BaseEvent)
 import GitHub.Schema.Deployment (Deployment)
 import GitHub.Schema.Repository (RepoWebhook)
 
-mkEnum "DeploymentState"
+mkEnum
+  "DeploymentState"
   [ "PENDING"
   , "SUCCESS"
   , "FAILURE"
   , "ERROR"
   ]
 
-type DeploymentStatusEvent = [schema|
+type DeploymentStatusEvent =
+  [schema|
   {
     deployment_status: {
       state: DeploymentState,

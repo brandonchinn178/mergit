@@ -1,4 +1,7 @@
-{-|
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE QuasiQuotes #-}
+
+{- |
 Module      :  GitHub.Schema.Comment
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
@@ -6,9 +9,6 @@ Portability :  portable
 
 Defines schemas related to comments.
 -}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE QuasiQuotes #-}
-
 module GitHub.Schema.Comment where
 
 import Data.Aeson.Schema (schema)
@@ -18,7 +18,8 @@ import GitHub.Data.URL (URL)
 import GitHub.Schema.User (UserShort)
 
 -- | https://developer.github.com/v3/issues/comments/#get-a-single-comment
-type Comment = [schema|
+type Comment =
+  [schema|
   {
     id: Int,
     node_id: Text,
