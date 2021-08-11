@@ -17,14 +17,6 @@ workflows:
             - build
 
 aliases:
-  # build environment
-  - &docker-linux
-    docker:
-      - image: centos:7
-    working_directory: /root/src
-    environment:
-      LANG: en_US.UTF-8
-
   # system dependencies
   - &install-stack
     run:
@@ -98,7 +90,7 @@ jobs:
             - cache-key.txt
 
   build:
-    <<: *docker-linux
+    executor: docker-centos7
     steps:
       - checkout
       - attach_workspace:
@@ -126,7 +118,7 @@ jobs:
             - servant-github-app/.stack-work
 
   lint:
-    <<: *docker-linux
+    executor: docker-centos7
     steps:
       - checkout
       - attach_workspace:
@@ -138,7 +130,7 @@ jobs:
       - *run-stylish-haskell
 
   test:
-    <<: *docker-linux
+    executor: docker-centos7
     steps:
       - checkout
       - attach_workspace:
@@ -148,3 +140,11 @@ jobs:
       - restore_cache:
           key: *cache-key
       - *run-tests
+
+executors:
+  docker-centos7:
+    docker:
+      - image: centos:7
+    working_directory: /root/src
+    environment:
+      LANG: en_US.UTF-8
