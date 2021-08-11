@@ -16,7 +16,6 @@ requests from GitHub while routing HTTP requests internally to the merge bot.
 
 1. Install [`tfenv`](https://github.com/tfutils/tfenv)
 1. Get the app ID, webhook secret, and private key from LastPass.
-1. Download the `merge-bot` binary from a CI job.
 
 ## Deploy for the first time
 
@@ -24,7 +23,11 @@ requests from GitHub while routing HTTP requests internally to the merge bot.
 1. `cd` to this directory
 1. `mkdir artifacts/`
 1. Save the private key as `artifacts/github-app.pem`
-1. Save the `merge-bot` binary as `artifacts/merge-bot`
+1. Download the new `merge-bot` binary from Circle CI
+    1. Find the appropriate workflow on https://app.circleci.com/pipelines/github/LeapYear/merge-bot
+        - A common use case is to select the most recent successful build on the `main` branch
+    1. Go to the `build` CI job
+    1. Go to Artifacts, and download the `merge-bot` binary.
 1. Create a `terraform.tfvars` file
 
     ```
@@ -36,6 +39,7 @@ requests from GitHub while routing HTTP requests internally to the merge bot.
 
 1. `terraform init`
 1. `terraform apply`
+1. Try opening https://merge-bot.build-leapyear.com/ in your browser
 
 ## Inspect
 
@@ -63,13 +67,14 @@ Run the following steps to redeploy the Merge Bot; e.g. after merging a PR that 
 1. Turn on the VPN
 1. Download the new `merge-bot` binary from Circle CI
     1. Find the appropriate workflow on https://app.circleci.com/pipelines/github/LeapYear/merge-bot
+        - A common use case is to select the most recent successful build on the `main` branch
     1. Go to the `build` CI job
     1. Go to Artifacts, and download the `merge-bot` binary.
-1. `cd` to this directory
-1. Ensure that `artifacts/github-app.pem` still exists
+1. `cd` to this `deploy` directory
+1. Populate `artifacts/github-app.pem` and `terraform.tfvars` from the Lastpass entry "LY Merge Bot",
+if you don't already have them
 1. Put the new `merge-bot` binary in `artifacts/`
+1. `terraform init`
 1. `terraform taint aws_instance.merge_bot`
-1. `terraform apply -auto-approve`
-
-The `github-app.pem` private key and the `terraform.tfvars` values should be
-in LastPass under "LY Merge Bot".
+1. `terraform apply`
+1. Try opening https://merge-bot.build-leapyear.com/ in your browser
