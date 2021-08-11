@@ -5,10 +5,7 @@ workflows:
 
   build_and_test:
     jobs:
-      - prebuild
-      - build:
-          requires:
-            - prebuild
+      - build
       - lint:
           requires:
             - build
@@ -79,22 +76,11 @@ aliases:
       command: stack test
 
 jobs:
-  prebuild:
-    <<: *docker-linux
-    steps:
-      - checkout
-      - *build-cache-key
-      - persist_to_workspace:
-          root: .
-          paths:
-            - cache-key.txt
-
   build:
     executor: docker-centos7
     steps:
       - checkout
-      - attach_workspace:
-          at: .
+      - *build-cache-key
       - *install-system-deps
       - *install-stack
       - restore_cache:
@@ -121,6 +107,7 @@ jobs:
     executor: docker-centos7
     steps:
       - checkout
+      - *build-cache-key
       - attach_workspace:
           at: .
       - *install-stack
@@ -133,6 +120,7 @@ jobs:
     executor: docker-centos7
     steps:
       - checkout
+      - *build-cache-key
       - attach_workspace:
           at: .
       - *install-system-deps # https://github.com/commercialhaskell/stack/issues/4893
