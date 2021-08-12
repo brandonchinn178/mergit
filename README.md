@@ -2,10 +2,10 @@
 
 ## Quickstart
 
-1. `scripts/install-system-deps.sh`
 1. `stack build`
 1. `source .env`
 1. Go to `smee.io` and start a new channel
+1. Install [`smee`](https://github.com/probot/smee-client)
 1. `smee --url https://smee.io/<token> --path /webhook/`
 1. Run configuration steps pointed to `https://smee.io/<token>`
 1. `stack exec merge-bot`

@@ -18,10 +18,10 @@ jobs:
     executor: docker-centos7
     steps:
       - init_ci_job
-      - run: scripts/install-system-deps.sh
       - install_stack
       - with_stack_cache:
           steps:
+            - run: yum install -y zlib-devel
             - run:
                 name: Build third-party Haskell libraries
                 command: stack build --test --only-dependencies -j1
