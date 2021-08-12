@@ -1,9 +1,9 @@
 repos:
   - repo: local
     hooks:
-      - id: stylish-haskell
-        name: stylish-haskell
-        entry: stack exec -- stylish-haskell --inplace
+      - id: fourmolu
+        name: Fourmolu
+        entry: stack exec -- fourmolu --mode inplace
         language: system
         files: '\.hs$'
         require_serial: true

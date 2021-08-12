@@ -1,4 +1,8 @@
-{-|
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
+
+{- |
 Module      :  GitHub.Schema.Event.Issues
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
@@ -6,10 +10,6 @@ Portability :  portable
 
 Defines the schema for IssuesEvent.
 -}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE QuasiQuotes #-}
-{-# LANGUAGE TemplateHaskell #-}
-
 module GitHub.Schema.Event.Issues where
 
 import Data.Aeson.Schema (schema)
@@ -20,7 +20,8 @@ import GitHub.Schema.Issue (Issue)
 import GitHub.Schema.Label (Label)
 import GitHub.Schema.User (UserShort)
 
-mkEnum "IssuesAction"
+mkEnum
+  "IssuesAction"
   [ "OPENED"
   , "EDITED"
   , "DELETED"
@@ -37,7 +38,8 @@ mkEnum "IssuesAction"
   , "DEMILESTONED"
   ]
 
-type IssuesEvent = [schema|
+type IssuesEvent =
+  [schema|
   {
     action: IssuesAction,
     issue: #Issue,

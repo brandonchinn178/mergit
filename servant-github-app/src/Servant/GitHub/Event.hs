@@ -1,4 +1,10 @@
-{-|
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE UndecidableInstances #-}
+
+{- |
 Module      :  Servant.GitHub.Event
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
@@ -6,17 +12,11 @@ Portability :  portable
 
 Defines all the possible GitHub events that can be sent.
 -}
-{-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE UndecidableInstances #-}
-
-module Servant.GitHub.Event
-  ( GitHubEventType(..)
-  , IsGitHubEvent(..)
-  , module Schema
-  ) where
+module Servant.GitHub.Event (
+  GitHubEventType (..),
+  IsGitHubEvent (..),
+  module Schema,
+) where
 
 import Data.Aeson.Schema (Schema)
 import Data.ByteString.Lazy (ByteString)
@@ -29,11 +29,13 @@ import GitHub.Schema.Event.Delete as Schema (DeleteEvent)
 import GitHub.Schema.Event.Deployment as Schema (DeploymentEvent)
 import GitHub.Schema.Event.DeploymentStatus as Schema (DeploymentStatusEvent)
 import GitHub.Schema.Event.Fork as Schema (ForkEvent)
-import GitHub.Schema.Event.GitHubAppAuthorization as Schema
-    (GitHubAppAuthorizationEvent)
+import GitHub.Schema.Event.GitHubAppAuthorization as Schema (
+  GitHubAppAuthorizationEvent,
+ )
 import GitHub.Schema.Event.Installation as Schema (InstallationEvent)
-import GitHub.Schema.Event.InstallationRepositories as Schema
-    (InstallationRepositoriesEvent)
+import GitHub.Schema.Event.InstallationRepositories as Schema (
+  InstallationRepositoriesEvent,
+ )
 import GitHub.Schema.Event.IssueComment as Schema (IssueCommentEvent)
 import GitHub.Schema.Event.Issues as Schema (IssuesEvent)
 import GitHub.Schema.Event.Label as Schema (LabelEvent)
@@ -42,6 +44,7 @@ import GitHub.Schema.Event.PullRequest as Schema (PullRequestEvent)
 import GitHub.Schema.Event.Push as Schema (PushEvent)
 import GitHub.Schema.Event.Status as Schema (StatusEvent)
 
+{- ORMOLU_DISABLE -}
 -- | TODO: Finish implementing other events.
 data GitHubEventType
   = CheckRunEvent
@@ -86,6 +89,7 @@ data GitHubEventType
   -- TODO: TeamAddEvent
   -- TODO: WatchEvent
   deriving (Show)
+{- ORMOLU_ENABLE -}
 
 class IsGitHubEvent (e :: GitHubEventType) where
   type EventSchema e :: Schema

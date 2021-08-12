@@ -1,4 +1,7 @@
-{-|
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE QuasiQuotes #-}
+
+{- |
 Module      :  GitHub.Schema.PullRequest
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
@@ -6,9 +9,6 @@ Portability :  portable
 
 Defines schemas related to pull requests.
 -}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE QuasiQuotes #-}
-
 module GitHub.Schema.PullRequest where
 
 import Data.Aeson.Schema (schema)
@@ -25,7 +25,8 @@ import GitHub.Schema.Team (Team)
 import GitHub.Schema.User (UserShort)
 
 -- | A pull request returned by normal endpoints, e.g. `/repos/:owner/:repo/pulls`.
-type PullRequest = [schema|
+type PullRequest =
+  [schema|
   {
     url: URL,
     id: Int,
@@ -62,7 +63,8 @@ type PullRequest = [schema|
 |]
 
 -- | A pull request as returned by GitHub events.
-type PullRequestWebhook = [schema|
+type PullRequestWebhook =
+  [schema|
   {
     url: URL,
     id: Int,
@@ -150,7 +152,8 @@ type PullRequestWebhook = [schema|
 |]
 
 -- | An abbreviated schema for PullRequest.
-type PullRequestShort = [schema|
+type PullRequestShort =
+  [schema|
   {
     url: URL,
     id: Int,

@@ -1,11 +1,3 @@
-{-|
-Module      :  MergeBot.Core
-Maintainer  :  Brandon Chinn <brandon@leapyear.io>
-Stability   :  experimental
-Portability :  portable
-
-This module defines core MergeBot functionality.
--}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE ExtendedDefaultRules #-}
 {-# LANGUAGE LambdaCase #-}
@@ -17,19 +9,27 @@ This module defines core MergeBot functionality.
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
-module MergeBot.Core
-  ( createCheckRuns
-  , startTryJob
-  , queuePR
-  , dequeuePR
-  , resetMerge
-  , handleStatusUpdate
-  , pollQueues
-  ) where
+{- |
+Module      :  MergeBot.Core
+Maintainer  :  Brandon Chinn <brandon@leapyear.io>
+Stability   :  experimental
+Portability :  portable
+
+This module defines core MergeBot functionality.
+-}
+module MergeBot.Core (
+  createCheckRuns,
+  startTryJob,
+  queuePR,
+  dequeuePR,
+  resetMerge,
+  handleStatusUpdate,
+  pollQueues,
+) where
 
 import Control.Concurrent (threadDelay)
 import Control.Monad (forM_, unless, void, when, (<=<))
-import Control.Monad.IO.Class (MonadIO(..))
+import Control.Monad.IO.Class (MonadIO (..))
 import Data.Bifunctor (first)
 import Data.GraphQL (get)
 import qualified Data.HashMap.Strict as HashMap
@@ -62,20 +62,22 @@ createCheckRuns sha = do
 
 -- | Start a new try job.
 startTryJob :: MonadMergeBot m => PrNum -> CommitSHA -> BranchName -> CheckRunId -> m ()
-startTryJob prNum prSHA base checkRunId = do
-  mergeSHA <-
-    createCIBranch base [(prNum, prSHA)] tryBranch tryMessage
-      `onException` updateCheckRuns [(prSHA, checkRunId)] CheckRunUpdates
-        { isStart = True
-        , isTry = True
-        , checkRunStatus = CheckRunComplete False
-        , checkRunBody = ["Unable to start try job."]
-        }
-
-  refreshCheckRuns True tryBranch mergeSHA
+startTryJob prNum prSHA base checkRunId =
+  (`onException` setCheckRunFailed) $ do
+    mergeSHA <- createCIBranch base [(prNum, prSHA)] tryBranch tryMessage
+    refreshCheckRuns True tryBranch mergeSHA
   where
     tryBranch = toTryBranch prNum
     tryMessage = toTryMessage prNum
+    setCheckRunFailed =
+      updateCheckRuns
+        [(prSHA, checkRunId)]
+        CheckRunUpdates
+          { isStart = True
+          , isTry = True
+          , checkRunStatus = CheckRunComplete False
+          , checkRunBody = ["Unable to start try job."]
+          }
 
 -- | Add a PR to the queue.
 queuePR :: MonadMergeBot m => PrNum -> CommitSHA -> m ()
@@ -88,12 +90,14 @@ queuePR prNum sha = do
 
   checkRunId <- getCheckRun prNum CheckRunMerge
   -- TOOD: batching info
-  updateCheckRuns [(sha, checkRunId)] CheckRunUpdates
-    { isStart = True -- previous status of merge check run was "Complete: Action Required"
-    , isTry = False
-    , checkRunStatus = CheckRunQueued
-    , checkRunBody = [mergeJobSummaryQueued]
-    }
+  updateCheckRuns
+    [(sha, checkRunId)]
+    CheckRunUpdates
+      { isStart = True -- previous status of merge check run was "Complete: Action Required"
+      , isTry = False
+      , checkRunStatus = CheckRunQueued
+      , checkRunBody = [mergeJobSummaryQueued]
+      }
 
 -- | Remove a PR from the queue.
 dequeuePR :: MonadMergeBot m => PrNum -> CommitSHA -> m ()
@@ -114,35 +118,40 @@ handleStatusUpdate = refreshCheckRuns False
 pollQueues :: MonadMergeBot m => m ()
 pollQueues = do
   queues <- getQueues
-  void $ flip HashMap.traverseWithKey queues $ \base prs -> do
-    staging <- getBranchSHA $ toStagingBranch base
-    when (isNothing staging) $ startMergeJob prs base
+  void $
+    flip HashMap.traverseWithKey queues $ \base prs -> do
+      staging <- getBranchSHA $ toStagingBranch base
+      when (isNothing staging) $ startMergeJob prs base
   where
     startMergeJob prs base = do
       let (prNums, prSHAs, checkRunIds) = unzip3 prs
           prNumsAndSHAs = zip prNums prSHAs
           prSHAsAndCheckRunIds = zip prSHAs checkRunIds
 
-          stagingBranch = toStagingBranch base
-          stagingMessage = toStagingMessage base prNums
+      let setCheckRunFailed =
+            updateCheckRuns
+              prSHAsAndCheckRunIds
+              CheckRunUpdates
+                { isStart = True
+                , isTry = False
+                , checkRunStatus = CheckRunComplete False
+                , checkRunBody = ["Unable to start merge job."]
+                }
 
-      mergeSHA <- createCIBranch base prNumsAndSHAs stagingBranch stagingMessage
-        `onException` updateCheckRuns prSHAsAndCheckRunIds CheckRunUpdates
-          { isStart = True
-          , isTry = False
-          , checkRunStatus = CheckRunComplete False
-          , checkRunBody = ["Unable to start merge job."]
-          }
-
-      refreshCheckRuns True stagingBranch mergeSHA
+      (`onException` setCheckRunFailed) $ do
+        let stagingBranch = toStagingBranch base
+            stagingMessage = toStagingMessage base prNums
+        mergeSHA <- createCIBranch base prNumsAndSHAs stagingBranch stagingMessage
+        refreshCheckRuns True stagingBranch mergeSHA
 
 {- Helpers -}
 
--- | Create a branch for a try or merge job.
---
--- * Deletes the existing try or merge branch, if one exists.
--- * Errors if merge conflict
--- * Errors if the .lymerge.yaml file is missing or invalid
+{- | Create a branch for a try or merge job.
+
+ * Deletes the existing try or merge branch, if one exists.
+ * Errors if merge conflict
+ * Errors if the .lymerge.yaml file is missing or invalid
+-}
 createCIBranch :: MonadMergeBot m => BranchName -> [(PrNum, CommitSHA)] -> BranchName -> Text -> m CommitSHA
 createCIBranch base prs ciBranch message = do
   deleteBranch ciBranch
@@ -165,9 +174,10 @@ createCIBranch base prs ciBranch message = do
       -- https://leapyear.atlassian.net/browse/QA-178
       maybe (throwIO $ TreeNotUpdated prNums prNum) return <=< retry 3 $ do
         treeUpdated <- getBranchTree tempBranch
-        return $ if treeUpdated == treeInitial
-          then Nothing
-          else Just ()
+        return $
+          if treeUpdated == treeInitial
+            then Nothing
+            else Just ()
 
     -- get tree for temp branch
     tree <- getBranchTree tempBranch
@@ -190,11 +200,12 @@ createCIBranch base prs ciBranch message = do
     retry n action =
       if n <= 0
         then return Nothing
-        else action >>= \case
-          Just a -> return $ Just a
-          Nothing -> do
-            liftIO $ threadDelay 1000000
-            retry (n - 1) action
+        else
+          action >>= \case
+            Just a -> return $ Just a
+            Nothing -> do
+              liftIO $ threadDelay 1000000
+              retry (n - 1) action
 
 -- | Refresh the check runs for the given CI commit.
 refreshCheckRuns :: MonadMergeBot m => Bool -> BranchName -> CommitSHA -> m ()
@@ -220,50 +231,55 @@ refreshCheckRuns isStart ciBranchName sha = do
         _ -> (False, False)
 
   ciBranchUrl <- mkCIBranchUrl
-  updateCheckRuns parents CheckRunUpdates
-    { isStart
-    , isTry
-    , checkRunStatus = if isComplete
-        then CheckRunComplete isSuccess
-        else CheckRunInProgress
-    , checkRunBody =
-        let ciInfo = "CI running in the [" <> ciBranchName <> "](" <> ciBranchUrl <> ") branch."
-            message
-              | not isComplete = ciInfo
-              | otherwise =
+  updateCheckRuns
+    parents
+    CheckRunUpdates
+      { isStart
+      , isTry
+      , checkRunStatus =
+          if isComplete
+            then CheckRunComplete isSuccess
+            else CheckRunInProgress
+      , checkRunBody =
+          let ciInfo = "CI running in the [" <> ciBranchName <> "](" <> ciBranchUrl <> ") branch."
+              message
+                | not isComplete = ciInfo
+                | otherwise =
                   case (isTry, isSuccess) of
-                    (True, False)  -> tryJobSummaryFailed
-                    (True, True)   -> tryJobSummarySuccess
+                    (True, False) -> tryJobSummaryFailed
+                    (True, True) -> tryJobSummarySuccess
                     (False, False) -> mergeJobSummaryFailed
-                    (False, True)  -> mergeJobSummarySuccess
-        in [message, displayCIStatus ciStatus]
-    }
+                    (False, True) -> mergeJobSummarySuccess
+           in [message, displayCIStatus ciStatus]
+      }
 
   -- Post-run actions
   if
-    -- If check run isn't finished yet, no post-run actions to run
-    | not isComplete -> return ()
-    -- If finished check run is a try, no post-run actions to run. PRs should not
-    -- be merged yet, and trying branch should not be cleaned up:
-    --   * If job A fails, but job B hasn't started yet (and doesn't depend on job A),
-    --     we should allow job B to checkout code + run more tests
-    --   * If all jobs succeed, we should allow non-blocking jobs (e.g. a deploy step)
-    --     to also checkout code, so we can't delete the branch yet
-    | isTry -> return ()
-    -- At this point, the run is a completed merge run
-    | otherwise -> do
+      -- If check run isn't finished yet, no post-run actions to run
+      | not isComplete -> return ()
+      -- If finished check run is a try, no post-run actions to run. PRs should not
+      -- be merged yet, and trying branch should not be cleaned up:
+      --   * If job A fails, but job B hasn't started yet (and doesn't depend on job A),
+      --     we should allow job B to checkout code + run more tests
+      --   * If all jobs succeed, we should allow non-blocking jobs (e.g. a deploy step)
+      --     to also checkout code, so we can't delete the branch yet
+      | isTry -> return ()
+      -- At this point, the run is a completed merge run
+      | otherwise -> do
         prs <- mapM getPRById prsFromMessage
 
         allPRsMerged <- areAllPRsMerged prs
 
         if allPRsMerged
-          -- If all PRs are merged, then this status was from a post-merge, non-blocking
-          -- CI job. Don't attempt to merge PRs / delete branches again.
-          then return ()
-          -- If all of the PRs are still open, run the merge post-run actions and delete the
-          -- staging branch when finished, even if the merge run failed (so that the next
-          -- merge run can start).
-          else onMergeCompletion parents prs isSuccess `finally` deleteBranch ciBranchName
+          then do
+            -- If all PRs are merged, then this status was from a post-merge, non-blocking
+            -- CI job. Don't attempt to merge PRs / delete branches again.
+            return ()
+          else do
+            -- If all of the PRs are still open, run the merge post-run actions and delete the
+            -- staging branch when finished, even if the merge run failed (so that the next
+            -- merge run can start).
+            onMergeCompletion parents prs isSuccess `finally` deleteBranch ciBranchName
   where
     isTry = isTryBranch ciBranchName
     checkRunType = if isTry then CheckRunTry else CheckRunMerge
@@ -284,44 +300,44 @@ refreshCheckRuns isStart ciBranchName sha = do
 
     onMergeCompletion parents prs isSuccess
       | isSuccess = do
-          let prNums = map prId prs
+        let prNums = map prId prs
 
-          -- check if any PRs were updated underneath us
-          -- https://leapyear.atlassian.net/browse/QA-129
-          let parentSHAs = map fst parents
-          case filter (\pr -> prSHA pr `notElem` parentSHAs) prs of
-            [] -> return ()
-            updatedPRs -> do
-              let prSHAs = map prSHA prs
-                  unaccountedSHAs = filter (`notElem` prSHAs) parentSHAs
-              throwIO $ PRWasUpdatedDuringMergeRun prNums (map prId updatedPRs) unaccountedSHAs
+        -- check if any PRs were updated underneath us
+        -- https://leapyear.atlassian.net/browse/QA-129
+        let parentSHAs = map fst parents
+        case filter (\pr -> prSHA pr `notElem` parentSHAs) prs of
+          [] -> return ()
+          updatedPRs -> do
+            let prSHAs = map prSHA prs
+                unaccountedSHAs = filter (`notElem` prSHAs) parentSHAs
+            throwIO $ PRWasUpdatedDuringMergeRun prNums (map prId updatedPRs) unaccountedSHAs
 
-          -- merge into base
-          let invalidStagingBranch = throwIO $ InvalidStaging prNums ciBranchName
-          base <- maybe invalidStagingBranch return $ fromStagingBranch ciBranchName
-          updateBranch False base sha >>= \case
-            Right _ -> return ()
-            Left message -> throwIO $ BadUpdate sha prNums base message
+        -- merge into base
+        let invalidStagingBranch = throwIO $ InvalidStaging prNums ciBranchName
+        base <- maybe invalidStagingBranch return $ fromStagingBranch ciBranchName
+        updateBranch False base sha >>= \case
+          Right _ -> return ()
+          Left message -> throwIO $ BadUpdate sha prNums base message
 
-          -- close PRs and delete branches
-          forM_ prs $ \pr -> do
-            let prNum = prId pr
-                branch = prBranch pr
+        -- close PRs and delete branches
+        forM_ prs $ \pr -> do
+          let prNum = prId pr
+              branch = prBranch pr
 
-            -- wait until PR is marked "merged"
-            let waitUntilPRIsMerged i = do
-                  prIsMerged <- isPRMerged prNum
-                  unless prIsMerged $ do
-                    -- sleep for 1 second, try 5 times
-                    liftIO $ threadDelay 1000000
-                    if i < 5
-                      then waitUntilPRIsMerged $ i + 1
-                      else throwIO $ BadUpdate sha prNums base $ "PR did not merge: " <> Text.pack (show prNum)
-            waitUntilPRIsMerged (0 :: Int)
+          -- wait until PR is marked "merged"
+          let waitUntilPRIsMerged i = do
+                prIsMerged <- isPRMerged prNum
+                unless prIsMerged $ do
+                  -- sleep for 1 second, try 5 times
+                  liftIO $ threadDelay 1000000
+                  if i < 5
+                    then waitUntilPRIsMerged $ i + 1
+                    else throwIO $ BadUpdate sha prNums base $ "PR did not merge: " <> Text.pack (show prNum)
+          waitUntilPRIsMerged (0 :: Int)
 
-            closePR prNum
-            deleteBranch branch
-            deleteBranch $ toTryBranch prNum
+          closePR prNum
+          deleteBranch branch
+          deleteBranch $ toTryBranch prNum
       | otherwise = return ()
 
 -- | Get the configuration file for the given tree.
@@ -331,7 +347,7 @@ extractConfig prs tree =
     [] -> Left $ ConfigFileMissing prs
     [entry] ->
       let configText = [get| entry.object!.__fragment!.text! |]
-      in first (ConfigFileInvalid prs . Text.pack . show) . decodeEither' . Text.encodeUtf8 $ configText
+       in first (ConfigFileInvalid prs . Text.pack . show) . decodeEither' . Text.encodeUtf8 $ configText
     _ -> error $ "Multiple '" ++ Text.unpack configFileName ++ "' files found?"
   where
     isConfigFile = (== configFileName) . [get| .name |]

@@ -5,8 +5,13 @@
 
 module MergeBot.EventQueue.Internal where
 
-import Control.Concurrent.STM.TBQueue
-    (TBQueue, newTBQueue, readTBQueue, tryReadTBQueue, writeTBQueue)
+import Control.Concurrent.STM.TBQueue (
+  TBQueue,
+  newTBQueue,
+  readTBQueue,
+  tryReadTBQueue,
+  writeTBQueue,
+ )
 import Control.Concurrent.STM.TVar (TVar, modifyTVar', newTVar, readTVar)
 import Data.Map (Map)
 import qualified Data.Map as Map
@@ -19,7 +24,7 @@ import UnliftIO.STM (STM, atomically)
 
 data EventQueuesManager key event = EventQueuesManager
   { globalEventQueue :: TBQueue (key, event)
-  , workerQueues     :: TVar (Map key (WorkerQueue event))
+  , workerQueues :: TVar (Map key (WorkerQueue event))
   , workerQueueLimit :: Natural
   }
 
@@ -46,7 +51,7 @@ type WorkerThread = Async ()
 
 data WorkerQueue event = WorkerQueue
   { workerEventQueue :: TBQueue event
-  , workerThread     :: Maybe WorkerThread
+  , workerThread :: Maybe WorkerThread
   }
 
 data AddEventResult event
@@ -62,13 +67,12 @@ addEventToWorkerQueue EventQueuesManager{..} eventKey event = do
       workerEventQueue <- newTBQueue workerQueueLimit
       writeTBQueue workerEventQueue event
 
-      let workerQueue = WorkerQueue { workerEventQueue, workerThread = Nothing }
+      let workerQueue = WorkerQueue{workerEventQueue, workerThread = Nothing}
 
       -- register queue with workerQueues
       modifyTVar' workerQueues (Map.insert eventKey workerQueue)
 
       return $ AddedToNewQueue workerQueue
-
     Just workerQueue -> do
       -- add the event to the queue
       writeTBQueue (workerEventQueue workerQueue) event
@@ -80,9 +84,8 @@ registerWorkerThread EventQueuesManager{..} eventKey workerThread =
   modifyTVar' workerQueues $ \queues ->
     case Map.lookup eventKey queues of
       Just workerQueue ->
-        let workerQueue' = workerQueue { workerThread = Just workerThread }
-        in Map.insert eventKey workerQueue' queues
-
+        let workerQueue' = workerQueue{workerThread = Just workerThread}
+         in Map.insert eventKey workerQueue' queues
       -- should not happen
       Nothing -> error $ "Event key not found in queues: " ++ show eventKey
 

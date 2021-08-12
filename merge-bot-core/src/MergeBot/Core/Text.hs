@@ -1,4 +1,8 @@
-{-|
+{-# LANGUAGE ExtendedDefaultRules #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# OPTIONS_GHC -fno-warn-type-defaults #-}
+
+{- |
 Module      :  MergeBot.Core.Text
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
@@ -6,10 +10,6 @@ Portability :  portable
 
 This module defines labels and messages used in the MergeBot.
 -}
-{-# LANGUAGE ExtendedDefaultRules #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# OPTIONS_GHC -fno-warn-type-defaults #-}
-
 module MergeBot.Core.Text where
 
 import Control.Monad ((<=<))
@@ -17,10 +17,10 @@ import Data.Maybe (isJust)
 import Data.Text (Text)
 import qualified Data.Text as Text
 import Data.Time (UTCTime)
-import GitHub.REST (KeyValue(..))
+import GitHub.REST (KeyValue (..))
 import Text.Read (readMaybe)
 
-import MergeBot.Core.Actions (MergeBotAction(..), renderAction)
+import MergeBot.Core.Actions (MergeBotAction (..), renderAction)
 
 default (Text)
 
@@ -48,11 +48,12 @@ tryJobLabelDone = "Try run finished"
 
 -- | The summary text to display when the try check run failed.
 tryJobSummaryFailed :: Text
-tryJobSummaryFailed = Text.unwords
-  [ "Try run failed. If the failures are unrelated to your changes, navigate to the Circle CI"
-  , "workflow page and click \"Rerun\" > \"Rerun Workflow from Failed\". Otherwise, make the"
-  , "fixes, push up a new commit, and run try on that commit."
-  ]
+tryJobSummaryFailed =
+  Text.unwords
+    [ "Try run failed. If the failures are unrelated to your changes, navigate to the Circle CI"
+    , "workflow page and click \"Rerun\" > \"Rerun Workflow from Failed\". Otherwise, make the"
+    , "fixes, push up a new commit, and run try on that commit."
+    ]
 
 -- | The summary text to display when the try check run was successful.
 tryJobSummarySuccess :: Text
@@ -61,11 +62,11 @@ tryJobSummarySuccess =
 
 tryJobInitData :: UTCTime -> [KeyValue]
 tryJobInitData now =
-  [ "status"       := "completed"
-  , "conclusion"   := "neutral"
+  [ "status" := "completed"
+  , "conclusion" := "neutral"
   , "completed_at" := now
-  , "output"       := output tryJobLabelInit tryJobSummaryInit
-  , "actions"      := [renderAction BotTry]
+  , "output" := output tryJobLabelInit tryJobSummaryInit
+  , "actions" := [renderAction BotTry]
   ]
 
 -- | The label for the check run for merging PRs.
@@ -98,41 +99,43 @@ mergeJobLabelDone = "Merge run finished"
 
 -- | The summary text to display when the merge check run failed.
 mergeJobSummaryFailed :: Text
-mergeJobSummaryFailed = Text.unwords
-  [ "Merge run failed. Fix the failures, or click \"Queue\" above to re-queue the PR if the"
-  , "failures are unrelated to your PR. (Do **NOT** click any of the \"Re-run\" links)"
-  ]
+mergeJobSummaryFailed =
+  Text.unwords
+    [ "Merge run failed. Fix the failures, or click \"Queue\" above to re-queue the PR if the"
+    , "failures are unrelated to your PR. (Do **NOT** click any of the \"Re-run\" links)"
+    ]
 
 -- | The summary text to display when the merge check run is successful.
 mergeJobSummarySuccess :: Text
-mergeJobSummarySuccess = Text.unwords
-  [ "Merge run successful. If something went wrong and you need to reset this check run, click"
-  , "\"Reset\" above."
-  ]
+mergeJobSummarySuccess =
+  Text.unwords
+    [ "Merge run successful. If something went wrong and you need to reset this check run, click"
+    , "\"Reset\" above."
+    ]
 
 mergeJobInitData :: UTCTime -> [KeyValue]
 mergeJobInitData now =
-  [ "status"       := "completed"
-  , "conclusion"   := "action_required"
+  [ "status" := "completed"
+  , "conclusion" := "action_required"
   , "completed_at" := now
-  , "output"       := output mergeJobLabelInit mergeJobSummaryInit
-  , "actions"      := [renderAction BotQueue]
+  , "output" := output mergeJobLabelInit mergeJobSummaryInit
+  , "actions" := [renderAction BotQueue]
   ]
 
 -- | The output object for check runs.
 output :: Text -> Text -> [KeyValue]
-output title summary = [ "title" := title, "summary" := summary ]
+output title summary = ["title" := title, "summary" := summary]
 
 {- CI branches -}
 
 -- | Display the pull request number.
 showId :: Int -> Text
-showId = Text.pack . ('#':) . show
+showId = Text.pack . ('#' :) . show
 
 -- | Parse a pull request number.
 parseId :: Text -> Maybe Int
 parseId s = case Text.unpack s of
-  '#':num -> readMaybe num
+  '#' : num -> readMaybe num
   _ -> Nothing
 
 -- | Get the name of the try branch for the given pull request.
@@ -175,7 +178,7 @@ fromStagingMessage = traverse (traverse parseId) <=< getPRsFromMessage
     getPRsFromMessage msg =
       -- Parse out ["Merge", pr1, pr2, ..., "into", "base_branch"]
       case Text.words msg of
-        "Merge":rest
-          | base:"into":prsRev <- reverse rest
-          -> Just (base, reverse prsRev)
+        "Merge" : rest
+          | base : "into" : prsRev <- reverse rest ->
+            Just (base, reverse prsRev)
         _ -> Nothing

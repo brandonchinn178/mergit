@@ -1,11 +1,3 @@
-{-|
-Module      :  MergeBot.Routes.Webhook
-Maintainer  :  Brandon Chinn <brandon@leapyear.io>
-Stability   :  experimental
-Portability :  portable
-
-This module defines webhook routes for the MergeBot.
--}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -14,10 +6,18 @@ This module defines webhook routes for the MergeBot.
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 
-module MergeBot.Routes.Webhook
-  ( WebhookRoutes
-  , handleWebhookRoutes
-  ) where
+{- |
+Module      :  MergeBot.Routes.Webhook
+Maintainer  :  Brandon Chinn <brandon@leapyear.io>
+Stability   :  experimental
+Portability :  portable
+
+This module defines webhook routes for the MergeBot.
+-}
+module MergeBot.Routes.Webhook (
+  WebhookRoutes,
+  handleWebhookRoutes,
+) where
 
 import Control.Monad (when)
 import Control.Monad.IO.Class (liftIO)
@@ -32,30 +32,36 @@ import Servant
 import Servant.GitHub
 import UnliftIO.Exception (throwIO)
 
-import MergeBot.Core.Actions (MergeBotAction(..), parseAction)
-import MergeBot.Core.Error (BotError(..))
-import MergeBot.Core.GitHub (PullRequest(..), getPRById, getPRForCommit)
+import MergeBot.Core.Actions (MergeBotAction (..), parseAction)
+import MergeBot.Core.Error (BotError (..))
+import MergeBot.Core.GitHub (PullRequest (..), getPRById, getPRForCommit)
 import MergeBot.Core.Text (isStagingBranch, isTryBranch)
-import MergeBot.Monad
-    (BaseApp, BotApp, MergeBotEvent(..), ServerBase, queueEvent, runBotApp)
+import MergeBot.Monad (
+  BaseApp,
+  BotApp,
+  MergeBotEvent (..),
+  ServerBase,
+  queueEvent,
+  runBotApp,
+ )
 
 -- TODO: WithToken no longer needed?
 type WebhookRoutes =
   GitHubEvent 'PingEvent :> GitHubAction
-  :<|> GitHubEvent 'PullRequestEvent :> WithToken :> GitHubAction
-  :<|> GitHubEvent 'CheckRunEvent :> WithToken :> GitHubAction
-  :<|> GitHubEvent 'StatusEvent :> WithToken :> GitHubAction
-  :<|> GitHubEvent 'PushEvent :> WithToken :> GitHubAction
-  :<|> Post '[PlainText] Text
+    :<|> GitHubEvent 'PullRequestEvent :> WithToken :> GitHubAction
+    :<|> GitHubEvent 'CheckRunEvent :> WithToken :> GitHubAction
+    :<|> GitHubEvent 'StatusEvent :> WithToken :> GitHubAction
+    :<|> GitHubEvent 'PushEvent :> WithToken :> GitHubAction
+    :<|> Post '[PlainText] Text
 
 handleWebhookRoutes :: ServerBase WebhookRoutes
 handleWebhookRoutes =
   handlePing
-  :<|> handlePullRequest
-  :<|> handleCheckRun
-  :<|> handleStatus
-  :<|> handlePush
-  :<|> handleOtherEvent
+    :<|> handlePullRequest
+    :<|> handleCheckRun
+    :<|> handleStatus
+    :<|> handlePush
+    :<|> handleOtherEvent
 
 -- | Handle the 'ping' GitHub event.
 handlePing :: Object PingEvent -> BaseApp ()
@@ -110,8 +116,9 @@ handleStatus :: Object StatusEvent -> Token -> BaseApp ()
 handleStatus o = runBotApp' repo $ do
   logEvent "status" o
   case [get| o.branches[].name |] of
-    [branch] | isTryBranch branch || isStagingBranch branch ->
-      queueEvent $ RefreshCheckRun branch [get| o.sha |]
+    [branch]
+      | isTryBranch branch || isStagingBranch branch ->
+        queueEvent $ RefreshCheckRun branch [get| o.sha |]
     _ -> return ()
   where
     repo = [get| o.repository! |]
@@ -143,5 +150,6 @@ runBotApp' repo action token = runBotApp [get| repo.(owner.login, name) |] actio
 
 -- | Log the given event for the given object.
 logEvent :: IsSchema schema => Text -> Object schema -> BotApp ()
-logEvent event o = logDebugN $
-  "Received '" <> event <> "' event with payload: " <> Text.pack (show o)
+logEvent event o =
+  logDebugN $
+    "Received '" <> event <> "' event with payload: " <> Text.pack (show o)

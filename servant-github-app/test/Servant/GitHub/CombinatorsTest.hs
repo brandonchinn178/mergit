@@ -16,60 +16,64 @@ import Network.HTTP.Types (methodPost)
 import qualified Network.Wai as Wai
 import qualified Network.Wai.Test as Wai
 import Servant
-import Servant.GitHub (GitHubAppParams(..), GitHubEvent, GitHubEventType(..))
+import Servant.GitHub (GitHubAppParams (..), GitHubEvent, GitHubEventType (..))
 import Servant.GitHub.Security (sha1sum)
 import Test.Tasty
 import Test.Tasty.HUnit
-import Web.JWT (Signer(..))
+import Web.JWT (Signer (..))
 
 test :: TestTree
-test = testGroup "Servant.GitHub.Combinators"
-  [ testGitHubEvent
-  ]
+test =
+  testGroup
+    "Servant.GitHub.Combinators"
+    [ testGitHubEvent
+    ]
 
 type EventTestAPI =
   GitHubEvent 'PingEvent :> Post '[PlainText] Text
-  :<|> GitHubEvent 'DeleteEvent :> Post '[PlainText] Text
+    :<|> GitHubEvent 'DeleteEvent :> Post '[PlainText] Text
 
 eventTestRoutes :: Server EventTestAPI
 eventTestRoutes = (\_ -> pure "ping") :<|> (\_ -> pure "delete")
 
 testGitHubEvent :: TestTree
-testGitHubEvent = testGroup "GitHubEvent"
-  [ testCaseSteps "routes by event" $ \step -> do
-      step "Test ping event"
-      runSession $ do
-        resp <- sendEvent "ping" pingPayload
-        Wai.assertBody "ping" resp
-        Wai.assertStatus 200 resp
-      step "Test delete event"
-      runSession $ do
-        resp <- sendEvent "delete" deletePayload
-        Wai.assertBody "delete" resp
-        Wai.assertStatus 200 resp
-  , testCaseSteps "failure to decode request body immediately aborts" $ \step -> do
-      step "Test ping event"
-      runSession $ do
-        resp <- sendEvent "ping" [aesonQQ|{}|]
-        Wai.assertStatus 400 resp
-        Wai.assertBodyContains "Could not decode" resp
-      step "Test delete event"
-      runSession $ do
-        resp <- sendEvent "delete" [aesonQQ|{}|]
-        Wai.assertStatus 400 resp
-        Wai.assertBodyContains "Could not decode" resp
-  ]
+testGitHubEvent =
+  testGroup
+    "GitHubEvent"
+    [ testCaseSteps "routes by event" $ \step -> do
+        step "Test ping event"
+        runSession $ do
+          resp <- sendEvent "ping" pingPayload
+          Wai.assertBody "ping" resp
+          Wai.assertStatus 200 resp
+        step "Test delete event"
+        runSession $ do
+          resp <- sendEvent "delete" deletePayload
+          Wai.assertBody "delete" resp
+          Wai.assertStatus 200 resp
+    , testCaseSteps "failure to decode request body immediately aborts" $ \step -> do
+        step "Test ping event"
+        runSession $ do
+          resp <- sendEvent "ping" [aesonQQ|{}|]
+          Wai.assertStatus 400 resp
+          Wai.assertBodyContains "Could not decode" resp
+        step "Test delete event"
+        runSession $ do
+          resp <- sendEvent "delete" [aesonQQ|{}|]
+          Wai.assertStatus 400 resp
+          Wai.assertBodyContains "Could not decode" resp
+    ]
   where
     webhookSecret = "asdf"
     runSession m = do
       let context = ghAppParams :. EmptyContext
           ghAppParams =
             GitHubAppParams
-             { ghAppId = 1
-             , ghWebhookSecret = webhookSecret
-             , ghSigner = HMACSecret ""
-             , ghUserAgent = ""
-             }
+              { ghAppId = 1
+              , ghWebhookSecret = webhookSecret
+              , ghSigner = HMACSecret ""
+              , ghUserAgent = ""
+              }
       Wai.runSession m $ serveWithContext (Proxy @EventTestAPI) context eventTestRoutes
     sendEvent evt payload = do
       let body = encode payload
@@ -87,7 +91,8 @@ testGitHubEvent = testGroup "GitHubEvent"
           }
     hash = Text.encodeUtf8 . ("sha1=" <>) . Text.pack . show . sha1sum webhookSecret . ByteStringL.toStrict
 
-    pingPayload = [aesonQQ|
+    pingPayload =
+      [aesonQQ|
       {
         "zen": "foo",
         "hook": {
@@ -96,7 +101,8 @@ testGitHubEvent = testGroup "GitHubEvent"
       }
     |]
 
-    deletePayload = [aesonQQ|
+    deletePayload =
+      [aesonQQ|
       {
         "ref_type": "BRANCH",
         "ref": "asdf",

@@ -1,4 +1,7 @@
-{-|
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE QuasiQuotes #-}
+
+{- |
 Module      :  GitHub.Schema.Repository
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
@@ -6,9 +9,6 @@ Portability :  portable
 
 Defines schemas related to repositories.
 -}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE QuasiQuotes #-}
-
 module GitHub.Schema.Repository where
 
 import Data.Aeson.Schema (schema)
@@ -18,7 +18,8 @@ import GitHub.Data.URL (URL)
 import GitHub.Schema.User (UserShort)
 
 -- | A repository returned by normal endpoints, e.g. `/repos/:owner/:repo`.
-type Repository = [schema|
+type Repository =
+  [schema|
   {
     id: Int,
     node_id: Text,
@@ -109,7 +110,8 @@ type Repository = [schema|
 |]
 
 -- | A repository as returned by GitHub events.
-type RepoWebhook = [schema|
+type RepoWebhook =
+  [schema|
   {
     id: Int,
     node_id: Text,
@@ -194,7 +196,8 @@ type RepoWebhook = [schema|
 |]
 
 -- | An abbreviated schema for Repository.
-type RepositoryShort = [schema|
+type RepositoryShort =
+  [schema|
   {
     id: Int,
     name: Text,

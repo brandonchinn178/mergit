@@ -1,4 +1,7 @@
-{-|
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE QuasiQuotes #-}
+
+{- |
 Module      :  GitHub.Schema.Deployment
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
@@ -6,9 +9,6 @@ Portability :  portable
 
 Defines schemas related to deployments.
 -}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE QuasiQuotes #-}
-
 module GitHub.Schema.Deployment where
 
 import Data.Aeson.Schema (schema)
@@ -18,7 +18,8 @@ import GitHub.Data.GitObjectID (GitObjectID)
 import GitHub.Data.URL (URL)
 import GitHub.Schema.User (UserShort)
 
-type Deployment = [schema|
+type Deployment =
+  [schema|
   {
     url: URL,
     id: Int,

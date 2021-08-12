@@ -1,4 +1,8 @@
-{-|
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
+
+{- |
 Module      :  GitHub.Schema.Event.ContentReference
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
@@ -6,10 +10,6 @@ Portability :  portable
 
 Defines the schema for ContentReferenceEvent.
 -}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE QuasiQuotes #-}
-{-# LANGUAGE TemplateHaskell #-}
-
 module GitHub.Schema.Event.ContentReference where
 
 import Data.Aeson.Schema (schema)
@@ -17,11 +17,13 @@ import Data.Aeson.Schema.TH (mkEnum)
 
 import GitHub.Schema.BaseEvent (BaseEvent)
 
-mkEnum "ContentReferenceAction"
+mkEnum
+  "ContentReferenceAction"
   [ "CREATED"
   ]
 
-type ContentReferenceEvent = [schema|
+type ContentReferenceEvent =
+  [schema|
   {
     action: ContentReferenceAction,
     content_reference: {

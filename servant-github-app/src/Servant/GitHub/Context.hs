@@ -1,4 +1,6 @@
-{-|
+{-# LANGUAGE RecordWildCards #-}
+
+{- |
 Module      :  Servant.GitHub.Context
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
@@ -6,12 +8,10 @@ Portability :  portable
 
 Defines functions for loading 'GitHubAppParams' to use in the Servant context.
 -}
-{-# LANGUAGE RecordWildCards #-}
-
-module Servant.GitHub.Context
-  ( GitHubAppParams(..)
-  , loadGitHubAppParams
-  ) where
+module Servant.GitHub.Context (
+  GitHubAppParams (..),
+  loadGitHubAppParams,
+) where
 
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as Char8
@@ -20,13 +20,14 @@ import System.Environment (getEnv)
 import Text.Read (readMaybe)
 import Web.JWT (Signer)
 
--- | Parameters loaded from the environment that specify parameters required to make GitHub App
--- functionality work correctly and securely.
+{- | Parameters loaded from the environment that specify parameters required to make GitHub App
+ functionality work correctly and securely.
+-}
 data GitHubAppParams = GitHubAppParams
-  { ghAppId         :: Int
+  { ghAppId :: Int
   , ghWebhookSecret :: ByteString
-  , ghSigner        :: Signer
-  , ghUserAgent     :: ByteString
+  , ghSigner :: Signer
+  , ghUserAgent :: ByteString
   }
 
 -- | Load 'GitHubAppParams' from environment variables.

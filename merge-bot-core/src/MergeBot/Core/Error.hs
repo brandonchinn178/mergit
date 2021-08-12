@@ -1,4 +1,7 @@
-{-|
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedStrings #-}
+
+{- |
 Module      :  MergeBot.Core.Error
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
@@ -6,20 +9,17 @@ Portability :  portable
 
 This module defines the errors thrown by the MergeBot.
 -}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE OverloadedStrings #-}
-
-module MergeBot.Core.Error
-  ( BotError(..)
-  , getBotError
-  , getRelevantPRs
-  ) where
+module MergeBot.Core.Error (
+  BotError (..),
+  getBotError,
+  getRelevantPRs,
+) where
 
 import Control.Exception (Exception)
 import Data.Aeson.Schema (Object)
 import Data.Text (Text)
 import qualified Data.Text as Text
-import GitHub.Data.GitObjectID (GitObjectID(..))
+import GitHub.Data.GitObjectID (GitObjectID (..))
 import GitHub.Schema.Event.CheckRun (CheckRunEvent)
 import GitHub.Schema.Event.Push (PushEvent)
 
@@ -52,24 +52,26 @@ instance Exception BotError
 getBotError :: BotError -> Text
 getBotError = \case
   AmbiguousPRForCommit sha -> "Could not determine PR for commit: `" <> unOID sha <> "`"
-  BadUpdate sha prs base message -> Text.concat
-    [ "Could not merge PRs "
-    , fromPRs prs
-    , " into `"
-    , base
-    , "` (" <> unOID sha <> "): "
-    , message
-    ]
+  BadUpdate sha prs base message ->
+    Text.concat
+      [ "Could not merge PRs "
+      , fromPRs prs
+      , " into `"
+      , base
+      , "` (" <> unOID sha <> "): "
+      , message
+      ]
   CannotDetermineCheckRunPR o -> "Cannot determine PR for check run: " <> showT o
   CIBranchPushed o -> "User tried to manually create CI branch: " <> showT o
-  CICommitMissingParents isStart branch sha -> Text.concat
-    [ "Commit `"
-    , unOID sha
-    , "` has no parents (on branch `"
-    , branch
-    ,  "`) when "
-    , if isStart then "starting check run" else "updating check run"
-    ]
+  CICommitMissingParents isStart branch sha ->
+    Text.concat
+      [ "Commit `"
+      , unOID sha
+      , "` has no parents (on branch `"
+      , branch
+      , "`) when "
+      , if isStart then "starting check run" else "updating check run"
+      ]
   CommitLacksPR sha -> "Commit `" <> unOID sha <> "` does not have an associated pull request"
   ConfigFileInvalid prs msg -> "Merging " <> fromPRs prs <> " has an invalid `" <> configFileName <> "` config file: " <> msg
   ConfigFileMissing prs -> "Merging " <> fromPRs prs <> " lacks a `" <> configFileName <> "` config file"
@@ -83,13 +85,14 @@ getBotError = \case
       ([prNum], [sha]) -> "PR #" <> showT prNum <> " was updated while the merge run was running. Expected SHA: `" <> unOID sha <> "`"
       _ -> "PRs " <> fromPRs prNums <> " were updated while the merge run was running."
   SomePRsMerged mergedPRs nonMergedPRs -> "PRs " <> fromPRs nonMergedPRs <> " found not merged while PRs " <> fromPRs mergedPRs <> " are merged"
-  TreeNotUpdated _ pr -> Text.unlines
-    [ "UNEXPECTED ERROR: Tree not updated when merging PR #" <> showT pr <> "."
-    , ""
-    , "Either the PR did not make any changes, or something went wrong on GitHub's end. Please notify the #merge-bot Slack channel and requeue your PR."
-    , ""
-    , "More information: https://leapyear.atlassian.net/browse/QA-178"
-    ]
+  TreeNotUpdated _ pr ->
+    Text.unlines
+      [ "UNEXPECTED ERROR: Tree not updated when merging PR #" <> showT pr <> "."
+      , ""
+      , "Either the PR did not make any changes, or something went wrong on GitHub's end. Please notify the #merge-bot Slack channel and requeue your PR."
+      , ""
+      , "More information: https://leapyear.atlassian.net/browse/QA-178"
+      ]
   UnapprovedPR prNum -> "PR #" <> showT prNum <> " is not approved"
   where
     fromPRs = Text.unwords . map (Text.cons '#' . showT)

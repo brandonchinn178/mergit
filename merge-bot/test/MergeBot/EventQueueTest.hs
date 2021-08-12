@@ -25,84 +25,87 @@ import MergeBot.EventQueue
 import MergeBot.EventQueue.Internal
 
 test :: TestTree
-test = testGroup "MergeBot.EventQueue"
-  [ testProperty "Can handle event after queueing it" $ \eventKey event ->
-      ioProperty $ withEventQueues $ \EventQueuesTester{..} -> do
-        queueEvent eventKey event
-        result <- getWorkerEvent <$> getNextWorker
-        return $ result === (eventKey, event)
+test =
+  testGroup
+    "MergeBot.EventQueue"
+    [ testProperty "Can handle event after queueing it" $ \eventKey event ->
+        ioProperty $
+          withEventQueues $ \EventQueuesTester{..} -> do
+            queueEvent eventKey event
+            result <- getWorkerEvent <$> getNextWorker
+            return $ result === (eventKey, event)
+    , testProperty "Works across threads" $ \eventKey event ->
+        ioProperty $
+          withEventQueues $ \EventQueuesTester{..} -> do
+            threadQueue <- makeThreadManager $ queueEvent eventKey event
+            threadDequeue <- makeThreadManager $ getWorkerEvent <$> getNextWorker
 
-  , testProperty "Works across threads" $ \eventKey event ->
-      ioProperty $ withEventQueues $ \EventQueuesTester{..} -> do
-        threadQueue <- makeThreadManager $ queueEvent eventKey event
-        threadDequeue <- makeThreadManager $ getWorkerEvent <$> getNextWorker
+            startThread threadQueue
+            waitForThread threadQueue
+            prop1 <- getThreadResult threadQueue ===^ Just ()
+            prop2 <- getThreadResult threadDequeue ===^ Nothing
 
-        startThread threadQueue
-        waitForThread threadQueue
-        prop1 <- getThreadResult threadQueue ===^ Just ()
-        prop2 <- getThreadResult threadDequeue ===^ Nothing
+            startThread threadDequeue
+            waitForThread threadDequeue
+            prop3 <- getThreadResult threadQueue ===^ Just ()
+            prop4 <- getThreadResult threadDequeue ===^ Just (eventKey, event)
 
-        startThread threadDequeue
-        waitForThread threadDequeue
-        prop3 <- getThreadResult threadQueue ===^ Just ()
-        prop4 <- getThreadResult threadDequeue ===^ Just (eventKey, event)
+            return $ conjoin [prop1, prop2, prop3, prop4]
+    , testProperty "handleNextEvent blocks" $ \eventKey event ->
+        ioProperty $
+          withEventQueues $ \EventQueuesTester{..} -> do
+            threadQueue <- makeThreadManager $ queueEvent eventKey event
+            threadDequeue <- makeThreadManager $ getWorkerEvent <$> getNextWorker
 
-        return $ conjoin [prop1, prop2, prop3, prop4]
+            startThread threadDequeue
+            prop1 <- getThreadResult threadQueue ===^ Nothing
+            prop2 <- getThreadResult threadDequeue ===^ Nothing
 
-  , testProperty "handleNextEvent blocks" $ \eventKey event ->
-      ioProperty $ withEventQueues $ \EventQueuesTester{..} -> do
-        threadQueue <- makeThreadManager $ queueEvent eventKey event
-        threadDequeue <- makeThreadManager $ getWorkerEvent <$> getNextWorker
+            startThread threadQueue
+            waitForThread threadQueue
+            waitForThread threadDequeue
+            prop3 <- getThreadResult threadQueue ===^ Just ()
+            prop4 <- getThreadResult threadDequeue ===^ Just (eventKey, event)
 
-        startThread threadDequeue
-        prop1 <- getThreadResult threadQueue ===^ Nothing
-        prop2 <- getThreadResult threadDequeue ===^ Nothing
+            return $ conjoin [prop1, prop2, prop3, prop4]
+    , testProperty "Events with the same event key run on the same thread" $ \eventKey events ->
+        ioProperty $
+          withEventQueues $ \EventQueuesTester{..} -> do
+            mapM_ (queueEvent eventKey) (events :: [TestEvent])
 
-        startThread threadQueue
-        waitForThread threadQueue
-        waitForThread threadDequeue
-        prop3 <- getThreadResult threadQueue ===^ Just ()
-        prop4 <- getThreadResult threadDequeue ===^ Just (eventKey, event)
+            waitForGlobalQueueToBeProcessed
 
-        return $ conjoin [prop1, prop2, prop3, prop4]
+            workers <- replicateM (length events) getNextWorker
 
-  , testProperty "Events with the same event key run on the same thread" $ \eventKey events ->
-      ioProperty $ withEventQueues $ \EventQueuesTester{..} -> do
-        mapM_ (queueEvent eventKey) (events :: [TestEvent])
+            return $ areAllSame $ map workerThreadId workers
+    , testProperty "Events with different event keys run on different threads" $ \eventAndKey1 eventAndKey2 ->
+        ioProperty $
+          withEventQueues $ \EventQueuesTester{..} -> do
+            let (eventKey1, event1) = eventAndKey1
+                (eventKey2, event2) = eventAndKey2
 
-        waitForGlobalQueueToBeProcessed
+            queueEvent eventKey1 event1
+            queueEvent eventKey2 event2
 
-        workers <- replicateM (length events) getNextWorker
+            worker1 <- getNextWorker
+            worker2 <- getNextWorker
 
-        return $ areAllSame $ map workerThreadId workers
-
-  , testProperty "Events with different event keys run on different threads" $ \eventAndKey1 eventAndKey2 ->
-      ioProperty $ withEventQueues $ \EventQueuesTester{..} -> do
-        let (eventKey1, event1) = eventAndKey1
-            (eventKey2, event2) = eventAndKey2
-
-        queueEvent eventKey1 event1
-        queueEvent eventKey2 event2
-
-        worker1 <- getNextWorker
-        worker2 <- getNextWorker
-
-        return $ eventKey1 /= eventKey2 ==> workerThreadId worker1 /= workerThreadId worker2
-  ]
+            return $ eventKey1 /= eventKey2 ==> workerThreadId worker1 /= workerThreadId worker2
+    ]
 
 {- Queueing helpers -}
 
 newtype TestEventKey = TestEventKey Text
-  deriving (Show,Eq,Ord)
+  deriving (Show, Eq, Ord)
 
 instance Arbitrary TestEventKey where
   arbitrary = TestEventKey . Text.pack . getPrintableString <$> arbitrary
 
 data TestEvent = TestEvent
-  { testEventId   :: Int
+  { testEventId :: Int
   , testEventName :: String
   }
-  deriving (Show,Eq)
+  deriving (Show, Eq)
 
 instance Arbitrary TestEvent where
   arbitrary = TestEvent <$> arbitrary <*> arbitrary
@@ -110,60 +113,65 @@ instance Arbitrary TestEvent where
 data EventWorker = EventWorker
   { workerThreadId :: ThreadId
   , workerEventKey :: TestEventKey
-  , workerEvent    :: TestEvent
+  , workerEvent :: TestEvent
   }
 
 getWorkerEvent :: EventWorker -> (TestEventKey, TestEvent)
 getWorkerEvent EventWorker{..} = (workerEventKey, workerEvent)
 
 data EventQueuesTester = EventQueuesTester
-  { getNextWorker                   :: IO EventWorker
+  { getNextWorker :: IO EventWorker
   , waitForGlobalQueueToBeProcessed :: IO ()
-  , queueEvent                      :: TestEventKey -> TestEvent -> IO ()
+  , queueEvent :: TestEventKey -> TestEvent -> IO ()
   }
 
 withEventQueues :: (EventQueuesTester -> IO a) -> IO a
 withEventQueues f = do
-  eventQueuesManager <- initEventQueuesManager EventQueuesConfig
-    { globalQueueLimit = 1000
-    , workerQueueLimit = 1000
-    }
+  eventQueuesManager <-
+    initEventQueuesManager
+      EventQueuesConfig
+        { globalQueueLimit = 1000
+        , workerQueueLimit = 1000
+        }
 
   workers <- newTChanIO
   handleNextEvent <- newEmptyMVar
 
-  eventThread <- async $ handleEventsWith eventQueuesManager $ \workerEventKey workerEvent -> do
-    takeMVar handleNextEvent
+  eventThread <- async $
+    handleEventsWith eventQueuesManager $ \workerEventKey workerEvent -> do
+      takeMVar handleNextEvent
 
-    workerThreadId <- atomically $ do
-      workerThreads <- readTVar $ workerQueues eventQueuesManager
-      case Map.lookup workerEventKey workerThreads of
-        Just WorkerQueue{workerThread = Just worker} -> return $ asyncThreadId worker
-        _ -> retry
+      workerThreadId <- atomically $ do
+        workerThreads <- readTVar $ workerQueues eventQueuesManager
+        case Map.lookup workerEventKey workerThreads of
+          Just WorkerQueue{workerThread = Just worker} -> return $ asyncThreadId worker
+          _ -> retry
 
-    atomically $ writeTChan workers EventWorker{..}
+      atomically $ writeTChan workers EventWorker{..}
 
-  let eventQueuesTester = EventQueuesTester
-        { getNextWorker = withTimeout $ do
-            putMVar handleNextEvent ()
-            atomically $ readTChan workers
-        , waitForGlobalQueueToBeProcessed = atomically $ do
-            isEmpty <- isEmptyTBQueue $ globalEventQueue eventQueuesManager
-            unless isEmpty retry
-        , queueEvent = queueEventWith eventQueuesManager
-        }
+  let eventQueuesTester =
+        EventQueuesTester
+          { getNextWorker = withTimeout $ do
+              putMVar handleNextEvent ()
+              atomically $ readTChan workers
+          , waitForGlobalQueueToBeProcessed = atomically $ do
+              isEmpty <- isEmptyTBQueue $ globalEventQueue eventQueuesManager
+              unless isEmpty retry
+          , queueEvent = queueEventWith eventQueuesManager
+          }
 
-  f eventQueuesTester `finally` (do
-    uninterruptibleCancel eventThread
-    queues <- readTVarIO $ workerQueues eventQueuesManager
-    forM_ queues $ \WorkerQueue{..} -> traverse uninterruptibleCancel workerThread
-    )
+  f eventQueuesTester
+    `finally` ( do
+                  uninterruptibleCancel eventThread
+                  queues <- readTVarIO $ workerQueues eventQueuesManager
+                  forM_ queues $ \WorkerQueue{..} -> traverse uninterruptibleCancel workerThread
+              )
 
 {- Threading helpers -}
 
 data ThreadManager a = ThreadManager
-  { startThread     :: IO ()
-  , waitForThread   :: IO ()
+  { startThread :: IO ()
+  , waitForThread :: IO ()
   , getThreadResult :: IO (Maybe a)
   }
 
@@ -176,16 +184,18 @@ makeThreadManager action = do
     takeMVar mvarStart
     action >>= putMVar mvarResult
 
-  return ThreadManager
-    { startThread = putMVar mvarStart ()
-    , waitForThread = wait asyncRef
-    , getThreadResult = tryReadMVar mvarResult
-    }
+  return
+    ThreadManager
+      { startThread = putMVar mvarStart ()
+      , waitForThread = wait asyncRef
+      , getThreadResult = tryReadMVar mvarResult
+      }
 
 withTimeout :: HasCallStack => IO a -> IO a
-withTimeout m = race timeout m >>= \case
-  Left _ -> error "Timed out"
-  Right x -> return x
+withTimeout m =
+  race timeout m >>= \case
+    Left _ -> error "Timed out"
+    Right x -> return x
   where
     timeout = threadDelay 5000000 -- 5 seconds
 

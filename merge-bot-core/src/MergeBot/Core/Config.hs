@@ -1,4 +1,7 @@
-{-|
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
+
+{- |
 Module      :  MergeBot.Core.Config
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
@@ -6,25 +9,24 @@ Portability :  portable
 
 Defines the data type representing the ".lymerge.yaml" configuration file.
 -}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards #-}
+module MergeBot.Core.Config (
+  BotConfig (..),
+  configFileName,
+) where
 
-module MergeBot.Core.Config
-  ( BotConfig(..)
-  , configFileName
-  ) where
-
-import Data.Aeson (FromJSON(..), ToJSON(..), object, withObject, (.:), (.=))
+import Data.Aeson (FromJSON (..), ToJSON (..), object, withObject, (.:), (.=))
 import Data.Text (Text)
 
 data BotConfig = BotConfig
   { requiredStatuses :: [Text]
-  } deriving (Show)
+  }
+  deriving (Show)
 
 instance ToJSON BotConfig where
-  toJSON BotConfig{..} = object
-    [ "statuses" .= requiredStatuses
-    ]
+  toJSON BotConfig{..} =
+    object
+      [ "statuses" .= requiredStatuses
+      ]
 
 instance FromJSON BotConfig where
   parseJSON = withObject "BotConfig" $ \o ->

@@ -1,4 +1,7 @@
-{-|
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE QuasiQuotes #-}
+
+{- |
 Module      :  GitHub.Schema.Organization
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
@@ -6,9 +9,6 @@ Portability :  portable
 
 Defines schemas related to organizations.
 -}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE QuasiQuotes #-}
-
 module GitHub.Schema.Organization where
 
 import Data.Aeson.Schema (schema)
@@ -16,7 +16,8 @@ import Data.Aeson.Schema (schema)
 import GitHub.Data.URL (URL)
 
 -- | An organization as returned by GitHub events.
-type OrgWebhook = [schema|
+type OrgWebhook =
+  [schema|
   {
     login: Text,
     id: Int,
