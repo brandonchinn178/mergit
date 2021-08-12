@@ -22,7 +22,9 @@ jobs:
       - install_stack
       - with_stack_cache:
           steps:
-            - run: scripts/install-stack-deps.sh
+            - run:
+                name: Build third-party Haskell libraries
+                command: stack build --test --only-dependencies -j1
       - run: stack build --test --no-run-tests
       - upload_artifacts
       - persist_to_workspace:
@@ -87,7 +89,6 @@ commands:
               merge-bot/package.yaml
               merge-bot-core/package.yaml
               servant-github-app/package.yaml
-              scripts/install-stack-deps.sh
             )
             cat "${FILES[@]}" > cache-key.txt
             curl -sSL https://get.haskellstack.org/ | sed -n 's/^STACK_VERSION="\(.*\)"/\1/p' >> cache-key.txt
