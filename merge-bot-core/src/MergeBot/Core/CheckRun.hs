@@ -55,8 +55,7 @@ createMergeCheckRun sha checkRunData =
 data CheckRunStatus
   = CheckRunQueued
   | CheckRunInProgress
-  | -- | is successful?
-    CheckRunComplete Bool
+  | CheckRunComplete Bool -- is successful
   deriving (Show)
 
 data CheckRunUpdates = CheckRunUpdates
@@ -111,11 +110,12 @@ updateCheckRuns checkRuns CheckRunUpdates{..} = do
     doUpdateCheckRun checkRunData (sha, checkRunId) =
       updateCheckRun isStart isTry checkRunId sha checkRunData
 
-{- | CORRECTLY update a check run.
+{- |
+CORRECTLY update a check run.
 
- GitHub Checks API requires creating a new CheckRun when transitioning from completed
- status to non-completed status (undocumented, email thread between GitHub Support and
- brandon@leapyear.io)
+GitHub Checks API requires creating a new CheckRun when transitioning from completed
+status to non-completed status (undocumented, email thread between GitHub Support and
+brandon@leapyear.io)
 -}
 updateCheckRun ::
   MonadMergeBot m =>
