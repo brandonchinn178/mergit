@@ -25,7 +25,7 @@ import qualified Data.HashMap.Strict as HashMap
 import Data.Maybe (mapMaybe)
 import Data.Text (Text)
 import qualified Data.Text as Text
-import qualified GitHub.Data.URI as URI
+import Text.Printf (printf)
 
 import MergeBot.Core.Config (BotConfig (..))
 import MergeBot.Core.GitHub (CIContext)
@@ -88,8 +88,8 @@ displayCIStatus CIStatus{..} = Text.unlines $ header ++ map mkLine (ciContexts +
             StatusState.SUCCESS -> "✅"
           link = case url of
             Nothing -> context
-            Just url' -> "[" <> context <> "](" <> URI.unURI url' <> ")"
-       in link <> " | " <> emoji
+            Just url' -> Text.pack $ printf "[%s](%s)" context url'
+       in printf "%s | %s" link (emoji :: Text)
 
 -- | Summarize the given StatusStates as a single StatusState.
 summarizeStatuses :: [StatusState] -> StatusState

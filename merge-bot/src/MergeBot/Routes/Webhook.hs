@@ -30,6 +30,7 @@ import qualified GitHub.Schema.Event.PullRequest as PullRequest
 import GitHub.Schema.Repository (RepoWebhook)
 import Servant
 import Servant.GitHub
+import Text.Printf (printf)
 import UnliftIO.Exception (throwIO)
 
 import MergeBot.Core.Actions (MergeBotAction (..), parseAction)
@@ -150,6 +151,4 @@ runBotApp' repo action token = runBotApp [get| repo.(owner.login, name) |] actio
 
 -- | Log the given event for the given object.
 logEvent :: IsSchema schema => Text -> Object schema -> BotApp ()
-logEvent event o =
-  logDebugN $
-    "Received '" <> event <> "' event with payload: " <> Text.pack (show o)
+logEvent event = logDebugN . Text.pack . printf "Received '%s' event with payload: %s" event . show

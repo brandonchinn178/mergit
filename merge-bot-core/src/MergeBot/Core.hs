@@ -40,6 +40,7 @@ import qualified Data.Text as Text
 import qualified Data.Text.Encoding as Text
 import Data.Time (getCurrentTime)
 import Data.Yaml (decodeEither')
+import Text.Printf (printf)
 import UnliftIO.Exception (finally, fromEither, onException, throwIO)
 
 import MergeBot.Core.CheckRun
@@ -241,7 +242,7 @@ refreshCheckRuns isStart ciBranchName sha = do
             then CheckRunComplete isSuccess
             else CheckRunInProgress
       , checkRunBody =
-          let ciInfo = "CI running in the [" <> ciBranchName <> "](" <> ciBranchUrl <> ") branch."
+          let ciInfo = Text.pack $ printf "CI running in the [%s](%s) branch." ciBranchName ciBranchUrl
               message
                 | not isComplete = ciInfo
                 | otherwise =
@@ -286,7 +287,8 @@ refreshCheckRuns isStart ciBranchName sha = do
 
     mkCIBranchUrl = do
       (repoOwner, repoName) <- getRepo
-      return $ "https://github.com/" <> repoOwner <> "/" <> repoName <> "/commits/" <> ciBranchName
+      let url = printf "https://github.com/%s/%s/commits/%s" repoOwner repoName ciBranchName
+      return (url :: String)
 
     areAllPRsMerged prs = do
       let (mergedPRs, nonMergedPRs) = partition prIsMerged prs
@@ -332,7 +334,7 @@ refreshCheckRuns isStart ciBranchName sha = do
                   liftIO $ threadDelay 1000000
                   if i < 5
                     then waitUntilPRIsMerged $ i + 1
-                    else throwIO $ BadUpdate sha prNums base $ "PR did not merge: " <> Text.pack (show prNum)
+                    else throwIO $ BadUpdate sha prNums base $ Text.pack $ printf "PR did not merge: %d" prNum
           waitUntilPRIsMerged (0 :: Int)
 
           closePR prNum

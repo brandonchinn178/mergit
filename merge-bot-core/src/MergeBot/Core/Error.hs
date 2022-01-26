@@ -1,5 +1,4 @@
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE OverloadedStrings #-}
 
 {- |
 Module      :  MergeBot.Core.Error
@@ -22,6 +21,7 @@ import qualified Data.Text as Text
 import GitHub.Data.GitObjectID (GitObjectID (..))
 import GitHub.Schema.Event.CheckRun (CheckRunEvent)
 import GitHub.Schema.Event.Push (PushEvent)
+import Text.Printf (printf)
 
 import MergeBot.Core.Config (configFileName)
 
@@ -50,55 +50,55 @@ data BotError
 instance Exception BotError
 
 getBotError :: BotError -> Text
-getBotError = \case
-  AmbiguousPRForCommit sha -> "Could not determine PR for commit: `" <> unOID sha <> "`"
-  BadUpdate sha prs base message ->
-    Text.concat
-      [ "Could not merge PRs "
-      , fromPRs prs
-      , " into `"
-      , base
-      , "` (" <> unOID sha <> "): "
-      , message
-      ]
-  CannotDetermineCheckRunPR o -> "Cannot determine PR for check run: " <> showT o
-  CIBranchPushed o -> "User tried to manually create CI branch: " <> showT o
-  CICommitMissingParents isStart branch sha ->
-    Text.concat
-      [ "Commit `"
-      , unOID sha
-      , "` has no parents (on branch `"
-      , branch
-      , "`) when "
-      , if isStart then "starting check run" else "updating check run"
-      ]
-  CommitLacksPR sha -> "Commit `" <> unOID sha <> "` does not have an associated pull request"
-  ConfigFileInvalid prs msg -> "Merging " <> fromPRs prs <> " has an invalid `" <> configFileName <> "` config file: " <> msg
-  ConfigFileMissing prs -> "Merging " <> fromPRs prs <> " lacks a `" <> configFileName <> "` config file"
-  InvalidStaging _ branch -> "Invalid staging branch: " <> branch
-  MergeConflict prs -> "Merge conflict: " <> fromPRs prs
-  MissingBaseBranch _ branch -> "Base branch does not exist: " <> branch
-  MissingCheckRun sha checkName -> "Commit `" <> unOID sha <> "` missing check run named: " <> checkName
-  MissingCheckRunPR pr checkName -> "PR #" <> showT pr <> " missing check run named: " <> checkName
-  PRWasUpdatedDuringMergeRun _ prNums shas ->
-    case (prNums, shas) of
-      ([prNum], [sha]) -> "PR #" <> showT prNum <> " was updated while the merge run was running. Expected SHA: `" <> unOID sha <> "`"
-      _ -> "PRs " <> fromPRs prNums <> " were updated while the merge run was running."
-  SomePRsMerged mergedPRs nonMergedPRs -> "PRs " <> fromPRs nonMergedPRs <> " found not merged while PRs " <> fromPRs mergedPRs <> " are merged"
-  TreeNotUpdated _ pr ->
-    Text.unlines
-      [ "UNEXPECTED ERROR: Tree not updated when merging PR #" <> showT pr <> "."
-      , ""
-      , "Either the PR did not make any changes, or something went wrong on GitHub's end. Please notify the #merge-bot Slack channel and requeue your PR."
-      , ""
-      , "More information: https://leapyear.atlassian.net/browse/QA-178"
-      ]
-  UnapprovedPR prNum -> "PR #" <> showT prNum <> " is not approved"
+getBotError =
+  Text.pack . \case
+    AmbiguousPRForCommit sha ->
+      printf "Could not determine PR for commit: `%s`" sha
+    BadUpdate sha prs base message ->
+      printf "Could not merge PRs %s into `%s` (%s): %s" (fromPRs prs) base sha message
+    CannotDetermineCheckRunPR o ->
+      printf "Cannot determine PR for check run: %s" (show o)
+    CIBranchPushed o ->
+      printf "User tried to manually create CI branch: %s" (show o)
+    CICommitMissingParents isStart branch sha ->
+      printf "Commit `%s` has no parents (on branch `%s`) when %s" sha branch $
+        if isStart then "starting check run" else "updating check run"
+    CommitLacksPR sha ->
+      printf "Commit `%s` does not have an associated pull request" sha
+    ConfigFileInvalid prs msg ->
+      printf "Merging %s has an invalid `%s` config file: %s" (fromPRs prs) configFileName msg
+    ConfigFileMissing prs ->
+      printf "Merging %s lacks a `%s` config file" (fromPRs prs) configFileName
+    InvalidStaging _ branch ->
+      printf "Invalid staging branch: %s" branch
+    MergeConflict prs ->
+      printf "Merge conflict: %s" (fromPRs prs)
+    MissingBaseBranch _ branch ->
+      printf "Base branch does not exist: %s" branch
+    MissingCheckRun sha checkName ->
+      printf "Commit `%s` missing check run named: %s" sha checkName
+    MissingCheckRunPR pr checkName ->
+      printf "PR #%d missing check run named: %s" pr checkName
+    PRWasUpdatedDuringMergeRun _ prNums shas ->
+      case (prNums, shas) of
+        ([prNum], [sha]) ->
+          printf "PR #%d was updated while the merge run was running. Expected SHA: `%s`" prNum sha
+        _ ->
+          printf "PRs %s were updated while the merge run was running." (fromPRs prNums)
+    SomePRsMerged mergedPRs nonMergedPRs ->
+      printf "PRs %s found not merged while PRs %s are merged" (fromPRs nonMergedPRs) (fromPRs mergedPRs)
+    TreeNotUpdated _ pr ->
+      unlines
+        [ printf "UNEXPECTED ERROR: Tree not updated when merging PR #%d." pr
+        , ""
+        , "Either the PR did not make any changes, or something went wrong on GitHub's end. Please notify the #merge-bot Slack channel and requeue your PR."
+        , ""
+        , "More information: https://leapyear.atlassian.net/browse/QA-178"
+        ]
+    UnapprovedPR prNum ->
+      printf "PR #%d is not approved" prNum
   where
-    fromPRs = Text.unwords . map (Text.cons '#' . showT)
-
-    showT :: Show a => a -> Text
-    showT = Text.pack . show
+    fromPRs = unwords . map (printf "#%d")
 
 -- | Get the PRs that should be notified when throwing the given BotError.
 getRelevantPRs :: BotError -> [PullRequestId]
