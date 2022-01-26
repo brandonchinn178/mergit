@@ -129,20 +129,47 @@ The GitHub app should now be set up!
 
 Now, you need to install the GitHub app to the relevant repositories:
 
-1. Remove all CI statuses from required status checks (for protected branches)
-1. Add `.lymerge.yaml` to the repo with the required CI statuses (the same
-   labels that you removed in step 1):
+1. Add `.lymerge.yaml` to the repo with the required CI statuses (if you already have CI enabled on a repo, this will be the statuses that show up on the commits), e.g.
 
-```yaml
-statuses:
-- "ci/circleci: build"
-- "ci/circleci: test"
-```
+    ```yaml
+    statuses:
+    - "ci/circleci: build"
+    - "ci/circleci: test"
+    ```
 
-1. Edit CI config to only run CI on branches matching `staging-.*` or `trying-.*`
+1. Edit CI config to only run CI on branches matching `staging-.*` or `trying-.*`, e.g.
+
+    ```yaml
+    _aliases:
+      - &only-merge-bot
+        filters:
+          branches:
+            only:
+              - /staging-.*/
+              - /trying-.*/
+
+    workflows:
+      my_workflow:
+        jobs:
+          - job1:
+              <<: *only-merge-bot
+          - job2:
+              <<: *only-merge-bot
+          - job3:
+              <<: *only-merge-bot
+              requires:
+                - job1
+                - job2
+    ```
+
+1. Have an admin add the repository to the GitHub app
+    * LeapYear organization > LeapYear Merge Bot > Install App > Settings icon > select desired repository
 1. Make a PR
-1. Set the "Bot Merge" check as a required status check (for protected branches)
-1. Uncheck "Require branches to be up to date before merging"
+1. Do the following in GitHub for all protected branches:
+    1. Remove all CI statuses from required status checks
+    1. Set the "Bot Merge" check as a required status check
+    1. Ensure "Require linear history" is unchecked
+    1. Ensure "Require branches to be up to date before merging" is unchecked (this is handled automatically by the merge bot)
 1. Use the merge bot to merge in the PR!
 
 #### Troubleshooting
