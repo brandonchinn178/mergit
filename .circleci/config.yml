@@ -61,9 +61,9 @@ jobs:
           steps:
             - run: yum install -y ncurses-devel
             - run: stack build --fast hlint fourmolu
-            - run:
-                name: Lint via pre-commit
-                command: pre-commit run --all-files -v --show-diff-on-failure
+      - run:
+          name: Lint via pre-commit
+          command: pre-commit run --all-files -v --show-diff-on-failure
 
   test:
     executor: docker-centos7
