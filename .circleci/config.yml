@@ -21,13 +21,12 @@ workflows:
 
 jobs:
   build_and_test:
-    executor: docker-centos7
+    executor: docker-ci
     steps:
       - init_ci_job
       - install_stack
       - with_stack_cache:
           steps:
-            - run: yum install -y zlib-devel
             - run:
                 name: Build third-party Haskell libraries
                 command: stack build --test --only-dependencies -j1
@@ -37,29 +36,30 @@ jobs:
       - upload_artifacts
 
   lint:
-    executor: docker-centos7
+    executor: docker-ci
     steps:
       - init_ci_job
+      - run: sudo apt-get update
       - run:
           name: Install pre-commit
           command: |
-            curl https://pre-commit.com/install-local.py | python -
-            ln -sf ~/bin/pre-commit /usr/local/bin/pre-commit
+            sudo apt-get install -y python3-distutils
+            curl https://pre-commit.com/install-local.py | python3 -
+            sudo ln -sf ~/bin/pre-commit /usr/local/bin/pre-commit
             pre-commit --version
       - install_stack
       - with_stack_cache:
           steps:
-            - run: yum install -y ncurses-devel
+            - run: sudo apt-get install -y libtinfo-dev
             - run: stack build --fast hlint fourmolu
       - run:
           name: Lint via pre-commit
           command: pre-commit run --all-files -v --show-diff-on-failure
 
 executors:
-  docker-centos7:
+  docker-ci:
     docker:
-      - image: centos:7
-    working_directory: /root/src
+      - image: cimg/base:2021.04
 
 commands:
   init_ci_job:
@@ -86,6 +86,7 @@ commands:
       - run:
           name: Install stack
           command: |
+            sudo apt-get update
             curl -sSL https://get.haskellstack.org/ | sh
             stack --version
 
@@ -96,11 +97,11 @@ commands:
     steps:
       - restore_cache:
           keys:
-            - v1-{{ checksum "cache-key.txt" }}-{{ .Environment.CIRCLE_JOB }}
-            - v1-{{ checksum "cache-key.txt" }}
+            - v2-{{ checksum "cache-key.txt" }}-{{ .Environment.CIRCLE_JOB }}
+            - v2-{{ checksum "cache-key.txt" }}
       - << parameters.steps >>
       - save_cache:
-          key: v1-{{ checksum "cache-key.txt" }}-{{ .Environment.CIRCLE_JOB }}
+          key: v2-{{ checksum "cache-key.txt" }}-{{ .Environment.CIRCLE_JOB }}
           paths:
             - ~/.stack
 
