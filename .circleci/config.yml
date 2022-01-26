@@ -60,8 +60,6 @@ executors:
     docker:
       - image: centos:7
     working_directory: /root/src
-    environment:
-      LANG: en_US.UTF-8
 
 commands:
   init_ci_job:
