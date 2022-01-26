@@ -1,4 +1,3 @@
 statuses:
-  - "ci/circleci: build"
+  - "ci/circleci: build_and_test"
   - "ci/circleci: lint"
-  - "ci/circleci: test"

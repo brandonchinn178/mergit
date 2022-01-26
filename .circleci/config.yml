@@ -14,17 +14,13 @@ workflows:
 
   build_and_test:
     jobs:
-      - build:
+      - build_and_test:
           <<: *only-merge-bot
       - lint:
           <<: *only-merge-bot
-      - test:
-          <<: *only-merge-bot
-          requires:
-            - build
 
 jobs:
-  build:
+  build_and_test:
     executor: docker-centos7
     steps:
       - init_ci_job
@@ -36,15 +32,9 @@ jobs:
                 name: Build third-party Haskell libraries
                 command: stack build --test --only-dependencies -j1
       - run: stack build --test --no-run-tests
+      # https://github.com/commercialhaskell/stack/issues/5024
+      - run: stack test -j1
       - upload_artifacts
-      - persist_to_workspace:
-          root: .
-          paths:
-            - .stack-work
-            - github-schemas/.stack-work
-            - merge-bot/.stack-work
-            - merge-bot-core/.stack-work
-            - servant-github-app/.stack-work
 
   lint:
     executor: docker-centos7
@@ -64,16 +54,6 @@ jobs:
       - run:
           name: Lint via pre-commit
           command: pre-commit run --all-files -v --show-diff-on-failure
-
-  test:
-    executor: docker-centos7
-    steps:
-      - init_ci_job
-      - install_stack
-      - with_stack_cache:
-          steps:
-            # https://github.com/commercialhaskell/stack/issues/5024
-            - run: stack test -j1
 
 executors:
   docker-centos7:
