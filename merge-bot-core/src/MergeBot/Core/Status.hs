@@ -73,12 +73,12 @@ resolveCIStatus CIStatus{..} =
 
 -- | Get text containing Markdown to display the given CIStatus.
 displayCIStatus :: CIStatus -> Text
-displayCIStatus CIStatus{..} = Text.unlines $ header ++ map mkLine (ciContexts ++ ciErrorContexts)
+displayCIStatus CIStatus{..} =
+  Text.pack . unlines $
+    "CI Job | Status" :
+    ":-----:|:-----:" :
+    map mkLine (ciContexts ++ ciErrorContexts)
   where
-    header =
-      [ "CI Job | Status"
-      , ":-----:|:-----:"
-      ]
     mkLine (context, state, url) =
       let emoji = case state of
             StatusState.ERROR -> "❗"
@@ -86,9 +86,7 @@ displayCIStatus CIStatus{..} = Text.unlines $ header ++ map mkLine (ciContexts +
             StatusState.FAILURE -> "❌"
             StatusState.PENDING -> "⏳"
             StatusState.SUCCESS -> "✅"
-          link = case url of
-            Nothing -> context
-            Just url' -> Text.pack $ printf "[%s](%s)" context url'
+          link = maybe (Text.unpack context) (printf "[%s](%s)" context) url
        in printf "%s | %s" link (emoji :: Text)
 
 -- | Summarize the given StatusStates as a single StatusState.
