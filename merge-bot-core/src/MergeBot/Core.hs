@@ -72,7 +72,7 @@ startTryJob prNum prSHA base checkRunId =
     tryMessage = toTryMessage prNum
     setCheckRunFailed e =
       updateCheckRuns
-        [(prSHA, checkRunId)]
+        [(prSHA, CheckRunInfo{..})]
         CheckRunUpdates
           { isStart = True
           , isTry = True
@@ -89,10 +89,10 @@ queuePR prNum sha = do
   unless (PullRequestReviewState.APPROVED `elem` reviews) $
     throwIO $ UnapprovedPR prNum
 
-  checkRunId <- getCheckRun prNum CheckRunMerge
+  checkRun <- getCheckRun prNum CheckRunMerge
   -- TOOD: batching info
   updateCheckRuns
-    [(sha, checkRunId)]
+    [(sha, checkRun)]
     CheckRunUpdates
       { isStart = True -- previous status of merge check run was "Complete: Action Required"
       , isTry = False

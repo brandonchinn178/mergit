@@ -38,6 +38,7 @@ module MergeBot.Core.GitHub (
   CICommit (..),
   getCICommit,
   CheckRunId,
+  CheckRunInfo (..),
   getCheckRun,
   PullRequest (..),
   getPRForCommit,
@@ -153,7 +154,7 @@ data CICommit = CICommit
     -- order corresponding to the 'parents' list.
     prsFromMessage :: [Int]
   , -- | The parent commits of a CI commit, not including the base branch
-    parents :: [(CommitSHA, CheckRunId)]
+    parents :: [(CommitSHA, CheckRunInfo)]
   }
   deriving (Show)
 
@@ -199,7 +200,7 @@ getCICommit sha checkRunType = do
           parentSHA = [get| parent.oid |]
       case concat $ getCheckRuns parent of
         [] -> throwIO $ MissingCheckRun parentSHA checkName
-        [checkRun] -> return (parentSHA, checkRun)
+        [checkRunId] -> return (parentSHA, CheckRunInfo{..})
         _ -> error $ printf "Commit has multiple check runs named '%s': %s" checkName (show parent)
 
   return
@@ -216,8 +217,13 @@ getCICommit sha checkRunType = do
 
 type CheckRunId = Int
 
+data CheckRunInfo = CheckRunInfo
+  { checkRunId :: CheckRunId
+  }
+  deriving (Show, Eq)
+
 -- | Get the check run for the given PR and check run name.
-getCheckRun :: MonadMergeBot m => PrNum -> CheckRunType -> m CheckRunId
+getCheckRun :: MonadMergeBot m => PrNum -> CheckRunType -> m CheckRunInfo
 getCheckRun prNum checkRunType = do
   (repoOwner, repoName) <- getRepo
   appId <- getAppId
@@ -235,7 +241,7 @@ getCheckRun prNum checkRunType = do
     [c] -> return c
     _ -> error $ "PRCheckRun query returned more than one 'last' commit: " ++ show result
   case [get| commit.checkSuites!.nodes![]!.checkRuns!.nodes![]!.databaseId! |] of
-    [[checkRunId]] -> return checkRunId
+    [[checkRunId]] -> return CheckRunInfo{..}
     _ -> throwIO $ MissingCheckRunPR prNum checkName
   where
     checkName = getCheckName checkRunType
@@ -373,7 +379,7 @@ isPRMerged prNum = do
         }
 
 -- | Get all queued PRs, by base branch.
-getQueues :: MonadMergeBot m => m (HashMap Text [(PrNum, CommitSHA, CheckRunId)])
+getQueues :: MonadMergeBot m => m (HashMap Text [(PrNum, CommitSHA, CheckRunInfo)])
 getQueues = do
   (repoOwner, repoName) <- getRepo
   appId <- getAppId
@@ -403,7 +409,7 @@ getQueues = do
           (base, number, headRef) = [get| pr.(baseRefName, number, headRefOid) |]
        in case concat [get| prCommit.checkSuites!.nodes![]!.checkRuns!.nodes![]!.databaseId! |] of
             [] -> Nothing -- PR has no merge check run in the "queued" state
-            checkRunId : _ -> Just (base, [(number, headRef, checkRunId)])
+            checkRunId : _ -> Just (base, [(number, headRef, CheckRunInfo{..})])
 
 {- REST -}
 

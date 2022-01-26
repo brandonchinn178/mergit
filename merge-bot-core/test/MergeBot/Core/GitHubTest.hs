@@ -52,7 +52,7 @@ testGetCICommit =
           ioProperty $ do
             let mocks = mockGetCICommitQueries sha checkRunTry pagedParents
             CICommit{parents} <- runTestApp mocks $ getCICommit sha CheckRunTry
-            return $ parents === map (\CICommitParent{..} -> (parentSHA, fromJust parentCheckRunId)) parentCommits
+            return $ parents === map (\CICommitParent{..} -> (parentSHA, fromJust parentCheckRun)) parentCommits
     ]
   where
     mockGetCICommitQueries ciCommitSHA checkName = withPaged $ \Page{..} ->
@@ -99,7 +99,7 @@ testGetCICommit =
           "nodes": [
             {
               "checkRuns": {
-                "nodes": #{maybeToList $ mkCheckRunNode <$> parentCheckRunId}
+                "nodes": #{maybeToList $ mkCheckRunNode <$> parentCheckRun}
               }
             }
           ]
@@ -107,7 +107,7 @@ testGetCICommit =
       }
     |]
 
-    mkCheckRunNode checkRunId = [aesonQQ| { "databaseId": #{checkRunId} } |]
+    mkCheckRunNode CheckRunInfo{..} = [aesonQQ| { "databaseId": #{checkRunId} } |]
 
 testGetPRForCommit :: TestTree
 testGetPRForCommit =
@@ -197,12 +197,16 @@ mockSHA = GitObjectID $ Text.replicate 40 "0"
 
 data CICommitParent = CICommitParent
   { parentSHA :: GitObjectID
-  , parentCheckRunId :: Maybe Int
+  , parentCheckRun :: Maybe CheckRunInfo
   }
   deriving (Show, Eq)
 
 instance Arbitrary CICommitParent where
-  arbitrary = CICommitParent <$> arbitrary <*> (Just <$> arbitrary)
+  arbitrary =
+    CICommitParent
+      <$> arbitrary
+      -- always generate parent check run
+      <*> fmap Just (CheckRunInfo <$> arbitrary)
 
 {- TestApp helper -}
 
