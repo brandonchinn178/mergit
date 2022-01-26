@@ -13,6 +13,8 @@ import Data.GraphQL
 import Data.GraphQL.Bootstrap
 
 import MergeBot.Core.GraphQL.Scalars
+import MergeBot.Core.GraphQL.Enums.CheckConclusionState
+import MergeBot.Core.GraphQL.Enums.CheckStatusState
 import MergeBot.Core.GraphQL.Enums.PullRequestReviewState
 import MergeBot.Core.GraphQL.Enums.StatusState
 
@@ -237,6 +239,8 @@ type GetCICommitSchema = [schema|
                     checkRuns: Maybe {
                       nodes: Maybe List Maybe {
                         databaseId: Maybe Int,
+                        status: CheckStatusState,
+                        conclusion: Maybe CheckConclusionState,
                       },
                     },
                   },
@@ -306,6 +310,8 @@ instance GraphQLQuery GetCICommitQuery where
     }
     fragment CheckRunInfoFragment on CheckRun {
       databaseId
+      status
+      conclusion
     }
   |]
 
@@ -360,6 +366,8 @@ type GetCommitCheckRunSchema = [schema|
                 checkRuns: Maybe {
                   nodes: Maybe List Maybe {
                     databaseId: Maybe Int,
+                    status: CheckStatusState,
+                    conclusion: Maybe CheckConclusionState,
                   },
                 },
               },
@@ -391,11 +399,16 @@ instance GraphQLQuery GetCommitCheckRunQuery where
         nodes {
           checkRuns(filterBy: {checkName: $checkName}, first: 2) {
             nodes {
-              databaseId
+              ...CheckRunInfoFragment
             }
           }
         }
       }
+    }
+    fragment CheckRunInfoFragment on CheckRun {
+      databaseId
+      status
+      conclusion
     }
   |]
 
@@ -570,6 +583,8 @@ type GetPRCheckRunSchema = [schema|
                   checkRuns: Maybe {
                     nodes: Maybe List Maybe {
                       databaseId: Maybe Int,
+                      status: CheckStatusState,
+                      conclusion: Maybe CheckConclusionState,
                     },
                   },
                 },
@@ -614,6 +629,8 @@ instance GraphQLQuery GetPRCheckRunQuery where
     }
     fragment CheckRunInfoFragment on CheckRun {
       databaseId
+      status
+      conclusion
     }
   |]
 
@@ -849,6 +866,8 @@ type GetQueuedPRsSchema = [schema|
                       checkRuns: Maybe {
                         nodes: Maybe List Maybe {
                           databaseId: Maybe Int,
+                          status: CheckStatusState,
+                          conclusion: Maybe CheckConclusionState,
                         },
                       },
                     },
@@ -901,6 +920,8 @@ instance GraphQLQuery GetQueuedPRsQuery where
     }
     fragment CheckRunInfoFragment on CheckRun {
       databaseId
+      status
+      conclusion
     }
   |]
 

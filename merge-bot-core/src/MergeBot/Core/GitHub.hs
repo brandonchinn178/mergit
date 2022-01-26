@@ -100,9 +100,9 @@ import MergeBot.Core.GraphQL.API (
   GetPRReviewsQuery (..),
   GetQueuedPRsQuery (..),
  )
-import MergeBot.Core.GraphQL.Enums.PullRequestReviewState (
-  PullRequestReviewState,
- )
+import MergeBot.Core.GraphQL.Enums.CheckConclusionState (CheckConclusionState)
+import MergeBot.Core.GraphQL.Enums.CheckStatusState (CheckStatusState)
+import MergeBot.Core.GraphQL.Enums.PullRequestReviewState (PullRequestReviewState)
 import qualified MergeBot.Core.GraphQL.Enums.PullRequestReviewState as PullRequestReviewState
 import MergeBot.Core.Monad (MonadMergeBot, MonadMergeBotEnv (..), queryGitHub')
 import MergeBot.Core.Text (checkRunMerge, checkRunTry, fromStagingMessage)
@@ -223,6 +223,8 @@ type CheckRunId = Int
 
 data CheckRunInfo = CheckRunInfo
   { checkRunId :: CheckRunId
+  , checkRunState :: CheckStatusState
+  , checkRunConclusion :: Maybe CheckConclusionState
   }
   deriving (Show, Eq)
 
@@ -582,6 +584,8 @@ type CheckRunInfoFragmentSchema =
   [schema|
     {
       databaseId: Maybe Int,
+      status: CheckStatusState,
+      conclusion: Maybe CheckConclusionState,
     }
   |]
 
@@ -589,6 +593,8 @@ parseCheckRunInfoFragment :: Object CheckRunInfoFragmentSchema -> CheckRunInfo
 parseCheckRunInfoFragment o =
   CheckRunInfo
     { checkRunId = [get| o.databaseId! |]
+    , checkRunState = [get| o.status |]
+    , checkRunConclusion = [get| o.conclusion |]
     }
 
 -- https://github.com/LeapYear/aeson-schemas/issues/80
