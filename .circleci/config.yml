@@ -18,8 +18,6 @@ workflows:
           <<: *only-merge-bot
       - lint:
           <<: *only-merge-bot
-          requires:
-            - build
       - test:
           <<: *only-merge-bot
           requires:
