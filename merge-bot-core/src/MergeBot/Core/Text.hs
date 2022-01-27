@@ -18,6 +18,7 @@ import Data.Text (Text)
 import qualified Data.Text as Text
 import Data.Time (UTCTime)
 import GitHub.REST (KeyValue (..))
+import Text.Printf (printf)
 import Text.Read (readMaybe)
 
 import MergeBot.Core.Actions (MergeBotAction (..), renderAction)
@@ -130,7 +131,7 @@ output title summary = ["title" := title, "summary" := summary]
 
 -- | Display the pull request number.
 showId :: Int -> Text
-showId = Text.pack . ('#' :) . show
+showId = Text.pack . printf "#%d"
 
 -- | Parse a pull request number.
 parseId :: Text -> Maybe Int
@@ -140,7 +141,7 @@ parseId s = case Text.unpack s of
 
 -- | Get the name of the try branch for the given pull request.
 toTryBranch :: Int -> Text
-toTryBranch = ("trying-" <>) . Text.pack . show
+toTryBranch = Text.pack . printf "trying-%d"
 
 -- | Return True if the given branch is a try branch.
 isTryBranch :: Text -> Bool
@@ -156,7 +157,7 @@ toTryMessage prNum = Text.unwords ["Try", showId prNum]
 
 -- | Get the name of the staging branch for the given base branch.
 toStagingBranch :: Text -> Text
-toStagingBranch = ("staging-" <>)
+toStagingBranch = Text.pack . printf "staging-%s"
 
 -- | Return True if the given branch is a staging branch.
 isStagingBranch :: Text -> Bool

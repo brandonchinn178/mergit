@@ -31,7 +31,6 @@ import Data.Proxy (Proxy (..))
 import qualified Data.Text as Text
 import qualified Data.Text.Lazy as TextL
 import qualified Data.Text.Lazy.Encoding as TextL
-import GitHub.Data.GitObjectID (GitObjectID (..))
 import qualified Network.Wai.Handler.Warp as Warp
 import Servant (
   Application,
@@ -50,6 +49,7 @@ import Servant (
   type (.++),
  )
 import Servant.GitHub (loadGitHubAppParams)
+import Text.Printf (printf)
 import UnliftIO (MonadUnliftIO, withRunInIO)
 import UnliftIO.Async (async, waitAny)
 import UnliftIO.Exception (handle, try)
@@ -93,28 +93,28 @@ handleBotQueue = handleEvents handleBotEvent
 
     runBotEvent = \case
       PRCreated prNum sha -> do
-        logWithRepo $ "PR created: " <> showT prNum
+        logWithRepo $ printf "PR created: %d" prNum
         Core.createCheckRuns sha
       CommitPushedToPR prNum sha -> do
-        logWithRepo $ "Commit pushed to PR: " <> showT prNum
+        logWithRepo $ printf "Commit pushed to PR: %d" prNum
         Core.createCheckRuns sha
       StartTryJob prNum sha branch checkRunId -> do
-        logWithRepo $ "Trying PR #" <> showT prNum <> " for commit: " <> unOID sha
+        logWithRepo $ printf "Trying PR #%d for commit: %s" prNum sha
         Core.startTryJob prNum sha branch checkRunId
       QueuePR prNum sha -> do
-        logWithRepo $ "Queuing PR #" <> showT prNum
+        logWithRepo $ printf "Queuing PR #%d" prNum
         Core.queuePR prNum sha
       DequeuePR prNum sha -> do
-        logWithRepo $ "Dequeuing PR #" <> showT prNum
+        logWithRepo $ printf "Dequeuing PR #%d" prNum
         Core.dequeuePR prNum sha
       ResetMerge prNum sha -> do
-        logWithRepo $ "Resetting merge check run for PR #" <> showT prNum
+        logWithRepo $ printf "Resetting merge check run for PR #%d" prNum
         Core.resetMerge prNum sha
       RefreshCheckRun branch sha -> do
-        logWithRepo $ "Handling status update for " <> branch <> " (" <> unOID sha <> ")"
+        logWithRepo $ printf "Handling status update for %s (%s)" branch sha
         Core.handleStatusUpdate branch sha
       DeleteBranch branch -> do
-        logWithRepo $ "Deleting branch: " <> branch
+        logWithRepo $ printf "Deleting branch: %s" branch
         Core.deleteBranch branch
       PollQueues -> do
         logWithRepo "Polling queues"
@@ -122,15 +122,12 @@ handleBotQueue = handleEvents handleBotEvent
 
     logWithRepo msg = do
       (repoOwner, repoName) <- getRepo
-      let repo = repoOwner <> "/" <> repoName
-      logInfoN $ "[" <> repo <> "] " <> msg
+      logInfoN $ Text.pack $ printf "[%s/%s] %s" repoOwner repoName (msg :: String)
 
     -- TODO: calling getRepoAndTokens for each event is very inefficient, maybe using some token pool?
     getTokenForRepo repo = do
       mToken <- lookup repo <$> getRepoAndTokens
       maybe (error $ "Could not find repository: " ++ show repo) return mToken
-
-    showT = Text.pack . show
 
 -- TODO: instead of polling, have the completed merge run start the next merge run
 pollMergeQueues :: BaseApp ()
