@@ -41,7 +41,7 @@ import qualified Data.Text.Encoding as Text
 import Data.Time (getCurrentTime)
 import Data.Yaml (decodeEither')
 import Text.Printf (printf)
-import UnliftIO.Exception (finally, fromEither, onException, throwIO)
+import UnliftIO.Exception (finally, fromEither, throwIO, withException)
 
 import MergeBot.Core.CheckRun
 import MergeBot.Core.Config
@@ -64,20 +64,20 @@ createCheckRuns sha = do
 -- | Start a new try job.
 startTryJob :: MonadMergeBot m => PrNum -> CommitSHA -> BranchName -> CheckRunId -> m ()
 startTryJob prNum prSHA base checkRunId =
-  (`onException` setCheckRunFailed) $ do
+  (`withException` setCheckRunFailed) $ do
     mergeSHA <- createCIBranch base [(prNum, prSHA)] tryBranch tryMessage
     refreshCheckRuns True tryBranch mergeSHA
   where
     tryBranch = toTryBranch prNum
     tryMessage = toTryMessage prNum
-    setCheckRunFailed =
+    setCheckRunFailed e =
       updateCheckRuns
         [(prSHA, checkRunId)]
         CheckRunUpdates
           { isStart = True
           , isTry = True
           , checkRunStatus = CheckRunComplete False
-          , checkRunBody = ["Unable to start try job."]
+          , checkRunBody = [summaryInitFailed e]
           }
 
 -- | Add a PR to the queue.
@@ -129,17 +129,17 @@ pollQueues = do
           prNumsAndSHAs = zip prNums prSHAs
           prSHAsAndCheckRunIds = zip prSHAs checkRunIds
 
-      let setCheckRunFailed =
+      let setCheckRunFailed e =
             updateCheckRuns
               prSHAsAndCheckRunIds
               CheckRunUpdates
                 { isStart = True
                 , isTry = False
                 , checkRunStatus = CheckRunComplete False
-                , checkRunBody = ["Unable to start merge job."]
+                , checkRunBody = [summaryInitFailed e]
                 }
 
-      (`onException` setCheckRunFailed) $ do
+      (`withException` setCheckRunFailed) $ do
         let stagingBranch = toStagingBranch base
             stagingMessage = toStagingMessage base prNums
         mergeSHA <- createCIBranch base prNumsAndSHAs stagingBranch stagingMessage

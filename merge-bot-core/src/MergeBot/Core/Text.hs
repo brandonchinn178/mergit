@@ -20,8 +20,10 @@ import Data.Time (UTCTime)
 import GitHub.REST (KeyValue (..))
 import Text.Printf (printf)
 import Text.Read (readMaybe)
+import UnliftIO.Exception (SomeException, displayException, fromException)
 
 import MergeBot.Core.Actions (MergeBotAction (..), renderAction)
+import MergeBot.Core.Error (getBotError)
 
 default (Text)
 
@@ -122,6 +124,15 @@ mergeJobInitData now =
   , "output" := output mergeJobLabelInit mergeJobSummaryInit
   , "actions" := [renderAction BotQueue]
   ]
+
+-- | The summary text to display when a check run fails to be created.
+summaryInitFailed :: SomeException -> Text
+summaryInitFailed e =
+  Text.unlines
+    [ "Unable to start run:"
+    , ""
+    , "> " <> maybe (Text.pack $ displayException e) getBotError (fromException e)
+    ]
 
 -- | The output object for check runs.
 output :: Text -> Text -> [KeyValue]
