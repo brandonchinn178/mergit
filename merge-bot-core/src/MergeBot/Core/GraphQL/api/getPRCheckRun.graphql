@@ -10,15 +10,7 @@ query getPRCheckRun(
       commits(last: 1) {
         nodes {
           commit {
-            checkSuites(filterBy: { appId: $appId }, first: 1) {
-              nodes {
-                checkRuns(filterBy: { checkName: $checkName }, first: 1) {
-                  nodes {
-                    databaseId
-                  }
-                }
-              }
-            }
+            ... CommitCheckRunFragment
           }
         }
       }

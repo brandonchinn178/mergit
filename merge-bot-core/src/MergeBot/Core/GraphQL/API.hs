@@ -286,20 +286,26 @@ instance GraphQLQuery GetCICommitQuery where
               }
               nodes {
                 oid
-                checkSuites(filterBy: {appId: $appId}, first: 1) {
-                  nodes {
-                    checkRuns(filterBy: {checkName: $checkName}, first: 2) {
-                      nodes {
-                        databaseId
-                      }
-                    }
-                  }
-                }
+                ...CommitCheckRunFragment
               }
             }
           }
         }
       }
+    }
+    fragment CommitCheckRunFragment on Commit {
+      checkSuites(filterBy: {appId: $appId}, first: 1) {
+        nodes {
+          checkRuns(filterBy: {checkName: $checkName}, first: 2) {
+            nodes {
+              ...CheckRunInfoFragment
+            }
+          }
+        }
+      }
+    }
+    fragment CheckRunInfoFragment on CheckRun {
+      databaseId
     }
   |]
 
@@ -499,20 +505,26 @@ instance GraphQLQuery GetPRCheckRunQuery where
           commits(last: 1) {
             nodes {
               commit {
-                checkSuites(filterBy: {appId: $appId}, first: 1) {
-                  nodes {
-                    checkRuns(filterBy: {checkName: $checkName}, first: 1) {
-                      nodes {
-                        databaseId
-                      }
-                    }
-                  }
-                }
+                ...CommitCheckRunFragment
               }
             }
           }
         }
       }
+    }
+    fragment CommitCheckRunFragment on Commit {
+      checkSuites(filterBy: {appId: $appId}, first: 1) {
+        nodes {
+          checkRuns(filterBy: {checkName: $checkName}, first: 2) {
+            nodes {
+              ...CheckRunInfoFragment
+            }
+          }
+        }
+      }
+    }
+    fragment CheckRunInfoFragment on CheckRun {
+      databaseId
     }
   |]
 
@@ -786,7 +798,7 @@ instance GraphQLQuery GetQueuedPRsQuery where
                     nodes {
                       checkRuns(filterBy: {checkName: $checkName, status: QUEUED}, first: 1) {
                         nodes {
-                          databaseId
+                          ...CheckRunInfoFragment
                         }
                       }
                     }
@@ -797,6 +809,9 @@ instance GraphQLQuery GetQueuedPRsQuery where
           }
         }
       }
+    }
+    fragment CheckRunInfoFragment on CheckRun {
+      databaseId
     }
   |]
 
