@@ -66,7 +66,6 @@ import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HashMap
 import Data.Maybe (fromMaybe, mapMaybe)
 import Data.Text (Text)
-import qualified Data.Text as Text
 import GitHub.Data.GitObjectID (GitObjectID)
 import GitHub.REST (
   GHEndpoint (..),
@@ -78,6 +77,7 @@ import GitHub.REST (
   (.:),
  )
 import Network.HTTP.Types (status409)
+import Text.Printf (printf)
 import UnliftIO.Exception (throwIO)
 
 import MergeBot.Core.Error (BotError (..))
@@ -100,8 +100,6 @@ import MergeBot.Core.GraphQL.Enums.PullRequestReviewState (
 import qualified MergeBot.Core.GraphQL.Enums.PullRequestReviewState as PullRequestReviewState
 import MergeBot.Core.Monad (MonadMergeBot, MonadMergeBotEnv (..), queryGitHub')
 import MergeBot.Core.Text (checkRunMerge, checkRunTry, fromStagingMessage)
-
-default (Text)
 
 {- Types -}
 
@@ -202,7 +200,7 @@ getCICommit sha checkRunType = do
       case concat $ getCheckRuns parent of
         [] -> throwIO $ MissingCheckRun parentSHA checkName
         [checkRun] -> return (parentSHA, checkRun)
-        _ -> error $ "Commit has multiple check runs named '" ++ Text.unpack checkName ++ "': " ++ show parent
+        _ -> error $ printf "Commit has multiple check runs named '%s': %s" checkName (show parent)
 
   return
     CICommit
@@ -210,7 +208,7 @@ getCICommit sha checkRunType = do
       , commitContexts = fromMaybe [] [get| result.status?.contexts |]
       , prsFromMessage = case fromStagingMessage [get| result.message |] of
           Just (_, prIds) -> prIds
-          Nothing -> error $ "Could not parse CI commit message: " ++ Text.unpack [get| result.message |]
+          Nothing -> error $ printf "Could not parse CI commit message: %s" [get| result.message |]
       , parents
       }
   where
@@ -233,7 +231,7 @@ getCheckRun prNum checkRunType = do
         , _checkName = checkName
         }
   commit <- case [get| result.repository!.pullRequest!.commits.nodes![]!.commit |] of
-    [] -> error $ "PR #" ++ show prNum ++ " has no commits: " ++ show result
+    [] -> error $ printf "PR #%d has no commits: %s" prNum (show result)
     [c] -> return c
     _ -> error $ "PRCheckRun query returned more than one 'last' commit: " ++ show result
   case [get| commit.checkSuites!.nodes![]!.checkRuns!.nodes![]!.databaseId! |] of

@@ -42,6 +42,7 @@ import Servant.HTML.Blaze (HTML)
 import Text.Blaze.Html5 (Html, (!))
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
+import Text.Printf (printf)
 
 import MergeBot.Auth (xsrfTokenInputName)
 import qualified MergeBot.Core.GitHub as Core
@@ -168,8 +169,8 @@ handleRepositoryPage repoOwner repoName = do
 
         case traverse lookupPR prIds of
           Nothing -> do
-            let prs = intercalate ", " $ map (\prId -> "#" ++ show prId) prIds
-            mkErrorTable $ Text.pack $ "Found closed PRs (" ++ prs ++ "). Reset this merge run."
+            let prs = intercalate ", " $ map (printf "#%d") prIds
+            mkErrorTable $ printf "Found closed PRs (%s). Reset this merge run." prs
           Just prs -> mkTablePRs prs
 
     H.h2 "Queued pull requests"
@@ -230,14 +231,14 @@ render body = do
         H.main body
 
 -- | Render a basic table.
-mkTable :: [Text] -> [a] -> (a -> Html) -> Html
+mkTable :: [String] -> [a] -> (a -> Html) -> Html
 mkTable headers tableData toCells =
   H.table ! H.customAttribute "border" "1" $ do
     H.tr $ mapM_ (H.th . H.toHtml) headers
     mapM_ (H.tr . toCells) tableData
 
 -- | Render an error in a table.
-mkErrorTable :: Text -> Html
+mkErrorTable :: String -> Html
 mkErrorTable errorMessage = mkTable ["Error", errorMessage] [] id
 
 -- | Render a table of PRs.
