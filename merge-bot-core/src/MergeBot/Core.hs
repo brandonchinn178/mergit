@@ -27,13 +27,14 @@ module MergeBot.Core (
   pollQueues,
 ) where
 
+import Control.Arrow ((&&&))
 import Control.Concurrent (threadDelay)
 import Control.Monad (forM_, unless, void, when, (<=<))
 import Control.Monad.IO.Class (MonadIO (..))
 import Data.Bifunctor (first)
 import Data.GraphQL (get)
 import qualified Data.HashMap.Strict as HashMap
-import Data.List (partition)
+import Data.List (nub, partition)
 import Data.Maybe (isNothing)
 import Data.Text (Text)
 import qualified Data.Text as Text
@@ -47,6 +48,8 @@ import MergeBot.Core.CheckRun
 import MergeBot.Core.Config
 import MergeBot.Core.Error
 import MergeBot.Core.GitHub
+import qualified MergeBot.Core.GraphQL.Enums.CheckConclusionState as CheckConclusionState
+import qualified MergeBot.Core.GraphQL.Enums.CheckStatusState as CheckStatusState
 import qualified MergeBot.Core.GraphQL.Enums.PullRequestReviewState as PullRequestReviewState
 import qualified MergeBot.Core.GraphQL.Enums.StatusState as StatusState
 import MergeBot.Core.Monad
@@ -223,16 +226,41 @@ refreshCheckRuns isStart ciBranchName sha = do
       extractConfig [] commitTree
 
   let ciStatus = getCIStatus config commitContexts
-      checkRunState = resolveCIStatus ciStatus
+
+      (state, conclusion) =
+        case nub $ map ((checkRunState &&& checkRunConclusion) . snd) parents of
+          [x] -> x
+          _ -> error $ "Expected parents' check runs to all be in same state, got: " ++ show parents
+
+      -- Nothing = not complete, Just = complete with is successful
+      isCheckRunComplete =
+        case (state, conclusion) of
+          -- the state we initialize try runs to
+          (CheckStatusState.COMPLETED, Just CheckConclusionState.NEUTRAL) | isTry -> Nothing
+          -- the state we initialize merge runs to
+          (CheckStatusState.COMPLETED, Just CheckConclusionState.ACTION_REQUIRED) | not isTry -> Nothing
+          (CheckStatusState.COMPLETED, Just CheckConclusionState.SUCCESS) -> Just True
+          (CheckStatusState.COMPLETED, _) -> Just False
+          _ -> Nothing
 
       -- NB: isComplete means that the merge bot should consider a check run "done"; it does not
       -- necessarily mean that CI is done. Meaning we should not clean up yet, since more CI jobs
       -- could start and fail to checkout.
-      (isComplete, isSuccess) = case checkRunState of
-        StatusState.SUCCESS -> (True, True)
-        StatusState.ERROR -> (True, False)
-        StatusState.FAILURE -> (True, False)
-        _ -> (False, False)
+      (isComplete, isSuccess) =
+        case resolveCIStatus ciStatus of
+          -- a merge run in a completed state should _never_ have its conclusion changed
+          --
+          -- we specifically want to prevent the case of someone rerunning a merge
+          -- run to have it pass and try to merge. Currently, this isn't an issue,
+          -- as a merge run failing means the merge bot deletes the staging branch,
+          -- and GitHub will no longer set the 'branches' field in the 'status' event,
+          -- so we wouldn't be refreshing the check run anymore. But we should still
+          -- check this to ensure we're not relying on that assumption
+          _ | not isTry, Just success <- isCheckRunComplete -> (True, success)
+          StatusState.SUCCESS -> (True, True)
+          StatusState.ERROR -> (True, False)
+          StatusState.FAILURE -> (True, False)
+          _ -> (False, False)
 
   ciBranchUrl <- mkCIBranchUrl
   updateCheckRuns
@@ -245,9 +273,9 @@ refreshCheckRuns isStart ciBranchName sha = do
             then CheckRunComplete isSuccess
             else CheckRunInProgress
       , checkRunBody =
-          let ciInfo = Text.pack $ printf "CI running in the [%s](%s) branch." ciBranchName ciBranchUrl
-              message
-                | not isComplete = ciInfo
+          let message
+                | not isComplete =
+                  Text.pack $ printf "CI running in the [%s](%s) branch." ciBranchName ciBranchUrl
                 | otherwise =
                   case (isTry, isSuccess) of
                     (True, False) -> tryJobSummaryFailed
