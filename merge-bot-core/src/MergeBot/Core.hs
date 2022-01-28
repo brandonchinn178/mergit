@@ -62,23 +62,26 @@ createCheckRuns sha = do
   createMergeCheckRun sha $ mergeJobInitData now
 
 -- | Start a new try job.
-startTryJob :: MonadMergeBot m => PrNum -> CommitSHA -> BranchName -> CheckRunId -> m ()
-startTryJob prNum prSHA base checkRunId =
+startTryJob :: MonadMergeBot m => PrNum -> CommitSHA -> BranchName -> m ()
+startTryJob prNum sha base = do
+  checkRun <- getCheckRunForCommit sha CheckRunTry
+
+  let setCheckRunFailed e =
+        updateCheckRuns
+          [(sha, checkRun)]
+          CheckRunUpdates
+            { isStart = True
+            , isTry = True
+            , checkRunStatus = CheckRunComplete False
+            , checkRunBody = [summaryInitFailed e]
+            }
+
   (`withException` setCheckRunFailed) $ do
-    mergeSHA <- createCIBranch base [(prNum, prSHA)] tryBranch tryMessage
+    mergeSHA <- createCIBranch base [(prNum, sha)] tryBranch tryMessage
     refreshCheckRuns True tryBranch mergeSHA
   where
     tryBranch = toTryBranch prNum
     tryMessage = toTryMessage prNum
-    setCheckRunFailed e =
-      updateCheckRuns
-        [(prSHA, CheckRunInfo{..})]
-        CheckRunUpdates
-          { isStart = True
-          , isTry = True
-          , checkRunStatus = CheckRunComplete False
-          , checkRunBody = [summaryInitFailed e]
-          }
 
 -- | Add a PR to the queue.
 queuePR :: MonadMergeBot m => PrNum -> CommitSHA -> m ()

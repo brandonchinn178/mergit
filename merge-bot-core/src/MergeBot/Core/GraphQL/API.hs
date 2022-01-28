@@ -319,6 +319,95 @@ instance GraphQLQuery GetCICommitQuery where
     ]
 
 {-----------------------------------------------------------------------------
+* getCommitCheckRun
+
+-- result :: Object GetCommitCheckRunSchema; throws a GraphQL exception on errors
+result <- runQuery GetCommitCheckRunQuery
+  { _repoOwner = ...
+  , _repoName = ...
+  , _sha = ...
+  , _appId = ...
+  , _checkName = ...
+  }
+
+-- result :: GraphQLResult (Object GetCommitCheckRunSchema)
+result <- runQuerySafe GetCommitCheckRunQuery
+  { _repoOwner = ...
+  , _repoName = ...
+  , _sha = ...
+  , _appId = ...
+  , _checkName = ...
+  }
+-----------------------------------------------------------------------------}
+
+data GetCommitCheckRunQuery = GetCommitCheckRunQuery
+  { _repoOwner :: Text
+  , _repoName :: Text
+  , _sha :: GitObjectID
+  , _appId :: Int
+  , _checkName :: Text
+  }
+  deriving (Show)
+
+type GetCommitCheckRunSchema = [schema|
+  {
+    repository: Maybe {
+      object: Maybe {
+        [__fragment]: Try (
+          {
+            checkSuites: Maybe {
+              nodes: Maybe List Maybe {
+                checkRuns: Maybe {
+                  nodes: Maybe List Maybe {
+                    databaseId: Maybe Int,
+                  },
+                },
+              },
+            },
+          }
+        ),
+      },
+    },
+  }
+|]
+
+instance GraphQLQuery GetCommitCheckRunQuery where
+  type ResultSchema GetCommitCheckRunQuery = GetCommitCheckRunSchema
+
+  getQueryName _ = "getCommitCheckRun"
+
+  getQueryText _ = [query|
+    query getCommitCheckRun($repoOwner: String!, $repoName: String!, $sha: GitObjectID!, $appId: Int!, $checkName: String!) {
+      repository(owner: $repoOwner, name: $repoName) {
+        object(oid: $sha) {
+          ... on Commit {
+            ...CommitCheckRunFragment
+          }
+        }
+      }
+    }
+    fragment CommitCheckRunFragment on Commit {
+      checkSuites(filterBy: {appId: $appId}, first: 1) {
+        nodes {
+          checkRuns(filterBy: {checkName: $checkName}, first: 2) {
+            nodes {
+              databaseId
+            }
+          }
+        }
+      }
+    }
+  |]
+
+  getArgs query = object
+    [ "repoOwner" .= _repoOwner (query :: GetCommitCheckRunQuery)
+    , "repoName" .= _repoName (query :: GetCommitCheckRunQuery)
+    , "sha" .= _sha (query :: GetCommitCheckRunQuery)
+    , "appId" .= _appId (query :: GetCommitCheckRunQuery)
+    , "checkName" .= _checkName (query :: GetCommitCheckRunQuery)
+    ]
+
+{-----------------------------------------------------------------------------
 * getIsPRMerged
 
 -- result :: Object GetIsPRMergedSchema; throws a GraphQL exception on errors

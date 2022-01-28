@@ -65,7 +65,7 @@ import UnliftIO (MonadUnliftIO (..), wrappedWithRunInIO)
 import UnliftIO.Exception (catch, throwIO)
 
 import MergeBot.Auth (AuthParams)
-import MergeBot.Core.GitHub (BranchName, CheckRunId, CommitSHA, PrNum, Repo)
+import MergeBot.Core.GitHub (BranchName, CommitSHA, PrNum, Repo)
 import MergeBot.Core.Monad (BotAppT, BotSettings (..), getRepo, runBotAppT)
 import MergeBot.EventQueue (
   EventQueuesManager,
@@ -219,7 +219,7 @@ getEventRepo = \case
 data MergeBotEvent
   = PRCreated PrNum CommitSHA
   | CommitPushedToPR PrNum CommitSHA
-  | StartTryJob PrNum CommitSHA BranchName CheckRunId
+  | StartTryJob PrNum CommitSHA BranchName
   | QueuePR PrNum CommitSHA
   | DequeuePR PrNum CommitSHA
   | ResetMerge PrNum CommitSHA
@@ -232,7 +232,7 @@ makeEventKey :: Repo -> MergeBotEvent -> MergeBotEventKey
 makeEventKey repo = \case
   PRCreated prNum _ -> OnPR repo prNum
   CommitPushedToPR prNum _ -> OnPR repo prNum
-  StartTryJob prNum _ _ _ -> OnPR repo prNum
+  StartTryJob prNum _ _ -> OnPR repo prNum
   QueuePR prNum _ -> OnPR repo prNum
   DequeuePR prNum _ -> OnPR repo prNum
   ResetMerge prNum _ -> OnPR repo prNum

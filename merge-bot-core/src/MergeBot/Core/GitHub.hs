@@ -40,6 +40,7 @@ module MergeBot.Core.GitHub (
   CheckRunId,
   CheckRunInfo (..),
   getCheckRun,
+  getCheckRunForCommit,
   PullRequest (..),
   getPRForCommit,
   getPRById,
@@ -91,6 +92,7 @@ import MergeBot.Core.GraphQL.API (
   GetBranchTreeSchema,
   GetCICommitQuery (..),
   GetCICommitSchema,
+  GetCommitCheckRunQuery (..),
   GetIsPRMergedQuery (..),
   GetPRByIdQuery (..),
   GetPRCheckRunQuery (..),
@@ -245,6 +247,27 @@ getCheckRun prNum checkRunType = do
   case parseCommitCheckRunFragments commit of
     [checkRun] -> return checkRun
     _ -> throwIO $ MissingCheckRunPR prNum checkName
+  where
+    checkName = getCheckName checkRunType
+
+-- | Get the check run for the given commit and check run name.
+getCheckRunForCommit :: MonadMergeBot m => CommitSHA -> CheckRunType -> m CheckRunInfo
+getCheckRunForCommit sha checkRunType = do
+  (repoOwner, repoName) <- getRepo
+  appId <- getAppId
+  result <-
+    runQuery
+      GetCommitCheckRunQuery
+        { _repoOwner = repoOwner
+        , _repoName = repoName
+        , _sha = sha
+        , _appId = appId
+        , _checkName = checkName
+        }
+  let commit = [get| result.repository!.object!.__fragment! |]
+  case parseCommitCheckRunFragments commit of
+    [checkRun] -> return checkRun
+    _ -> throwIO $ MissingCheckRun sha checkName
   where
     checkName = getCheckName checkRunType
 
