@@ -1,0 +1,5 @@
+fragment CheckRunInfoFragment on CheckRun {
+  databaseId
+  status
+  conclusion
+}

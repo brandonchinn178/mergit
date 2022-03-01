@@ -1,0 +1,15 @@
+query getCommitCheckRun(
+  $repoOwner: String!,
+  $repoName: String!,
+  $sha: GitObjectID!,
+  $appId: Int!,
+  $checkName: String!,
+) {
+  repository(owner: $repoOwner, name: $repoName) {
+    object(oid: $sha) {
+      ... on Commit {
+        ... CommitCheckRunFragment
+      }
+    }
+  }
+}

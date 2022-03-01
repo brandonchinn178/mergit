@@ -13,6 +13,8 @@ import Data.GraphQL
 import Data.GraphQL.Bootstrap
 
 import MergeBot.Core.GraphQL.Scalars
+import MergeBot.Core.GraphQL.Enums.CheckConclusionState
+import MergeBot.Core.GraphQL.Enums.CheckStatusState
 import MergeBot.Core.GraphQL.Enums.PullRequestReviewState
 import MergeBot.Core.GraphQL.Enums.StatusState
 
@@ -237,6 +239,8 @@ type GetCICommitSchema = [schema|
                     checkRuns: Maybe {
                       nodes: Maybe List Maybe {
                         databaseId: Maybe Int,
+                        status: CheckStatusState,
+                        conclusion: Maybe CheckConclusionState,
                       },
                     },
                   },
@@ -286,20 +290,28 @@ instance GraphQLQuery GetCICommitQuery where
               }
               nodes {
                 oid
-                checkSuites(filterBy: {appId: $appId}, first: 1) {
-                  nodes {
-                    checkRuns(filterBy: {checkName: $checkName}, first: 2) {
-                      nodes {
-                        databaseId
-                      }
-                    }
-                  }
-                }
+                ...CommitCheckRunFragment
               }
             }
           }
         }
       }
+    }
+    fragment CommitCheckRunFragment on Commit {
+      checkSuites(filterBy: {appId: $appId}, first: 1) {
+        nodes {
+          checkRuns(filterBy: {checkName: $checkName}, first: 2) {
+            nodes {
+              ...CheckRunInfoFragment
+            }
+          }
+        }
+      }
+    }
+    fragment CheckRunInfoFragment on CheckRun {
+      databaseId
+      status
+      conclusion
     }
   |]
 
@@ -310,6 +322,102 @@ instance GraphQLQuery GetCICommitQuery where
     , "after" .= _after (query :: GetCICommitQuery)
     , "appId" .= _appId (query :: GetCICommitQuery)
     , "checkName" .= _checkName (query :: GetCICommitQuery)
+    ]
+
+{-----------------------------------------------------------------------------
+* getCommitCheckRun
+
+-- result :: Object GetCommitCheckRunSchema; throws a GraphQL exception on errors
+result <- runQuery GetCommitCheckRunQuery
+  { _repoOwner = ...
+  , _repoName = ...
+  , _sha = ...
+  , _appId = ...
+  , _checkName = ...
+  }
+
+-- result :: GraphQLResult (Object GetCommitCheckRunSchema)
+result <- runQuerySafe GetCommitCheckRunQuery
+  { _repoOwner = ...
+  , _repoName = ...
+  , _sha = ...
+  , _appId = ...
+  , _checkName = ...
+  }
+-----------------------------------------------------------------------------}
+
+data GetCommitCheckRunQuery = GetCommitCheckRunQuery
+  { _repoOwner :: Text
+  , _repoName :: Text
+  , _sha :: GitObjectID
+  , _appId :: Int
+  , _checkName :: Text
+  }
+  deriving (Show)
+
+type GetCommitCheckRunSchema = [schema|
+  {
+    repository: Maybe {
+      object: Maybe {
+        [__fragment]: Try (
+          {
+            checkSuites: Maybe {
+              nodes: Maybe List Maybe {
+                checkRuns: Maybe {
+                  nodes: Maybe List Maybe {
+                    databaseId: Maybe Int,
+                    status: CheckStatusState,
+                    conclusion: Maybe CheckConclusionState,
+                  },
+                },
+              },
+            },
+          }
+        ),
+      },
+    },
+  }
+|]
+
+instance GraphQLQuery GetCommitCheckRunQuery where
+  type ResultSchema GetCommitCheckRunQuery = GetCommitCheckRunSchema
+
+  getQueryName _ = "getCommitCheckRun"
+
+  getQueryText _ = [query|
+    query getCommitCheckRun($repoOwner: String!, $repoName: String!, $sha: GitObjectID!, $appId: Int!, $checkName: String!) {
+      repository(owner: $repoOwner, name: $repoName) {
+        object(oid: $sha) {
+          ... on Commit {
+            ...CommitCheckRunFragment
+          }
+        }
+      }
+    }
+    fragment CommitCheckRunFragment on Commit {
+      checkSuites(filterBy: {appId: $appId}, first: 1) {
+        nodes {
+          checkRuns(filterBy: {checkName: $checkName}, first: 2) {
+            nodes {
+              ...CheckRunInfoFragment
+            }
+          }
+        }
+      }
+    }
+    fragment CheckRunInfoFragment on CheckRun {
+      databaseId
+      status
+      conclusion
+    }
+  |]
+
+  getArgs query = object
+    [ "repoOwner" .= _repoOwner (query :: GetCommitCheckRunQuery)
+    , "repoName" .= _repoName (query :: GetCommitCheckRunQuery)
+    , "sha" .= _sha (query :: GetCommitCheckRunQuery)
+    , "appId" .= _appId (query :: GetCommitCheckRunQuery)
+    , "checkName" .= _checkName (query :: GetCommitCheckRunQuery)
     ]
 
 {-----------------------------------------------------------------------------
@@ -475,6 +583,8 @@ type GetPRCheckRunSchema = [schema|
                   checkRuns: Maybe {
                     nodes: Maybe List Maybe {
                       databaseId: Maybe Int,
+                      status: CheckStatusState,
+                      conclusion: Maybe CheckConclusionState,
                     },
                   },
                 },
@@ -499,20 +609,28 @@ instance GraphQLQuery GetPRCheckRunQuery where
           commits(last: 1) {
             nodes {
               commit {
-                checkSuites(filterBy: {appId: $appId}, first: 1) {
-                  nodes {
-                    checkRuns(filterBy: {checkName: $checkName}, first: 1) {
-                      nodes {
-                        databaseId
-                      }
-                    }
-                  }
-                }
+                ...CommitCheckRunFragment
               }
             }
           }
         }
       }
+    }
+    fragment CommitCheckRunFragment on Commit {
+      checkSuites(filterBy: {appId: $appId}, first: 1) {
+        nodes {
+          checkRuns(filterBy: {checkName: $checkName}, first: 2) {
+            nodes {
+              ...CheckRunInfoFragment
+            }
+          }
+        }
+      }
+    }
+    fragment CheckRunInfoFragment on CheckRun {
+      databaseId
+      status
+      conclusion
     }
   |]
 
@@ -748,6 +866,8 @@ type GetQueuedPRsSchema = [schema|
                       checkRuns: Maybe {
                         nodes: Maybe List Maybe {
                           databaseId: Maybe Int,
+                          status: CheckStatusState,
+                          conclusion: Maybe CheckConclusionState,
                         },
                       },
                     },
@@ -786,7 +906,7 @@ instance GraphQLQuery GetQueuedPRsQuery where
                     nodes {
                       checkRuns(filterBy: {checkName: $checkName, status: QUEUED}, first: 1) {
                         nodes {
-                          databaseId
+                          ...CheckRunInfoFragment
                         }
                       }
                     }
@@ -797,6 +917,11 @@ instance GraphQLQuery GetQueuedPRsQuery where
           }
         }
       }
+    }
+    fragment CheckRunInfoFragment on CheckRun {
+      databaseId
+      status
+      conclusion
     }
   |]
 

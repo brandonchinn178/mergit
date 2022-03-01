@@ -38,7 +38,9 @@ module MergeBot.Core.GitHub (
   CICommit (..),
   getCICommit,
   CheckRunId,
+  CheckRunInfo (..),
   getCheckRun,
+  getCheckRunForCommit,
   PullRequest (..),
   getPRForCommit,
   getPRById,
@@ -59,6 +61,8 @@ module MergeBot.Core.GitHub (
 
 import Control.Monad (forM, void)
 import Control.Monad.IO.Class (MonadIO)
+import Data.Aeson.Schema (Object, schema)
+import Data.Aeson.Schema.Internal (LookupSchema, SchemaResult)
 import Data.Bifunctor (bimap)
 import Data.Either (isRight)
 import Data.GraphQL (MonadGraphQLQuery, get, mkGetter, runQuery, unwrap)
@@ -66,7 +70,7 @@ import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HashMap
 import Data.Maybe (fromMaybe, mapMaybe)
 import Data.Text (Text)
-import qualified Data.Text as Text
+import Data.Typeable (Typeable)
 import GitHub.Data.GitObjectID (GitObjectID)
 import GitHub.REST (
   GHEndpoint (..),
@@ -78,6 +82,7 @@ import GitHub.REST (
   (.:),
  )
 import Network.HTTP.Types (status409)
+import Text.Printf (printf)
 import UnliftIO.Exception (throwIO)
 
 import MergeBot.Core.Error (BotError (..))
@@ -87,6 +92,7 @@ import MergeBot.Core.GraphQL.API (
   GetBranchTreeSchema,
   GetCICommitQuery (..),
   GetCICommitSchema,
+  GetCommitCheckRunQuery (..),
   GetIsPRMergedQuery (..),
   GetPRByIdQuery (..),
   GetPRCheckRunQuery (..),
@@ -94,14 +100,12 @@ import MergeBot.Core.GraphQL.API (
   GetPRReviewsQuery (..),
   GetQueuedPRsQuery (..),
  )
-import MergeBot.Core.GraphQL.Enums.PullRequestReviewState (
-  PullRequestReviewState,
- )
+import MergeBot.Core.GraphQL.Enums.CheckConclusionState (CheckConclusionState)
+import MergeBot.Core.GraphQL.Enums.CheckStatusState (CheckStatusState)
+import MergeBot.Core.GraphQL.Enums.PullRequestReviewState (PullRequestReviewState)
 import qualified MergeBot.Core.GraphQL.Enums.PullRequestReviewState as PullRequestReviewState
 import MergeBot.Core.Monad (MonadMergeBot, MonadMergeBotEnv (..), queryGitHub')
 import MergeBot.Core.Text (checkRunMerge, checkRunTry, fromStagingMessage)
-
-default (Text)
 
 {- Types -}
 
@@ -155,7 +159,7 @@ data CICommit = CICommit
     -- order corresponding to the 'parents' list.
     prsFromMessage :: [Int]
   , -- | The parent commits of a CI commit, not including the base branch
-    parents :: [(CommitSHA, CheckRunId)]
+    parents :: [(CommitSHA, CheckRunInfo)]
   }
   deriving (Show)
 
@@ -197,12 +201,11 @@ getCICommit sha checkRunType = do
   parents <- forM
     (tail parentsPayload) -- ignore base branch, which is always first
     $ \parent -> do
-      let getCheckRuns = [get| .checkSuites!.nodes![]!.checkRuns!.nodes![]!.databaseId! |]
-          parentSHA = [get| parent.oid |]
-      case concat $ getCheckRuns parent of
+      let parentSHA = [get| parent.oid |]
+      case parseCommitCheckRunFragments parent of
         [] -> throwIO $ MissingCheckRun parentSHA checkName
         [checkRun] -> return (parentSHA, checkRun)
-        _ -> error $ "Commit has multiple check runs named '" ++ Text.unpack checkName ++ "': " ++ show parent
+        _ -> error $ printf "Commit has multiple check runs named '%s': %s" checkName (show parent)
 
   return
     CICommit
@@ -210,7 +213,7 @@ getCICommit sha checkRunType = do
       , commitContexts = fromMaybe [] [get| result.status?.contexts |]
       , prsFromMessage = case fromStagingMessage [get| result.message |] of
           Just (_, prIds) -> prIds
-          Nothing -> error $ "Could not parse CI commit message: " ++ Text.unpack [get| result.message |]
+          Nothing -> error $ printf "Could not parse CI commit message: %s" [get| result.message |]
       , parents
       }
   where
@@ -218,8 +221,15 @@ getCICommit sha checkRunType = do
 
 type CheckRunId = Int
 
+data CheckRunInfo = CheckRunInfo
+  { checkRunId :: CheckRunId
+  , checkRunState :: CheckStatusState
+  , checkRunConclusion :: Maybe CheckConclusionState
+  }
+  deriving (Show, Eq)
+
 -- | Get the check run for the given PR and check run name.
-getCheckRun :: MonadMergeBot m => PrNum -> CheckRunType -> m CheckRunId
+getCheckRun :: MonadMergeBot m => PrNum -> CheckRunType -> m CheckRunInfo
 getCheckRun prNum checkRunType = do
   (repoOwner, repoName) <- getRepo
   appId <- getAppId
@@ -233,12 +243,33 @@ getCheckRun prNum checkRunType = do
         , _checkName = checkName
         }
   commit <- case [get| result.repository!.pullRequest!.commits.nodes![]!.commit |] of
-    [] -> error $ "PR #" ++ show prNum ++ " has no commits: " ++ show result
+    [] -> error $ printf "PR #%d has no commits: %s" prNum (show result)
     [c] -> return c
     _ -> error $ "PRCheckRun query returned more than one 'last' commit: " ++ show result
-  case [get| commit.checkSuites!.nodes![]!.checkRuns!.nodes![]!.databaseId! |] of
-    [[checkRunId]] -> return checkRunId
+  case parseCommitCheckRunFragments commit of
+    [checkRun] -> return checkRun
     _ -> throwIO $ MissingCheckRunPR prNum checkName
+  where
+    checkName = getCheckName checkRunType
+
+-- | Get the check run for the given commit and check run name.
+getCheckRunForCommit :: MonadMergeBot m => CommitSHA -> CheckRunType -> m CheckRunInfo
+getCheckRunForCommit sha checkRunType = do
+  (repoOwner, repoName) <- getRepo
+  appId <- getAppId
+  result <-
+    runQuery
+      GetCommitCheckRunQuery
+        { _repoOwner = repoOwner
+        , _repoName = repoName
+        , _sha = sha
+        , _appId = appId
+        , _checkName = checkName
+        }
+  let commit = [get| result.repository!.object!.__fragment! |]
+  case parseCommitCheckRunFragments commit of
+    [checkRun] -> return checkRun
+    _ -> throwIO $ MissingCheckRun sha checkName
   where
     checkName = getCheckName checkRunType
 
@@ -375,7 +406,7 @@ isPRMerged prNum = do
         }
 
 -- | Get all queued PRs, by base branch.
-getQueues :: MonadMergeBot m => m (HashMap Text [(PrNum, CommitSHA, CheckRunId)])
+getQueues :: MonadMergeBot m => m (HashMap Text [(PrNum, CommitSHA, CheckRunInfo)])
 getQueues = do
   (repoOwner, repoName) <- getRepo
   appId <- getAppId
@@ -403,9 +434,9 @@ getQueues = do
     getQueuedPR pr =
       let prCommit = [get| pr.headRef!.target!.__fragment! |]
           (base, number, headRef) = [get| pr.(baseRefName, number, headRefOid) |]
-       in case concat [get| prCommit.checkSuites!.nodes![]!.checkRuns!.nodes![]!.databaseId! |] of
+       in case concat [get| prCommit.checkSuites!.nodes![]!.checkRuns!.nodes![]! |] of
             [] -> Nothing -- PR has no merge check run in the "queued" state
-            checkRunId : _ -> Just (base, [(number, headRef, checkRunId)])
+            checkRun : _ -> Just (base, [(number, headRef, parseCheckRunInfoFragment checkRun)])
 
 {- REST -}
 
@@ -546,6 +577,48 @@ closePR prNum = void $ queryGitHub' endpoint
         , endpointVals = ["number" := prNum]
         , ghData = ["state" := "closed"]
         }
+
+{- Fragments -}
+
+type CheckRunInfoFragmentSchema =
+  [schema|
+    {
+      databaseId: Maybe Int,
+      status: CheckStatusState,
+      conclusion: Maybe CheckConclusionState,
+    }
+  |]
+
+parseCheckRunInfoFragment :: Object CheckRunInfoFragmentSchema -> CheckRunInfo
+parseCheckRunInfoFragment o =
+  CheckRunInfo
+    { checkRunId = [get| o.databaseId! |]
+    , checkRunState = [get| o.status |]
+    , checkRunConclusion = [get| o.conclusion |]
+    }
+
+-- https://github.com/LeapYear/aeson-schemas/issues/80
+parseCommitCheckRunFragments ::
+  ( s1 ~ LookupSchema "checkSuites" schema
+  , Maybe (Object r1) ~ SchemaResult s1
+  , s2 ~ LookupSchema "nodes" r1
+  , Maybe [Maybe (Object r2)] ~ SchemaResult s2
+  , s3 ~ LookupSchema "checkRuns" r2
+  , Maybe (Object r3) ~ SchemaResult s3
+  , s4 ~ LookupSchema "nodes" r3
+  , Maybe [Maybe (Object CheckRunInfoFragmentSchema)] ~ SchemaResult s4
+  , Typeable s1
+  , Typeable s2
+  , Typeable s3
+  , Typeable s4
+  , Typeable r1
+  , Typeable r2
+  , Typeable r3
+  ) =>
+  Object schema ->
+  [CheckRunInfo]
+parseCommitCheckRunFragments =
+  map parseCheckRunInfoFragment . concat . [get| .checkSuites!.nodes![]!.checkRuns!.nodes![]! |]
 
 {- Helpers -}
 

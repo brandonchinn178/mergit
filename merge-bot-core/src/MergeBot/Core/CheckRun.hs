@@ -28,7 +28,8 @@ import GitHub.Data.GitObjectID (GitObjectID)
 import GitHub.REST (KeyValue (..))
 
 import MergeBot.Core.Actions (MergeBotAction (..), renderAction)
-import MergeBot.Core.GitHub (CheckRunId, createCheckRun, updateCheckRun')
+import MergeBot.Core.GitHub (CheckRunInfo (..), createCheckRun, updateCheckRun')
+import qualified MergeBot.Core.GraphQL.Enums.CheckStatusState as CheckStatusState
 import MergeBot.Core.Monad (MonadMergeBot)
 import MergeBot.Core.Text
 
@@ -55,8 +56,7 @@ createMergeCheckRun sha checkRunData =
 data CheckRunStatus
   = CheckRunQueued
   | CheckRunInProgress
-  | -- | is successful?
-    CheckRunComplete Bool
+  | CheckRunComplete Bool -- is successful
   deriving (Show)
 
 data CheckRunUpdates = CheckRunUpdates
@@ -69,7 +69,7 @@ data CheckRunUpdates = CheckRunUpdates
   deriving (Show)
 
 -- | Update the given check runs with the parameters in CheckRunUpdates
-updateCheckRuns :: MonadMergeBot m => [(GitObjectID, CheckRunId)] -> CheckRunUpdates -> m ()
+updateCheckRuns :: MonadMergeBot m => [(GitObjectID, CheckRunInfo)] -> CheckRunUpdates -> m ()
 updateCheckRuns checkRuns CheckRunUpdates{..} = do
   checkRunData <- mkCheckRunData <$> liftIO getCurrentTime
   mapM_ (doUpdateCheckRun checkRunData) checkRuns
@@ -108,30 +108,39 @@ updateCheckRuns checkRuns CheckRunUpdates{..} = do
           ]
         ]
 
-    doUpdateCheckRun checkRunData (sha, checkRunId) =
-      updateCheckRun isStart isTry checkRunId sha checkRunData
+    doUpdateCheckRun checkRunData (sha, checkRun) =
+      updateCheckRun isTry checkRun checkRunStatus sha checkRunData
 
-{- | CORRECTLY update a check run.
+{- |
+CORRECTLY update a check run.
 
- GitHub Checks API requires creating a new CheckRun when transitioning from completed
- status to non-completed status (undocumented, email thread between GitHub Support and
- brandon@leapyear.io)
+GitHub Checks API requires creating a new CheckRun when transitioning from completed
+status to non-completed status (undocumented, email thread between GitHub Support and
+brandon@leapyear.io)
 -}
 updateCheckRun ::
   MonadMergeBot m =>
-  -- | Whether this update should completely overwrite the existing check run. REQUIRED to be
-  -- True if the status transitions from completed to a non-completed status (e.g. in_progress).
-  Bool ->
   -- | Whether the check run being updated is a try check run
   Bool ->
-  CheckRunId ->
+  -- | The CheckRun to update
+  CheckRunInfo ->
+  -- | The status the CheckRun is being updated to
+  CheckRunStatus ->
   GitObjectID ->
   [KeyValue] ->
   m ()
-updateCheckRun shouldOverwrite isTry checkRunId sha checkRunData
+updateCheckRun isTry CheckRunInfo{..} newStatus sha checkRunData
   | not shouldOverwrite = updateCheckRun' checkRunId checkRunData
   | isTry = createTryCheckRun sha checkRunData
   | otherwise = createMergeCheckRun sha checkRunData
+  where
+    shouldOverwrite =
+      case checkRunState of
+        CheckStatusState.COMPLETED ->
+          case newStatus of
+            CheckRunComplete{} -> False
+            _ -> True
+        _ -> False
 
 {- Helpers -}
 

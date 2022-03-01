@@ -98,12 +98,11 @@ handleCheckRun o = runBotApp' repo $ do
 
       let prNum = prId pr
           prBaseRef = prBaseBranch pr
-          checkRunId = [get| o.check_run.id |]
           sha = prSHA pr
           action = [get| o.requested_action!.identifier |]
 
       case parseAction action of
-        Just BotTry -> queueEvent $ StartTryJob prNum sha prBaseRef checkRunId
+        Just BotTry -> queueEvent $ StartTryJob prNum sha prBaseRef
         Just BotQueue -> queueEvent $ QueuePR prNum sha
         Just BotDequeue -> queueEvent $ DequeuePR prNum sha
         Just BotResetMerge -> queueEvent $ ResetMerge prNum sha

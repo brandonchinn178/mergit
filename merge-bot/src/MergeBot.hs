@@ -98,9 +98,9 @@ handleBotQueue = handleEvents handleBotEvent
       CommitPushedToPR prNum sha -> do
         logWithRepo $ printf "Commit pushed to PR: %d" prNum
         Core.createCheckRuns sha
-      StartTryJob prNum sha branch checkRunId -> do
+      StartTryJob prNum sha branch -> do
         logWithRepo $ printf "Trying PR #%d for commit: %s" prNum sha
-        Core.startTryJob prNum sha branch checkRunId
+        Core.startTryJob prNum sha branch
       QueuePR prNum sha -> do
         logWithRepo $ printf "Queuing PR #%d" prNum
         Core.queuePR prNum sha

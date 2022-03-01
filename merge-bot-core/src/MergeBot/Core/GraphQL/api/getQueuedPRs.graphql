@@ -22,7 +22,7 @@ query getQueuedPRs(
                 nodes {
                   checkRuns(filterBy: { checkName: $checkName, status: QUEUED }, first: 1) {
                     nodes {
-                      databaseId
+                      ... CheckRunInfoFragment
                     }
                   }
                 }

@@ -51,7 +51,7 @@ jobs:
       - with_stack_cache:
           steps:
             - run: sudo apt-get install -y libtinfo-dev
-            - run: stack build --fast hlint fourmolu
+            - run: stack build --fast -j1 hlint fourmolu
       - run:
           name: Lint via pre-commit
           command: pre-commit run --all-files -v --show-diff-on-failure

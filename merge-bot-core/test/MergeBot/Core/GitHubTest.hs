@@ -32,6 +32,10 @@ import UnliftIO.Exception (try)
 import MergeBot.Core.Error (BotError (..))
 import MergeBot.Core.GitHub
 import MergeBot.Core.GraphQL.API (GetCICommitQuery (..), GetPRForCommitQuery (..))
+import MergeBot.Core.GraphQL.Enums.CheckConclusionState (CheckConclusionState)
+import qualified MergeBot.Core.GraphQL.Enums.CheckConclusionState as CheckConclusionState
+import MergeBot.Core.GraphQL.Enums.CheckStatusState (CheckStatusState)
+import qualified MergeBot.Core.GraphQL.Enums.CheckStatusState as CheckStatusState
 import MergeBot.Core.Monad (MonadMergeBotEnv (..))
 import MergeBot.Core.Text (checkRunTry)
 
@@ -52,7 +56,7 @@ testGetCICommit =
           ioProperty $ do
             let mocks = mockGetCICommitQueries sha checkRunTry pagedParents
             CICommit{parents} <- runTestApp mocks $ getCICommit sha CheckRunTry
-            return $ parents === map (\CICommitParent{..} -> (parentSHA, fromJust parentCheckRunId)) parentCommits
+            return $ parents === map (\CICommitParent{..} -> (parentSHA, fromJust parentCheckRun)) parentCommits
     ]
   where
     mockGetCICommitQueries ciCommitSHA checkName = withPaged $ \Page{..} ->
@@ -99,7 +103,7 @@ testGetCICommit =
           "nodes": [
             {
               "checkRuns": {
-                "nodes": #{maybeToList $ mkCheckRunNode <$> parentCheckRunId}
+                "nodes": #{maybeToList $ mkCheckRunNode <$> parentCheckRun}
               }
             }
           ]
@@ -107,7 +111,14 @@ testGetCICommit =
       }
     |]
 
-    mkCheckRunNode checkRunId = [aesonQQ| { "databaseId": #{checkRunId} } |]
+    mkCheckRunNode CheckRunInfo{..} =
+      [aesonQQ|
+        {
+          "databaseId": #{checkRunId},
+          "status": #{checkRunState},
+          "conclusion": #{checkRunConclusion}
+        }
+      |]
 
 testGetPRForCommit :: TestTree
 testGetPRForCommit =
@@ -197,12 +208,47 @@ mockSHA = GitObjectID $ Text.replicate 40 "0"
 
 data CICommitParent = CICommitParent
   { parentSHA :: GitObjectID
-  , parentCheckRunId :: Maybe Int
+  , parentCheckRun :: Maybe CheckRunInfo
   }
   deriving (Show, Eq)
 
 instance Arbitrary CICommitParent where
-  arbitrary = CICommitParent <$> arbitrary <*> (Just <$> arbitrary)
+  arbitrary =
+    CICommitParent
+      <$> arbitrary
+      -- always generate parent check run
+      <*> (Just <$> arbitrary)
+
+instance Arbitrary CheckRunInfo where
+  arbitrary =
+    CheckRunInfo
+      <$> arbitrary
+      <*> arbitrary
+      <*> arbitrary
+
+instance Arbitrary CheckStatusState where
+  arbitrary =
+    elements
+      [ CheckStatusState.COMPLETED
+      , CheckStatusState.IN_PROGRESS
+      , CheckStatusState.QUEUED
+      , CheckStatusState.REQUESTED
+      , CheckStatusState.WAITING
+      ]
+
+instance Arbitrary CheckConclusionState where
+  arbitrary =
+    elements
+      [ CheckConclusionState.ACTION_REQUIRED
+      , CheckConclusionState.CANCELLED
+      , CheckConclusionState.FAILURE
+      , CheckConclusionState.NEUTRAL
+      , CheckConclusionState.SKIPPED
+      , CheckConclusionState.STALE
+      , CheckConclusionState.STARTUP_FAILURE
+      , CheckConclusionState.SUCCESS
+      , CheckConclusionState.TIMED_OUT
+      ]
 
 {- TestApp helper -}
 
