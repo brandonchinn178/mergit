@@ -49,9 +49,9 @@ resource "aws_subnet" "subnets" {
 ## Primary EC2 instance ##
 
 locals {
-  ami           = "ami-011b3ccf1bd6db744" # RHEL 7.6 in us-east-1
+  ami           = "ami-04505e74c0741db8d" # Ubuntu 20.04 in us-east-1
   instance_type = "t2.micro"
-  ami_user      = "ec2-user"
+  ami_user      = "ubuntu"
 
   bot_conf_dir     = "/etc/merge-bot.d"
   private_key_name = "github-app.pem"
