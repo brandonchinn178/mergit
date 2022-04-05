@@ -127,7 +127,7 @@ The GitHub app should now be set up!
 
 Now, you need to install the GitHub app to the relevant repositories:
 
-1. Add `.lymerge.yaml` to the repo with the required CI statuses (if you already have CI enabled on a repo, this will be the statuses that show up on the commits), e.g.
+1. Add `.mergit.yaml` to the repo with the required CI statuses (if you already have CI enabled on a repo, this will be the statuses that show up on the commits), e.g.
 
     ```yaml
     statuses:

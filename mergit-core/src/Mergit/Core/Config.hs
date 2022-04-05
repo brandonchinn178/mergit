@@ -7,7 +7,7 @@ Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
 Portability :  portable
 
-Defines the data type representing the ".lymerge.yaml" configuration file.
+Defines the data type representing the ".mergit.yaml" configuration file.
 -}
 module Mergit.Core.Config (
   BotConfig (..),
@@ -34,4 +34,4 @@ instance FromJSON BotConfig where
       <$> o .: "statuses"
 
 configFileName :: Text
-configFileName = ".lymerge.yaml"
+configFileName = ".mergit.yaml"

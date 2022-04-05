@@ -157,7 +157,7 @@ pollQueues = do
 
  * Deletes the existing try or merge branch, if one exists.
  * Errors if merge conflict
- * Errors if the .lymerge.yaml file is missing or invalid
+ * Errors if the .mergit.yaml file is missing or invalid
 -}
 createCIBranch :: MonadMergeBot m => BranchName -> [(PrNum, CommitSHA)] -> BranchName -> Text -> m CommitSHA
 createCIBranch base prs ciBranch message = do
@@ -189,7 +189,7 @@ createCIBranch base prs ciBranch message = do
     -- get tree for temp branch
     tree <- getBranchTree tempBranch
 
-    -- check missing/invalid .lymerge.yaml file
+    -- check missing/invalid .mergit.yaml file
     void $ fromEither $ extractConfig prNums tree
 
     -- create a new commit that merges all the PRs at once
@@ -383,4 +383,5 @@ extractConfig prs tree =
        in first (ConfigFileInvalid prs . Text.pack . show) . decodeEither' . Text.encodeUtf8 $ configText
     _ -> error $ "Multiple '" ++ Text.unpack configFileName ++ "' files found?"
   where
-    isConfigFile = (== configFileName) . [get| .name |]
+    -- TODO: remove support for `.lymerge.yaml`
+    isConfigFile = (\x -> x == configFileName || x == ".lymerge.yaml") . [get| .name |]
