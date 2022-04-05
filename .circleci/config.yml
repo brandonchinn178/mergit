@@ -74,8 +74,8 @@ commands:
               stack.yaml
               hpack.yaml
               github-schemas/package.yaml
-              merge-bot/package.yaml
-              merge-bot-core/package.yaml
+              mergit/package.yaml
+              mergit-core/package.yaml
               servant-github-app/package.yaml
             )
             cat "${FILES[@]}" > cache-key.txt
@@ -111,6 +111,6 @@ commands:
           name: Collect artifacts
           command: |
             mkdir -p artifacts/
-            cp -v "$(stack exec -- bash -c 'type -P merge-bot')" artifacts/
+            cp -v "$(stack exec -- bash -c 'type -P mergit')" artifacts/
       - store_artifacts:
           path: artifacts/
