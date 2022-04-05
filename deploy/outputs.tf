@@ -1,5 +1,5 @@
 output "ip" {
-  value = aws_instance.merge_bot.public_ip
+  value = aws_instance.mergit.public_ip
 }
 
 output "url" {
@@ -7,5 +7,5 @@ output "url" {
 }
 
 output "ssh_cmd" {
-  value = "ssh -i ${module.keypair.keyfile} ${local.ami_user}@${aws_instance.merge_bot.public_ip}"
+  value = "ssh -i ${module.keypair.keyfile} ${local.ami_user}@${aws_instance.mergit.public_ip}"
 }
