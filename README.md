@@ -1,4 +1,15 @@
-# LeapYear Merge Bot
+# `mergit`
+
+<img src="assets/logo.svg" align="right" alt="Mergit mascot" />
+
+A merge bot using GitHub Checks to orchestrate bot actions.
+
+Some feature highlights:
+
+* Run CI for PRs as if they were merged with the base branch, catching semantic merge conflicts, before merging them
+* Run merges to different base branches in parallel
+* Run CI for PRs on command for testing, to not waste CI cycles on spurious pushes
+* Store all state in GitHub status + check pages, so no database is needed
 
 ## Quickstart
 
@@ -9,19 +20,6 @@
 1. `smee --url https://smee.io/<token> --path /webhook/`
 1. Run configuration steps pointed to `https://smee.io/<token>`
 1. `stack exec merge-bot`
-
-## Features and Design Spec
-
-The merge bot includes the following features:
-
-* Run CI for PRs as if they were merged with the base branch, catching semantic
-  merge conflicts, before merging them
-* Run CI for PRs on command for testing, to not waste CI cycles on spurious
-  pushes
-
-See the Feature home page [on Notion][feature-home-page] for more details.
-
-[feature-home-page]: https://www.notion.so/leapyear/Merge-Bot-4c28d412fa7b414fb02e5e3264507b44
 
 ## Development
 
