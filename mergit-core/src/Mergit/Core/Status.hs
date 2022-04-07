@@ -27,7 +27,7 @@ import Data.Text (Text)
 import qualified Data.Text as Text
 import Text.Printf (printf)
 
-import Mergit.Core.Config (BotConfig (..))
+import Mergit.Core.Config (MergitConfig (..))
 import Mergit.Core.GitHub (CIContext)
 import Mergit.Core.GraphQL.Enums.StatusState (StatusState)
 import qualified Mergit.Core.GraphQL.Enums.StatusState as StatusState
@@ -35,19 +35,19 @@ import qualified Mergit.Core.GraphQL.Enums.StatusState as StatusState
 type CIContextInfo = [unwrap| CIContext.(context, state, targetUrl) |]
 
 data CIStatus = CIStatus
-  { -- | Only contains contexts in the merge bot config, in the same order as in the config
+  { -- | Only contains contexts in the Mergit config, in the same order as in the config
     ciContexts :: [CIContextInfo]
   , -- | If the CI didn't even start; e.g. submitting an invalid configuration file to Circle CI
     ciErrorContexts :: [CIContextInfo]
   }
   deriving (Show)
 
-{- | Get CI statuses compiled from the merge bot config and the contexts for a commit.
+{- | Get CI statuses compiled from the Mergit config and the contexts for a commit.
 
  Returns a map from context name to the state of the context and the associated URL.
 -}
-getCIStatus :: BotConfig -> [CIContext] -> CIStatus
-getCIStatus BotConfig{requiredStatuses} contexts =
+getCIStatus :: MergitConfig -> [CIContext] -> CIStatus
+getCIStatus MergitConfig{requiredStatuses} contexts =
   let contextNames = map [get| .context |] contexts
       statusMap = HashMap.fromList $ zip contextNames $ map [get| .(state, targetUrl) |] contexts
    in CIStatus

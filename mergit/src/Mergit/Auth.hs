@@ -19,7 +19,7 @@ Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
 Portability :  portable
 
-This module defines functions and types for authenticating in the MergeBot.
+This module defines functions and types for authenticating in Mergit.
 -}
 module Mergit.Auth (
   AuthParams (..),
@@ -82,7 +82,7 @@ loadAuthParams = do
 
   ghClientId <- getEnv "GITHUB_CLIENT_ID"
   ghClientSecret <- getEnv "GITHUB_CLIENT_SECRET"
-  ghBaseUrl <- fromMaybe "http://localhost:3000" <$> lookupEnv "MERGE_BOT_URL"
+  ghBaseUrl <- fromMaybe "http://localhost:3000" <$> lookupEnv "MERGIT_URL"
 
   return AuthParams{..}
 
@@ -90,7 +90,7 @@ authCookieSettings :: CookieSettings
 authCookieSettings =
   defaultCookieSettings
     { cookieIsSecure = NotSecure
-    , sessionCookieName = "merge-bot-github-token"
+    , sessionCookieName = "mergit-github-token"
     , cookieXsrfSetting =
         Just
           def
@@ -126,7 +126,7 @@ xsrfTokenInputName :: Text
 xsrfTokenInputName = "xsrfToken"
 
 xsrfTokenCookieName :: ByteString
-xsrfTokenCookieName = "merge-bot-xsrf-token"
+xsrfTokenCookieName = "mergit-xsrf-token"
 
 {- | Handle XSRF protection. This combinator does the following actions:
 

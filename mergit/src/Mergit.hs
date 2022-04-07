@@ -20,7 +20,7 @@ Portability :  portable
 
 This module defines the entrypoint for the Mergit GitHub application.
 -}
-module Mergit (runMergeBot) where
+module Mergit (runMergit) where
 
 import Control.Concurrent (threadDelay)
 import Control.Exception (SomeException, displayException, fromException)
@@ -56,16 +56,16 @@ import UnliftIO.Exception (handle, try)
 
 import Mergit.Auth (AuthParams (..), loadAuthParams)
 import qualified Mergit.Core as Core
-import Mergit.Core.Error (getBotError)
+import Mergit.Core.Error (getMergitError)
 import qualified Mergit.Core.GitHub as Core
 import Mergit.Core.Monad (getRepo)
 import Mergit.EventQueue (EventQueuesConfig (..), initEventQueuesManager)
 import Mergit.Monad
-import Mergit.Routes (MergeBotRoutes, handleMergeBotRoutes)
+import Mergit.Routes (MergitRoutes, handleMergitRoutes)
 
--- | Load environment variables and spin up all the merge bot threads.
-runMergeBot :: IO ()
-runMergeBot = do
+-- | Load environment variables and spin up all the threads.
+runMergit :: IO ()
+runMergit = do
   ghAppParams <- loadGitHubAppParams
   authParams <- loadAuthParams
   eventQueuesManager <-
@@ -149,7 +149,7 @@ runServer = do
     let runBaseHandler :: BaseApp a -> Handler a
         runBaseHandler = ioToHandler . run
 
-    Warp.run 3000 $ serveRoutes @MergeBotRoutes runBaseHandler context handleMergeBotRoutes
+    Warp.run 3000 $ serveRoutes @MergitRoutes runBaseHandler context handleMergitRoutes
   where
     ioToHandler :: IO a -> Handler a
     ioToHandler m =
@@ -159,7 +159,7 @@ runServer = do
           throwError $
             if
                 | Just servantErr <- fromException e -> servantErr
-                | Just botError <- fromException e -> to500 $ getBotError botError
+                | Just mergitError <- fromException e -> to500 $ getMergitError mergitError
                 | otherwise -> to500 $ Text.pack $ displayException e
 
     to500 msg = err500{errBody = TextL.encodeUtf8 $ TextL.fromStrict msg}

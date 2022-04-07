@@ -6,11 +6,11 @@ Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
 Portability :  portable
 
-This module defines the errors thrown by the MergeBot.
+This module defines the errors thrown by Mergit.
 -}
 module Mergit.Core.Error (
-  BotError (..),
-  getBotError,
+  MergitError (..),
+  getMergitError,
   getRelevantPRs,
 ) where
 
@@ -27,7 +27,7 @@ import Mergit.Core.Config (configFileName)
 
 type PullRequestId = Int
 
-data BotError
+data MergitError
   = AmbiguousPRForCommit GitObjectID
   | BadUpdate GitObjectID [PullRequestId] Text Text
   | CannotDetermineCheckRunPR (Object CheckRunEvent)
@@ -47,10 +47,10 @@ data BotError
   | UnapprovedPR PullRequestId
   deriving (Show, Eq)
 
-instance Exception BotError
+instance Exception MergitError
 
-getBotError :: BotError -> Text
-getBotError =
+getMergitError :: MergitError -> Text
+getMergitError =
   Text.pack . \case
     AmbiguousPRForCommit sha ->
       printf "Could not determine PR for commit: `%s`" sha
@@ -100,8 +100,8 @@ getBotError =
   where
     fromPRs = unwords . map (printf "#%d")
 
--- | Get the PRs that should be notified when throwing the given BotError.
-getRelevantPRs :: BotError -> [PullRequestId]
+-- | Get the PRs that should be notified when throwing the given MergitError.
+getRelevantPRs :: MergitError -> [PullRequestId]
 getRelevantPRs = \case
   AmbiguousPRForCommit{} -> []
   BadUpdate _ prs _ _ -> prs

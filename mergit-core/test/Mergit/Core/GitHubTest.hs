@@ -29,14 +29,14 @@ import Test.Tasty
 import Test.Tasty.QuickCheck
 import UnliftIO.Exception (try)
 
-import Mergit.Core.Error (BotError (..))
+import Mergit.Core.Error (MergitError (..))
 import Mergit.Core.GitHub
 import Mergit.Core.GraphQL.API (GetCICommitQuery (..), GetPRForCommitQuery (..))
 import Mergit.Core.GraphQL.Enums.CheckConclusionState (CheckConclusionState)
 import qualified Mergit.Core.GraphQL.Enums.CheckConclusionState as CheckConclusionState
 import Mergit.Core.GraphQL.Enums.CheckStatusState (CheckStatusState)
 import qualified Mergit.Core.GraphQL.Enums.CheckStatusState as CheckStatusState
-import Mergit.Core.Monad (MonadMergeBotEnv (..))
+import Mergit.Core.Monad (MonadMergitEnv (..))
 import Mergit.Core.Text (checkRunTry)
 
 test :: TestTree
@@ -258,7 +258,7 @@ newtype TestApp a = TestApp {unTestApp :: MockQueryT IO a}
 runTestApp :: [AnyResultMock] -> TestApp a -> IO a
 runTestApp mocks = (`runMockQueryT` mocks) . unTestApp
 
-instance MonadMergeBotEnv TestApp where
+instance MonadMergitEnv TestApp where
   getRepo = pure (testRepoOwner, testRepoName)
   getAppId = pure testAppId
 

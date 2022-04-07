@@ -17,13 +17,13 @@ test :: TestTree
 test =
   testGroup
     "Mergit.Core.Error"
-    [ testProperty "All errors can be converted into messages" (total . getBotError)
+    [ testProperty "All errors can be converted into messages" (total . getMergitError)
     ]
 
 {- ORMOLU_DISABLE -}
 {- https://github.com/fourmolu/fourmolu/issues/72-}
 
-instance Arbitrary BotError where
+instance Arbitrary MergitError where
   -- for now, not generating any errors containing 'Object schema'
   arbitrary =
     oneof

@@ -8,7 +8,7 @@ main :: IO ()
 main =
   defaultMain $
     testGroup
-      "merge-bot-core"
+      "mergit-core"
       [ Mergit.Core.ErrorTest.test
       , Mergit.Core.GitHubTest.test
       , Mergit.Core.TextTest.test

@@ -53,7 +53,7 @@ locals {
   instance_type = "t2.micro"
   ami_user      = "ubuntu"
 
-  bot_conf_dir     = "/etc/mergit.d"
+  mergit_conf_dir     = "/etc/mergit.d"
   private_key_name = "github-app.pem"
 }
 
@@ -125,9 +125,9 @@ resource "aws_instance" "mergit" {
       GITHUB_CLIENT_ID=${var.client_id}
       GITHUB_CLIENT_SECRET=${var.client_secret}
       GITHUB_WEBHOOK_SECRET=${var.webhook_secret}
-      GITHUB_PRIVATE_KEY=${local.bot_conf_dir}/${local.private_key_name}
+      GITHUB_PRIVATE_KEY=${local.mergit_conf_dir}/${local.private_key_name}
       GITHUB_USER_AGENT=${var.user_agent}
-      COOKIE_JWK=${local.bot_conf_dir}/cookie-jwk.pem
+      COOKIE_JWK=${local.mergit_conf_dir}/cookie-jwk.pem
       MERGIT_URL=https://mergit.build-leapyear.com
 EOT
 
@@ -145,10 +145,10 @@ EOT
       "sudo mv mergit /usr/local/bin/",
 
       # configuration
-      "sudo mkdir -p ${local.bot_conf_dir}",
-      "sudo mv ${local.private_key_name} ${local.bot_conf_dir}",
-      "sudo mv env ${local.bot_conf_dir}",
-      "sudo openssl genrsa -out ${local.bot_conf_dir}/cookie-jwk.pem 2048",
+      "sudo mkdir -p ${local.mergit_conf_dir}",
+      "sudo mv ${local.private_key_name} ${local.mergit_conf_dir}",
+      "sudo mv env ${local.mergit_conf_dir}",
+      "sudo openssl genrsa -out ${local.mergit_conf_dir}/cookie-jwk.pem 2048",
 
       # logging
       "sudo mkdir -p /var/log/mergit",

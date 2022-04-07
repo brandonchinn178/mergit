@@ -1,6 +1,6 @@
 # Mergit Core
 
-This directory contains the Haskell package that defines core merge bot
+This directory contains the Haskell package that defines core Mergit
 functionality.
 
 ## Merge algorithm

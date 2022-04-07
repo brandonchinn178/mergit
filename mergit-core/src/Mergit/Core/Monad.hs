@@ -18,14 +18,14 @@ Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
 Portability :  portable
 
-This module defines the monad used by the MergeBot.
+This module defines the monad used by Mergit.
 -}
 module Mergit.Core.Monad (
   BotAppT,
   runBotAppT,
-  MonadMergeBot,
-  MonadMergeBotEnv (..),
-  BotSettings (..),
+  MonadMergit,
+  MonadMergitEnv (..),
+  MergitSettings (..),
   queryGitHub',
 ) where
 
@@ -75,8 +75,8 @@ import Network.HTTP.Types (
  )
 import UnliftIO.Exception (Handler (..), SomeException, catchJust, catches)
 
-import Mergit.Core.Error (getBotError, getRelevantPRs)
-import Mergit.Core.Logging (runMergeBotLogging)
+import Mergit.Core.Error (getMergitError, getRelevantPRs)
+import Mergit.Core.Logging (runMergitLogging)
 
 -- | The monadic state in BotAppT.
 data BotState = BotState
@@ -132,7 +132,7 @@ instance MonadUnliftIO m => MonadGitHubREST (BotAppT m) where
 instance MonadIO m => MonadGraphQLQuery (BotAppT m) where
   runQuerySafe = BotAppT . lift . lift . lift . runQuerySafe
 
-data BotSettings = BotSettings
+data MergitSettings = MergitSettings
   { token :: Token
   , repoOwner :: Text
   , repoName :: Text
@@ -141,15 +141,15 @@ data BotSettings = BotSettings
   }
   deriving (Show)
 
-runBotAppT :: (MonadIO m, MonadUnliftIO m) => BotSettings -> BotAppT m a -> m a
-runBotAppT BotSettings{..} =
+runBotAppT :: (MonadIO m, MonadUnliftIO m) => MergitSettings -> BotAppT m a -> m a
+runBotAppT MergitSettings{..} =
   runGraphQLQueryT graphqlSettings
     . runGitHubT ghSettings
     . (`runReaderT` botState)
-    . runMergeBotLogging
+    . runMergitLogging
     . unBotAppT
     . ( `catches`
-          [ Handler handleBotErr
+          [ Handler handleMergitError
           , Handler handleSomeException
           ]
       )
@@ -167,11 +167,11 @@ runBotAppT BotSettings{..} =
                   requestHeaders req
               }
         }
-    handleBotErr e = do
-      let msg = getBotError e
+    handleMergitError e = do
+      let msg = getMergitError e
       mapM_ (`commentOnPR` msg) $ getRelevantPRs e
       logError msg
-      errorWithoutStackTrace $ "MergeBot Error: " ++ Text.unpack msg
+      errorWithoutStackTrace $ "Mergit Error: " ++ Text.unpack msg
     handleSomeException (e :: SomeException) = do
       let msg = displayException e
       logError $ Text.pack msg
@@ -181,16 +181,16 @@ runBotAppT BotSettings{..} =
     logError = logErrorN . removeNewlines
     removeNewlines = Text.unwords . filter (not . Text.null) . Text.lines
 
-{- MonadMergeBot class -}
+{- MonadMergit class -}
 
-type MonadMergeBot m =
+type MonadMergit m =
   ( MonadGitHubREST m
   , MonadGraphQLQuery m
   , MonadUnliftIO m
-  , MonadMergeBotEnv m
+  , MonadMergitEnv m
   )
 
-class Monad m => MonadMergeBotEnv m where
+class Monad m => MonadMergitEnv m where
   getRepo :: m (Text, Text)
   getAppId :: m Int
 
@@ -198,11 +198,11 @@ class Monad m => MonadMergeBotEnv m where
 botAsks :: Monad m => (BotState -> a) -> BotAppT m a
 botAsks = BotAppT . lift . asks
 
-instance Monad m => MonadMergeBotEnv (BotAppT m) where
+instance Monad m => MonadMergitEnv (BotAppT m) where
   getRepo = (,) <$> botAsks repoOwner <*> botAsks repoName
   getAppId = botAsks appId
 
-queryGitHub' :: MonadMergeBot m => GHEndpoint -> m Value
+queryGitHub' :: MonadMergit m => GHEndpoint -> m Value
 queryGitHub' endpoint = do
   (repoOwner, repoName) <- getRepo
   queryGitHub
@@ -226,7 +226,7 @@ githubQuerySettings =
 
  https://developer.github.com/v3/issues/comments/#create-a-comment
 -}
-commentOnPR :: MonadMergeBot m => Int -> Text -> m ()
+commentOnPR :: MonadMergit m => Int -> Text -> m ()
 commentOnPR prNum comment = void $ queryGitHub' endpoint
   where
     endpoint =

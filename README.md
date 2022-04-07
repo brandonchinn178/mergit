@@ -19,7 +19,7 @@ Some feature highlights:
 1. Install [`smee`](https://github.com/probot/smee-client)
 1. `smee --url https://smee.io/<token> --path /webhook/`
 1. Run configuration steps pointed to `https://smee.io/<token>`
-1. `stack exec merge-bot`
+1. `stack exec mergit`
 
 ## Development
 
@@ -58,9 +58,9 @@ This library goes further by following the same steps as the official [GitHub
 App template](https://github.com/github-developer/github-app-template) to
 provide an access token to use for the duration of a request.
 
-* `merge-bot-core`: The core logic for the merge bot.
+* `mergit-core`: The core logic for `mergit`.
 
-* `merge-bot`: The web service that serves the merge bot as a GitHub app.
+* `mergit`: The web service that serves `mergit` as a GitHub app.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for more information.
 
@@ -98,25 +98,25 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for more information.
 
 ### Development
 
-To configure a merge bot GitHub app for development, follow the instructions in
+To configure a `mergit` GitHub app for development, follow the instructions in
 the "Configuration" section to create a GitHub app with the following
 parameters:
 
-* Name: LeapYear Merge Bot (Dev)
+* Name: Mergit (Dev)
 * Homepage URL: `https://localhost:3000/`
 * Callback URL: `https://localhost:3000/auth/callback/`
 * Webhook URL: the smee URL generated for you
 
 ### Production
 
-To configure a merge bot GitHub app for production, follow the instructions in
+To configure a `mergit` GitHub app for production, follow the instructions in
 the "Configuration" section to create a GitHub app with the following
 parameters:
 
-* Name: LeapYear Merge Bot
-* Homepage URL: `https://merge-bot.build-leapyear.com/`
-* Callback URL: `https://merge-bot.build-leapyear.com/auth/callback/`
-* Webhook URL: `https://merge-bot.build-leapyear.com/webhook/`
+* Name: Mergit
+* Homepage URL: `https://mergit.build-leapyear.com/`
+* Callback URL: `https://mergit.build-leapyear.com/auth/callback/`
+* Webhook URL: `https://mergit.build-leapyear.com/webhook/`
 
 Make sure to save the webhook secret, app ID, and private key to LastPass.
 Follow the instructions in `deploy/README.md` with these values.
@@ -139,7 +139,7 @@ Now, you need to install the GitHub app to the relevant repositories:
 
     ```yaml
     _aliases:
-      - &only-merge-bot
+      - &only-mergit
         filters:
           branches:
             only:
@@ -150,25 +150,25 @@ Now, you need to install the GitHub app to the relevant repositories:
       my_workflow:
         jobs:
           - job1:
-              <<: *only-merge-bot
+              <<: *only-mergit
           - job2:
-              <<: *only-merge-bot
+              <<: *only-mergit
           - job3:
-              <<: *only-merge-bot
+              <<: *only-mergit
               requires:
                 - job1
                 - job2
     ```
 
 1. Have an admin add the repository to the GitHub app
-    * LeapYear organization > LeapYear Merge Bot > Install App > Settings icon > select desired repository
+    * Settings tab > Mergit > Install App > Settings icon > select desired repository
 1. Make a PR
 1. Do the following in GitHub for all protected branches:
     1. Remove all CI statuses from required status checks
     1. Set the "Bot Merge" check as a required status check
     1. Ensure "Require linear history" is unchecked
-    1. Ensure "Require branches to be up to date before merging" is unchecked (this is handled automatically by the merge bot)
-1. Use the merge bot to merge in the PR!
+    1. Ensure "Require branches to be up to date before merging" is unchecked (this is handled automatically by Mergit)
+1. Use Mergit to merge in the PR!
 
 #### Troubleshooting
 

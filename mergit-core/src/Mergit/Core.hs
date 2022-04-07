@@ -15,7 +15,7 @@ Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
 Portability :  portable
 
-This module defines core MergeBot functionality.
+This module defines core Mergit functionality.
 -}
 module Mergit.Core (
   createCheckRuns,
@@ -58,14 +58,14 @@ import Mergit.Core.Text
 
 default (Text)
 
-createCheckRuns :: MonadMergeBot m => CommitSHA -> m ()
+createCheckRuns :: MonadMergit m => CommitSHA -> m ()
 createCheckRuns sha = do
   now <- liftIO getCurrentTime
   createTryCheckRun sha $ tryJobInitData now
   createMergeCheckRun sha $ mergeJobInitData now
 
 -- | Start a new try job.
-startTryJob :: MonadMergeBot m => PrNum -> CommitSHA -> BranchName -> m ()
+startTryJob :: MonadMergit m => PrNum -> CommitSHA -> BranchName -> m ()
 startTryJob prNum sha base = do
   checkRun <- getCheckRunForCommit sha CheckRunTry
 
@@ -87,7 +87,7 @@ startTryJob prNum sha base = do
     tryMessage = toTryMessage prNum
 
 -- | Add a PR to the queue.
-queuePR :: MonadMergeBot m => PrNum -> CommitSHA -> m ()
+queuePR :: MonadMergit m => PrNum -> CommitSHA -> m ()
 queuePR prNum sha = do
   -- TODO: lookup how many approvals are required
   reviews <- getPRReviews prNum
@@ -107,22 +107,22 @@ queuePR prNum sha = do
       }
 
 -- | Remove a PR from the queue.
-dequeuePR :: MonadMergeBot m => PrNum -> CommitSHA -> m ()
+dequeuePR :: MonadMergit m => PrNum -> CommitSHA -> m ()
 dequeuePR = resetMerge
 
 -- | Remove a PR from the queue.
-resetMerge :: MonadMergeBot m => PrNum -> CommitSHA -> m ()
+resetMerge :: MonadMergit m => PrNum -> CommitSHA -> m ()
 resetMerge _ sha = do
   now <- liftIO getCurrentTime
   -- reset check run by completely re-creating it
   createMergeCheckRun sha $ mergeJobInitData now
 
 -- | Handle a notification that the given commit's status has been updated.
-handleStatusUpdate :: MonadMergeBot m => BranchName -> CommitSHA -> m ()
+handleStatusUpdate :: MonadMergit m => BranchName -> CommitSHA -> m ()
 handleStatusUpdate = refreshCheckRuns False
 
 -- | Load all queues and start a merge run if one is not already running.
-pollQueues :: MonadMergeBot m => m ()
+pollQueues :: MonadMergit m => m ()
 pollQueues = do
   queues <- getQueues
   void $
@@ -159,7 +159,7 @@ pollQueues = do
  * Errors if merge conflict
  * Errors if the .mergit.yaml file is missing or invalid
 -}
-createCIBranch :: MonadMergeBot m => BranchName -> [(PrNum, CommitSHA)] -> BranchName -> Text -> m CommitSHA
+createCIBranch :: MonadMergit m => BranchName -> [(PrNum, CommitSHA)] -> BranchName -> Text -> m CommitSHA
 createCIBranch base prs ciBranch message = do
   deleteBranch ciBranch
   deleteBranch tempBranch
@@ -215,7 +215,7 @@ createCIBranch base prs ciBranch message = do
               retry (n - 1) action
 
 -- | Refresh the check runs for the given CI commit.
-refreshCheckRuns :: MonadMergeBot m => Bool -> BranchName -> CommitSHA -> m ()
+refreshCheckRuns :: MonadMergit m => Bool -> BranchName -> CommitSHA -> m ()
 refreshCheckRuns isStart ciBranchName sha = do
   CICommit{..} <- getCICommit sha checkRunType
   when (null parents) $ throwIO $ CICommitMissingParents isStart ciBranchName sha
@@ -374,7 +374,7 @@ refreshCheckRuns isStart ciBranchName sha = do
       | otherwise = return ()
 
 -- | Get the configuration file for the given tree.
-extractConfig :: [PrNum] -> Tree -> Either BotError BotConfig
+extractConfig :: [PrNum] -> Tree -> Either MergitError MergitConfig
 extractConfig prs tree =
   case filter isConfigFile [get| tree.entries![] |] of
     [] -> Left $ ConfigFileMissing prs

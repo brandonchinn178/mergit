@@ -35,7 +35,7 @@ module Mergit.Monad (
   runBotAppOnAllRepos,
 
   -- * Queueing helpers
-  MergeBotEvent (..),
+  MergitEvent (..),
   getEventRepo,
   handleEvents,
   queueEvent,
@@ -66,7 +66,7 @@ import UnliftIO.Exception (catch, throwIO)
 
 import Mergit.Auth (AuthParams)
 import Mergit.Core.GitHub (BranchName, CommitSHA, PrNum, Repo)
-import Mergit.Core.Monad (BotAppT, BotSettings (..), getRepo, runBotAppT)
+import Mergit.Core.Monad (BotAppT, MergitSettings (..), getRepo, runBotAppT)
 import Mergit.EventQueue (
   EventQueuesManager,
   handleEventsWith,
@@ -80,7 +80,7 @@ type ServerBase api = ServerT api BaseApp
 data BaseAppConfig = BaseAppConfig
   { ghAppParams :: GitHubAppParams
   , authParams :: AuthParams
-  , eventQueuesManager :: EventQueuesManager MergeBotEventKey MergeBotEvent
+  , eventQueuesManager :: EventQueuesManager MergitEventKey MergitEvent
   }
 
 newtype BaseApp a = BaseApp
@@ -104,7 +104,7 @@ getGitHubAppParams = BaseApp $ asks ghAppParams
 getAuthParams :: BaseApp AuthParams
 getAuthParams = BaseApp $ asks authParams
 
-getEventQueuesManager :: BaseApp (EventQueuesManager MergeBotEventKey MergeBotEvent)
+getEventQueuesManager :: BaseApp (EventQueuesManager MergitEventKey MergitEvent)
 getEventQueuesManager = BaseApp $ asks eventQueuesManager
 
 {- BaseApp helpers -}
@@ -152,7 +152,7 @@ runBotApp :: Repo -> BotApp a -> Token -> BaseApp a
 runBotApp (repoOwner, repoName) action token = do
   GitHubAppParams{ghUserAgent, ghAppId} <- getGitHubAppParams
   let settings =
-        BotSettings
+        MergitSettings
           { userAgent = ghUserAgent
           , appId = ghAppId
           , ..
@@ -185,7 +185,7 @@ getRepoAndTokens = do
           , ghData = []
           }
 
-{- | A helper that runs the given action for every repository that the merge bot is installed on.
+{- | A helper that runs the given action for every repository that Mergit is installed on.
 
  Returns a list of the results, along with the repository that produced each result.
 -}
@@ -198,25 +198,25 @@ runBotAppOnAllRepos action = mapM runOnRepo =<< getRepoAndTokens
 
 {- Queues -}
 
-data MergeBotEventKey
+data MergitEventKey
   = OnPR Repo PrNum
   | OnBranch Repo BranchName
   | OnRepo Repo
   deriving (Show, Eq, Ord)
 
-getEventRepo :: MergeBotEventKey -> Repo
+getEventRepo :: MergitEventKey -> Repo
 getEventRepo = \case
   OnPR repo _ -> repo
   OnBranch repo _ -> repo
   OnRepo repo -> repo
 
-{- | A merge bot event to be resolved serially.
+{- | A Mergit event to be resolved serially.
 
- In order to ensure that mergebot events are resolved atomically, merge-bot code shouldn't run
+ In order to ensure that Mergit events are resolved atomically, Mergit code shouldn't run
  state-modifying events directly, but rather queue events to be run serially in a separate
  thread.
 -}
-data MergeBotEvent
+data MergitEvent
   = PRCreated PrNum CommitSHA
   | CommitPushedToPR PrNum CommitSHA
   | StartTryJob PrNum CommitSHA BranchName
@@ -228,7 +228,7 @@ data MergeBotEvent
   | PollQueues
   deriving (Show, Eq)
 
-makeEventKey :: Repo -> MergeBotEvent -> MergeBotEventKey
+makeEventKey :: Repo -> MergitEvent -> MergitEventKey
 makeEventKey repo = \case
   PRCreated prNum _ -> OnPR repo prNum
   CommitPushedToPR prNum _ -> OnPR repo prNum
@@ -241,13 +241,13 @@ makeEventKey repo = \case
   PollQueues -> OnRepo repo
 
 -- | A helper around 'handleEventsWith'
-handleEvents :: (MergeBotEventKey -> MergeBotEvent -> BaseApp ()) -> BaseApp ()
+handleEvents :: (MergitEventKey -> MergitEvent -> BaseApp ()) -> BaseApp ()
 handleEvents f = do
   eventQueuesManager <- getEventQueuesManager
   handleEventsWith eventQueuesManager f
 
 -- | A helper around 'queueEventWith'
-queueEvent :: MergeBotEvent -> BotApp ()
+queueEvent :: MergitEvent -> BotApp ()
 queueEvent event = do
   eventQueuesManager <- lift getEventQueuesManager
   repo <- getRepo

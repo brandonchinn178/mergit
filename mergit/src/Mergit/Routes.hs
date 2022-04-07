@@ -14,11 +14,11 @@ Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
 Portability :  portable
 
-This module defines all routes for the MergeBot.
+This module defines all routes for Mergit.
 -}
 module Mergit.Routes (
-  MergeBotRoutes,
-  handleMergeBotRoutes,
+  MergitRoutes,
+  handleMergitRoutes,
 ) where
 
 import Data.Aeson.Schema (Object, get)
@@ -41,10 +41,10 @@ import Mergit.Routes.Debug (DebugRoutes, handleDebugRoutes)
 import Mergit.Routes.Debug.Monad (DebugApp, DebugState (..), runDebugApp)
 import Mergit.Routes.Webhook (WebhookRoutes, handleWebhookRoutes)
 
-type MergeBotRoutes = UnprotectedRoutes :<|> (XsrfProtected :> Auth '[Cookie] UserToken :> ProtectedRoutes)
+type MergitRoutes = UnprotectedRoutes :<|> (XsrfProtected :> Auth '[Cookie] UserToken :> ProtectedRoutes)
 
-handleMergeBotRoutes :: ServerBase MergeBotRoutes
-handleMergeBotRoutes = handleUnprotectedRoutes :<|> handleProtectedRoutes
+handleMergitRoutes :: ServerBase MergitRoutes
+handleMergitRoutes = handleUnprotectedRoutes :<|> handleProtectedRoutes
 
 type UnprotectedRoutes =
   "auth" :> AuthRoutes

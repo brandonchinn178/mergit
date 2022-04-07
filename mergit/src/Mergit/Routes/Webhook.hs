@@ -12,7 +12,7 @@ Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
 Portability :  portable
 
-This module defines webhook routes for the MergeBot.
+This module defines webhook routes for Mergit.
 -}
 module Mergit.Routes.Webhook (
   WebhookRoutes,
@@ -33,14 +33,14 @@ import Servant.GitHub
 import Text.Printf (printf)
 import UnliftIO.Exception (throwIO)
 
-import Mergit.Core.Actions (MergeBotAction (..), parseAction)
-import Mergit.Core.Error (BotError (..))
+import Mergit.Core.Actions (MergitAction (..), parseAction)
+import Mergit.Core.Error (MergitError (..))
 import Mergit.Core.GitHub (PullRequest (..), getPRById, getPRForCommit)
 import Mergit.Core.Text (isStagingBranch, isTryBranch)
 import Mergit.Monad (
   BaseApp,
   BotApp,
-  MergeBotEvent (..),
+  MergitEvent (..),
   ServerBase,
   queueEvent,
   runBotApp,

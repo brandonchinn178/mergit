@@ -20,7 +20,7 @@ import GHC.Stack (HasCallStack)
 import UnliftIO.Async (Async)
 import UnliftIO.STM (STM, atomically)
 
-{- MergeBot queues -}
+{- All queues -}
 
 data EventQueuesManager key event = EventQueuesManager
   { globalEventQueue :: TBQueue (key, event)

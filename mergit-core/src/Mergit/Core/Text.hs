@@ -8,7 +8,7 @@ Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
 Portability :  portable
 
-This module defines labels and messages used in the MergeBot.
+This module defines labels and messages used in Mergit.
 -}
 module Mergit.Core.Text where
 
@@ -22,8 +22,8 @@ import Text.Printf (printf)
 import Text.Read (readMaybe)
 import UnliftIO.Exception (SomeException, displayException, fromException)
 
-import Mergit.Core.Actions (MergeBotAction (..), renderAction)
-import Mergit.Core.Error (getBotError)
+import Mergit.Core.Actions (MergitAction (..), renderAction)
+import Mergit.Core.Error (getMergitError)
 
 default (Text)
 
@@ -31,7 +31,7 @@ default (Text)
 
 -- | The label for the check run for trying PRs.
 checkRunTry :: Text
-checkRunTry = "Bot Try"
+checkRunTry = "Try"
 
 -- | The one-line label to display when the try check run is initially created.
 tryJobLabelInit :: Text
@@ -74,7 +74,7 @@ tryJobInitData now =
 
 -- | The label for the check run for merging PRs.
 checkRunMerge :: Text
-checkRunMerge = "Bot Merge"
+checkRunMerge = "Merge"
 
 -- | The one-line label to display when the merge check run is initially created.
 mergeJobLabelInit :: Text
@@ -131,7 +131,7 @@ summaryInitFailed e =
   Text.unlines
     [ "Unable to start run:"
     , ""
-    , "> " <> maybe (Text.pack $ displayException e) getBotError (fromException e)
+    , "> " <> maybe (Text.pack $ displayException e) getMergitError (fromException e)
     ]
 
 -- | The output object for check runs.

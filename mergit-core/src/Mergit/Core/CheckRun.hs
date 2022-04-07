@@ -27,16 +27,16 @@ import Data.Time (getCurrentTime)
 import GitHub.Data.GitObjectID (GitObjectID)
 import GitHub.REST (KeyValue (..))
 
-import Mergit.Core.Actions (MergeBotAction (..), renderAction)
+import Mergit.Core.Actions (MergitAction (..), renderAction)
 import Mergit.Core.GitHub (CheckRunInfo (..), createCheckRun, updateCheckRun')
 import qualified Mergit.Core.GraphQL.Enums.CheckStatusState as CheckStatusState
-import Mergit.Core.Monad (MonadMergeBot)
+import Mergit.Core.Monad (MonadMergit)
 import Mergit.Core.Text
 
 default (Text)
 
 -- | Create the check run for trying PRs.
-createTryCheckRun :: MonadMergeBot m => GitObjectID -> [KeyValue] -> m ()
+createTryCheckRun :: MonadMergit m => GitObjectID -> [KeyValue] -> m ()
 createTryCheckRun sha checkRunData =
   createCheckRun $
     [ "name" := checkRunTry
@@ -45,7 +45,7 @@ createTryCheckRun sha checkRunData =
       ++ checkRunData
 
 -- | Create the check run for queuing/merging PRs.
-createMergeCheckRun :: MonadMergeBot m => GitObjectID -> [KeyValue] -> m ()
+createMergeCheckRun :: MonadMergit m => GitObjectID -> [KeyValue] -> m ()
 createMergeCheckRun sha checkRunData =
   createCheckRun $
     [ "name" := checkRunMerge
@@ -69,7 +69,7 @@ data CheckRunUpdates = CheckRunUpdates
   deriving (Show)
 
 -- | Update the given check runs with the parameters in CheckRunUpdates
-updateCheckRuns :: MonadMergeBot m => [(GitObjectID, CheckRunInfo)] -> CheckRunUpdates -> m ()
+updateCheckRuns :: MonadMergit m => [(GitObjectID, CheckRunInfo)] -> CheckRunUpdates -> m ()
 updateCheckRuns checkRuns CheckRunUpdates{..} = do
   checkRunData <- mkCheckRunData <$> liftIO getCurrentTime
   mapM_ (doUpdateCheckRun checkRunData) checkRuns
@@ -119,7 +119,7 @@ status to non-completed status (undocumented, email thread between GitHub Suppor
 brandon@leapyear.io)
 -}
 updateCheckRun ::
-  MonadMergeBot m =>
+  MonadMergit m =>
   -- | Whether the check run being updated is a try check run
   Bool ->
   -- | The CheckRun to update

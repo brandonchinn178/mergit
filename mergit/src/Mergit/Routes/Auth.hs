@@ -12,7 +12,7 @@ Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
 Portability :  portable
 
-This module defines authentication routes for the MergeBot.
+This module defines authentication routes for Mergit.
 -}
 module Mergit.Routes.Auth (
   AuthRoutes,

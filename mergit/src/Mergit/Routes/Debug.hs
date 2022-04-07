@@ -16,7 +16,7 @@ Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
 Portability :  portable
 
-This module defines debugging routes for the MergeBot.
+This module defines debugging routes for Mergit.
 -}
 module Mergit.Routes.Debug (
   DebugRoutes,
@@ -47,7 +47,7 @@ import Text.Printf (printf)
 import Mergit.Auth (xsrfTokenInputName)
 import qualified Mergit.Core.GitHub as Core
 import qualified Mergit.Core.Text as Core
-import Mergit.Monad (MergeBotEvent (..), getInstallations, queueEvent)
+import Mergit.Monad (MergitEvent (..), getInstallations, queueEvent)
 import Mergit.Routes.Debug.Monad (
   DebugApp,
   ServerDebug,
@@ -221,10 +221,10 @@ render body = do
   return $
     H.html $ do
       H.head $
-        H.title "LeapYear Merge Bot"
+        H.title "Mergit"
       H.body $ do
         H.header $ do
-          H.h1 "LeapYear Merge Bot"
+          H.h1 "Mergit"
           H.p $ do
             "Logged in as: "
             H.strong $ H.toHtml user

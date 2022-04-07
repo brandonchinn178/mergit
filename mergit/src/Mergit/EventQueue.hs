@@ -42,7 +42,7 @@ queueEventWith eventQueuesManager eventKey event =
  rethrown.
 
  A couple design decisions went into this:
-   * Each PR should have its own queue, as much as possible, to avoid merge bot
+   * Each PR should have its own queue, as much as possible, to avoid Mergit
      actions on a PR being delayed because of activity on other PRs
    * Servant routes should not spin up worker threads
    * A closed PR should not have a running worker thread. Instead of a worker

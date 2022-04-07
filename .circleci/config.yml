@@ -1,7 +1,7 @@
 version: 2.1
 
 _aliases:
-  - &only-merge-bot
+  - &only-mergit
     # https://ideas.circleci.com/cloud-feature-requests/p/dont-error-when-all-workflows-excluded
     filters:
       branches:
@@ -15,9 +15,9 @@ workflows:
   build_and_test:
     jobs:
       - build_and_test:
-          <<: *only-merge-bot
+          <<: *only-mergit
       - lint:
-          <<: *only-merge-bot
+          <<: *only-mergit
 
 jobs:
   build_and_test:
