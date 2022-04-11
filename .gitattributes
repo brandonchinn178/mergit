@@ -1,2 +1,2 @@
-merge-bot-core/src/MergeBot/Core/GraphQL/API.hs linguist-generated=true
-merge-bot-core/src/MergeBot/Core/GraphQL/Enums/*.hs linguist-generated=true
+mergit-core/src/Mergit/Core/GraphQL/API.hs linguist-generated=true
+mergit-core/src/Mergit/Core/GraphQL/Enums/*.hs linguist-generated=true

@@ -1,0 +1,59 @@
+defaults:
+  local: ../hpack.yaml
+
+name: mergit
+version: 0.1.0
+
+# https://github.com/commercialhaskell/stack/issues/3918
+ghc-options: ["-optP-Wno-nonportable-include-path"]
+
+dependencies:
+- aeson
+- aeson-schemas
+- base
+- blaze-html
+- bytestring
+- containers
+- cookie
+- data-default
+- github-rest
+- github-schemas
+- graphql-client
+- http-api-data
+- http-client
+- http-client-tls
+- http-types
+- jose
+- mergit-core
+- monad-logger
+- mtl
+- servant-auth-server
+- servant-blaze
+- servant-github-app
+- servant-server
+- stm
+- text
+- unliftio
+- unordered-containers
+- wai
+- warp
+- x509
+- x509-store
+
+library:
+  source-dirs: src
+
+executable:
+  source-dirs: exe
+  main:        Main.hs
+  dependencies:
+    - mergit
+
+tests:
+  mergit-test:
+    source-dirs: test
+    main: Main.hs
+    dependencies:
+      - mergit
+      - tasty
+      - tasty-quickcheck

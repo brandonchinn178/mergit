@@ -1,0 +1,10 @@
+[Unit]
+Description=Mergit
+
+[Service]
+ExecStart=/usr/local/bin/mergit
+EnvironmentFile=/etc/mergit.d/env
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

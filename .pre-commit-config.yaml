@@ -24,4 +24,4 @@ repos:
       - id: trailing-whitespace
       - id: end-of-file-fixer
 
-exclude: merge-bot-core/src/MergeBot/Core/GraphQL/(API.hs|Enums/)
+exclude: mergit-core/src/Mergit/Core/GraphQL/(API.hs|Enums/)

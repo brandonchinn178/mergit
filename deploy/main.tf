@@ -5,7 +5,7 @@ terraform {
 
   backend "s3" {
     bucket         = "leapyear-tfstate"
-    key            = "merge-bot/terraform.tfstate"
+    key            = "mergit/terraform.tfstate"
     region         = "us-east-1"
     dynamodb_table = "leapyear-tfstate"
     encrypt        = true
@@ -18,9 +18,9 @@ provider "aws" {
 
 locals {
   tags = {
-    Name       = "LY Merge Bot"
+    Name       = "Mergit"
     User       = "LeapYear Infrastructure Team"
-    Maintainer = "merge-bot"
+    Maintainer = "mergit"
   }
 }
 
@@ -53,18 +53,18 @@ locals {
   instance_type = "t2.micro"
   ami_user      = "ubuntu"
 
-  bot_conf_dir     = "/etc/merge-bot.d"
+  mergit_conf_dir     = "/etc/mergit.d"
   private_key_name = "github-app.pem"
 }
 
 module "keypair" {
   source = "git@github.com:LeapYear/infrastructure//modules/keypair?ref=0afa538f9f2ea5801b65e311a252c7f8aea8d412"
-  prefix = "merge-bot"
+  prefix = "mergit"
 }
 
-resource "aws_security_group" "merge_bot" {
-  name        = "merge_bot_security"
-  description = "Merge Bot security group"
+resource "aws_security_group" "mergit" {
+  name        = "mergit_security"
+  description = "Mergit security group"
   vpc_id      = data.aws_vpc.default.id
   tags        = local.tags
 
@@ -91,10 +91,10 @@ resource "aws_security_group" "merge_bot" {
   }
 }
 
-resource "aws_instance" "merge_bot" {
+resource "aws_instance" "mergit" {
   ami                    = local.ami
   instance_type          = local.instance_type
-  vpc_security_group_ids = [aws_security_group.merge_bot.id]
+  vpc_security_group_ids = [aws_security_group.mergit.id]
   subnet_id              = aws_subnet.subnets[0].id
   tags                   = local.tags
 
@@ -108,8 +108,8 @@ resource "aws_instance" "merge_bot" {
   }
 
   provisioner "file" {
-    destination = "~/merge-bot"
-    source      = var.merge_bot
+    destination = "~/mergit"
+    source      = var.mergit
   }
 
   provisioner "file" {
@@ -125,37 +125,37 @@ resource "aws_instance" "merge_bot" {
       GITHUB_CLIENT_ID=${var.client_id}
       GITHUB_CLIENT_SECRET=${var.client_secret}
       GITHUB_WEBHOOK_SECRET=${var.webhook_secret}
-      GITHUB_PRIVATE_KEY=${local.bot_conf_dir}/${local.private_key_name}
+      GITHUB_PRIVATE_KEY=${local.mergit_conf_dir}/${local.private_key_name}
       GITHUB_USER_AGENT=${var.user_agent}
-      COOKIE_JWK=${local.bot_conf_dir}/cookie-jwk.pem
-      MERGE_BOT_URL=https://merge-bot.build-leapyear.com
+      COOKIE_JWK=${local.mergit_conf_dir}/cookie-jwk.pem
+      MERGIT_URL=https://mergit.build-leapyear.com
 EOT
 
   }
 
   provisioner "file" {
-    destination = "~/merge-bot.service"
-    source      = "${path.module}/merge-bot.service"
+    destination = "~/mergit.service"
+    source      = "${path.module}/mergit.service"
   }
 
   provisioner "remote-exec" {
     inline = [
-      # merge-bot executable
-      "sudo chmod +x merge-bot",
-      "sudo mv merge-bot /usr/local/bin/",
+      # mergit executable
+      "sudo chmod +x mergit",
+      "sudo mv mergit /usr/local/bin/",
 
       # configuration
-      "sudo mkdir -p ${local.bot_conf_dir}",
-      "sudo mv ${local.private_key_name} ${local.bot_conf_dir}",
-      "sudo mv env ${local.bot_conf_dir}",
-      "sudo openssl genrsa -out ${local.bot_conf_dir}/cookie-jwk.pem 2048",
+      "sudo mkdir -p ${local.mergit_conf_dir}",
+      "sudo mv ${local.private_key_name} ${local.mergit_conf_dir}",
+      "sudo mv env ${local.mergit_conf_dir}",
+      "sudo openssl genrsa -out ${local.mergit_conf_dir}/cookie-jwk.pem 2048",
 
       # logging
-      "sudo mkdir -p /var/log/merge-bot",
+      "sudo mkdir -p /var/log/mergit",
 
       # systemd
-      "sudo mv merge-bot.service /usr/lib/systemd/system/",
-      "sudo systemctl enable --now merge-bot",
+      "sudo mv mergit.service /usr/lib/systemd/system/",
+      "sudo systemctl enable --now mergit",
     ]
   }
 }
@@ -163,12 +163,12 @@ EOT
 ## Load Balancer ##
 
 locals {
-  merge_bot_port = 3000
+  mergit_port = 3000
 }
 
 resource "aws_security_group" "load_balancer" {
-  name        = "merge_bot_lb_security"
-  description = "Merge Bot Load Balancer security group"
+  name        = "mergit_lb_security"
+  description = "Mergit Load Balancer security group"
   vpc_id      = data.aws_vpc.default.id
   tags        = local.tags
 
@@ -195,7 +195,7 @@ resource "aws_security_group" "load_balancer" {
 }
 
 resource "aws_lb" "load_balancer" {
-  name               = "merge-bot-lb"
+  name               = "mergit-lb"
   load_balancer_type = "application"
   subnets            = aws_subnet.subnets.*.id
 
@@ -212,7 +212,7 @@ module "domain" {
   source = "git@github.com:LeapYear/infrastructure//modules/domain?ref=9a91f34e3c20faf792372c6c0d32425cf09b0f6a"
 
   domain_name    = "build-leapyear.com"
-  subdomain_name = "merge-bot"
+  subdomain_name = "mergit"
 
   target_dns     = aws_lb.load_balancer.dns_name
   target_zone_id = aws_lb.load_balancer.zone_id
@@ -249,8 +249,8 @@ resource "aws_lb_listener" "lb_listener_https" {
 }
 
 resource "aws_lb_target_group" "lb_target_group" {
-  name        = "merge-bot-lb-target-group"
-  port        = local.merge_bot_port
+  name        = "mergit-lb-target-group"
+  port        = local.mergit_port
   protocol    = "HTTP"
   vpc_id      = data.aws_vpc.default.id
   target_type = "instance"
@@ -259,6 +259,6 @@ resource "aws_lb_target_group" "lb_target_group" {
 
 resource "aws_lb_target_group_attachment" "lb_target_group_attachment" {
   target_group_arn = aws_lb_target_group.lb_target_group.arn
-  target_id        = aws_instance.merge_bot.id
-  port             = local.merge_bot_port
+  target_id        = aws_instance.mergit.id
+  port             = local.mergit_port
 }

@@ -2,8 +2,8 @@ resolver: lts-18.5
 
 packages:
   - github-schemas
-  - merge-bot
-  - merge-bot-core
+  - mergit
+  - mergit-core
   - servant-github-app
 
 extra-deps:

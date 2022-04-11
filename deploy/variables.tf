@@ -1,30 +1,30 @@
-variable "merge_bot" {
-  description = "The executable for running the merge bot."
-  default     = "artifacts/merge-bot"
+variable "mergit_exe" {
+  description = "The executable for running the mergit."
+  default     = "artifacts/mergit"
 }
 
 variable "app_id" {
-  description = "The GitHub App ID for the merge bot."
+  description = "The GitHub App ID for mergit."
 }
 
 variable "client_id" {
-  description = "The GitHub Client ID for the merge bot."
+  description = "The GitHub Client ID for mergit."
 }
 
 variable "client_secret" {
-  description = "The GitHub Client secret for the merge bot."
+  description = "The GitHub Client secret for mergit."
 }
 
 variable "webhook_secret" {
-  description = "The webhook secret set for the merge bot."
+  description = "The webhook secret set for mergit."
 }
 
 variable "private_key" {
-  description = "The private key for the merge bot."
+  description = "The private key for mergit."
   default     = "artifacts/github-app.pem"
 }
 
 variable "user_agent" {
-  description = "The user agent to use when the merge bot talks with the GitHub API."
-  default     = "LeapYear/merge-bot"
+  description = "The user agent to use when mergit talks with the GitHub API."
+  default     = "LeapYear/mergit"
 }

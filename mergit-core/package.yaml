@@ -1,0 +1,37 @@
+defaults:
+  local: ../hpack.yaml
+
+name: mergit-core
+version: 0.1.0
+
+dependencies:
+- aeson
+- aeson-schemas
+- base
+- bytestring
+- github-rest
+- github-schemas
+- graphql-client
+- http-client
+- http-types
+- monad-logger
+- text
+- time
+- transformers
+- unliftio
+- unliftio-core
+- unordered-containers
+- yaml
+
+library:
+  source-dirs: src
+
+tests:
+  mergit-core-test:
+    source-dirs: test
+    main: Main.hs
+    dependencies:
+      - aeson-qq
+      - mergit-core
+      - tasty
+      - tasty-quickcheck

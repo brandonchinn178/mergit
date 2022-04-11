@@ -1,7 +1,7 @@
 schema: .graphql/schema.graphql
-documents: merge-bot-core/src/MergeBot/Core/GraphQL/api/*.graphql
+documents: mergit-core/src/Mergit/Core/GraphQL/api/*.graphql
 
-hsSourceDir: merge-bot-core/src/
-apiModule: MergeBot.Core.GraphQL.API
-enumsModule: MergeBot.Core.GraphQL.Enums
-scalarsModule: MergeBot.Core.GraphQL.Scalars
+hsSourceDir: mergit-core/src/
+apiModule: Mergit.Core.GraphQL.API
+enumsModule: Mergit.Core.GraphQL.Enums
+scalarsModule: Mergit.Core.GraphQL.Scalars

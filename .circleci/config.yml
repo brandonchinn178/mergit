@@ -1,7 +1,7 @@
 version: 2.1
 
 _aliases:
-  - &only-merge-bot
+  - &only-mergit
     # https://ideas.circleci.com/cloud-feature-requests/p/dont-error-when-all-workflows-excluded
     filters:
       branches:
@@ -15,9 +15,9 @@ workflows:
   build_and_test:
     jobs:
       - build_and_test:
-          <<: *only-merge-bot
+          <<: *only-mergit
       - lint:
-          <<: *only-merge-bot
+          <<: *only-mergit
 
 jobs:
   build_and_test:
@@ -74,8 +74,8 @@ commands:
               stack.yaml
               hpack.yaml
               github-schemas/package.yaml
-              merge-bot/package.yaml
-              merge-bot-core/package.yaml
+              mergit/package.yaml
+              mergit-core/package.yaml
               servant-github-app/package.yaml
             )
             cat "${FILES[@]}" > cache-key.txt
@@ -111,6 +111,6 @@ commands:
           name: Collect artifacts
           command: |
             mkdir -p artifacts/
-            cp -v "$(stack exec -- bash -c 'type -P merge-bot')" artifacts/
+            cp -v "$(stack exec -- bash -c 'type -P mergit')" artifacts/
       - store_artifacts:
           path: artifacts/
