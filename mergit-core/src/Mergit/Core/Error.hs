@@ -91,7 +91,10 @@ getMergitError =
       unlines
         [ printf "UNEXPECTED ERROR: Tree not updated when merging PR #%d." pr
         , ""
-        , "Either the PR did not make any changes, or something went wrong on GitHub's end. Please notify the #merge-bot Slack channel and requeue your PR."
+        , unwords
+            [ "Either the PR did not make any changes, or something went wrong on GitHub's end."
+            , "Please make a GitHub issue (https://github.com/LeapYear/mergit/issues) and requeue your PR."
+            ]
         , ""
         , "More information: https://github.com/LeapYear/mergit/issues/180#issuecomment-1097310669"
         ]
