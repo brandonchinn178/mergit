@@ -1,6 +1,6 @@
 # `mergit`
 
-<img src="assets/logo.svg" align="right" alt="Mergit mascot" />
+<img src="data/logo.svg" align="right" alt="Mergit mascot" />
 
 A merge bot using GitHub Checks to orchestrate bot actions.
 
