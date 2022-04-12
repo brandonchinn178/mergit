@@ -220,8 +220,9 @@ render body = do
   user <- getUser
   return $
     H.html $ do
-      H.head $
+      H.head $ do
         H.title "Mergit"
+        H.link ! A.rel "icon" ! A.type "image/svg" ! A.href "https://github.com/LeapYear/mergit/assets/logo.svg"
       H.body $ do
         H.header $ do
           H.h1 "Mergit"
