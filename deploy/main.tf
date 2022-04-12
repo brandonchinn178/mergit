@@ -109,7 +109,7 @@ resource "aws_instance" "mergit" {
 
   provisioner "file" {
     destination = "~/mergit"
-    source      = var.mergit
+    source      = var.mergit_exe
   }
 
   provisioner "file" {
