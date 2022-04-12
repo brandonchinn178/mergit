@@ -179,4 +179,3 @@ Now, you need to install the GitHub app to the relevant repositories:
 ## Useful links
 
 * [Runbook](https://www.notion.so/leapyear/Merge-Bot-Runbook-651a19edfff64217afd12b199a4491b2)
-* [JIRA tracker](https://leapyear.atlassian.net/issues/?filter=10814)

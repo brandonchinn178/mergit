@@ -93,7 +93,7 @@ getMergitError =
         , ""
         , "Either the PR did not make any changes, or something went wrong on GitHub's end. Please notify the #merge-bot Slack channel and requeue your PR."
         , ""
-        , "More information: https://leapyear.atlassian.net/browse/QA-178"
+        , "More information: https://github.com/LeapYear/mergit/issues/180#issuecomment-1097310669"
         ]
     UnapprovedPR prNum ->
       printf "PR #%d is not approved" prNum

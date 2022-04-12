@@ -178,7 +178,7 @@ createCIBranch base prs ciBranch message = do
       unless success $ throwIO $ MergeConflict prNums
 
       -- check that tree was updated
-      -- https://leapyear.atlassian.net/browse/QA-178
+      -- https://github.com/LeapYear/mergit/issues/180#issuecomment-1097310669
       maybe (throwIO $ TreeNotUpdated prNums prNum) return <=< retry 3 $ do
         treeUpdated <- getBranchTree tempBranch
         return $
@@ -336,7 +336,7 @@ refreshCheckRuns isStart ciBranchName sha = do
         let prNums = map prId prs
 
         -- check if any PRs were updated underneath us
-        -- https://leapyear.atlassian.net/browse/QA-129
+        -- https://github.com/LeapYear/mergit/issues/126
         let parentSHAs = map fst parents
         case filter (\pr -> prSHA pr `notElem` parentSHAs) prs of
           [] -> return ()

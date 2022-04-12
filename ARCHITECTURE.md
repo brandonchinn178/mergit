@@ -13,7 +13,7 @@ Broadly speaking, the two projects in this repo to focus on are `mergit-core` an
 The entrypoint for this package is `runMergit` in `Mergit.hs` (which is called by the main function in `exe/Main.hs`). This function loads environment variables, initializes some things, and starts the following threads in parallel:
 1. The primary thread runs the Mergit web application
 1. Another thread listens for Mergit events and executes them
-1. Another thread will periodically poll to start the next merge run (TODO: remove the need for polling — [JIRA](https://leapyear.atlassian.net/browse/QA-131))
+1. Another thread will periodically poll to start the next merge run (TODO: remove the need for polling — [#142](https://github.com/LeapYear/mergit/issues/142))
 
 The Mergit web application is defined in `Mergit.Routes`, which consists of the following routes:
 1. Webhook routes (defined in `Mergit.Routes.Webhook`), which handles all webhook events sent by GitHub (e.g. "PR was created" or "CI job finished successfully")
