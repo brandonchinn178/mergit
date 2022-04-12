@@ -53,7 +53,7 @@ provide an access token to use for the duration of a request.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for more information.
 
-## Configuration
+## Setting up a new GitHub app
 
 1. Follow [these instructions][create-github-app] to create a GitHub app.
     1. Set homepage URL, callback URL, and webhook URL
