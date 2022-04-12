@@ -220,7 +220,7 @@ type StaticFiles = "static" :> Raw
 serveStaticFiles :: ServerDebug Raw
 serveStaticFiles =
   serveDirectoryEmbedded
-    [ ("logo.svg", $(makeRelativeToProject "../data/logo.svg" >>= embedFile))
+    [ ("logo.svg", $(makeRelativeToProject "../assets/logo.svg" >>= embedFile))
     ]
 
 {- Helpers -}
