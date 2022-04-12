@@ -6,6 +6,7 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
@@ -26,6 +27,7 @@ module Mergit.Routes.Debug (
 import Control.Arrow ((&&&))
 import Control.Monad (forM, forM_)
 import Data.Aeson.Schema (Object, get, schema)
+import Data.FileEmbed (embedFile, makeRelativeToProject)
 import qualified Data.HashMap.Strict as HashMap
 import Data.List (intercalate)
 import Data.Maybe (catMaybes, fromMaybe)
@@ -61,12 +63,14 @@ type DebugRoutes =
   IndexPage
     :<|> RepositoryPage
     :<|> DeleteStagingBranch
+    :<|> StaticFiles
 
 handleDebugRoutes :: ServerDebug DebugRoutes
 handleDebugRoutes =
   handleIndexPage
     :<|> handleRepositoryPage
     :<|> handleDeleteStagingBranch
+    :<|> serveStaticFiles
 
 {- Index page -}
 
@@ -209,6 +213,16 @@ handleDeleteStagingBranch repoOwner repoName baseBranch = do
 
   return $ addHeader (fromLink $ linkTo @RepositoryPage repoOwner repoName) NoContent
 
+{- Static files -}
+
+type StaticFiles = "static" :> Raw
+
+serveStaticFiles :: ServerDebug Raw
+serveStaticFiles =
+  serveDirectoryEmbedded
+    [ ("logo.svg", $(makeRelativeToProject "../data/logo.svg" >>= embedFile))
+    ]
+
 {- Helpers -}
 
 type HtmlPage = Get '[HTML] Html
@@ -222,7 +236,7 @@ render body = do
     H.html $ do
       H.head $ do
         H.title "Mergit"
-        H.link ! A.rel "icon" ! A.type "image/svg" ! A.href "https://github.com/LeapYear/mergit/assets/logo.svg"
+        H.link ! A.rel "icon" ! A.type_ "image/svg" ! A.href "/static/logo.svg"
       H.body $ do
         H.header $ do
           H.h1 "Mergit"

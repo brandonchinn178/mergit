@@ -16,6 +16,7 @@ dependencies:
 - containers
 - cookie
 - data-default
+- file-embed
 - github-rest
 - github-schemas
 - graphql-client
