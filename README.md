@@ -165,7 +165,7 @@ Now, you need to install the GitHub app to the relevant repositories:
 1. Make a PR
 1. Do the following in GitHub for all protected branches:
     1. Remove all CI statuses from required status checks
-    1. Set the "Bot Merge" check as a required status check
+    1. Set the "Merge" check as a required status check
     1. Ensure "Require linear history" is unchecked
     1. Ensure "Require branches to be up to date before merging" is unchecked (this is handled automatically by Mergit)
 1. Use Mergit to merge in the PR!
