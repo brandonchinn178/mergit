@@ -76,6 +76,50 @@ The status of your PRs can be inspected in the [Mergit Web UI](https://mergit.bu
 
 ## Troubleshooting
 
-* `This branch must not contain merge commits.`
+### Merge run failed at "Checkout code"
 
-    If you're getting this error, make sure to disable "Require linear history" for the base branch.
+In CI, you might see your merge run fail when checking out your repo with an error message like:
+
+* `Couldn't find remote ref staging-main`
+* `Could not parse object '<sha>'`
+* `reference is not a tree: <sha>`
+
+This means that Mergit was notified that the merge run failed, causing the CI branch + merge commit to be deleted and not available when a CI job tries to check out the branch.
+
+The following scenarios would result in this:
+
+* Say jobs A, B, and C all take the same amount of time, where C depends on B. If A fails but B succeeds, C will start and attempt to check out the repo, but A's failure told Mergit to clean up the CI branch, so C has no branch to check out.
+
+* (Circle CI) This job or another job was restarted by Circle CI due to Circle CI infrastructure problems. Unfortunately, when Circle CI restarts a job, it sends a "failed" notification to GitHub.
+
+    If this happens, you might see a message in Circle CI like "Parallel Run 1: There was an issue while running this parallel run and it was rerun". There's not much we can do about this, so you'll just have to retry.
+
+### I pushed a commit, but nothing is showing up in the "Checks" tab
+
+Try pushing a new commit or amending an existing commit and force pushing.
+
+### The "Merge" check succeeded but the PR didn't merge
+
+Mergit is somehow in a bad state. Make a [GitHub issue](https://github.com/LeapYear/mergit/issues), and then do the following:
+
+1. Go to the web UI (https://mergit.build-leapyear.com)
+1. Check if Mergit still thinks your PR is running. If so, click the "Reset staging branch" button.
+    1. At this point, the staging branch should be deleted. Make sure this is the case (e.g. if your PR is merging into `main`, look for the `staging-main` branch)
+1. Click the "Reset" button in the "Merge" checks page
+1. "Queue" the PR again
+
+### Nothing's happening when I do some action (e.g. Queue, Run Try)
+
+First, make sure you're on the checks page for the latest commit in the PR. If you've verified that you are, and you're still having issues, try pushing a new commit. You can do one of the following:
+
+- Make a trivial change and push
+- Amend the commit message and force push
+- Make an empty commit (`git commit —-allow-empty`) and push
+
+### Commit XXX found in multiple PRs
+
+Something went horribly wrong, a mixture of GitHub not sending the correct payload and the commit ambiguously associated with multiple PRs. Open a [GitHub issue](https://github.com/LeapYear/mergit/issues).
+
+### This branch must not contain merge commits.
+
+If you're getting this error, make sure to disable "Require linear history" for the base branch.
