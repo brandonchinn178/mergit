@@ -59,7 +59,7 @@ The `mergit` process can be inspected with `systemctl status mergit`. You can ma
 
 ## Redeploy
 
-TODO: Set up CD and remove this section (https://leapyear.atlassian.net/browse/QA-183)
+TODO: Set up CD and remove this section (https://github.com/LeapYear/mergit/issues/194)
 
 Run the following steps to redeploy Mergit; e.g. after merging a PR that fixes a bug.
 
