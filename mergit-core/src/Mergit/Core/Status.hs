@@ -21,16 +21,16 @@ module Mergit.Core.Status (
 ) where
 
 import Data.Aeson.Schema (get, unwrap)
-import qualified Data.HashMap.Strict as HashMap
+import Data.HashMap.Strict qualified as HashMap
 import Data.Maybe (mapMaybe)
 import Data.Text (Text)
-import qualified Data.Text as Text
+import Data.Text qualified as Text
 import Text.Printf (printf)
 
 import Mergit.Core.Config (MergitConfig (..))
 import Mergit.Core.GitHub (CIContext)
 import Mergit.Core.GraphQL.Enums.StatusState (StatusState)
-import qualified Mergit.Core.GraphQL.Enums.StatusState as StatusState
+import Mergit.Core.GraphQL.Enums.StatusState qualified as StatusState
 
 type CIContextInfo = [unwrap| CIContext.(context, state, targetUrl) |]
 

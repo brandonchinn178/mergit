@@ -5,15 +5,15 @@
 
 packages:
 - completed:
-    hackage: github-rest-1.1.0@sha256:ef5dd05c35eb00fdc9fe132a36bb667cfb31dfbcbea812b24a7b664955f83623,3206
+    hackage: graphql-client-1.1.1@sha256:6cd6072975c64484b8f34d3701884df8a5084ca6443df39ee3f698cdefb13c2a,4040
     pantry-tree:
-      size: 1247
-      sha256: d86ae449e65f1cea96b323f1adb834ef8ec89d3d5b1ed37030826e948c843d47
+      size: 1356
+      sha256: 91352aca479e27a2b171391c3ee412a9854e7332ed54ebf85eb70db3b6e36f14
   original:
-    hackage: github-rest-1.1.0
+    hackage: graphql-client-1.1.1@sha256:6cd6072975c64484b8f34d3701884df8a5084ca6443df39ee3f698cdefb13c2a,4040
 snapshots:
 - completed:
-    size: 585817
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/18/5.yaml
-    sha256: 22d24d0dacad9c1450b9a174c28d203f9bb482a2a8da9710a2f2a9f4afee2887
-  original: lts-18.5
+    size: 617368
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/19/3.yaml
+    sha256: a209d3455279ee76eb45f01f73bbb960ceaaa8dfad8891435384689df4dcb653
+  original: lts-19.3

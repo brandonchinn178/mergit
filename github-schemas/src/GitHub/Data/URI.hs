@@ -13,7 +13,7 @@ module GitHub.Data.URI where
 import Data.Aeson (FromJSON, ToJSON)
 import Data.String (IsString)
 import Data.Text (Text)
-import qualified Data.Text as Text
+import Data.Text qualified as Text
 import Text.Printf (PrintfArg)
 
 newtype URI = URI {unURI :: Text}

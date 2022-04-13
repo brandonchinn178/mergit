@@ -17,7 +17,7 @@ module Mergit.Core.Error (
 import Control.Exception (Exception)
 import Data.Aeson.Schema (Object)
 import Data.Text (Text)
-import qualified Data.Text as Text
+import Data.Text qualified as Text
 import GitHub.Data.GitObjectID (GitObjectID (..))
 import GitHub.Schema.Event.CheckRun (CheckRunEvent)
 import GitHub.Schema.Event.Push (PushEvent)

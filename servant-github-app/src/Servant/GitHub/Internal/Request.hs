@@ -14,13 +14,13 @@ module Servant.GitHub.Internal.Request where
 import Control.Concurrent.MVar (MVar, modifyMVar, modifyMVar_, newMVar)
 import Control.Monad.IO.Class (liftIO)
 import Data.ByteString (ByteString)
-import qualified Data.ByteString.Lazy as ByteStringL
+import Data.ByteString.Lazy qualified as ByteStringL
 import Data.CaseInsensitive (CI, original)
 import Data.Map.Strict (Map)
-import qualified Data.Map.Strict as Map
+import Data.Map.Strict qualified as Map
 import Network.Wai (Request, lazyRequestBody, requestHeaders)
 import Servant
-import qualified Servant.Server.Internal as Servant
+import Servant.Server.Internal qualified as Servant
 import System.IO.Unsafe (unsafePerformIO)
 
 {-

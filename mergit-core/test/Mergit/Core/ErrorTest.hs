@@ -6,7 +6,7 @@
 module Mergit.Core.ErrorTest where
 
 import Data.Text (Text)
-import qualified Data.Text as Text
+import Data.Text qualified as Text
 import GitHub.Data.GitObjectID (GitObjectID (..))
 import Test.Tasty
 import Test.Tasty.QuickCheck

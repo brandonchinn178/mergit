@@ -1,6 +1,6 @@
 import Test.Tasty
 
-import qualified Mergit.EventQueueTest
+import Mergit.EventQueueTest qualified
 
 main :: IO ()
 main =

@@ -32,13 +32,13 @@ import Control.Monad (unless, (>=>))
 import Control.Monad.IO.Class (liftIO)
 import Data.Aeson (eitherDecode)
 import Data.Aeson.Schema (IsSchema, Object, Schema, get)
-import qualified Data.ByteString.Lazy as ByteStringL
-import qualified Data.ByteString.Lazy.Char8 as Char8
+import Data.ByteString.Lazy qualified as ByteStringL
+import Data.ByteString.Lazy.Char8 qualified as Char8
 import GitHub.REST (Token)
 import GitHub.Schema.BaseEvent (BaseEvent)
 import Network.Wai (Request)
 import Servant
-import qualified Servant.Server.Internal as Servant
+import Servant.Server.Internal qualified as Servant
 
 import Servant.GitHub.Context (GitHubAppParams (..))
 import Servant.GitHub.Event (GitHubEventType, IsGitHubEvent (..))

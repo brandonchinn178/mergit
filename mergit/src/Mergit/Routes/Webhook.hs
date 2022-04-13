@@ -24,9 +24,9 @@ import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Logger (logDebugN)
 import Data.Aeson.Schema (IsSchema, get)
 import Data.Text (Text)
-import qualified Data.Text as Text
-import qualified GitHub.Schema.Event.CheckRun as CheckRun
-import qualified GitHub.Schema.Event.PullRequest as PullRequest
+import Data.Text qualified as Text
+import GitHub.Schema.Event.CheckRun qualified as CheckRun
+import GitHub.Schema.Event.PullRequest qualified as PullRequest
 import GitHub.Schema.Repository (RepoWebhook)
 import Servant
 import Servant.GitHub

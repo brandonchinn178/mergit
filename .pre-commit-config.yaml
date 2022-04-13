@@ -3,7 +3,7 @@ repos:
     hooks:
       - id: fourmolu
         name: Fourmolu
-        entry: stack exec -- fourmolu --mode inplace
+        entry: stack exec -- fourmolu --mode inplace --cabal-default-extensions
         language: system
         files: '\.hs$'
         require_serial: true
