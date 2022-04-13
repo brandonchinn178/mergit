@@ -22,14 +22,14 @@ module Mergit.Core.CheckRun (
 
 import Control.Monad.IO.Class (liftIO)
 import Data.Text (Text)
-import qualified Data.Text as Text
+import Data.Text qualified as Text
 import Data.Time (getCurrentTime)
 import GitHub.Data.GitObjectID (GitObjectID)
 import GitHub.REST (KeyValue (..))
 
 import Mergit.Core.Actions (MergitAction (..), renderAction)
 import Mergit.Core.GitHub (CheckRunInfo (..), createCheckRun, updateCheckRun')
-import qualified Mergit.Core.GraphQL.Enums.CheckStatusState as CheckStatusState
+import Mergit.Core.GraphQL.Enums.CheckStatusState qualified as CheckStatusState
 import Mergit.Core.Monad (MonadMergit)
 import Mergit.Core.Text
 

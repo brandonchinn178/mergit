@@ -28,8 +28,8 @@ import Data.Aeson.Schema (Object, get, schema)
 import Data.ByteArray (constEq)
 import Data.ByteArray.Encoding (Base (..), convertFromBase)
 import Data.ByteString (ByteString)
-import qualified Data.Text as Text
-import qualified Data.Text.Encoding as Text
+import Data.Text qualified as Text
+import Data.Text.Encoding qualified as Text
 import GitHub.REST (
   GHEndpoint (..),
   GitHubSettings (..),

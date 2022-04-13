@@ -33,12 +33,12 @@ import Control.Monad (forM_, unless, void, when, (<=<))
 import Control.Monad.IO.Class (MonadIO (..))
 import Data.Bifunctor (first)
 import Data.GraphQL (get)
-import qualified Data.HashMap.Strict as HashMap
+import Data.HashMap.Strict qualified as HashMap
 import Data.List (nub, partition)
 import Data.Maybe (isNothing)
 import Data.Text (Text)
-import qualified Data.Text as Text
-import qualified Data.Text.Encoding as Text
+import Data.Text qualified as Text
+import Data.Text.Encoding qualified as Text
 import Data.Time (getCurrentTime)
 import Data.Yaml (decodeEither')
 import Text.Printf (printf)
@@ -48,10 +48,10 @@ import Mergit.Core.CheckRun
 import Mergit.Core.Config
 import Mergit.Core.Error
 import Mergit.Core.GitHub
-import qualified Mergit.Core.GraphQL.Enums.CheckConclusionState as CheckConclusionState
-import qualified Mergit.Core.GraphQL.Enums.CheckStatusState as CheckStatusState
-import qualified Mergit.Core.GraphQL.Enums.PullRequestReviewState as PullRequestReviewState
-import qualified Mergit.Core.GraphQL.Enums.StatusState as StatusState
+import Mergit.Core.GraphQL.Enums.CheckConclusionState qualified as CheckConclusionState
+import Mergit.Core.GraphQL.Enums.CheckStatusState qualified as CheckStatusState
+import Mergit.Core.GraphQL.Enums.PullRequestReviewState qualified as PullRequestReviewState
+import Mergit.Core.GraphQL.Enums.StatusState qualified as StatusState
 import Mergit.Core.Monad
 import Mergit.Core.Status
 import Mergit.Core.Text

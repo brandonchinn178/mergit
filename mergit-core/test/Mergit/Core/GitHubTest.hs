@@ -23,7 +23,7 @@ import Data.GraphQL.TestUtils (
  )
 import Data.Maybe (fromJust, maybeToList)
 import Data.Text (Text)
-import qualified Data.Text as Text
+import Data.Text qualified as Text
 import GitHub.Data.GitObjectID (GitObjectID (..))
 import Test.Tasty
 import Test.Tasty.QuickCheck
@@ -33,9 +33,9 @@ import Mergit.Core.Error (MergitError (..))
 import Mergit.Core.GitHub
 import Mergit.Core.GraphQL.API (GetCICommitQuery (..), GetPRForCommitQuery (..))
 import Mergit.Core.GraphQL.Enums.CheckConclusionState (CheckConclusionState)
-import qualified Mergit.Core.GraphQL.Enums.CheckConclusionState as CheckConclusionState
+import Mergit.Core.GraphQL.Enums.CheckConclusionState qualified as CheckConclusionState
 import Mergit.Core.GraphQL.Enums.CheckStatusState (CheckStatusState)
-import qualified Mergit.Core.GraphQL.Enums.CheckStatusState as CheckStatusState
+import Mergit.Core.GraphQL.Enums.CheckStatusState qualified as CheckStatusState
 import Mergit.Core.Monad (MonadMergitEnv (..))
 import Mergit.Core.Text (checkRunTry)
 

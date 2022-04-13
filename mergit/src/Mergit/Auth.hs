@@ -36,14 +36,14 @@ module Mergit.Auth (
 import Control.Monad.Except (MonadError (..))
 import Control.Monad.IO.Class (liftIO)
 import Crypto.JWT (fromRSA)
-import qualified Crypto.PubKey.RSA as Crypto
+import Crypto.PubKey.RSA qualified as Crypto
 import Data.Aeson (FromJSON, ToJSON)
 import Data.ByteString (ByteString)
-import qualified Data.ByteString.Char8 as Char8
+import Data.ByteString.Char8 qualified as Char8
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
-import qualified Data.Text as Text
-import qualified Data.Text.Encoding as Text
+import Data.Text qualified as Text
+import Data.Text.Encoding qualified as Text
 import Data.X509 (PrivKey (..))
 import Data.X509.File (readKeyFile)
 import GitHub.REST (Token (..))
@@ -51,8 +51,8 @@ import Network.HTTP.Types (hContentType, hCookie, hLocation, methodGet)
 import Network.Wai (lazyRequestBody, requestHeaders, requestMethod)
 import Servant
 import Servant.Auth.Server
-import qualified Servant.Auth.Server.Internal.AddSetCookie as Servant.Auth
-import qualified Servant.Server.Internal as Servant
+import Servant.Auth.Server.Internal.AddSetCookie qualified as Servant.Auth
+import Servant.Server.Internal qualified as Servant
 import System.Environment (getEnv, lookupEnv)
 import Web.Cookie (parseCookies, setCookieValue)
 import Web.FormUrlEncoded (urlDecodeAsForm)

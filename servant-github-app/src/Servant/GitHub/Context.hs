@@ -14,7 +14,7 @@ module Servant.GitHub.Context (
 ) where
 
 import Data.ByteString (ByteString)
-import qualified Data.ByteString.Char8 as Char8
+import Data.ByteString.Char8 qualified as Char8
 import GitHub.REST.Auth (loadSigner)
 import System.Environment (getEnv)
 import Text.Read (readMaybe)

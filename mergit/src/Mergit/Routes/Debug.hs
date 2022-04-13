@@ -28,12 +28,12 @@ import Control.Arrow ((&&&))
 import Control.Monad (forM, forM_)
 import Data.Aeson.Schema (Object, get, schema)
 import Data.FileEmbed (embedFile, makeRelativeToProject)
-import qualified Data.HashMap.Strict as HashMap
+import Data.HashMap.Strict qualified as HashMap
 import Data.List (intercalate)
 import Data.Maybe (catMaybes, fromMaybe)
 import Data.String (IsString (..))
 import Data.Text (Text)
-import qualified Data.Text as Text
+import Data.Text qualified as Text
 import GitHub.Data.URL (URL (..))
 import GitHub.REST (GHEndpoint (..), KeyValue (..), queryGitHub, queryGitHubAll)
 import GitHub.Schema.PullRequest (PullRequest)
@@ -42,13 +42,13 @@ import GitHub.Schema.Repository (Repository)
 import Servant
 import Servant.HTML.Blaze (HTML)
 import Text.Blaze.Html5 (Html, (!))
-import qualified Text.Blaze.Html5 as H
-import qualified Text.Blaze.Html5.Attributes as A
+import Text.Blaze.Html5 qualified as H
+import Text.Blaze.Html5.Attributes qualified as A
 import Text.Printf (printf)
 
 import Mergit.Auth (xsrfTokenInputName)
-import qualified Mergit.Core.GitHub as Core
-import qualified Mergit.Core.Text as Core
+import Mergit.Core.GitHub qualified as Core
+import Mergit.Core.Text qualified as Core
 import Mergit.Monad (MergitEvent (..), getInstallations, queueEvent)
 import Mergit.Routes.Debug.Monad (
   DebugApp,

@@ -1,6 +1,6 @@
 import Test.Tasty
 
-import qualified Servant.GitHub.CombinatorsTest
+import Servant.GitHub.CombinatorsTest qualified
 
 main :: IO ()
 main =

@@ -17,7 +17,7 @@ import Control.Monad.Logger (
   runLoggingT,
   toLogStr,
  )
-import qualified Data.ByteString.Char8 as Char8
+import Data.ByteString.Char8 qualified as Char8
 import Data.Time (defaultTimeLocale, formatTime, getCurrentTime)
 
 -- | Run the given action, sending logs to stdout.

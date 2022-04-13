@@ -38,9 +38,9 @@ import Control.Monad.Logger (LoggingT, MonadLogger, logErrorN)
 import Control.Monad.Trans.Class (MonadTrans (..))
 import Control.Monad.Trans.Reader (ReaderT, asks, runReaderT)
 import Data.Aeson (Value)
-import qualified Data.Aeson as Aeson
+import Data.Aeson qualified as Aeson
 import Data.ByteString (ByteString)
-import qualified Data.ByteString.Lazy as ByteStringL
+import Data.ByteString.Lazy qualified as ByteStringL
 import Data.GraphQL (
   GraphQLQueryT,
   GraphQLSettings (..),
@@ -48,9 +48,9 @@ import Data.GraphQL (
   defaultGraphQLSettings,
   runGraphQLQueryT,
  )
-import qualified Data.HashMap.Strict as HashMap
+import Data.HashMap.Strict qualified as HashMap
 import Data.Text (Text)
-import qualified Data.Text as Text
+import Data.Text qualified as Text
 import GitHub.REST (
   GHEndpoint (..),
   GitHubSettings (..),

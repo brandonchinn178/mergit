@@ -14,7 +14,7 @@ import Control.Concurrent.STM.TBQueue (
  )
 import Control.Concurrent.STM.TVar (TVar, modifyTVar', newTVar, readTVar)
 import Data.Map (Map)
-import qualified Data.Map as Map
+import Data.Map qualified as Map
 import GHC.Natural (Natural)
 import GHC.Stack (HasCallStack)
 import UnliftIO.Async (Async)
