@@ -11,7 +11,7 @@ module Main where
 import Control.Monad (forM_)
 import Control.Monad.IO.Class (liftIO)
 import Data.Aeson.Schema (get)
-import qualified Data.Text as Text
+import Data.Text qualified as Text
 import GitHub.Data.URL (URL (..))
 import GitHub.REST (
   GHEndpoint (..),

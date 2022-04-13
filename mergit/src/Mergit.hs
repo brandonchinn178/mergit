@@ -28,10 +28,10 @@ import Control.Monad (forever, void)
 import Control.Monad.IO.Class (MonadIO (..))
 import Control.Monad.Logger (logInfoN)
 import Data.Proxy (Proxy (..))
-import qualified Data.Text as Text
-import qualified Data.Text.Lazy as TextL
-import qualified Data.Text.Lazy.Encoding as TextL
-import qualified Network.Wai.Handler.Warp as Warp
+import Data.Text qualified as Text
+import Data.Text.Lazy qualified as TextL
+import Data.Text.Lazy.Encoding qualified as TextL
+import Network.Wai.Handler.Warp qualified as Warp
 import Servant (
   Application,
   Context (..),
@@ -55,9 +55,9 @@ import UnliftIO.Async (async, waitAny)
 import UnliftIO.Exception (handle, try)
 
 import Mergit.Auth (AuthParams (..), loadAuthParams)
-import qualified Mergit.Core as Core
+import Mergit.Core qualified as Core
 import Mergit.Core.Error (getMergitError)
-import qualified Mergit.Core.GitHub as Core
+import Mergit.Core.GitHub qualified as Core
 import Mergit.Core.Monad (getRepo)
 import Mergit.EventQueue (EventQueuesConfig (..), initEventQueuesManager)
 import Mergit.Monad

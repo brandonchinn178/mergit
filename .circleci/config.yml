@@ -8,6 +8,7 @@ _aliases:
         only:
           - /staging-.*/
           - /trying-.*/
+          - main
 
 workflows:
   version: 2

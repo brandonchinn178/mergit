@@ -30,9 +30,9 @@ import Data.Aeson (
   (.:),
   (.=),
  )
-import qualified Data.ByteString.Char8 as Char8
+import Data.ByteString.Char8 qualified as Char8
 import Data.Kind (Type)
-import qualified Data.Text as Text
+import Data.Text qualified as Text
 import Network.HTTP.Client (
   Request (..),
   RequestBody (..),

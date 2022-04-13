@@ -36,13 +36,14 @@ module Mergit.Auth (
 import Control.Monad.Except (MonadError (..))
 import Control.Monad.IO.Class (liftIO)
 import Crypto.JWT (fromRSA)
+import Crypto.PubKey.RSA qualified as Crypto
 import Data.Aeson (FromJSON, ToJSON)
 import Data.ByteString (ByteString)
-import qualified Data.ByteString.Char8 as Char8
+import Data.ByteString.Char8 qualified as Char8
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
-import qualified Data.Text as Text
-import qualified Data.Text.Encoding as Text
+import Data.Text qualified as Text
+import Data.Text.Encoding qualified as Text
 import Data.X509 (PrivKey (..))
 import Data.X509.File (readKeyFile)
 import GitHub.REST (Token (..))
@@ -50,8 +51,8 @@ import Network.HTTP.Types (hContentType, hCookie, hLocation, methodGet)
 import Network.Wai (lazyRequestBody, requestHeaders, requestMethod)
 import Servant
 import Servant.Auth.Server
-import qualified Servant.Auth.Server.Internal.AddSetCookie as Servant.Auth
-import qualified Servant.Server.Internal as Servant
+import Servant.Auth.Server.Internal.AddSetCookie qualified as Servant.Auth
+import Servant.Server.Internal qualified as Servant
 import System.Environment (getEnv, lookupEnv)
 import Web.Cookie (parseCookies, setCookieValue)
 import Web.FormUrlEncoded (urlDecodeAsForm)
@@ -68,11 +69,19 @@ data AuthParams = AuthParams
 
 loadAuthParams :: IO AuthParams
 loadAuthParams = do
-  jwkFile <- fromMaybe "conf/cookie-jwk.pem" <$> lookupEnv "COOKIE_JWK"
   jwk <-
-    readKeyFile jwkFile >>= \case
-      PrivKeyRSA key : _ -> return $ fromRSA key
-      _ -> fail $ "RSA key not found in key file: " ++ jwkFile
+    lookupEnv "COOKIE_JWK" >>= \case
+      Just jwkFile ->
+        readKeyFile jwkFile >>= \case
+          PrivKeyRSA key : _ -> return $ fromRSA key
+          _ -> fail $ "RSA key not found in key file: " ++ jwkFile
+      Nothing -> do
+        -- if COOKIE_JWK is not set, generate a random new key
+        -- (this key is rather insecure, but this should only happen in development)
+        putStrLn "Generating random COOKIE_JWK..."
+        (_, key) <- Crypto.generate 256 3
+        putStrLn "Done."
+        return $ fromRSA key
 
   let cookieSettings =
         authCookieSettings

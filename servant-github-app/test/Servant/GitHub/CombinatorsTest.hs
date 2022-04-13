@@ -8,19 +8,19 @@ module Servant.GitHub.CombinatorsTest (test) where
 
 import Data.Aeson (encode)
 import Data.Aeson.QQ (aesonQQ)
-import qualified Data.ByteString.Lazy as ByteStringL
+import Data.ByteString.Lazy qualified as ByteStringL
 import Data.Text (Text)
-import qualified Data.Text as Text
-import qualified Data.Text.Encoding as Text
+import Data.Text qualified as Text
+import Data.Text.Encoding qualified as Text
 import Network.HTTP.Types (methodPost)
-import qualified Network.Wai as Wai
-import qualified Network.Wai.Test as Wai
+import Network.Wai qualified as Wai
+import Network.Wai.Test qualified as Wai
 import Servant
 import Servant.GitHub (GitHubAppParams (..), GitHubEvent, GitHubEventType (..))
 import Servant.GitHub.Security (sha1sum)
 import Test.Tasty
 import Test.Tasty.HUnit
-import Web.JWT (Signer (..))
+import Web.JWT (EncodeSigner (..))
 
 test :: TestTree
 test =
@@ -71,7 +71,7 @@ testGitHubEvent =
             GitHubAppParams
               { ghAppId = 1
               , ghWebhookSecret = webhookSecret
-              , ghSigner = HMACSecret ""
+              , ghSigner = EncodeHMACSecret ""
               , ghUserAgent = ""
               }
       Wai.runSession m $ serveWithContext (Proxy @EventTestAPI) context eventTestRoutes

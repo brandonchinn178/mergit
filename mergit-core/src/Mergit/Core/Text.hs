@@ -15,7 +15,7 @@ module Mergit.Core.Text where
 import Control.Monad ((<=<))
 import Data.Maybe (isJust)
 import Data.Text (Text)
-import qualified Data.Text as Text
+import Data.Text qualified as Text
 import Data.Time (UTCTime)
 import GitHub.REST (KeyValue (..))
 import Text.Printf (printf)

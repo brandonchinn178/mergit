@@ -12,9 +12,9 @@ import Control.Concurrent.STM.TBQueue (isEmptyTBQueue)
 import Control.Concurrent.STM.TChan (newTChanIO, readTChan, writeTChan)
 import Control.Concurrent.STM.TVar (readTVar, readTVarIO)
 import Control.Monad (forM_, replicateM, unless)
-import qualified Data.Map as Map
+import Data.Map qualified as Map
 import Data.Text (Text)
-import qualified Data.Text as Text
+import Data.Text qualified as Text
 import GHC.Stack (HasCallStack)
 import Test.Tasty
 import Test.Tasty.QuickCheck

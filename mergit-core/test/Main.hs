@@ -1,8 +1,8 @@
 import Test.Tasty
 
-import qualified Mergit.Core.ErrorTest
-import qualified Mergit.Core.GitHubTest
-import qualified Mergit.Core.TextTest
+import Mergit.Core.ErrorTest qualified
+import Mergit.Core.GitHubTest qualified
+import Mergit.Core.TextTest qualified
 
 main :: IO ()
 main =

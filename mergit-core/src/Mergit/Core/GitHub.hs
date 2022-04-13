@@ -67,7 +67,7 @@ import Data.Bifunctor (bimap)
 import Data.Either (isRight)
 import Data.GraphQL (MonadGraphQLQuery, get, mkGetter, runQuery, unwrap)
 import Data.HashMap.Strict (HashMap)
-import qualified Data.HashMap.Strict as HashMap
+import Data.HashMap.Strict qualified as HashMap
 import Data.Maybe (fromMaybe, mapMaybe)
 import Data.Text (Text)
 import Data.Typeable (Typeable)
@@ -103,7 +103,7 @@ import Mergit.Core.GraphQL.API (
 import Mergit.Core.GraphQL.Enums.CheckConclusionState (CheckConclusionState)
 import Mergit.Core.GraphQL.Enums.CheckStatusState (CheckStatusState)
 import Mergit.Core.GraphQL.Enums.PullRequestReviewState (PullRequestReviewState)
-import qualified Mergit.Core.GraphQL.Enums.PullRequestReviewState as PullRequestReviewState
+import Mergit.Core.GraphQL.Enums.PullRequestReviewState qualified as PullRequestReviewState
 import Mergit.Core.Monad (MonadMergit, MonadMergitEnv (..), queryGitHub')
 import Mergit.Core.Text (checkRunMerge, checkRunTry, fromStagingMessage)
 

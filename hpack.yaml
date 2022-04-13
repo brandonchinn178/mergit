@@ -9,3 +9,6 @@ when:
   - condition: impl(ghc < 8.8)
     ghc-options:
       - -Wnoncanonical-monadfail-instances
+
+default-extensions:
+  - ImportQualifiedPost
