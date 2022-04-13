@@ -19,9 +19,11 @@ First, you'd typically want to run your PR against CI, to check that your branch
 
 After getting your PR approved + ready to merge, you'll want to queue the PR. Go to the "Checks" tab in the PR, click on "Merge App > Merge", and click "Queue". After a few seconds, GitHub should prompt you to refresh, and the check run should now say your PR is in the queue. Your PR should run and be merged automatically (batched with other queued PRs), without any additional steps on your part.
 
-The status of your PRs can be inspected in the [Mergit Web UI](https://mergit.build-leapyear.com). Make sure to not click the "Reset merge run" button unless you're absolutely sure you want to do so ([#190](https://github.com/LeapYear/mergit/issues/190))
+The status of your PRs can be inspected in the Mergit Web UI. Make sure to not click the "Reset merge run" button unless you're absolutely sure you want to do so ([#190](https://github.com/LeapYear/mergit/issues/190))
 
 ## Installing Mergit
+
+1. Deploy Mergit in your own infrastructure and create a GitHub app for it (see the "Deploy" section in `DEVELOPER.md`) or use the publicly hosted one (TBD)
 
 1. Add `.mergit.yaml` to the repo with the required CI statuses (if you already have CI enabled on a repo, this will be the statuses that show up on the commits).
 
@@ -62,7 +64,7 @@ The status of your PRs can be inspected in the [Mergit Web UI](https://mergit.bu
                 - job2
     ```
 
-1. Have an admin add the repository to the GitHub app: https://github.com/apps/mergit-app
+1. Have an admin add the repository to the GitHub app
 
 1. Create a Pull Request
 
@@ -94,15 +96,11 @@ The following scenarios would result in this:
 
     If this happens, you might see a message in Circle CI like "Parallel Run 1: There was an issue while running this parallel run and it was rerun". There's not much we can do about this, so you'll just have to retry.
 
-### I pushed a commit, but nothing is showing up in the "Checks" tab
-
-Try pushing a new commit or amending an existing commit and force pushing.
-
 ### The "Merge" check succeeded but the PR didn't merge
 
 Mergit is somehow in a bad state. Make a [GitHub issue](https://github.com/LeapYear/mergit/issues), and then do the following:
 
-1. Go to the web UI (https://mergit.build-leapyear.com)
+1. Go to the Mergit Web UI
 1. Check if Mergit still thinks your PR is running. If so, click the "Reset staging branch" button.
     1. At this point, the staging branch should be deleted. Make sure this is the case (e.g. if your PR is merging into `main`, look for the `staging-main` branch)
 1. Click the "Reset" button in the "Merge" checks page
@@ -115,6 +113,10 @@ First, make sure you're on the checks page for the latest commit in the PR. If y
 - Make a trivial change and push
 - Amend the commit message and force push
 - Make an empty commit (`git commit —-allow-empty`) and push
+
+### I pushed a commit, but nothing is showing up in the "Checks" tab
+
+Try pushing a new commit. See previous section.
 
 ### Commit XXX found in multiple PRs
 

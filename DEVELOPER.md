@@ -2,12 +2,33 @@
 
 ## Quickstart
 
+First time install:
+
+1. Go to `smee.io` and start a new channel
+
+1. Set up a GitHub app for development
+
+    1. Follow the instructions in the "Setting up a new GitHub App" section below with the following parameters:
+        * Name: Mergit (Dev)
+        * Homepage URL: `https://localhost:3000/`
+        * Callback URL: `https://localhost:3000/auth/callback/`
+        * Webhook URL: `https://smee.io/<token>`
+
+    1. Set the following environment variables, preferably in a `.env` file based on `.env.template`:
+        * `GITHUB_APP_ID` to the App ID
+        * `GITHUB_CLIENT_ID` to the Client ID
+        * `GITHUB_CLIENT_SECRET` to the Client secret
+        * `GITHUB_WEBHOOK_SECRET` to the webhook secret you created
+        * `GITHUB_PRIVATE_KEY` to the absolute path of the private key
+        * `GITHUB_USER_AGENT` to the [user agent](https://developer.github.com/v3/#user-agent-required) to use with the API
+
+1. Install [`smee`](https://github.com/probot/smee-client)
+
+Run Mergit in development:
+
 1. `stack build`
 1. `source .env`
-1. Go to `smee.io` and start a new channel
-1. Install [`smee`](https://github.com/probot/smee-client)
 1. `smee --url https://smee.io/<token> --path /webhook/`
-1. Run configuration steps pointed to `https://smee.io/<token>`
 1. `stack exec mergit`
 
 ## Development
@@ -53,61 +74,76 @@ provide an access token to use for the duration of a request.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for more information.
 
-## Setting up a new GitHub app
+## Deploy
 
-1. Follow [these instructions][create-github-app] to create a GitHub app.
-    1. Set homepage URL, callback URL, and webhook URL
-    1. Generate a random webhook secret
-    1. Installed only on this account
-    1. Permissions:
-        * Checks: Read & Write
-        * Repository contents: Read & Write
-        * Repository metadata: Read-only
-        * Pull requests: Read & Write
-        * Commit statuses: Read-only
-    1. Events:
-        * Check run
-        * Pull request
-        * Push
-        * Status
-    1. Save the webhook secret you created and the App ID, Client ID,
-       Client secret, and Private key that GitHub generated for you.
+1. Set up a GitHub app
 
-1. Set the following environment variables, preferably in a `.env` file based
-   on `.env.template`:
-    1. `GITHUB_APP_ID` to the App ID
-    1. `GITHUB_CLIENT_ID` to the Client ID
-    1. `GITHUB_CLIENT_SECRET` to the Client secret
-    1. `GITHUB_WEBHOOK_SECRET` to the webhook secret you created
-    1. `GITHUB_PRIVATE_KEY` to the absolute path of the private key
-    1. `GITHUB_USER_AGENT` to the [user agent][user-agent] to use with the API
+    1. Follow the instructions in the "Setting up a new GitHub App" section below with the following parameters:
+        * Name: Mergit
+        * Homepage URL: `https://${DOMAIN}`
+        * Callback URL: `https://${DOMAIN}/auth/callback/`
+        * Webhook URL: `https://${DOMAIN}/webhook/`
 
-[create-github-app]: https://developer.github.com/apps/quickstart-guides/setting-up-your-development-environment/#step-2-register-a-new-github-app
-[user-agent]: https://developer.github.com/v3/#user-agent-required
+1. Deploy Mergit
 
-### Development
+    Right now, these steps are a bit manual, but after [#205](https://github.com/LeapYear/mergit/issues/205), the deploy process should be much more straightforward.
 
-To configure a `mergit` GitHub app for development, follow the instructions in
-the "Configuration" section to create a GitHub app with the following
-parameters:
+    1. Build Mergit in the same OS as your deploy server
+        1. You can also build directly in your deploy server.
 
-* Name: Mergit (Dev)
-* Homepage URL: `https://localhost:3000/`
-* Callback URL: `https://localhost:3000/auth/callback/`
-* Webhook URL: the smee URL generated for you
+    1. Copy the built `mergit` executable into your deploy server (e.g. `stack exec which mergit`)
 
-### Production
+    1. Create a private key to sign cookies + copy into your deploy server (e.g. `openssl genrsa -out cookie-jwk.pem 2048`)
 
-To configure a `mergit` GitHub app for production, follow the instructions in
-the "Configuration" section to create a GitHub app with the following
-parameters:
+    1. Copy the `.pem` private key file from the "Setting up a GitHub app" workflow into your deploy server
 
-* Name: Mergit
-* Homepage URL: `https://mergit.build-leapyear.com/`
-* Callback URL: `https://mergit.build-leapyear.com/auth/callback/`
-* Webhook URL: `https://mergit.build-leapyear.com/webhook/`
+    1. Set the following environment variables:
 
-Make sure to save the webhook secret, app ID, and private key to LastPass.
-Follow the instructions in `deploy/README.md` with these values.
+        * `GITHUB_APP_ID`: from "Setting up a GitHub app" workflow
+        * `GITHUB_CLIENT_ID`: from "Setting up a GitHub app" workflow
+        * `GITHUB_CLIENT_SECRET`: from "Setting up a GitHub app" workflow
+        * `GITHUB_WEBHOOK_SECRET`: from "Setting up a GitHub app" workflow
+        * `GITHUB_PRIVATE_KEY`: path to the GitHub app private key
+        * `GITHUB_USER_AGENT`: the [user agent](https://developer.github.com/v3/#user-agent-required) to use with the API
+        * `COOKIE_JWK`: path to the private key for signing cookies
+        * `MERGIT_URL`: `https://${DOMAIN}`
 
-The GitHub app should now be set up!
+    1. Run the `mergit` executable with those environment variables set.
+
+        For example, to use systemd, write `/usr/lib/systemd/system/mergit.service`:
+
+            ```
+            [Unit]
+            Description=Mergit
+
+            [Service]
+            ExecStart=/usr/local/bin/mergit
+            EnvironmentFile=/etc/mergit.d/env
+            Restart=on-failure
+
+            [Install]
+            WantedBy=multi-user.target
+            ```
+
+## Appendix
+
+### Setting up a new GitHub app
+
+1. Set homepage URL, callback URL, and webhook URL
+1. Generate a random webhook secret
+1. Installed only on this account
+1. Permissions:
+    * Checks: Read & Write
+    * Repository contents: Read & Write
+    * Repository metadata: Read-only
+    * Pull requests: Read & Write
+    * Commit statuses: Read-only
+1. Events:
+    * Check run
+    * Pull request
+    * Push
+    * Status
+1. Save the webhook secret you created and the App ID, Client ID,
+   Client secret, and Private key that GitHub generated for you.
+
+Reference: https://developer.github.com/apps/quickstart-guides/setting-up-your-development-environment/#step-2-register-a-new-github-app
