@@ -40,7 +40,7 @@ import GitHub.REST (
  )
 import GitHub.REST.Auth (getJWTToken)
 import Network.HTTP.Types (StdMethod (..))
-import Web.JWT (Signer)
+import Web.JWT (EncodeSigner)
 
 -- | Parse the signature from the given request.
 parseSignature :: ByteString -> Maybe (Digest SHA1)
@@ -59,7 +59,7 @@ doesSignatureMatch :: ByteString -> ByteString -> Digest SHA1 -> Bool
 doesSignatureMatch key payload = constEq (sha1sum key payload)
 
 -- | Create an installation token.
-getToken :: Signer -> Int -> ByteString -> Int -> IO Token
+getToken :: EncodeSigner -> Int -> ByteString -> Int -> IO Token
 getToken signer appId userAgent installationId = do
   jwtToken <- getJWTToken signer appId
   let settings =

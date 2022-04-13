@@ -18,7 +18,7 @@ import Data.ByteString.Char8 qualified as Char8
 import GitHub.REST.Auth (loadSigner)
 import System.Environment (getEnv)
 import Text.Read (readMaybe)
-import Web.JWT (Signer)
+import Web.JWT (EncodeSigner)
 
 {- | Parameters loaded from the environment that specify parameters required to make GitHub App
  functionality work correctly and securely.
@@ -26,7 +26,7 @@ import Web.JWT (Signer)
 data GitHubAppParams = GitHubAppParams
   { ghAppId :: Int
   , ghWebhookSecret :: ByteString
-  , ghSigner :: Signer
+  , ghSigner :: EncodeSigner
   , ghUserAgent :: ByteString
   }
 

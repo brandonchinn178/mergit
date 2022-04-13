@@ -20,7 +20,7 @@ import Servant.GitHub (GitHubAppParams (..), GitHubEvent, GitHubEventType (..))
 import Servant.GitHub.Security (sha1sum)
 import Test.Tasty
 import Test.Tasty.HUnit
-import Web.JWT (Signer (..))
+import Web.JWT (EncodeSigner (..))
 
 test :: TestTree
 test =
@@ -71,7 +71,7 @@ testGitHubEvent =
             GitHubAppParams
               { ghAppId = 1
               , ghWebhookSecret = webhookSecret
-              , ghSigner = HMACSecret ""
+              , ghSigner = EncodeHMACSecret ""
               , ghUserAgent = ""
               }
       Wai.runSession m $ serveWithContext (Proxy @EventTestAPI) context eventTestRoutes
