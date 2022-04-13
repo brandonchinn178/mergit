@@ -36,6 +36,7 @@ module Mergit.Auth (
 import Control.Monad.Except (MonadError (..))
 import Control.Monad.IO.Class (liftIO)
 import Crypto.JWT (fromRSA)
+import qualified Crypto.PubKey.RSA as Crypto
 import Data.Aeson (FromJSON, ToJSON)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as Char8
@@ -68,11 +69,19 @@ data AuthParams = AuthParams
 
 loadAuthParams :: IO AuthParams
 loadAuthParams = do
-  jwkFile <- fromMaybe "conf/cookie-jwk.pem" <$> lookupEnv "COOKIE_JWK"
   jwk <-
-    readKeyFile jwkFile >>= \case
-      PrivKeyRSA key : _ -> return $ fromRSA key
-      _ -> fail $ "RSA key not found in key file: " ++ jwkFile
+    lookupEnv "COOKIE_JWK" >>= \case
+      Just jwkFile ->
+        readKeyFile jwkFile >>= \case
+          PrivKeyRSA key : _ -> return $ fromRSA key
+          _ -> fail $ "RSA key not found in key file: " ++ jwkFile
+      Nothing -> do
+        -- if COOKIE_JWK is not set, generate a random new key
+        -- (this key is rather insecure, but this should only happen in development)
+        putStrLn "Generating random COOKIE_JWK..."
+        (_, key) <- Crypto.generate 256 3
+        putStrLn "Done."
+        return $ fromRSA key
 
   let cookieSettings =
         authCookieSettings
