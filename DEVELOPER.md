@@ -20,7 +20,7 @@ First time install:
         * `GITHUB_CLIENT_SECRET` to the Client secret
         * `GITHUB_WEBHOOK_SECRET` to the webhook secret you created
         * `GITHUB_PRIVATE_KEY` to the absolute path of the private key
-        * `GITHUB_USER_AGENT` to the [user agent](https://developer.github.com/v3/#user-agent-required) to use with the API
+        * `GITHUB_USER_AGENT` to the [user agent](https://docs.github.com/en/rest/overview/resources-in-the-rest-api#user-agent-required) to use with the API
 
 1. Install [`smee`](https://github.com/probot/smee-client)
 
@@ -84,46 +84,24 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for more information.
         * Callback URL: `https://${DOMAIN}/auth/callback/`
         * Webhook URL: `https://${DOMAIN}/webhook/`
 
-1. Deploy Mergit
+1. Deploy the Mergit Docker image from Dockerhub (TODO: link)
 
-    Right now, these steps are a bit manual, but after [#205](https://github.com/LeapYear/mergit/issues/205), the deploy process should be much more straightforward.
+    Run it in a Docker cluster with the following configuration:
 
-    1. Build Mergit in the same OS as your deploy server
-        1. You can also build directly in your deploy server.
+    * Generate a private key to sign cookies + mount it into the Docker container
 
-    1. Copy the built `mergit` executable into your deploy server (e.g. `stack exec which mergit`)
+    * Mount the `.pem` private key file from the "Setting up a GitHub app" workflow into the Docker container
 
-    1. Create a private key to sign cookies + copy into your deploy server (e.g. `openssl genrsa -out cookie-jwk.pem 2048`)
-
-    1. Copy the `.pem` private key file from the "Setting up a GitHub app" workflow into your deploy server
-
-    1. Set the following environment variables:
+    * Set the following environment variables:
 
         * `GITHUB_APP_ID`: from "Setting up a GitHub app" workflow
         * `GITHUB_CLIENT_ID`: from "Setting up a GitHub app" workflow
         * `GITHUB_CLIENT_SECRET`: from "Setting up a GitHub app" workflow
         * `GITHUB_WEBHOOK_SECRET`: from "Setting up a GitHub app" workflow
-        * `GITHUB_PRIVATE_KEY`: path to the GitHub app private key
-        * `GITHUB_USER_AGENT`: the [user agent](https://developer.github.com/v3/#user-agent-required) to use with the API
-        * `COOKIE_JWK`: path to the private key for signing cookies
+        * `GITHUB_PRIVATE_KEY`: path to the GitHub app private key you mounted
+        * `GITHUB_USER_AGENT`: the [user agent](https://docs.github.com/en/rest/overview/resources-in-the-rest-api#user-agent-required) to use with the API
+        * `COOKIE_JWK`: path to the private key for signing cookies you mounted
         * `MERGIT_URL`: `https://${DOMAIN}`
-
-    1. Run the `mergit` executable with those environment variables set.
-
-        For example, to use systemd, write `/usr/lib/systemd/system/mergit.service`:
-
-            ```
-            [Unit]
-            Description=Mergit
-
-            [Service]
-            ExecStart=/usr/local/bin/mergit
-            EnvironmentFile=/etc/mergit.d/env
-            Restart=on-failure
-
-            [Install]
-            WantedBy=multi-user.target
-            ```
 
 ## Appendix
 
