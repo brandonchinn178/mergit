@@ -96,6 +96,7 @@ jobs:
       - run:
           name: Tag + push Docker image
           command: |
+            set -x
             for TAG in "latest" "$(date +%Y-%m-%d)" "${CIRCLE_SHA1}"; do
               docker tag mergit "leapyear1/mergit:${TAG}"
               docker push "leapyear1/mergit:${TAG}"
