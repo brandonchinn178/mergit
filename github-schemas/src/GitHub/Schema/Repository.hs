@@ -93,7 +93,7 @@ type Repository =
         key: Text,
         name: Text,
         spdx_id: Text,
-        url: Text,
+        url: Maybe Text,
         node_id: Text,
     },
     forks: Int,
