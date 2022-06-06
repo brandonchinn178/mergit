@@ -20,6 +20,8 @@ workflows:
           - artifactory
           <<: *only-mergit
       - build_docker:
+          context:
+          - artifactory
           <<: *only-mergit
       - lint:
           context:
@@ -51,6 +53,9 @@ jobs:
     executor: machine-ubuntu
     steps:
       - checkout
+      - run:
+          name: Log in to artifactory
+          command: docker login -u "$ARTIFACTORY_USER" -p "$ARTIFACTORY_PASSWORD" artifacts.leapyear.io
       - run:
           name: Build Docker image
           command: docker build -t mergit .
