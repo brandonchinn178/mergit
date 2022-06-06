@@ -1,4 +1,4 @@
 statuses:
-  - "ci/circleci: build_and_test"
-  - "ci/circleci: build_docker"
-  - "ci/circleci: lint"
+  - "ci/circleci_enterprise: build_and_test"
+  - "ci/circleci_enterprise: build_docker"
+  - "ci/circleci_enterprise: lint"

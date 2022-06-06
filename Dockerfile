@@ -1,4 +1,4 @@
-FROM ubuntu:20.04 AS builder
+FROM artifacts.leapyear.io/dockerhub-remote/ubuntu:20.04 AS builder
 
 WORKDIR /build
 
@@ -40,7 +40,7 @@ COPY servant-github-app/ ./servant-github-app/
 COPY assets/ ./assets/
 RUN stack install --local-bin-path /build/bin/
 
-FROM ubuntu:20.04
+FROM artifacts.leapyear.io/dockerhub-remote/ubuntu:20.04
 
 ENV APP_ROOT=/home/mergit/
 
