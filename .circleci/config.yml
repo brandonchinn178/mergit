@@ -18,8 +18,12 @@ workflows:
       - build_and_test:
           <<: *only-mergit
       - build_docker:
+          context:
+          - artifactory
           <<: *only-mergit
       - lint:
+          context:
+          - artifactory
           <<: *only-mergit
       - deploy:
           filters: { branches: { only: [main] } }
@@ -105,7 +109,10 @@ jobs:
 executors:
   docker-ci:
     docker:
-      - image: cimg/base:2021.04
+      - image: artifacts.leapyear.io/dockerhub-remote/cimg/base:2021.04
+        auth:
+          username: $ARTIFACTORY_USER
+          password: $ARTIFACTORY_PASSWORD
   machine-ubuntu:
     machine: true
 
