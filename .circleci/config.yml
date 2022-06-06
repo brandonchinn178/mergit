@@ -16,10 +16,10 @@ workflows:
   build_and_test:
     jobs:
       - build_and_test:
-          <<: *only-mergit
-      - build_docker:
           context:
           - artifactory
+          <<: *only-mergit
+      - build_docker:
           <<: *only-mergit
       - lint:
           context:
