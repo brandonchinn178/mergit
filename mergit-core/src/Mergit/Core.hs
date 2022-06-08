@@ -383,5 +383,4 @@ extractConfig prs tree =
        in first (ConfigFileInvalid prs . Text.pack . show) . decodeEither' . Text.encodeUtf8 $ configText
     _ -> error $ "Multiple '" ++ Text.unpack configFileName ++ "' files found?"
   where
-    -- TODO: remove support for `.lymerge.yaml`
-    isConfigFile = (\x -> x == configFileName || x == ".lymerge.yaml") . [get| .name |]
+    isConfigFile = (== configFileName) . [get| .name |]
