@@ -17,6 +17,9 @@ repos:
               exit 1
             fi
 
+            # ensure cabal files are built
+            stack path &> /dev/null
+
             fourmolu --mode inplace --cabal-default-extensions "$@"
           ' bash
         language: system
