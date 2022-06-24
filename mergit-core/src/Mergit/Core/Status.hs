@@ -62,6 +62,7 @@ getCIStatus MergitConfig{requiredStatuses} contexts =
     -- contexts to look for to fail the entire check run
     errorContextNames =
       [ "ci/circleci: Build Error"
+      , "ci/circleci_enterprise: Build Error"
       ]
 
 -- | Resolve the given CIStatus as a single overall StatusState.
