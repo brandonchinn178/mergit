@@ -11,7 +11,7 @@ repos:
             fi
 
             VERSION="$(fourmolu --version)"
-            if ! grep -q "fourmolu 0.4.0.0" <<< "${VERSION}"; then
+            if ! grep -q "fourmolu 0.7.0.1" <<< "${VERSION}"; then
               echo "Wrong fourmolu version:" >&2
               echo "${VERSION}" >&2
               exit 1
@@ -20,7 +20,7 @@ repos:
             # ensure cabal files are built
             stack path &> /dev/null
 
-            fourmolu --mode inplace --cabal-default-extensions "$@"
+            fourmolu --mode inplace "$@"
           ' bash
         language: system
         files: '\.hs$'
