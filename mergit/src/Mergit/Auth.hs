@@ -174,16 +174,16 @@ instance
       checkXsrf req
         | requestMethod req == methodGet = return ()
         | Just xsrfTokenCookie <- getXsrfTokenCookie req
-          , getHeader hContentType req == Just "application/x-www-form-urlencoded" =
-          do
-            body <- liftIO $ lazyRequestBody req
-            bodyData <- case urlDecodeAsForm body of
-              Right bodyData -> return bodyData
-              Left e -> error $ "could not decode body: " ++ Text.unpack e
+        , getHeader hContentType req == Just "application/x-www-form-urlencoded" =
+            do
+              body <- liftIO $ lazyRequestBody req
+              bodyData <- case urlDecodeAsForm body of
+                Right bodyData -> return bodyData
+                Left e -> error $ "could not decode body: " ++ Text.unpack e
 
-            case lookup xsrfTokenInputName bodyData of
-              Just xsrfTokenValue | xsrfTokenValue == xsrfTokenCookie -> return ()
-              _ -> Servant.delayedFail Servant.err401
+              case lookup xsrfTokenInputName bodyData of
+                Just xsrfTokenValue | xsrfTokenValue == xsrfTokenCookie -> return ()
+                _ -> Servant.delayedFail Servant.err401
 
         -- good for now, revisit if we need to handle these cases
         | otherwise = error "Non-GET requests must use application/x-www-form-urlencoded"

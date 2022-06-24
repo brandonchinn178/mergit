@@ -93,7 +93,8 @@ queuePR prNum sha = do
   reviews <- getPRReviews prNum
 
   unless (PullRequestReviewState.APPROVED `elem` reviews) $
-    throwIO $ UnapprovedPR prNum
+    throwIO $
+      UnapprovedPR prNum
 
   checkRun <- getCheckRun prNum CheckRunMerge
   -- TOOD: batching info
@@ -275,13 +276,13 @@ refreshCheckRuns isStart ciBranchName sha = do
       , checkRunBody =
           let message
                 | not isComplete =
-                  Text.pack $ printf "CI running in the [%s](%s) branch." ciBranchName ciBranchUrl
+                    Text.pack $ printf "CI running in the [%s](%s) branch." ciBranchName ciBranchUrl
                 | otherwise =
-                  case (isTry, isSuccess) of
-                    (True, False) -> tryJobSummaryFailed
-                    (True, True) -> tryJobSummarySuccess
-                    (False, False) -> mergeJobSummaryFailed
-                    (False, True) -> mergeJobSummarySuccess
+                    case (isTry, isSuccess) of
+                      (True, False) -> tryJobSummaryFailed
+                      (True, True) -> tryJobSummarySuccess
+                      (False, False) -> mergeJobSummaryFailed
+                      (False, True) -> mergeJobSummarySuccess
            in [message, displayCIStatus ciStatus]
       }
 
@@ -298,20 +299,20 @@ refreshCheckRuns isStart ciBranchName sha = do
       | isTry -> return ()
       -- At this point, the run is a completed merge run
       | otherwise -> do
-        prs <- mapM getPRById prsFromMessage
+          prs <- mapM getPRById prsFromMessage
 
-        allPRsMerged <- areAllPRsMerged prs
+          allPRsMerged <- areAllPRsMerged prs
 
-        if allPRsMerged
-          then do
-            -- If all PRs are merged, then this status was from a post-merge, non-blocking
-            -- CI job. Don't attempt to merge PRs / delete branches again.
-            return ()
-          else do
-            -- If all of the PRs are still open, run the merge post-run actions and delete the
-            -- staging branch when finished, even if the merge run failed (so that the next
-            -- merge run can start).
-            onMergeCompletion parents prs isSuccess `finally` deleteBranch ciBranchName
+          if allPRsMerged
+            then do
+              -- If all PRs are merged, then this status was from a post-merge, non-blocking
+              -- CI job. Don't attempt to merge PRs / delete branches again.
+              return ()
+            else do
+              -- If all of the PRs are still open, run the merge post-run actions and delete the
+              -- staging branch when finished, even if the merge run failed (so that the next
+              -- merge run can start).
+              onMergeCompletion parents prs isSuccess `finally` deleteBranch ciBranchName
   where
     isTry = isTryBranch ciBranchName
     checkRunType = if isTry then CheckRunTry else CheckRunMerge
@@ -333,44 +334,44 @@ refreshCheckRuns isStart ciBranchName sha = do
 
     onMergeCompletion parents prs isSuccess
       | isSuccess = do
-        let prNums = map prId prs
+          let prNums = map prId prs
 
-        -- check if any PRs were updated underneath us
-        -- https://github.com/LeapYear/mergit/issues/126
-        let parentSHAs = map fst parents
-        case filter (\pr -> prSHA pr `notElem` parentSHAs) prs of
-          [] -> return ()
-          updatedPRs -> do
-            let prSHAs = map prSHA prs
-                unaccountedSHAs = filter (`notElem` prSHAs) parentSHAs
-            throwIO $ PRWasUpdatedDuringMergeRun prNums (map prId updatedPRs) unaccountedSHAs
+          -- check if any PRs were updated underneath us
+          -- https://github.com/LeapYear/mergit/issues/126
+          let parentSHAs = map fst parents
+          case filter (\pr -> prSHA pr `notElem` parentSHAs) prs of
+            [] -> return ()
+            updatedPRs -> do
+              let prSHAs = map prSHA prs
+                  unaccountedSHAs = filter (`notElem` prSHAs) parentSHAs
+              throwIO $ PRWasUpdatedDuringMergeRun prNums (map prId updatedPRs) unaccountedSHAs
 
-        -- merge into base
-        let invalidStagingBranch = throwIO $ InvalidStaging prNums ciBranchName
-        base <- maybe invalidStagingBranch return $ fromStagingBranch ciBranchName
-        updateBranch False base sha >>= \case
-          Right _ -> return ()
-          Left message -> throwIO $ BadUpdate sha prNums base message
+          -- merge into base
+          let invalidStagingBranch = throwIO $ InvalidStaging prNums ciBranchName
+          base <- maybe invalidStagingBranch return $ fromStagingBranch ciBranchName
+          updateBranch False base sha >>= \case
+            Right _ -> return ()
+            Left message -> throwIO $ BadUpdate sha prNums base message
 
-        -- close PRs and delete branches
-        forM_ prs $ \pr -> do
-          let prNum = prId pr
-              branch = prBranch pr
+          -- close PRs and delete branches
+          forM_ prs $ \pr -> do
+            let prNum = prId pr
+                branch = prBranch pr
 
-          -- wait until PR is marked "merged"
-          let waitUntilPRIsMerged i = do
-                prIsMerged <- isPRMerged prNum
-                unless prIsMerged $ do
-                  -- sleep for 1 second, try 5 times
-                  liftIO $ threadDelay 1000000
-                  if i < 5
-                    then waitUntilPRIsMerged $ i + 1
-                    else throwIO $ BadUpdate sha prNums base $ Text.pack $ printf "PR did not merge: %d" prNum
-          waitUntilPRIsMerged (0 :: Int)
+            -- wait until PR is marked "merged"
+            let waitUntilPRIsMerged i = do
+                  prIsMerged <- isPRMerged prNum
+                  unless prIsMerged $ do
+                    -- sleep for 1 second, try 5 times
+                    liftIO $ threadDelay 1000000
+                    if i < 5
+                      then waitUntilPRIsMerged $ i + 1
+                      else throwIO $ BadUpdate sha prNums base $ Text.pack $ printf "PR did not merge: %d" prNum
+            waitUntilPRIsMerged (0 :: Int)
 
-          closePR prNum
-          deleteBranch branch
-          deleteBranch $ toTryBranch prNum
+            closePR prNum
+            deleteBranch branch
+            deleteBranch $ toTryBranch prNum
       | otherwise = return ()
 
 -- | Get the configuration file for the given tree.

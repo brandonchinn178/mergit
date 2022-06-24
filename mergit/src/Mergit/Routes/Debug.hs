@@ -209,7 +209,9 @@ handleDeleteStagingBranch repoOwner repoName baseBranch = do
   let repo = (repoOwner, repoName)
 
   runBotAppDebug repo $
-    queueEvent $ DeleteBranch $ Core.toStagingBranch baseBranch
+    queueEvent $
+      DeleteBranch $
+        Core.toStagingBranch baseBranch
 
   return $ addHeader (fromLink $ linkTo @RepositoryPage repoOwner repoName) NoContent
 
