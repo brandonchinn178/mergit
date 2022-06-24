@@ -36,7 +36,7 @@ repos:
             fi
 
             VERSION="$(hlint --version)"
-            if ! grep -q "HLint v3.3.4" <<< "${VERSION}"; then
+            if ! grep -q "HLint v3.4" <<< "${VERSION}"; then
               echo "Wrong hlint version:" >&2
               echo "${VERSION}" >&2
               exit 1
