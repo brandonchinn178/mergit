@@ -75,9 +75,10 @@ resolveCIStatus CIStatus{..} =
 displayCIStatus :: CIStatus -> Text
 displayCIStatus CIStatus{..} =
   Text.pack . unlines $
-    "CI Job | Status"
-      : ":-----:|:-----:"
-      : map mkLine (ciContexts ++ ciErrorContexts)
+    [ "CI Job | Status"
+    , ":-----:|:-----:"
+    ]
+      ++ map mkLine (ciContexts ++ ciErrorContexts)
   where
     mkLine (context, state, url) =
       let emoji = case state of
