@@ -155,11 +155,11 @@ type CIContext = [unwrap| GetCICommitSchema.repository!.object!.__fragment!.stat
 data CICommit = CICommit
   { commitTree :: Tree
   , commitContexts :: [CIContext]
-  , -- | Pull request numbers parsed from the commit message. Not guaranteed to be in any
-    -- order corresponding to the 'parents' list.
-    prsFromMessage :: [Int]
-  , -- | The parent commits of a CI commit, not including the base branch
-    parents :: [(CommitSHA, CheckRunInfo)]
+  , prsFromMessage :: [Int]
+  -- ^ Pull request numbers parsed from the commit message. Not guaranteed to be in any
+  -- order corresponding to the 'parents' list.
+  , parents :: [(CommitSHA, CheckRunInfo)]
+  -- ^ The parent commits of a CI commit, not including the base branch
   }
   deriving (Show)
 
@@ -623,10 +623,10 @@ parseCommitCheckRunFragments =
 {- Helpers -}
 
 data PaginatedResult payload a = PaginatedResult
-  { -- | The full payload of the first page
-    payload :: payload
-  , -- | The paginated part of the payload
-    chunk :: [a]
+  { payload :: payload
+  -- ^ The full payload of the first page
+  , chunk :: [a]
+  -- ^ The paginated part of the payload
   , hasNext :: Bool
   , nextCursor :: Maybe Text
   }

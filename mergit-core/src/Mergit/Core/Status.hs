@@ -35,10 +35,10 @@ import Mergit.Core.GraphQL.Enums.StatusState qualified as StatusState
 type CIContextInfo = [unwrap| CIContext.(context, state, targetUrl) |]
 
 data CIStatus = CIStatus
-  { -- | Only contains contexts in the Mergit config, in the same order as in the config
-    ciContexts :: [CIContextInfo]
-  , -- | If the CI didn't even start; e.g. submitting an invalid configuration file to Circle CI
-    ciErrorContexts :: [CIContextInfo]
+  { ciContexts :: [CIContextInfo]
+  -- ^ Only contains contexts in the Mergit config, in the same order as in the config
+  , ciErrorContexts :: [CIContextInfo]
+  -- ^ If the CI didn't even start; e.g. submitting an invalid configuration file to Circle CI
   }
   deriving (Show)
 
@@ -75,9 +75,9 @@ resolveCIStatus CIStatus{..} =
 displayCIStatus :: CIStatus -> Text
 displayCIStatus CIStatus{..} =
   Text.pack . unlines $
-    "CI Job | Status" :
-    ":-----:|:-----:" :
-    map mkLine (ciContexts ++ ciErrorContexts)
+    "CI Job | Status"
+      : ":-----:|:-----:"
+      : map mkLine (ciContexts ++ ciErrorContexts)
   where
     mkLine (context, state, url) =
       let emoji = case state of

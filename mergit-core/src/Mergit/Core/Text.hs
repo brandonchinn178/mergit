@@ -192,5 +192,5 @@ fromStagingMessage = traverse (traverse parseId) <=< getPRsFromMessage
       case Text.words msg of
         "Merge" : rest
           | base : "into" : prsRev <- reverse rest ->
-            Just (base, reverse prsRev)
+              Just (base, reverse prsRev)
         _ -> Nothing
