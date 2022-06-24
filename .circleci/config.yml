@@ -73,19 +73,41 @@ jobs:
     executor: docker-ci
     steps:
       - init_ci_job
-      - run: sudo apt-get update
       - run:
           name: Install pre-commit
           command: |
+            sudo apt-get update
             sudo apt-get install -y python3-distutils
             curl https://pre-commit.com/install-local.py | python3 -
             sudo ln -sf ~/bin/pre-commit /usr/local/bin/pre-commit
             pre-commit --version
       - install_stack
-      - with_stack_cache:
-          steps:
-            - run: sudo apt-get install -y libtinfo-dev
-            - run: stack build --fast -j1 hlint fourmolu
+      - run:
+          name: Install fourmolu
+          command: |
+            curl -sSLf \
+              -o fourmolu \
+              "https://github.com/fourmolu/fourmolu/releases/download/v${FOURMOLU_VERSION}/fourmolu-${FOURMOLU_VERSION}-linux-x86_64"
+            chmod +x fourmolu
+            sudo mv fourmolu /usr/local/bin/
+          environment:
+            FOURMOLU_VERSION: '0.7.0.1'
+      - run:
+          name: Install hlint
+          command: |
+            sudo apt-get update
+            sudo apt-get install -y libtinfo5
+
+            curl -sSLf \
+              -o /tmp/hlint.tar.gz \
+              "https://github.com/ndmitchell/hlint/releases/download/v${HLINT_VERSION}/hlint-${HLINT_VERSION}-x86_64-linux.tar.gz"
+            tar xzf /tmp/hlint.tar.gz \
+              --strip-components=1 \
+              "hlint-${HLINT_VERSION}/hlint"
+            chmod +x hlint
+            sudo mv hlint /usr/local/bin/
+          environment:
+            HLINT_VERSION: '3.4'
       - run:
           name: Lint via pre-commit
           command: pre-commit run --all-files -v --show-diff-on-failure
