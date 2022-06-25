@@ -137,7 +137,8 @@ getAccessToken reqBody = do
 
   response <- httpLbs request manager
   either fail (return . UserToken . Text.pack . accessToken) $
-    eitherDecode $ responseBody response
+    eitherDecode $
+      responseBody response
 
 {- Redirection -}
 

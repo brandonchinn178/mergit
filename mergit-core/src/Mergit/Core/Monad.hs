@@ -123,10 +123,10 @@ instance MonadUnliftIO m => MonadGitHubREST (BotAppT m) where
       getBadCredentialsError i = \case
         HttpExceptionRequest _ (StatusCodeException r body)
           | i < 5 -- only catch errors up to 5 times
-            , responseStatus r == status401
-            , Just o <- Aeson.decode (ByteStringL.fromStrict body)
-            , Just (Aeson.String "Bad credentials") <- HashMap.lookup ("message" :: Text) o ->
-            Just ()
+          , responseStatus r == status401
+          , Just o <- Aeson.decode (ByteStringL.fromStrict body)
+          , Just (Aeson.String "Bad credentials") <- HashMap.lookup ("message" :: Text) o ->
+              Just ()
         _ -> Nothing
 
 instance MonadIO m => MonadGraphQLQuery (BotAppT m) where
@@ -161,10 +161,10 @@ runBotAppT MergitSettings{..} =
         { modifyReq = \req ->
             req
               { requestHeaders =
-                  (hAuthorization, fromToken token) :
-                  (hUserAgent, userAgent) :
-                  (hAccept, "application/vnd.github.antiope-preview+json") :
-                  requestHeaders req
+                  (hAuthorization, fromToken token)
+                    : (hUserAgent, userAgent)
+                    : (hAccept, "application/vnd.github.antiope-preview+json")
+                    : requestHeaders req
               }
         }
     handleMergitError e = do

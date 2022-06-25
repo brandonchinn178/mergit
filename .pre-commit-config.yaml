@@ -3,14 +3,47 @@ repos:
     hooks:
       - id: fourmolu
         name: Fourmolu
-        entry: stack exec -- fourmolu --mode inplace --cabal-default-extensions
+        entry: |
+          bash -c '
+            if ! type fourmolu &> /dev/null; then
+              echo "Fourmolu not installed" >&2
+              exit 1
+            fi
+
+            VERSION="$(fourmolu --version)"
+            if ! grep -q "fourmolu 0.7.0.1" <<< "${VERSION}"; then
+              echo "Wrong fourmolu version:" >&2
+              echo "${VERSION}" >&2
+              exit 1
+            fi
+
+            # ensure cabal files are built
+            stack path &> /dev/null
+
+            fourmolu --mode inplace "$@"
+          ' bash
         language: system
         files: '\.hs$'
         require_serial: true
 
       - id: hlint
         name: HLint
-        entry: stack exec -- hlint
+        entry: |
+          bash -c '
+            if ! type hlint &> /dev/null; then
+              echo "HLint not installed" >&2
+              exit 1
+            fi
+
+            VERSION="$(hlint --version)"
+            if ! grep -q "HLint v3.4" <<< "${VERSION}"; then
+              echo "Wrong hlint version:" >&2
+              echo "${VERSION}" >&2
+              exit 1
+            fi
+
+            hlint "$@"
+          ' bash
         language: system
         files: '\.hs$'
         require_serial: true

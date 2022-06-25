@@ -63,8 +63,8 @@ data CheckRunUpdates = CheckRunUpdates
   { isStart :: Bool
   , isTry :: Bool
   , checkRunStatus :: CheckRunStatus
-  , -- | Lines for the check run body, as markdown
-    checkRunBody :: [Text]
+  , checkRunBody :: [Text]
+  -- ^ Lines for the check run body, as markdown
   }
   deriving (Show)
 
