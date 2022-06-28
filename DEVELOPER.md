@@ -84,7 +84,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for more information.
         * Callback URL: `https://${DOMAIN}/auth/callback/`
         * Webhook URL: `https://${DOMAIN}/webhook/`
 
-1. Deploy the Mergit Docker image from Dockerhub (TODO: link)
+1. Deploy the Mergit Docker image from [Dockerhub](https://hub.docker.com/r/leapyear1/mergit)
 
     Run it in a Docker cluster with the following configuration:
 
