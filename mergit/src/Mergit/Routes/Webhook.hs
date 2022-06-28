@@ -118,7 +118,7 @@ handleStatus o = runBotApp' repo $ do
   case [get| o.branches[].name |] of
     [branch]
       | isTryBranch branch || isStagingBranch branch ->
-        queueEvent $ RefreshCheckRun branch [get| o.sha |]
+          queueEvent $ RefreshCheckRun branch [get| o.sha |]
     _ -> return ()
   where
     repo = [get| o.repository! |]
