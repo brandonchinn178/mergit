@@ -65,9 +65,9 @@ Run the following steps to redeploy Mergit; e.g. after merging a PR that fixes a
 
 1. Turn on the VPN
 1. Download the new `mergit` binary from Circle CI
-    1. Find the appropriate workflow on https://app.circleci.com/pipelines/github/LeapYear/mergit
+    1. Find the appropriate workflow on https://app.circleci.leapyear.io/pipelines/github/LeapYear/mergit
         - A common use case is to select the most recent successful build on the `main` branch
-    1. Go to the `build` CI job
+    1. Go to the `build_and_test` CI job
     1. Go to Artifacts, and download the `mergit` binary.
 1. `cd` to this `deploy` directory
 1. Populate `artifacts/github-app.pem` and `terraform.tfvars` from the Lastpass entry "Mergit",
