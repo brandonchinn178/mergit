@@ -113,58 +113,9 @@ resource "aws_instance" "mergit" {
     private_key = module.keypair.private_key_pem
   }
 
-  provisioner "file" {
-    destination = "~/mergit"
-    source      = var.mergit_exe
-  }
-
-  provisioner "file" {
-    destination = "~/${local.private_key_name}"
-    source      = var.private_key
-  }
-
-  provisioner "file" {
-    destination = "~/env"
-
-    content = <<-EOT
-      GITHUB_APP_ID=${var.app_id}
-      GITHUB_CLIENT_ID=${var.client_id}
-      GITHUB_CLIENT_SECRET=${var.client_secret}
-      GITHUB_WEBHOOK_SECRET=${var.webhook_secret}
-      GITHUB_PRIVATE_KEY=${local.mergit_conf_dir}/${local.private_key_name}
-      GITHUB_USER_AGENT=${var.user_agent}
-      COOKIE_JWK=${local.mergit_conf_dir}/cookie-jwk.pem
-      MERGIT_URL=https://mergit.build-leapyear.com
-EOT
-
-  }
-
-  provisioner "file" {
-    destination = "~/mergit.service"
-    source      = "${path.module}/mergit.service"
-  }
-
-  provisioner "remote-exec" {
-    inline = [
-      # mergit executable
-      "sudo chmod +x mergit",
-      "sudo mv mergit /usr/local/bin/",
-
-      # configuration
-      "sudo mkdir -p ${local.mergit_conf_dir}",
-      "sudo mv ${local.private_key_name} ${local.mergit_conf_dir}",
-      "sudo mv env ${local.mergit_conf_dir}",
-      "sudo openssl genrsa -out ${local.mergit_conf_dir}/cookie-jwk.pem 2048",
-
-      # logging
-      "sudo mkdir -p /var/log/mergit",
-
-      # systemd
-      "sudo mv mergit.service /usr/lib/systemd/system/",
-      "sudo systemctl enable --now mergit",
-    ]
-  }
 }
+
+
 
 ## Load Balancer ##
 
@@ -268,4 +219,28 @@ resource "aws_lb_target_group_attachment" "lb_target_group_attachment" {
   target_group_arn = aws_lb_target_group.lb_target_group.arn
   target_id        = aws_instance.mergit.id
   port             = local.mergit_port
+}
+
+
+## Ansible ##
+
+data "template_file" "ansible_hosts" {
+  template = file("${path.module}/ansible_hosts.tpl")
+  vars = {
+    ami_user         = local.ami_user
+    app_id           = var.app_id
+    client_id        = var.client_id
+    client_secret    = var.client_secret
+    ip               = aws_instance.mergit.public_ip
+    keyfile          = module.keypair.keyfile
+    mergit_conf_dir  = local.mergit_conf_dir
+    private_key_name = local.private_key_name
+    user_agent       = var.user_agent
+    webhook_secret   = var.webhook_secret
+  }
+}
+
+resource "local_file" "ansible_hosts" {
+  content  = data.template_file.ansible_hosts.rendered
+  filename = "${path.module}/ansible_hosts"
 }

@@ -1,0 +1,47 @@
+---
+- name: Install mergit
+  hosts: all
+  tasks:
+  - name: Upload mergit
+    become: yes
+    copy:
+      src: artifacts/mergit
+      dest: /usr/local/bin/mergit
+      owner: ubuntu
+      group: ubuntu
+      mode: "755"
+  - name: Ensure configuration directory
+    become: yes
+    file:
+      path: '{{ mergit_conf_dir }}'
+  - name: Render env file
+    become: yes
+    template:
+      src: env.j2
+      dest: '{{ mergit_conf_dir }}/env'
+      owner: '{{ ami_user }}'
+      group: '{{ ami_user }}'
+  - name: Generate cookie-jwk.pem
+    become: yes
+    command: openssl genrsa -out {{ mergit_conf_dir }}/cookie-jwk.pem 2048
+    args:
+      creates: '{{ mergit_conf_dir }}/cookie-jwk.pem'
+  - name: Ensure logging directory
+    become: yes
+    file:
+      path: /var/log/mergit
+      state: directory
+      owner: root
+      group: root
+      mode: "775"
+  - name: Upload mergit service file
+    become: yes
+    copy:
+      src: mergit.service
+      dest: /usr/lib/systemd/system/
+  - name: (re)Start the mergit service
+    become: yes
+    service:
+      name: mergit
+      state: restarted
+      enabled: yes
