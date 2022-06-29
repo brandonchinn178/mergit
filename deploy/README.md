@@ -15,6 +15,7 @@ requests from GitHub while routing HTTP requests internally to Mergit.
 ## Pre-Requisites
 
 1. Install [`tfenv`](https://github.com/tfutils/tfenv)
+1. [Install Ansible](https://docs.ansible.com/ansible/latest/installation_guide/intro_installation.html)
 1. Get the app ID, webhook secret, and private key from LastPass.
 
 ## Deploy for the first time
@@ -26,7 +27,7 @@ requests from GitHub while routing HTTP requests internally to Mergit.
 1. Download the new `mergit` binary from Circle CI
     1. Find the appropriate workflow on https://app.circleci.com/pipelines/github/LeapYear/mergit
         - A common use case is to select the most recent successful build on the `main` branch
-    1. Go to the `build` CI job
+    1. Go to the `build_and_test` CI job
     1. Go to Artifacts, and download the `mergit` binary.
 1. Create a `terraform.tfvars` file
 
@@ -39,6 +40,7 @@ requests from GitHub while routing HTTP requests internally to Mergit.
 
 1. `terraform init`
 1. `terraform apply`
+1. `ansible-playbook -i ansible-hosts install-mergit.yml`
 1. Try opening https://mergit.build-leapyear.com/ in your browser
 
 ## Inspect
@@ -74,6 +76,6 @@ Run the following steps to redeploy Mergit; e.g. after merging a PR that fixes a
 if you don't already have them
 1. Put the new `mergit` binary in `artifacts/`
 1. `terraform init`
-1. `terraform taint aws_instance.mergit`
-1. `terraform apply`
+1. `terraform plan`:  only the local keyfile and `ansible_hosts` should normally change
+1. `terraform apply -auto-approve`
 1. Try opening https://mergit.build-leapyear.com/ in your browser
