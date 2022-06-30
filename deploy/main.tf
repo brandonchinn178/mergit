@@ -23,10 +23,10 @@ locals {
     Maintainer  = "mergit"
   }
   extra_tags = merge(local.tags, {
-    customer    = "all"
-    department  = "infra"
-    environment = "prod"
-    owner       = "infra"
+    Customer    = "all"
+    Department  = "infra"
+    Environment = "prod"
+    Owner       = "infra"
   })
 }
 
@@ -102,7 +102,7 @@ resource "aws_instance" "mergit" {
   instance_type          = local.instance_type
   vpc_security_group_ids = [aws_security_group.mergit.id]
   subnet_id              = aws_subnet.subnets[0].id
-  tags                   = merge(local.extra_tags, {"name": "mergit", "purpose": "Mergit server"})
+  tags                   = merge(local.extra_tags, {"Name": "mergit", "Purpose": "Mergit server"})
 
   key_name = module.keypair.id
 
@@ -161,7 +161,7 @@ resource "aws_lb" "load_balancer" {
   ]
 
 
-  tags = merge(local.extra_tags, {"purpose": "Mergit Traefik"})
+  tags = merge(local.extra_tags, {"Purpose": "Mergit Traefik"})
 
   enable_cross_zone_load_balancing = false
 }
