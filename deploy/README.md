@@ -40,7 +40,7 @@ requests from GitHub while routing HTTP requests internally to Mergit.
 
 1. `terraform init`
 1. `terraform apply`
-1. `ansible-playbook -i ansible-hosts install-mergit.yml`
+1. `ansible-playbook -i ansible_hosts install-mergit.yml`
 1. Try opening https://mergit.build-leapyear.com/ in your browser
 
 ## Inspect
@@ -76,6 +76,7 @@ Run the following steps to redeploy Mergit; e.g. after merging a PR that fixes a
 if you don't already have them
 1. Put the new `mergit` binary in `artifacts/`
 1. `terraform init`
-1. `terraform plan`:  only the local keyfile and `ansible_hosts` should normally change
+1. `terraform plan`:  only the local keyfile and `ansible_hosts` should normally change.  If no changes are indicated, your local files should be up to date.
 1. `terraform apply -auto-approve`
+1. `ansible-playbook -i ansible_hosts install-mergit.yml`
 1. Try opening https://mergit.build-leapyear.com/ in your browser
