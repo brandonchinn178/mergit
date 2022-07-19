@@ -29,6 +29,7 @@ requests from GitHub while routing HTTP requests internally to Mergit.
         - A common use case is to select the most recent successful build on the `main` branch
     1. Go to the `build_and_test` CI job
     1. Go to Artifacts, and download the `mergit` binary.
+    1. Put the `mergit` binary in the `artifacts/` directory
 1. Create a `terraform.tfvars` file
 
     ```
