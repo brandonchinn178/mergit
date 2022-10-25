@@ -5,6 +5,7 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
 
@@ -22,6 +23,7 @@ module Mergit.Routes (
 ) where
 
 import Data.Aeson.Schema (Object, get)
+import Data.FileEmbed (embedFile, makeRelativeToProject)
 import GitHub.REST (GHEndpoint (..), githubTry', queryGitHub)
 import GitHub.Schema.User (User)
 import Network.HTTP.Types (status401)
@@ -49,9 +51,16 @@ handleMergitRoutes = handleUnprotectedRoutes :<|> handleProtectedRoutes
 type UnprotectedRoutes =
   "auth" :> AuthRoutes
     :<|> "webhook" :> WebhookRoutes
+    :<|> "static" :> Raw
 
 handleUnprotectedRoutes :: ServerBase UnprotectedRoutes
-handleUnprotectedRoutes = handleAuthRoutes :<|> handleWebhookRoutes
+handleUnprotectedRoutes = handleAuthRoutes :<|> handleWebhookRoutes :<|> serveStaticFiles
+
+serveStaticFiles :: ServerBase Raw
+serveStaticFiles =
+  serveDirectoryEmbedded
+    [ ("logo.svg", $(makeRelativeToProject "../assets/logo.svg" >>= embedFile))
+    ]
 
 type ProtectedRoutes = DebugRoutes
 

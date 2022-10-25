@@ -6,7 +6,6 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
@@ -27,7 +26,6 @@ module Mergit.Routes.Debug (
 import Control.Arrow ((&&&))
 import Control.Monad (forM, forM_)
 import Data.Aeson.Schema (Object, get, schema)
-import Data.FileEmbed (embedFile, makeRelativeToProject)
 import Data.HashMap.Strict qualified as HashMap
 import Data.List (intercalate)
 import Data.Maybe (catMaybes, fromMaybe)
@@ -63,14 +61,12 @@ type DebugRoutes =
   IndexPage
     :<|> RepositoryPage
     :<|> DeleteStagingBranch
-    :<|> StaticFiles
 
 handleDebugRoutes :: ServerDebug DebugRoutes
 handleDebugRoutes =
   handleIndexPage
     :<|> handleRepositoryPage
     :<|> handleDeleteStagingBranch
-    :<|> serveStaticFiles
 
 {- Index page -}
 
@@ -214,16 +210,6 @@ handleDeleteStagingBranch repoOwner repoName baseBranch = do
         Core.toStagingBranch baseBranch
 
   return $ addHeader (fromLink $ linkTo @RepositoryPage repoOwner repoName) NoContent
-
-{- Static files -}
-
-type StaticFiles = "static" :> Raw
-
-serveStaticFiles :: ServerDebug Raw
-serveStaticFiles =
-  serveDirectoryEmbedded
-    [ ("logo.svg", $(makeRelativeToProject "../assets/logo.svg" >>= embedFile))
-    ]
 
 {- Helpers -}
 
