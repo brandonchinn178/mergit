@@ -7,8 +7,7 @@ packages:
   - servant-github-app
 
 extra-deps:
-  # https://github.com/commercialhaskell/stackage/commit/282a161470326efa6cd01569b0bc3517044c6cb7
-  - graphql-client-1.1.1@sha256:6cd6072975c64484b8f34d3701884df8a5084ca6443df39ee3f698cdefb13c2a,4040
+  - graphql-client-1.1.1
 
 flags:
   cryptonite:
