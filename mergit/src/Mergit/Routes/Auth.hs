@@ -75,7 +75,7 @@ handleLoginRoute = do
 
 type SetCookieHeaders =
   '[ Header "Set-Cookie" SetCookie -- JWT token from servant-auth
-   , Header "Set-Cookie" SetCookie -- nonexistent XSRF token from servant-auth
+   , Header "Set-Cookie" SetCookie -- nonexistent XSRF token from servant-auth (see cookieXsrfSetting in loadAuthParams)
    , Header "Set-Cookie" SetCookie -- XSRF token we're manually generating
    ]
 type CallbackRoute =
