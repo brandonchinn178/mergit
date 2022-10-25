@@ -5,15 +5,15 @@
 
 packages:
 - completed:
-    hackage: graphql-client-1.1.1@sha256:6cd6072975c64484b8f34d3701884df8a5084ca6443df39ee3f698cdefb13c2a,4040
+    hackage: graphql-client-1.1.1@sha256:eda5c37d3a294d05e4483807fb3e43a1adda1562045417540e6cf97814d3774d,4034
     pantry-tree:
+      sha256: 115755767955f64b78a00c5e2d198c690d82451787e40b47b665c04f93320e5c
       size: 1356
-      sha256: 91352aca479e27a2b171391c3ee412a9854e7332ed54ebf85eb70db3b6e36f14
   original:
-    hackage: graphql-client-1.1.1@sha256:6cd6072975c64484b8f34d3701884df8a5084ca6443df39ee3f698cdefb13c2a,4040
+    hackage: graphql-client-1.1.1
 snapshots:
 - completed:
+    sha256: a209d3455279ee76eb45f01f73bbb960ceaaa8dfad8891435384689df4dcb653
     size: 617368
     url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/19/3.yaml
-    sha256: a209d3455279ee76eb45f01f73bbb960ceaaa8dfad8891435384689df4dcb653
   original: lts-19.3
