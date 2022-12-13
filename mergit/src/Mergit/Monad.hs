@@ -174,7 +174,7 @@ getRepoAndTokens = do
       -- get list of repositories
       repositories <- [get| .repositories[].(owner.login, name) |] <$> getRepositories installToken
 
-      return $ map (,installToken) repositories
+      pure $ map (,installToken) repositories
   where
     getRepositories =
       queryGitHub' @(Object [schema| { repositories: List #Repository } |])
@@ -193,7 +193,7 @@ runBotAppOnAllRepos action = mapM runOnRepo =<< getRepoAndTokens
   where
     runOnRepo (repo, token) = do
       result <- runBotApp repo action token
-      return (repo, result)
+      pure (repo, result)
 
 {- Queues -}
 

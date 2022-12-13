@@ -67,7 +67,7 @@ server = getHelloWorld :<|> (handleInstallationEvent :<|> handleGitHubEvent)
 initApp :: IO Application
 initApp = do
   params <- loadGitHubAppParams
-  return $ serveWithContext (Proxy @ExampleApp) (params :. EmptyContext) server
+  pure $ serveWithContext (Proxy @ExampleApp) (params :. EmptyContext) server
 
 main :: IO ()
 main = run 3000 =<< initApp

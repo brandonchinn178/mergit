@@ -42,8 +42,8 @@ getRequestBody' :: Request -> ByteString -> IO ByteStringL.ByteString
 getRequestBody' request signature = modifyMVar requestBodyMapVar $ \requestBodyMap -> do
   body <- lazyRequestBody request
   if ByteStringL.null body
-    then return . (requestBodyMap,) . Map.findWithDefault body signature $ requestBodyMap
-    else return (Map.insert signature body requestBodyMap, body)
+    then pure . (requestBodyMap,) . Map.findWithDefault body signature $ requestBodyMap
+    else pure (Map.insert signature body requestBodyMap, body)
 
 getRequestBody :: Request -> Servant.DelayedIO ByteStringL.ByteString
 getRequestBody request = liftIO . getRequestBody' request =<< getSignature request
@@ -56,7 +56,7 @@ clearRequestBody request = do
 {- Headers -}
 
 getHeader :: CI ByteString -> Request -> Servant.DelayedIO ByteString
-getHeader header = maybe (Servant.delayedFailFatal e) return . lookup header . requestHeaders
+getHeader header = maybe (Servant.delayedFailFatal e) pure . lookup header . requestHeaders
   where
     e = err400{errBody = ByteStringL.fromStrict (original header) <> " header not found"}
 

@@ -37,7 +37,7 @@ initEventQueuesManager :: EventQueuesConfig -> IO (EventQueuesManager key event)
 initEventQueuesManager EventQueuesConfig{..} = atomically $ do
   globalEventQueue <- newTBQueue globalQueueLimit
   workerQueues <- newTVar Map.empty
-  return EventQueuesManager{..}
+  pure EventQueuesManager{..}
 
 queueGlobalEvent :: EventQueuesManager key event -> (key, event) -> STM ()
 queueGlobalEvent EventQueuesManager{..} = writeTBQueue globalEventQueue
@@ -72,12 +72,12 @@ addEventToWorkerQueue EventQueuesManager{..} eventKey event = do
       -- register queue with workerQueues
       modifyTVar' workerQueues (Map.insert eventKey workerQueue)
 
-      return $ AddedToNewQueue workerQueue
+      pure $ AddedToNewQueue workerQueue
     Just workerQueue -> do
       -- add the event to the queue
       writeTBQueue (workerEventQueue workerQueue) event
 
-      return $ AddedToExistingQueue workerQueue
+      pure $ AddedToExistingQueue workerQueue
 
 registerWorkerThread :: (HasCallStack, Ord key, Show key) => EventQueuesManager key event -> key -> WorkerThread -> STM ()
 registerWorkerThread EventQueuesManager{..} eventKey workerThread =

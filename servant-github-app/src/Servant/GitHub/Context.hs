@@ -37,9 +37,9 @@ loadGitHubAppParams = do
   ghSigner <- loadSigner =<< getEnv "GITHUB_PRIVATE_KEY"
   ghUserAgent <- Char8.pack <$> getEnv "GITHUB_USER_AGENT"
 
-  return GitHubAppParams{..}
+  pure GitHubAppParams{..}
 
 {- Helpers -}
 
 parseInt :: Monad m => String -> m Int
-parseInt x = maybe (error $ "Invalid int: " ++ x) return $ readMaybe x
+parseInt x = maybe (error $ "Invalid int: " ++ x) pure $ readMaybe x

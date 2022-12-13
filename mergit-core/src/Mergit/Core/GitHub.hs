@@ -190,7 +190,7 @@ getCICommit sha checkRunType = do
     let payload = [get| result.repository!.object!.__fragment! |]
         info = [get| payload.parents.pageInfo |]
 
-    return
+    pure
       PaginatedResult
         { payload
         , chunk = [get| payload.parents.nodes![]! |]
@@ -204,10 +204,10 @@ getCICommit sha checkRunType = do
       let parentSHA = [get| parent.oid |]
       case parseCommitCheckRunFragments parent of
         [] -> throwIO $ MissingCheckRun parentSHA checkName
-        [checkRun] -> return (parentSHA, checkRun)
+        [checkRun] -> pure (parentSHA, checkRun)
         _ -> error $ printf "Commit has multiple check runs named '%s': %s" checkName (show parent)
 
-  return
+  pure
     CICommit
       { commitTree = [get| result.tree |]
       , commitContexts = fromMaybe [] [get| result.status?.contexts |]
@@ -244,10 +244,10 @@ getCheckRun prNum checkRunType = do
         }
   commit <- case [get| result.repository!.pullRequest!.commits.nodes![]!.commit |] of
     [] -> error $ printf "PR #%d has no commits: %s" prNum (show result)
-    [c] -> return c
+    [c] -> pure c
     _ -> error $ "PRCheckRun query returned more than one 'last' commit: " ++ show result
   case parseCommitCheckRunFragments commit of
-    [checkRun] -> return checkRun
+    [checkRun] -> pure checkRun
     _ -> throwIO $ MissingCheckRunPR prNum checkName
   where
     checkName = getCheckName checkRunType
@@ -268,7 +268,7 @@ getCheckRunForCommit sha checkRunType = do
         }
   let commit = [get| result.repository!.object!.__fragment! |]
   case parseCommitCheckRunFragments commit of
-    [checkRun] -> return checkRun
+    [checkRun] -> pure checkRun
     _ -> throwIO $ MissingCheckRun sha checkName
   where
     checkName = getCheckName checkRunType
@@ -307,7 +307,7 @@ getPRForCommit sha = do
           , _after = after
           }
     let payload = [get| result.repository!.object!.__fragment!.associatedPullRequests! |]
-    return
+    pure
       PaginatedResult
         { payload = ()
         , chunk = [get| payload.nodes![]! |]
@@ -318,11 +318,11 @@ getPRForCommit sha = do
   pr <-
     if
         | null prs -> throwIO $ CommitLacksPR sha
-        | [pr] <- prs -> return pr
-        | [pr] <- filter ((== sha) . [get| .headRefOid |]) prs -> return pr
+        | [pr] <- prs -> pure pr
+        | [pr] <- filter ((== sha) . [get| .headRefOid |]) prs -> pure pr
         | otherwise -> throwIO $ AmbiguousPRForCommit sha
 
-  return
+  pure
     PullRequest
       { prId = [get| pr.number |]
       , prBaseBranch = [get| pr.baseRefName |]
@@ -346,7 +346,7 @@ getPRById prId = do
 
   let pr = [get| result.repository!.pullRequest! |]
 
-  return
+  pure
     PullRequest
       { prId = [get| pr.number |]
       , prBaseBranch = [get| pr.baseRefName |]
@@ -371,7 +371,7 @@ getPRReviews prNum = do
             }
       let payload = [get| result.repository!.pullRequest!.reviews! |]
           info = [get| payload.pageInfo |]
-      return
+      pure
         PaginatedResult
           { payload = ()
           , chunk = [get| payload.nodes![]!.(author!.login, state) |]
@@ -422,7 +422,7 @@ getQueues = do
             }
       let payload = [get| result.repository!.pullRequests |]
           info = [get| payload.pageInfo |]
-      return
+      pure
         PaginatedResult
           { payload = ()
           , chunk = mapMaybe getQueuedPR [get| payload.nodes![]! |]
@@ -635,8 +635,8 @@ queryAll doQuery = queryAll' Nothing
       (_, next) <- case (hasNext, nextCursor) of
         (True, Just nextCursor') -> queryAll' $ Just nextCursor'
         (True, Nothing) -> error $ "Paginated result says it has next with no cursor: " ++ show result
-        (False, _) -> return (payload, [])
-      return (payload, chunk ++ next)
+        (False, _) -> pure (payload, [])
+      pure (payload, chunk ++ next)
 
 queryAll_ ::
   (Monad m, Show a) =>

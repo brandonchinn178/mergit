@@ -33,7 +33,7 @@ test =
           withEventQueues $ \EventQueuesTester{..} -> do
             queueEvent eventKey event
             result <- getWorkerEvent <$> getNextWorker
-            return $ result === (eventKey, event)
+            pure $ result === (eventKey, event)
     , testProperty "Works across threads" $ \eventKey event ->
         ioProperty $
           withEventQueues $ \EventQueuesTester{..} -> do
@@ -50,7 +50,7 @@ test =
             prop3 <- getThreadResult threadQueue ===^ Just ()
             prop4 <- getThreadResult threadDequeue ===^ Just (eventKey, event)
 
-            return $ conjoin [prop1, prop2, prop3, prop4]
+            pure $ conjoin [prop1, prop2, prop3, prop4]
     , testProperty "handleNextEvent blocks" $ \eventKey event ->
         ioProperty $
           withEventQueues $ \EventQueuesTester{..} -> do
@@ -67,7 +67,7 @@ test =
             prop3 <- getThreadResult threadQueue ===^ Just ()
             prop4 <- getThreadResult threadDequeue ===^ Just (eventKey, event)
 
-            return $ conjoin [prop1, prop2, prop3, prop4]
+            pure $ conjoin [prop1, prop2, prop3, prop4]
     , testProperty "Events with the same event key run on the same thread" $ \eventKey events ->
         ioProperty $
           withEventQueues $ \EventQueuesTester{..} -> do
@@ -77,7 +77,7 @@ test =
 
             workers <- replicateM (length events) getNextWorker
 
-            return $ areAllSame $ map workerThreadId workers
+            pure $ areAllSame $ map workerThreadId workers
     , testProperty "Events with different event keys run on different threads" $ \eventAndKey1 eventAndKey2 ->
         ioProperty $
           withEventQueues $ \EventQueuesTester{..} -> do
@@ -90,7 +90,7 @@ test =
             worker1 <- getNextWorker
             worker2 <- getNextWorker
 
-            return $ eventKey1 /= eventKey2 ==> workerThreadId worker1 /= workerThreadId worker2
+            pure $ eventKey1 /= eventKey2 ==> workerThreadId worker1 /= workerThreadId worker2
     ]
 
 {- Queueing helpers -}
@@ -144,7 +144,7 @@ withEventQueues f = do
       workerThreadId <- atomically $ do
         workerThreads <- readTVar $ workerQueues eventQueuesManager
         case Map.lookup workerEventKey workerThreads of
-          Just WorkerQueue{workerThread = Just worker} -> return $ asyncThreadId worker
+          Just WorkerQueue{workerThread = Just worker} -> pure $ asyncThreadId worker
           _ -> retry
 
       atomically $ writeTChan workers EventWorker{..}
@@ -184,7 +184,7 @@ makeThreadManager action = do
     takeMVar mvarStart
     action >>= putMVar mvarResult
 
-  return
+  pure
     ThreadManager
       { startThread = putMVar mvarStart ()
       , waitForThread = wait asyncRef
@@ -195,7 +195,7 @@ withTimeout :: HasCallStack => IO a -> IO a
 withTimeout m =
   race timeout m >>= \case
     Left _ -> error "Timed out"
-    Right x -> return x
+    Right x -> pure x
   where
     timeout = threadDelay 5000000 -- 5 seconds
 
@@ -204,7 +204,7 @@ withTimeout m =
 (===^) :: (Monad m, Show a, Eq a) => m a -> a -> m Property
 m ===^ expected = do
   actual <- m
-  return $ actual === expected
+  pure $ actual === expected
 
 areAllSame :: (Show a, Eq a) => [a] -> Property
 areAllSame [] = property True

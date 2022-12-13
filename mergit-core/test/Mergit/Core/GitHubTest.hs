@@ -56,7 +56,7 @@ testGetCICommit =
           ioProperty $ do
             let mocks = mockGetCICommitQueries sha checkRunTry pagedParents
             CICommit{parents} <- runTestApp mocks $ getCICommit sha CheckRunTry
-            return $ parents === map (\CICommitParent{..} -> (parentSHA, fromJust parentCheckRun)) parentCommits
+            pure $ parents === map (\CICommitParent{..} -> (parentSHA, fromJust parentCheckRun)) parentCommits
     ]
   where
     mockGetCICommitQueries ciCommitSHA checkName = withPaged $ \Page{..} ->
@@ -127,7 +127,7 @@ testGetPRForCommit =
     [ testProperty "Returns single associated pull request" $ \sha pr -> ioProperty $ do
         let mocks = mockGetPRForCommitQueries sha [[pr]]
         result <- runTestApp mocks $ getPRForCommit sha
-        return $ result === pr
+        pure $ result === pr
     , testProperty "Returns pull request with matching SHA" $ \sha pr' ->
         let pr = pr'{prSHA = sha}
          in forAll (listOf $ prNotMatching sha) $ \otherPRs ->
@@ -135,18 +135,18 @@ testGetPRForCommit =
                 ioProperty $ do
                   let mocks = mockGetPRForCommitQueries sha pagedPRs
                   result <- runTestApp mocks $ getPRForCommit sha
-                  return $ result === pr
+                  pure $ result === pr
     , testProperty "Errors with no associated pull requests" $ \sha -> ioProperty $ do
         let mocks = mockGetPRForCommitQueries sha [[]]
         result <- try $ runTestApp mocks $ getPRForCommit sha
-        return $ result === Left (CommitLacksPR sha)
+        pure $ result === Left (CommitLacksPR sha)
     , testProperty "Errors with multiple non-matching associated pull requests" $ \sha -> do
         forAll (listOfAtLeast 2 $ prNotMatching sha) $ \prs ->
           forAll (shuffledChunks prs) $ \pagedPRs ->
             ioProperty $ do
               let mocks = mockGetPRForCommitQueries sha pagedPRs
               result <- try $ runTestApp mocks $ getPRForCommit sha
-              return $ result === Left (AmbiguousPRForCommit sha)
+              pure $ result === Left (AmbiguousPRForCommit sha)
     ]
   where
     prNotMatching sha = arbitrary `suchThat` ((/= sha) . prSHA)
@@ -291,7 +291,7 @@ withPaged f pages = zipWith (curry (f . mkPage)) pages [1 ..]
 
 -- | Arbitrarily chunk the given list.
 chunks :: [a] -> Gen [[a]]
-chunks [] = return []
+chunks [] = pure []
 chunks xs = do
   n <- choose (1, length xs)
   let (chunk, rest) = splitAt n xs

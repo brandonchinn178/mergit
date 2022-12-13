@@ -127,7 +127,7 @@ handleBotQueue = handleEvents handleBotEvent
     -- TODO: calling getRepoAndTokens for each event is very inefficient, maybe using some token pool?
     getTokenForRepo repo = do
       mToken <- lookup repo <$> getRepoAndTokens
-      maybe (error $ "Could not find repository: " ++ show repo) return mToken
+      maybe (error $ "Could not find repository: " ++ show repo) pure mToken
 
 -- TODO: instead of polling, have the completed merge run start the next merge run
 pollMergeQueues :: BaseApp ()
@@ -154,7 +154,7 @@ runServer = do
     ioToHandler :: IO a -> Handler a
     ioToHandler m =
       liftIO (try m) >>= \case
-        Right x -> return x
+        Right x -> pure x
         Left e ->
           throwError $
             if

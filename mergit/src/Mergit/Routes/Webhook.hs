@@ -76,7 +76,7 @@ handlePullRequest o = runBotApp' repo $ do
   case [get| o.action |] of
     PullRequest.OPENED -> queueEvent $ PRCreated number sha
     PullRequest.SYNCHRONIZE -> queueEvent $ CommitPushedToPR number sha
-    _ -> return ()
+    _ -> pure ()
   where
     repo = [get| o.repository! |]
 
@@ -106,8 +106,8 @@ handleCheckRun o = runBotApp' repo $ do
         Just BotQueue -> queueEvent $ QueuePR prNum sha
         Just BotDequeue -> queueEvent $ DequeuePR prNum sha
         Just BotResetMerge -> queueEvent $ ResetMerge prNum sha
-        Nothing -> return ()
-    _ -> return ()
+        Nothing -> pure ()
+    _ -> pure ()
   where
     repo = [get| o.repository! |]
 
@@ -119,7 +119,7 @@ handleStatus o = runBotApp' repo $ do
     [branch]
       | isTryBranch branch || isStagingBranch branch ->
           queueEvent $ RefreshCheckRun branch [get| o.sha |]
-    _ -> return ()
+    _ -> pure ()
   where
     repo = [get| o.repository! |]
 

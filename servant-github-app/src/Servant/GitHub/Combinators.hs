@@ -86,7 +86,7 @@ instance
 
       parseBody request = do
         signature <- getSignature request
-        ghSignature <- maybe (Servant.delayedFailFatal invalidSignature) return $ parseSignature signature
+        ghSignature <- maybe (Servant.delayedFailFatal invalidSignature) pure $ parseSignature signature
         body <- liftIO $ getRequestBody' request signature
 
         unless (doesSignatureMatch ghWebhookSecret (ByteStringL.toStrict body) ghSignature) $
@@ -131,7 +131,7 @@ mkTokenGenerator ::
   -> Servant.DelayedIO TokenGenerator
 mkTokenGenerator context request = do
   event <- decodeRequestBody @BaseEvent =<< getRequestBody request
-  return $ getToken ghSigner ghAppId ghUserAgent [get| event.installation!.id |]
+  pure $ getToken ghSigner ghAppId ghUserAgent [get| event.installation!.id |]
   where
     GitHubAppParams{ghAppId, ghSigner, ghUserAgent} = getContextEntry context
 
@@ -190,7 +190,7 @@ addBodyCheck bodyCheck Servant.Delayed{..} =
     { Servant.bodyD = \content -> do
         res <- Servant.withRequest bodyCheck
         b <- bodyD content
-        return (res, b)
+        pure (res, b)
     , Servant.serverD = \c p h a (res, b) req -> ($ res) <$> serverD c p h a b req
     , ..
     }
@@ -202,7 +202,7 @@ addPostBodyCheck_ bodyCheck Servant.Delayed{..} =
     { Servant.bodyD = \content -> do
         res <- bodyD content
         Servant.withRequest bodyCheck
-        return res
+        pure res
     , ..
     }
 
@@ -213,6 +213,6 @@ decodeRequestBody ::
   IsSchema schema =>
   ByteStringL.ByteString
   -> Servant.DelayedIO (Object schema)
-decodeRequestBody s = either (Servant.delayedFailFatal . mkErr) return $ eitherDecode @(Object schema) s
+decodeRequestBody s = either (Servant.delayedFailFatal . mkErr) pure $ eitherDecode @(Object schema) s
   where
     mkErr e = err400{errBody = "Could not decode: " <> Char8.pack e <> "\n" <> s}

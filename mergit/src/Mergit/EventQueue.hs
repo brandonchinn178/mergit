@@ -66,7 +66,7 @@ handleEventsWith eventQueuesManager f = forever $
         -- the worker shouldn't throw an exception, but if it happens to, crash this process
         link workerThread
         atomically $ registerWorkerThread eventQueuesManager eventKey workerThread
-      AddedToExistingQueue _ -> return ()
+      AddedToExistingQueue _ -> pure ()
 
 -- | Read and process events from the given queue. When the queue is empty, clean up
 --  eventWorkerQueues and eventWorkerThreads and exit.
@@ -83,11 +83,11 @@ runWorker eventQueuesManager workerQueue eventKey f = go
       atomicallyThenRun $
         getNextWorkerEvent workerQueue >>= \case
           -- process event, then loop
-          Just event -> return $ f eventKey event >> go
+          Just event -> pure $ f eventKey event >> go
           -- finished everything in queue; clean up and exit
           Nothing -> do
             cleanupWorker eventQueuesManager eventKey
-            return $ return ()
+            pure $ pure ()
 
 {- Utilities -}
 

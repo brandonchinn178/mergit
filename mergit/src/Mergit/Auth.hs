@@ -73,7 +73,7 @@ loadAuthParams = do
     lookupEnv "COOKIE_JWK" >>= \case
       Just jwkFile ->
         readKeyFile jwkFile >>= \case
-          PrivKeyRSA key : _ -> return $ fromRSA key
+          PrivKeyRSA key : _ -> pure $ fromRSA key
           _ -> fail $ "RSA key not found in key file: " ++ jwkFile
       Nothing -> do
         -- if COOKIE_JWK is not set, generate a random new key
@@ -81,7 +81,7 @@ loadAuthParams = do
         putStrLn "Generating random COOKIE_JWK..."
         (_, key) <- Crypto.generate 256 3
         putStrLn "Done."
-        return $ fromRSA key
+        pure $ fromRSA key
 
   let cookieSettings =
         authCookieSettings
@@ -93,7 +93,7 @@ loadAuthParams = do
   ghClientSecret <- getEnv "GITHUB_CLIENT_SECRET"
   ghBaseUrl <- fromMaybe "http://localhost:3000" <$> lookupEnv "MERGIT_URL"
 
-  return AuthParams{..}
+  pure AuthParams{..}
 
 authCookieSettings :: CookieSettings
 authCookieSettings =
@@ -171,17 +171,17 @@ instance
         liftIO $ makeXsrfCookie authCookieSettings
 
       checkXsrf req
-        | requestMethod req == methodGet = return ()
+        | requestMethod req == methodGet = pure ()
         | Just xsrfTokenCookie <- getXsrfTokenCookie req
         , getHeader hContentType req == Just "application/x-www-form-urlencoded" =
             do
               body <- liftIO $ lazyRequestBody req
               bodyData <- case urlDecodeAsForm body of
-                Right bodyData -> return bodyData
+                Right bodyData -> pure bodyData
                 Left e -> error $ "could not decode body: " ++ Text.unpack e
 
               case lookup xsrfTokenInputName bodyData of
-                Just xsrfTokenValue | xsrfTokenValue == xsrfTokenCookie -> return ()
+                Just xsrfTokenValue | xsrfTokenValue == xsrfTokenCookie -> pure ()
                 _ -> Servant.delayedFail Servant.err401
 
         -- good for now, revisit if we need to handle these cases

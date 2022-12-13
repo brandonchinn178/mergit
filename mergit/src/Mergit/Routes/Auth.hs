@@ -71,7 +71,7 @@ handleLoginRoute = do
           [ ("client_id", Char8.pack ghClientId)
           , ("redirect_uri", Char8.pack $ ghBaseUrl <> "/auth/callback")
           ]
-  return $ addHeader (Char8.unpack redirectUrl) NoContent
+  pure $ addHeader (Char8.unpack redirectUrl) NoContent
 
 type SetCookieHeaders =
   '[ Header "Set-Cookie" SetCookie -- JWT token from servant-auth
@@ -95,7 +95,7 @@ handleCallbackRoute ghCode = do
       Nothing -> fail "Could not make JWT"
       Just addCookieHeaders -> do
         xsrfCookie <- makeXsrfCookie authCookieSettings
-        return $ addHeader redirectUrl $ addHeader xsrfCookie $ addCookieHeaders NoContent
+        pure $ addHeader redirectUrl $ addHeader xsrfCookie $ addCookieHeaders NoContent
 
 {- GitHub access token -}
 
@@ -136,7 +136,7 @@ getAccessToken reqBody = do
           }
 
   response <- httpLbs request manager
-  either fail (return . UserToken . Text.pack . accessToken) $
+  either fail (pure . UserToken . Text.pack . accessToken) $
     eitherDecode $
       responseBody response
 
