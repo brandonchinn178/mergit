@@ -179,9 +179,9 @@ createCIBranch base prs ciBranch message = do
       success <- mergeBranches tempBranch prSHA "[ci skip] merge into temp"
       unless success $ throwIO $ MergeConflict prNums
 
-      -- check that tree was updated within 3 seconds
+      -- check that tree was updated within 30 seconds
       -- https://github.com/LeapYear/mergit/issues/180#issuecomment-1097310669
-      checkUntilTimeout 3 (TreeNotUpdated prNums prNum) $
+      checkUntilTimeout 30 (TreeNotUpdated prNums prNum) $
         (/= treeInitial) <$> getBranchTree tempBranch
 
     -- get tree for temp branch
@@ -348,7 +348,7 @@ refreshCheckRuns isStart ciBranchName sha = do
             let badUpdate =
                   BadUpdate sha prNums base $
                     Text.pack (printf "PR did not merge: #%d" prNum)
-            checkUntilTimeout 5 badUpdate (isPRMerged prNum)
+            checkUntilTimeout 120 badUpdate (isPRMerged prNum)
 
             closePR prNum
             deleteBranch branch
@@ -374,13 +374,13 @@ extractConfig prs tree =
 -- thrown.
 checkUntilTimeout :: (MonadUnliftIO m, Exception e) => Int -> e -> m Bool -> m ()
 checkUntilTimeout timeoutSecs e m =
-  timeout (timeoutSecs * 1000000) go
+  timeout (timeoutSecs * 1000000) (go 1)
     >>= maybe (throwIO e) pure
   where
-    go = do
+    go delaySecs = do
       result <- m
       if result
         then pure ()
         else do
-          threadDelay 1000000
-          go
+          threadDelay (delaySecs * 1000000)
+          go (delaySecs * 2)
