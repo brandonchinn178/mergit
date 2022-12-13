@@ -12,7 +12,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-{- |
+{-|
 Module      :  Mergit.Core.Monad
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
@@ -222,10 +222,9 @@ githubQuerySettings =
     { url = "https://api.github.com/graphql"
     }
 
-{- | Add a comment to the given PR.
-
- https://developer.github.com/v3/issues/comments/#create-a-comment
--}
+-- | Add a comment to the given PR.
+--
+--  https://developer.github.com/v3/issues/comments/#create-a-comment
 commentOnPR :: MonadMergit m => Int -> Text -> m ()
 commentOnPR prNum comment = void $ queryGitHub' endpoint
   where

@@ -13,7 +13,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-{- |
+{-|
 Module      :  Mergit.Auth
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
@@ -137,16 +137,15 @@ xsrfTokenInputName = "xsrfToken"
 xsrfTokenCookieName :: ByteString
 xsrfTokenCookieName = "mergit-xsrf-token"
 
-{- | Handle XSRF protection. This combinator does the following actions:
-
- * If this is a non-GET request, get the value of the 'xsrfTokenInputName' key in the body and
-   verify that it matches the current XSRF-TOKEN cookie
-
- * Create and set a new XSRF-TOKEN token to use in this request and set as a cookie.
-
- Doing this manually instead of using servant-auth because we want to check the XSRF token in the
- POST body, not as a header.
--}
+-- | Handle XSRF protection. This combinator does the following actions:
+--
+--  * If this is a non-GET request, get the value of the 'xsrfTokenInputName' key in the body and
+--    verify that it matches the current XSRF-TOKEN cookie
+--
+--  * Create and set a new XSRF-TOKEN token to use in this request and set as a cookie.
+--
+--  Doing this manually instead of using servant-auth because we want to check the XSRF token in the
+--  POST body, not as a header.
 data XsrfProtected
 
 -- Copied a lot of magic from servant-auth-server

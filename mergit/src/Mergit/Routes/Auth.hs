@@ -6,7 +6,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeOperators #-}
 
-{- |
+{-|
 Module      :  Mergit.Routes.Auth
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental

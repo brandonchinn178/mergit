@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 
-{- |
+{-|
 Module      :  Mergit.Core.Config
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental

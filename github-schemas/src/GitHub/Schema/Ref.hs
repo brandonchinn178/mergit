@@ -1,7 +1,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE QuasiQuotes #-}
 
-{- |
+{-|
 Module      :  GitHub.Schema.Ref
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental

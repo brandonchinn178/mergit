@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TupleSections #-}
 
-{- |
+{-|
 Module      :  Servant.GitHub.Internal.Request
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental

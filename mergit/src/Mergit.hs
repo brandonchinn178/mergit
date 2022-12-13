@@ -12,7 +12,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# OPTIONS_GHC -freduction-depth=400 #-}
 
-{- |
+{-|
 Module      :  Mergit
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
@@ -169,10 +169,9 @@ runServer = do
 logException :: MonadIO m => SomeException -> m ()
 logException = liftIO . putStrLn . displayException
 
-{- | Run each of the given actions in a separate thread.
-
- If any action throws an exception, rethrow the exception.
--}
+-- | Run each of the given actions in a separate thread.
+--
+--  If any action throws an exception, rethrow the exception.
 concurrentlyAll :: MonadUnliftIO m => [m ()] -> m ()
 concurrentlyAll actions = do
   threads <- mapM async actions
@@ -183,10 +182,10 @@ serveRoutes ::
   ( HasServer api context
   , HasContextEntry (context .++ DefaultErrorFormatters) ErrorFormatters
   ) =>
-  (forall x. m x -> Handler x) ->
-  Context context ->
-  ServerT api m ->
-  Application
+  (forall x. m x -> Handler x)
+  -> Context context
+  -> ServerT api m
+  -> Application
 serveRoutes f context routes =
   serveWithContext (Proxy @api) context $
     hoistServerWithContext (Proxy @api) (Proxy @context) f routes

@@ -13,7 +13,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
-{- |
+{-|
 Module      :  Mergit.Core.GitHub
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
@@ -169,9 +169,9 @@ getCICommit ::
   , MonadGraphQLQuery m
   , MonadMergitEnv m
   ) =>
-  CommitSHA ->
-  CheckRunType ->
-  m CICommit
+  CommitSHA
+  -> CheckRunType
+  -> m CICommit
 getCICommit sha checkRunType = do
   (repoOwner, repoName) <- getRepo
   appId <- getAppId
@@ -282,19 +282,18 @@ data PullRequest = PullRequest
   }
   deriving (Show, Eq)
 
-{- | Get information for the associated PR for the given commit.
-
- If the commit is only associated with one PR, return it. Otherwise, find a single
- PR with the given commit as its HEAD. If we still can't narrow down to a single PR,
- throw an error.
--}
+-- | Get information for the associated PR for the given commit.
+--
+--  If the commit is only associated with one PR, return it. Otherwise, find a single
+--  PR with the given commit as its HEAD. If we still can't narrow down to a single PR,
+--  throw an error.
 getPRForCommit ::
   ( MonadIO m
   , MonadGraphQLQuery m
   , MonadMergitEnv m
   ) =>
-  GitObjectID ->
-  m PullRequest
+  GitObjectID
+  -> m PullRequest
 getPRForCommit sha = do
   (repoOwner, repoName) <- getRepo
 
@@ -440,10 +439,9 @@ getQueues = do
 
 {- REST -}
 
-{- | Create a check run.
-
- https://developer.github.com/v3/checks/runs/#create-a-check-run
--}
+-- | Create a check run.
+--
+--  https://developer.github.com/v3/checks/runs/#create-a-check-run
 createCheckRun :: MonadMergit m => GitHubData -> m ()
 createCheckRun ghData =
   void $
@@ -455,12 +453,11 @@ createCheckRun ghData =
         , ghData
         }
 
-{- | Update a check run.
-
- NOTE: Should NOT be run directly. Use Mergit.Core.CheckRun.updateCheckRun instead.
-
- https://developer.github.com/v3/checks/runs/#update-a-check-run
--}
+-- | Update a check run.
+--
+--  NOTE: Should NOT be run directly. Use Mergit.Core.CheckRun.updateCheckRun instead.
+--
+--  https://developer.github.com/v3/checks/runs/#update-a-check-run
 updateCheckRun' :: MonadMergit m => CheckRunId -> GitHubData -> m ()
 updateCheckRun' checkRunId ghData = void $ queryGitHub' endpoint
   where
@@ -472,10 +469,9 @@ updateCheckRun' checkRunId ghData = void $ queryGitHub' endpoint
         , ghData
         }
 
-{- | Create a commit.
-
- https://developer.github.com/v3/git/commits/#create-a-commit
--}
+-- | Create a commit.
+--
+--  https://developer.github.com/v3/git/commits/#create-a-commit
 createCommit :: MonadMergit m => Text -> GitObjectID -> [CommitSHA] -> m CommitSHA
 createCommit message tree parents = (.: "sha") <$> queryGitHub' endpoint
   where
@@ -491,10 +487,9 @@ createCommit message tree parents = (.: "sha") <$> queryGitHub' endpoint
             ]
         }
 
-{- | Create a branch.
-
- https://developer.github.com/v3/git/refs/#create-a-reference
--}
+-- | Create a branch.
+--
+--  https://developer.github.com/v3/git/refs/#create-a-reference
 createBranch :: MonadMergit m => BranchName -> CommitSHA -> m ()
 createBranch name sha = void $ queryGitHub' endpoint
   where
@@ -509,12 +504,11 @@ createBranch name sha = void $ queryGitHub' endpoint
             ]
         }
 
-{- | Set the given branch to the given commit.
-
- Returns False if update is not a fast-forward.
-
- https://developer.github.com/v3/git/refs/#update-a-reference
--}
+-- | Set the given branch to the given commit.
+--
+--  Returns False if update is not a fast-forward.
+--
+--  https://developer.github.com/v3/git/refs/#update-a-reference
 updateBranch :: MonadMergit m => Bool -> BranchName -> CommitSHA -> m (Either Text ())
 updateBranch force branch sha = fmap resolve $ githubTry $ queryGitHub' endpoint
   where
@@ -527,10 +521,9 @@ updateBranch force branch sha = fmap resolve $ githubTry $ queryGitHub' endpoint
         , ghData = ["sha" := sha, "force" := force]
         }
 
-{- | Delete the given branch, ignoring the error if the branch doesn't exist.
-
- https://developer.github.com/v3/git/refs/#delete-a-reference
--}
+-- | Delete the given branch, ignoring the error if the branch doesn't exist.
+--
+--  https://developer.github.com/v3/git/refs/#delete-a-reference
 deleteBranch :: MonadMergit m => BranchName -> m ()
 deleteBranch branch = void $ githubTry $ queryGitHub' endpoint
   where
@@ -542,12 +535,11 @@ deleteBranch branch = void $ githubTry $ queryGitHub' endpoint
         , ghData = []
         }
 
-{- | Merge two branches, returning the merge commit information.
-
- Returns False if there was a merge conflict
-
- https://developer.github.com/v3/repos/merging/#perform-a-merge
--}
+-- | Merge two branches, returning the merge commit information.
+--
+--  Returns False if there was a merge conflict
+--
+--  https://developer.github.com/v3/repos/merging/#perform-a-merge
 mergeBranches :: MonadMergit m => BranchName -> CommitSHA -> Text -> m Bool
 mergeBranches base sha message = fmap isRight $ githubTry' status409 $ queryGitHub' endpoint
   where
@@ -563,10 +555,9 @@ mergeBranches base sha message = fmap isRight $ githubTry' status409 $ queryGitH
             ]
         }
 
-{- | Close the given PR.
-
- https://developer.github.com/v3/pulls/#update-a-pull-request
--}
+-- | Close the given PR.
+--
+--  https://developer.github.com/v3/pulls/#update-a-pull-request
 closePR :: MonadMergit m => PrNum -> m ()
 closePR prNum = void $ queryGitHub' endpoint
   where
@@ -615,8 +606,8 @@ parseCommitCheckRunFragments ::
   , Typeable r2
   , Typeable r3
   ) =>
-  Object schema ->
-  [CheckRunInfo]
+  Object schema
+  -> [CheckRunInfo]
 parseCommitCheckRunFragments =
   map parseCheckRunInfoFragment . concat . [get| .checkSuites!.nodes![]!.checkRuns!.nodes![]! |]
 
@@ -635,8 +626,8 @@ data PaginatedResult payload a = PaginatedResult
 -- | Run a paginated query as many times as possible until all the results have been fetched.
 queryAll ::
   (Monad m, Show payload, Show a) =>
-  (Maybe Text -> m (PaginatedResult payload a)) ->
-  m (payload, [a])
+  (Maybe Text -> m (PaginatedResult payload a))
+  -> m (payload, [a])
 queryAll doQuery = queryAll' Nothing
   where
     queryAll' cursor = do
@@ -649,6 +640,6 @@ queryAll doQuery = queryAll' Nothing
 
 queryAll_ ::
   (Monad m, Show a) =>
-  (Maybe Text -> m (PaginatedResult () a)) ->
-  m [a]
+  (Maybe Text -> m (PaginatedResult () a))
+  -> m [a]
 queryAll_ = fmap snd . queryAll

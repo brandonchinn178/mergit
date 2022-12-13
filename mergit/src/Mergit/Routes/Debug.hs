@@ -10,7 +10,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 
-{- |
+{-|
 Module      :  Mergit.Routes.Debug
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental

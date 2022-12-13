@@ -6,7 +6,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 
-{- |
+{-|
 Module      :  Mergit.Routes.Webhook
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental

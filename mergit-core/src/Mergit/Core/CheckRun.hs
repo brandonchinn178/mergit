@@ -3,7 +3,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
-{- |
+{-|
 Module      :  Mergit.Core.CheckRun
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
@@ -111,24 +111,23 @@ updateCheckRuns checkRuns CheckRunUpdates{..} = do
     doUpdateCheckRun checkRunData (sha, checkRun) =
       updateCheckRun isTry checkRun checkRunStatus sha checkRunData
 
-{- |
-CORRECTLY update a check run.
-
-GitHub Checks API requires creating a new CheckRun when transitioning from completed
-status to non-completed status (undocumented, email thread between GitHub Support and
-brandon@leapyear.io)
--}
+-- |
+-- CORRECTLY update a check run.
+--
+-- GitHub Checks API requires creating a new CheckRun when transitioning from completed
+-- status to non-completed status (undocumented, email thread between GitHub Support and
+-- brandon@leapyear.io)
 updateCheckRun ::
   MonadMergit m =>
-  -- | Whether the check run being updated is a try check run
-  Bool ->
-  -- | The CheckRun to update
-  CheckRunInfo ->
-  -- | The status the CheckRun is being updated to
-  CheckRunStatus ->
-  GitObjectID ->
-  [KeyValue] ->
-  m ()
+  Bool
+  -- ^ Whether the check run being updated is a try check run
+  -> CheckRunInfo
+  -- ^ The CheckRun to update
+  -> CheckRunStatus
+  -- ^ The status the CheckRun is being updated to
+  -> GitObjectID
+  -> [KeyValue]
+  -> m ()
 updateCheckRun isTry CheckRunInfo{..} newStatus sha checkRunData
   | not shouldOverwrite = updateCheckRun' checkRunId checkRunData
   | isTry = createTryCheckRun sha checkRunData

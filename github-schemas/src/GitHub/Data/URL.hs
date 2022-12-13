@@ -1,6 +1,6 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
-{- |
+{-|
 Module      :  GitHub.Data.URL
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental

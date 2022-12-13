@@ -1,6 +1,6 @@
 {-# LANGUAGE LambdaCase #-}
 
-{- |
+{-|
 Module      :  Mergit.Core.Error
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental

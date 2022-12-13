@@ -9,7 +9,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
-{- |
+{-|
 Module      :  Mergit.Core
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
@@ -154,12 +154,11 @@ pollQueues = do
 
 {- Helpers -}
 
-{- | Create a branch for a try or merge job.
-
- * Deletes the existing try or merge branch, if one exists.
- * Errors if merge conflict
- * Errors if the .mergit.yaml file is missing or invalid
--}
+-- | Create a branch for a try or merge job.
+--
+--  * Deletes the existing try or merge branch, if one exists.
+--  * Errors if merge conflict
+--  * Errors if the .mergit.yaml file is missing or invalid
 createCIBranch :: MonadMergit m => BranchName -> [(PrNum, CommitSHA)] -> BranchName -> Text -> m CommitSHA
 createCIBranch base prs ciBranch message = do
   deleteBranch ciBranch

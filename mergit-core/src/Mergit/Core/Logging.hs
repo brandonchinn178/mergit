@@ -1,4 +1,4 @@
-{- |
+{-|
 Module      :  Mergit.Core.Logging
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental

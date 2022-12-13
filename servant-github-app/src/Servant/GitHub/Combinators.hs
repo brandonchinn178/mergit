@@ -12,7 +12,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-{- |
+{-|
 Module      :  Servant.GitHub.Combinators
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
@@ -45,23 +45,22 @@ import Servant.GitHub.Event (GitHubEventType, IsGitHubEvent (..))
 import Servant.GitHub.Internal.Request
 import Servant.GitHub.Security (doesSignatureMatch, getToken, parseSignature)
 
-{- | A combinator for matching incoming requests with a given GitHub event.
-
- The handler function will be passed an 'Object' containing the data sent with the event.
- Automatically verifies that the request is signed by GitHub.
-
- Usage:
-
- > import Servant.GitHub
- >
- > type MyApi = "webhook" :>
- >   (    GitHubEvent 'InstallationEvent :> GitHubAction
- >   :<|> GitHubEvent 'PushEvent :> GitHubAction
- >   )
- >
- > handleInstallationEvent :: Object InstallationEvent -> Handler ()
- > handlePushEvent :: Object PushEvent -> Handler ()
--}
+-- | A combinator for matching incoming requests with a given GitHub event.
+--
+--  The handler function will be passed an 'Object' containing the data sent with the event.
+--  Automatically verifies that the request is signed by GitHub.
+--
+--  Usage:
+--
+--  > import Servant.GitHub
+--  >
+--  > type MyApi = "webhook" :>
+--  >   (    GitHubEvent 'InstallationEvent :> GitHubAction
+--  >   :<|> GitHubEvent 'PushEvent :> GitHubAction
+--  >   )
+--  >
+--  > handleInstallationEvent :: Object InstallationEvent -> Handler ()
+--  > handlePushEvent :: Object PushEvent -> Handler ()
 data GitHubEvent (event :: GitHubEventType)
 
 instance
@@ -99,19 +98,18 @@ instance
       invalidSignature = err401{errBody = "Invalid signature found"}
       badSignature = err401{errBody = "Signature did not match payload"}
 
-{- | A combinator for providing an access token to an endpoint that provides access to the GitHub
- API. The token provided expires after 10 minutes. For different options, see 'WithToken''.
-
- Usage:
-
- > import GitHub.REST (Token)
- > type MyGitHubEvents = WithToken :> GitHubAction
- > server :: Server MyGitHubEvents
- > server = handle
-
- > handle :: Token -> Handler ()
- > handle token = ...
--}
+-- | A combinator for providing an access token to an endpoint that provides access to the GitHub
+--  API. The token provided expires after 10 minutes. For different options, see 'WithToken''.
+--
+--  Usage:
+--
+--  > import GitHub.REST (Token)
+--  > type MyGitHubEvents = WithToken :> GitHubAction
+--  > server :: Server MyGitHubEvents
+--  > server = handle
+--
+--  > handle :: Token -> Handler ()
+--  > handle token = ...
 type WithToken = WithToken' 'SingleToken
 
 data TokenType
@@ -128,9 +126,9 @@ type TokenGenerator = IO Token
 
 mkTokenGenerator ::
   HasContextEntry context GitHubAppParams =>
-  Context context ->
-  Request ->
-  Servant.DelayedIO TokenGenerator
+  Context context
+  -> Request
+  -> Servant.DelayedIO TokenGenerator
 mkTokenGenerator context request = do
   event <- decodeRequestBody @BaseEvent =<< getRequestBody request
   return $ getToken ghSigner ghAppId ghUserAgent [get| event.installation!.id |]
@@ -165,11 +163,10 @@ instance
     where
       provideToken = mkTokenGenerator context
 
-{- | An alias for @Post '[JSON] NoContent@, since GitHub sends JSON data, and webhook handlers shouldn't
- return anything (they're only consumers).
-
- This combinator MUST be used in order to clear the request body cache.
--}
+-- | An alias for @Post '[JSON] NoContent@, since GitHub sends JSON data, and webhook handlers shouldn't
+--  return anything (they're only consumers).
+--
+--  This combinator MUST be used in order to clear the request body cache.
 data GitHubAction
 
 instance HasServer GitHubAction context where
@@ -214,8 +211,8 @@ addPostBodyCheck_ bodyCheck Servant.Delayed{..} =
 decodeRequestBody ::
   forall (schema :: Schema).
   IsSchema schema =>
-  ByteStringL.ByteString ->
-  Servant.DelayedIO (Object schema)
+  ByteStringL.ByteString
+  -> Servant.DelayedIO (Object schema)
 decodeRequestBody s = either (Servant.delayedFailFatal . mkErr) return $ eitherDecode @(Object schema) s
   where
     mkErr e = err400{errBody = "Could not decode: " <> Char8.pack e <> "\n" <> s}

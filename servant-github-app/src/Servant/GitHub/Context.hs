@@ -1,6 +1,6 @@
 {-# LANGUAGE RecordWildCards #-}
 
-{- |
+{-|
 Module      :  Servant.GitHub.Context
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
@@ -20,9 +20,8 @@ import System.Environment (getEnv)
 import Text.Read (readMaybe)
 import Web.JWT (EncodeSigner)
 
-{- | Parameters loaded from the environment that specify parameters required to make GitHub App
- functionality work correctly and securely.
--}
+-- | Parameters loaded from the environment that specify parameters required to make GitHub App
+--  functionality work correctly and securely.
 data GitHubAppParams = GitHubAppParams
   { ghAppId :: Int
   , ghWebhookSecret :: ByteString

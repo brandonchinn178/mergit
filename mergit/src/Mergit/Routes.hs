@@ -9,7 +9,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
 
-{- |
+{-|
 Module      :  Mergit.Routes
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
