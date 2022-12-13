@@ -28,8 +28,7 @@ module Mergit.Core (
 ) where
 
 import Control.Arrow ((&&&))
-import Control.Concurrent (threadDelay)
-import Control.Monad (forM_, unless, void, when, (<=<))
+import Control.Monad (forM_, unless, void, when)
 import Control.Monad.IO.Class (MonadIO (..))
 import Data.Bifunctor (first)
 import Data.GraphQL (get)
@@ -42,7 +41,10 @@ import Data.Text.Encoding qualified as Text
 import Data.Time (getCurrentTime)
 import Data.Yaml (decodeEither')
 import Text.Printf (printf)
-import UnliftIO.Exception (finally, fromEither, throwIO, withException)
+import UnliftIO (MonadUnliftIO)
+import UnliftIO.Concurrent (threadDelay)
+import UnliftIO.Exception (Exception, finally, fromEither, throwIO, withException)
+import UnliftIO.Timeout (timeout)
 
 import Mergit.Core.CheckRun
 import Mergit.Core.Config
@@ -177,14 +179,10 @@ createCIBranch base prs ciBranch message = do
       success <- mergeBranches tempBranch prSHA "[ci skip] merge into temp"
       unless success $ throwIO $ MergeConflict prNums
 
-      -- check that tree was updated
+      -- check that tree was updated within 3 seconds
       -- https://github.com/LeapYear/mergit/issues/180#issuecomment-1097310669
-      maybe (throwIO $ TreeNotUpdated prNums prNum) pure <=< retry 3 $ do
-        treeUpdated <- getBranchTree tempBranch
-        pure $
-          if treeUpdated == treeInitial
-            then Nothing
-            else Just ()
+      checkUntilTimeout 3 (TreeNotUpdated prNums prNum) $
+        (/= treeInitial) <$> getBranchTree tempBranch
 
     -- get tree for temp branch
     tree <- getBranchTree tempBranch
@@ -202,17 +200,6 @@ createCIBranch base prs ciBranch message = do
   where
     tempBranch = "temp-" <> ciBranch
     (prNums, prSHAs) = unzip prs
-
-    retry :: MonadIO m => Int -> m (Maybe a) -> m (Maybe a)
-    retry n action =
-      if n <= 0
-        then pure Nothing
-        else
-          action >>= \case
-            Just a -> pure $ Just a
-            Nothing -> do
-              liftIO $ threadDelay 1000000
-              retry (n - 1) action
 
 -- | Refresh the check runs for the given CI commit.
 refreshCheckRuns :: MonadMergit m => Bool -> BranchName -> CommitSHA -> m ()
@@ -361,15 +348,7 @@ refreshCheckRuns isStart ciBranchName sha = do
             let badUpdate =
                   BadUpdate sha prNums base $
                     Text.pack (printf "PR did not merge: #%d" prNum)
-            let waitUntilPRIsMerged i = do
-                  prIsMerged <- isPRMerged prNum
-                  unless prIsMerged $ do
-                    -- sleep for 1 second, try 5 times
-                    liftIO $ threadDelay 1000000
-                    if i < 5
-                      then waitUntilPRIsMerged $ i + 1
-                      else throwIO badUpdate
-            waitUntilPRIsMerged (0 :: Int)
+            checkUntilTimeout 5 badUpdate (isPRMerged prNum)
 
             closePR prNum
             deleteBranch branch
@@ -387,3 +366,21 @@ extractConfig prs tree =
     _ -> error $ "Multiple '" ++ Text.unpack configFileName ++ "' files found?"
   where
     isConfigFile = (== configFileName) . [get| .name |]
+
+{----- Helpers -----}
+
+-- | Run the given action until it returns True or times out at the
+-- given number of seconds. If it times out, the given exception is
+-- thrown.
+checkUntilTimeout :: (MonadUnliftIO m, Exception e) => Int -> e -> m Bool -> m ()
+checkUntilTimeout timeoutSecs e m =
+  timeout (timeoutSecs * 1000000) go
+    >>= maybe (throwIO e) pure
+  where
+    go = do
+      result <- m
+      if result
+        then pure ()
+        else do
+          threadDelay 1000000
+          go
