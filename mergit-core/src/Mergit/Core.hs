@@ -358,6 +358,9 @@ refreshCheckRuns isStart ciBranchName sha = do
                 branch = prBranch pr
 
             -- wait until PR is marked "merged"
+            let badUpdate =
+                  BadUpdate sha prNums base $
+                    Text.pack (printf "PR did not merge: #%d" prNum)
             let waitUntilPRIsMerged i = do
                   prIsMerged <- isPRMerged prNum
                   unless prIsMerged $ do
@@ -365,7 +368,7 @@ refreshCheckRuns isStart ciBranchName sha = do
                     liftIO $ threadDelay 1000000
                     if i < 5
                       then waitUntilPRIsMerged $ i + 1
-                      else throwIO $ BadUpdate sha prNums base $ Text.pack $ printf "PR did not merge: %d" prNum
+                      else throwIO badUpdate
             waitUntilPRIsMerged (0 :: Int)
 
             closePR prNum
