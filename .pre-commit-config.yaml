@@ -11,7 +11,7 @@ repos:
             fi
 
             VERSION="$(fourmolu --version)"
-            if ! grep -q "fourmolu 0.7.0.1" <<< "${VERSION}"; then
+            if ! grep -q "fourmolu 0.10.1.0" <<< "${VERSION}"; then
               echo "Wrong fourmolu version:" >&2
               echo "${VERSION}" >&2
               exit 1
@@ -36,7 +36,7 @@ repos:
             fi
 
             VERSION="$(hlint --version)"
-            if ! grep -q "HLint v3.4" <<< "${VERSION}"; then
+            if ! grep -q "HLint v3.5" <<< "${VERSION}"; then
               echo "Wrong hlint version:" >&2
               echo "${VERSION}" >&2
               exit 1
