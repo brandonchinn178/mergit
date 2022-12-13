@@ -6,7 +6,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeApplications #-}
 
-{- |
+{-|
 Module      :  Mergit.Core.Status
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
@@ -42,10 +42,9 @@ data CIStatus = CIStatus
   }
   deriving (Show)
 
-{- | Get CI statuses compiled from the Mergit config and the contexts for a commit.
-
- Returns a map from context name to the state of the context and the associated URL.
--}
+-- | Get CI statuses compiled from the Mergit config and the contexts for a commit.
+--
+--  Returns a map from context name to the state of the context and the associated URL.
 getCIStatus :: MergitConfig -> [CIContext] -> CIStatus
 getCIStatus MergitConfig{requiredStatuses} contexts =
   let contextNames = map [get| .context |] contexts

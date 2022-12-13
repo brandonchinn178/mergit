@@ -13,7 +13,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-{- |
+{-|
 Module      :  Mergit.Auth
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
@@ -73,7 +73,7 @@ loadAuthParams = do
     lookupEnv "COOKIE_JWK" >>= \case
       Just jwkFile ->
         readKeyFile jwkFile >>= \case
-          PrivKeyRSA key : _ -> return $ fromRSA key
+          PrivKeyRSA key : _ -> pure $ fromRSA key
           _ -> fail $ "RSA key not found in key file: " ++ jwkFile
       Nothing -> do
         -- if COOKIE_JWK is not set, generate a random new key
@@ -81,7 +81,7 @@ loadAuthParams = do
         putStrLn "Generating random COOKIE_JWK..."
         (_, key) <- Crypto.generate 256 3
         putStrLn "Done."
-        return $ fromRSA key
+        pure $ fromRSA key
 
   let cookieSettings =
         authCookieSettings
@@ -93,7 +93,7 @@ loadAuthParams = do
   ghClientSecret <- getEnv "GITHUB_CLIENT_SECRET"
   ghBaseUrl <- fromMaybe "http://localhost:3000" <$> lookupEnv "MERGIT_URL"
 
-  return AuthParams{..}
+  pure AuthParams{..}
 
 authCookieSettings :: CookieSettings
 authCookieSettings =
@@ -137,16 +137,15 @@ xsrfTokenInputName = "xsrfToken"
 xsrfTokenCookieName :: ByteString
 xsrfTokenCookieName = "mergit-xsrf-token"
 
-{- | Handle XSRF protection. This combinator does the following actions:
-
- * If this is a non-GET request, get the value of the 'xsrfTokenInputName' key in the body and
-   verify that it matches the current XSRF-TOKEN cookie
-
- * Create and set a new XSRF-TOKEN token to use in this request and set as a cookie.
-
- Doing this manually instead of using servant-auth because we want to check the XSRF token in the
- POST body, not as a header.
--}
+-- | Handle XSRF protection. This combinator does the following actions:
+--
+--  * If this is a non-GET request, get the value of the 'xsrfTokenInputName' key in the body and
+--    verify that it matches the current XSRF-TOKEN cookie
+--
+--  * Create and set a new XSRF-TOKEN token to use in this request and set as a cookie.
+--
+--  Doing this manually instead of using servant-auth because we want to check the XSRF token in the
+--  POST body, not as a header.
 data XsrfProtected
 
 -- Copied a lot of magic from servant-auth-server
@@ -172,17 +171,17 @@ instance
         liftIO $ makeXsrfCookie authCookieSettings
 
       checkXsrf req
-        | requestMethod req == methodGet = return ()
+        | requestMethod req == methodGet = pure ()
         | Just xsrfTokenCookie <- getXsrfTokenCookie req
         , getHeader hContentType req == Just "application/x-www-form-urlencoded" =
             do
               body <- liftIO $ lazyRequestBody req
               bodyData <- case urlDecodeAsForm body of
-                Right bodyData -> return bodyData
+                Right bodyData -> pure bodyData
                 Left e -> error $ "could not decode body: " ++ Text.unpack e
 
               case lookup xsrfTokenInputName bodyData of
-                Just xsrfTokenValue | xsrfTokenValue == xsrfTokenCookie -> return ()
+                Just xsrfTokenValue | xsrfTokenValue == xsrfTokenCookie -> pure ()
                 _ -> Servant.delayedFail Servant.err401
 
         -- good for now, revisit if we need to handle these cases

@@ -9,7 +9,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
-{- |
+{-|
 Module      :  Mergit.Core
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
@@ -154,19 +154,18 @@ pollQueues = do
 
 {- Helpers -}
 
-{- | Create a branch for a try or merge job.
-
- * Deletes the existing try or merge branch, if one exists.
- * Errors if merge conflict
- * Errors if the .mergit.yaml file is missing or invalid
--}
+-- | Create a branch for a try or merge job.
+--
+--  * Deletes the existing try or merge branch, if one exists.
+--  * Errors if merge conflict
+--  * Errors if the .mergit.yaml file is missing or invalid
 createCIBranch :: MonadMergit m => BranchName -> [(PrNum, CommitSHA)] -> BranchName -> Text -> m CommitSHA
 createCIBranch base prs ciBranch message = do
   deleteBranch ciBranch
   deleteBranch tempBranch
 
   (`finally` deleteBranch tempBranch) $ do
-    baseSHA <- maybe (throwIO $ MissingBaseBranch prNums base) return =<< getBranchSHA base
+    baseSHA <- maybe (throwIO $ MissingBaseBranch prNums base) pure =<< getBranchSHA base
 
     -- create temp branch off base
     createBranch tempBranch baseSHA
@@ -180,9 +179,9 @@ createCIBranch base prs ciBranch message = do
 
       -- check that tree was updated
       -- https://github.com/LeapYear/mergit/issues/180#issuecomment-1097310669
-      maybe (throwIO $ TreeNotUpdated prNums prNum) return <=< retry 3 $ do
+      maybe (throwIO $ TreeNotUpdated prNums prNum) pure <=< retry 3 $ do
         treeUpdated <- getBranchTree tempBranch
-        return $
+        pure $
           if treeUpdated == treeInitial
             then Nothing
             else Just ()
@@ -199,7 +198,7 @@ createCIBranch base prs ciBranch message = do
     -- forcibly update CI branch to point to new merge commit
     createBranch ciBranch mergeSHA
 
-    return mergeSHA
+    pure mergeSHA
   where
     tempBranch = "temp-" <> ciBranch
     (prNums, prSHAs) = unzip prs
@@ -207,10 +206,10 @@ createCIBranch base prs ciBranch message = do
     retry :: MonadIO m => Int -> m (Maybe a) -> m (Maybe a)
     retry n action =
       if n <= 0
-        then return Nothing
+        then pure Nothing
         else
           action >>= \case
-            Just a -> return $ Just a
+            Just a -> pure $ Just a
             Nothing -> do
               liftIO $ threadDelay 1000000
               retry (n - 1) action
@@ -223,7 +222,7 @@ refreshCheckRuns isStart ciBranchName sha = do
 
   -- since we check the config in 'createCIBranch', we know that 'extractConfig' here will not fail
   config <-
-    either (error "extractConfig failed in refreshCheckRuns") return $
+    either (error "extractConfig failed in refreshCheckRuns") pure $
       extractConfig [] commitTree
 
   let ciStatus = getCIStatus config commitContexts
@@ -289,14 +288,14 @@ refreshCheckRuns isStart ciBranchName sha = do
   -- Post-run actions
   if
       -- If check run isn't finished yet, no post-run actions to run
-      | not isComplete -> return ()
+      | not isComplete -> pure ()
       -- If finished check run is a try, no post-run actions to run. PRs should not
       -- be merged yet, and trying branch should not be cleaned up:
       --   * If job A fails, but job B hasn't started yet (and doesn't depend on job A),
       --     we should allow job B to checkout code + run more tests
       --   * If all jobs succeed, we should allow non-blocking jobs (e.g. a deploy step)
       --     to also checkout code, so we can't delete the branch yet
-      | isTry -> return ()
+      | isTry -> pure ()
       -- At this point, the run is a completed merge run
       | otherwise -> do
           prs <- mapM getPRById prsFromMessage
@@ -307,7 +306,7 @@ refreshCheckRuns isStart ciBranchName sha = do
             then do
               -- If all PRs are merged, then this status was from a post-merge, non-blocking
               -- CI job. Don't attempt to merge PRs / delete branches again.
-              return ()
+              pure ()
             else do
               -- If all of the PRs are still open, run the merge post-run actions and delete the
               -- staging branch when finished, even if the merge run failed (so that the next
@@ -320,15 +319,15 @@ refreshCheckRuns isStart ciBranchName sha = do
     mkCIBranchUrl = do
       (repoOwner, repoName) <- getRepo
       let url = printf "https://github.com/%s/%s/commits/%s" repoOwner repoName ciBranchName
-      return (url :: String)
+      pure (url :: String)
 
     areAllPRsMerged prs = do
       let (mergedPRs, nonMergedPRs) = partition prIsMerged prs
           getIds = map prId
 
       case (mergedPRs, nonMergedPRs) of
-        (_, []) -> return True
-        ([], _) -> return False
+        (_, []) -> pure True
+        ([], _) -> pure False
         -- If there are some PRs merged and some not, then the merge bot is in a really bad state.
         (_, _) -> throwIO $ SomePRsMerged (getIds mergedPRs) (getIds nonMergedPRs)
 
@@ -340,7 +339,7 @@ refreshCheckRuns isStart ciBranchName sha = do
           -- https://github.com/LeapYear/mergit/issues/126
           let parentSHAs = map fst parents
           case filter (\pr -> prSHA pr `notElem` parentSHAs) prs of
-            [] -> return ()
+            [] -> pure ()
             updatedPRs -> do
               let prSHAs = map prSHA prs
                   unaccountedSHAs = filter (`notElem` prSHAs) parentSHAs
@@ -348,9 +347,9 @@ refreshCheckRuns isStart ciBranchName sha = do
 
           -- merge into base
           let invalidStagingBranch = throwIO $ InvalidStaging prNums ciBranchName
-          base <- maybe invalidStagingBranch return $ fromStagingBranch ciBranchName
+          base <- maybe invalidStagingBranch pure $ fromStagingBranch ciBranchName
           updateBranch False base sha >>= \case
-            Right _ -> return ()
+            Right _ -> pure ()
             Left message -> throwIO $ BadUpdate sha prNums base message
 
           -- close PRs and delete branches
@@ -372,7 +371,7 @@ refreshCheckRuns isStart ciBranchName sha = do
             closePR prNum
             deleteBranch branch
             deleteBranch $ toTryBranch prNum
-      | otherwise = return ()
+      | otherwise = pure ()
 
 -- | Get the configuration file for the given tree.
 extractConfig :: [PrNum] -> Tree -> Either MergitError MergitConfig

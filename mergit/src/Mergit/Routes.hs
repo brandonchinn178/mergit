@@ -9,7 +9,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
 
-{- |
+{-|
 Module      :  Mergit.Routes
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
@@ -95,7 +95,7 @@ handleProtectedRoutes xsrfToken = \case
 
       user <- case result of
         Left _ -> redirectToLogin'
-        Right (o :: Object User) -> return [get| o.login |]
+        Right (o :: Object User) -> pure [get| o.login |]
 
       let debugState = debugStateWithoutUser{debugUser = user}
       runDebugApp debugState routeToRun

@@ -3,7 +3,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
-{- |
+{-|
 Module      :  Mergit.Core.Actions
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental

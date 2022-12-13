@@ -91,7 +91,7 @@ jobs:
             chmod +x fourmolu
             sudo mv fourmolu /usr/local/bin/
           environment:
-            FOURMOLU_VERSION: '0.7.0.1'
+            FOURMOLU_VERSION: '0.10.1.0'
       - run:
           name: Install hlint
           command: |
@@ -107,7 +107,7 @@ jobs:
             chmod +x hlint
             sudo mv hlint /usr/local/bin/
           environment:
-            HLINT_VERSION: '3.4'
+            HLINT_VERSION: '3.5'
       - run:
           name: Lint via pre-commit
           command: pre-commit run --all-files -v --show-diff-on-failure

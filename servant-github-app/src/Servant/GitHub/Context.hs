@@ -1,6 +1,6 @@
 {-# LANGUAGE RecordWildCards #-}
 
-{- |
+{-|
 Module      :  Servant.GitHub.Context
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
@@ -20,9 +20,8 @@ import System.Environment (getEnv)
 import Text.Read (readMaybe)
 import Web.JWT (EncodeSigner)
 
-{- | Parameters loaded from the environment that specify parameters required to make GitHub App
- functionality work correctly and securely.
--}
+-- | Parameters loaded from the environment that specify parameters required to make GitHub App
+--  functionality work correctly and securely.
 data GitHubAppParams = GitHubAppParams
   { ghAppId :: Int
   , ghWebhookSecret :: ByteString
@@ -38,9 +37,9 @@ loadGitHubAppParams = do
   ghSigner <- loadSigner =<< getEnv "GITHUB_PRIVATE_KEY"
   ghUserAgent <- Char8.pack <$> getEnv "GITHUB_USER_AGENT"
 
-  return GitHubAppParams{..}
+  pure GitHubAppParams{..}
 
 {- Helpers -}
 
 parseInt :: Monad m => String -> m Int
-parseInt x = maybe (error $ "Invalid int: " ++ x) return $ readMaybe x
+parseInt x = maybe (error $ "Invalid int: " ++ x) pure $ readMaybe x

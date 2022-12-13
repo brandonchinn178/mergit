@@ -9,7 +9,7 @@
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
 
-{- |
+{-|
 Module      :  Mergit.Monad
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
@@ -174,7 +174,7 @@ getRepoAndTokens = do
       -- get list of repositories
       repositories <- [get| .repositories[].(owner.login, name) |] <$> getRepositories installToken
 
-      return $ map (,installToken) repositories
+      pure $ map (,installToken) repositories
   where
     getRepositories =
       queryGitHub' @(Object [schema| { repositories: List #Repository } |])
@@ -185,16 +185,15 @@ getRepoAndTokens = do
           , ghData = []
           }
 
-{- | A helper that runs the given action for every repository that Mergit is installed on.
-
- Returns a list of the results, along with the repository that produced each result.
--}
+-- | A helper that runs the given action for every repository that Mergit is installed on.
+--
+--  Returns a list of the results, along with the repository that produced each result.
 runBotAppOnAllRepos :: BotApp a -> BaseApp [(Repo, a)]
 runBotAppOnAllRepos action = mapM runOnRepo =<< getRepoAndTokens
   where
     runOnRepo (repo, token) = do
       result <- runBotApp repo action token
-      return (repo, result)
+      pure (repo, result)
 
 {- Queues -}
 
@@ -210,12 +209,11 @@ getEventRepo = \case
   OnBranch repo _ -> repo
   OnRepo repo -> repo
 
-{- | A Mergit event to be resolved serially.
-
- In order to ensure that Mergit events are resolved atomically, Mergit code shouldn't run
- state-modifying events directly, but rather queue events to be run serially in a separate
- thread.
--}
+-- | A Mergit event to be resolved serially.
+--
+--  In order to ensure that Mergit events are resolved atomically, Mergit code shouldn't run
+--  state-modifying events directly, but rather queue events to be run serially in a separate
+--  thread.
 data MergitEvent
   = PRCreated PrNum CommitSHA
   | CommitPushedToPR PrNum CommitSHA

@@ -4,7 +4,7 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TypeApplications #-}
 
-{- |
+{-|
 Module      :  Servant.GitHub.Security
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
@@ -51,10 +51,9 @@ parseSignature signature =
   where
     digestFromBase16 = convertFromBase16 >=> digestFromByteString
 
-{- | Check that signing the given payload with the given key matches the given digest.
-
- Uses `constEq` to avoid timing attacks.
--}
+-- | Check that signing the given payload with the given key matches the given digest.
+--
+--  Uses `constEq` to avoid timing attacks.
 doesSignatureMatch :: ByteString -> ByteString -> Digest SHA1 -> Bool
 doesSignatureMatch key payload = constEq (sha1sum key payload)
 

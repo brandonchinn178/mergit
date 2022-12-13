@@ -1,6 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 
-{- |
+{-|
 Module      :  GitHub.Data.CheckSuiteStatus
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental

@@ -4,7 +4,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-{- |
+{-|
 Module      :  Servant.GitHub.Event
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental

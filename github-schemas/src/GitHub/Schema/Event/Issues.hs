@@ -2,7 +2,7 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-{- |
+{-|
 Module      :  GitHub.Schema.Event.Issues
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental

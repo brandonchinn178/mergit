@@ -1,4 +1,4 @@
-{- |
+{-|
 Module      :  Servant.GitHub
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental

@@ -1,6 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 
-{- |
+{-|
 Module      :  GitHub.Data.TeamPrivacy
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental

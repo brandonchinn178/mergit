@@ -1,7 +1,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE QuasiQuotes #-}
 
-{- |
+{-|
 Module      :  GitHub.Schema.BaseEvent
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
@@ -17,10 +17,9 @@ import GitHub.Schema.Organization (OrgWebhook)
 import GitHub.Schema.Repository (RepoWebhook)
 import GitHub.Schema.User (UserShort)
 
-{- | Fields common to every event payload.
-
- https://developer.github.com/webhooks/#payloads
--}
+-- | Fields common to every event payload.
+--
+--  https://developer.github.com/webhooks/#payloads
 type BaseEvent =
   [schema|
   {

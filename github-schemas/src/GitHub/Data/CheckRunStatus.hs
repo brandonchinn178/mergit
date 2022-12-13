@@ -1,6 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 
-{- |
+{-|
 Module      :  GitHub.Data.CheckRunStatus
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental

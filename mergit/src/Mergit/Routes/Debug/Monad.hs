@@ -4,7 +4,7 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-{- |
+{-|
 Module      :  Mergit.Routes.Debug.Monad
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental

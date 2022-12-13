@@ -12,7 +12,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# OPTIONS_GHC -freduction-depth=400 #-}
 
-{- |
+{-|
 Module      :  Mergit
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
@@ -127,7 +127,7 @@ handleBotQueue = handleEvents handleBotEvent
     -- TODO: calling getRepoAndTokens for each event is very inefficient, maybe using some token pool?
     getTokenForRepo repo = do
       mToken <- lookup repo <$> getRepoAndTokens
-      maybe (error $ "Could not find repository: " ++ show repo) return mToken
+      maybe (error $ "Could not find repository: " ++ show repo) pure mToken
 
 -- TODO: instead of polling, have the completed merge run start the next merge run
 pollMergeQueues :: BaseApp ()
@@ -154,7 +154,7 @@ runServer = do
     ioToHandler :: IO a -> Handler a
     ioToHandler m =
       liftIO (try m) >>= \case
-        Right x -> return x
+        Right x -> pure x
         Left e ->
           throwError $
             if
@@ -169,10 +169,9 @@ runServer = do
 logException :: MonadIO m => SomeException -> m ()
 logException = liftIO . putStrLn . displayException
 
-{- | Run each of the given actions in a separate thread.
-
- If any action throws an exception, rethrow the exception.
--}
+-- | Run each of the given actions in a separate thread.
+--
+--  If any action throws an exception, rethrow the exception.
 concurrentlyAll :: MonadUnliftIO m => [m ()] -> m ()
 concurrentlyAll actions = do
   threads <- mapM async actions
@@ -183,10 +182,10 @@ serveRoutes ::
   ( HasServer api context
   , HasContextEntry (context .++ DefaultErrorFormatters) ErrorFormatters
   ) =>
-  (forall x. m x -> Handler x) ->
-  Context context ->
-  ServerT api m ->
-  Application
+  (forall x. m x -> Handler x)
+  -> Context context
+  -> ServerT api m
+  -> Application
 serveRoutes f context routes =
   serveWithContext (Proxy @api) context $
     hoistServerWithContext (Proxy @api) (Proxy @context) f routes

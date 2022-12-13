@@ -10,7 +10,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 
-{- |
+{-|
 Module      :  Mergit.Routes.Debug
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
@@ -136,11 +136,11 @@ handleRepositoryPage repoOwner repoName = do
     fmap catMaybes $
       forM allRefs $ \ref -> do
         case Text.stripPrefix "refs/heads/" [get| ref.ref |] >>= Core.fromStagingBranch of
-          Nothing -> return Nothing
+          Nothing -> pure Nothing
           Just baseBranch -> do
             ciCommit <- Core.getCICommit [get| ref.object.sha |] Core.CheckRunMerge
             prs <- mapM Core.getPRById $ Core.prsFromMessage ciCommit
-            return $ Just (baseBranch, map Core.prId prs)
+            pure $ Just (baseBranch, map Core.prId prs)
 
   xsrfToken <- getXsrfToken
 
@@ -209,7 +209,7 @@ handleDeleteStagingBranch repoOwner repoName baseBranch = do
       DeleteBranch $
         Core.toStagingBranch baseBranch
 
-  return $ addHeader (fromLink $ linkTo @RepositoryPage repoOwner repoName) NoContent
+  pure $ addHeader (fromLink $ linkTo @RepositoryPage repoOwner repoName) NoContent
 
 {- Helpers -}
 
@@ -220,7 +220,7 @@ type RedirectResponse = Headers '[Header "Location" String] NoContent
 render :: Html -> DebugApp Html
 render body = do
   user <- getUser
-  return $
+  pure $
     H.html $ do
       H.head $ do
         H.title "Mergit"

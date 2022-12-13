@@ -1,6 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 
-{- |
+{-|
 Module      :  GitHub.Data.PullRequestReviewState
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
