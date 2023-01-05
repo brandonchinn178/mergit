@@ -10,6 +10,14 @@
       owner: ubuntu
       group: ubuntu
       mode: "755"
+  - name: Upload github app private key
+    become: yes
+    copy:
+      src: artifacts/github-app.pem
+      dest: '{{ mergit_conf_dir }}/github-app.pem'
+      owner: ubuntu
+      group: ubuntu
+      mode: '600'
   - name: Ensure configuration directory
     become: yes
     file:
